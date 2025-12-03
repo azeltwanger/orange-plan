@@ -410,7 +410,7 @@ export default function FinancialPlan() {
       });
 
       const isRetired = currentAge + i >= retirementAge;
-      const yearsIntoRetirement = isRetired ? currentAge + i - retirementAge + 1 : 0;
+      const yearsIntoRetirement = isRetired ? currentAge + i - retirementAge : 0;
 
       // Get BTC growth rate based on return model (not withdrawal strategy)
       const yearBtcGrowth = getBtcGrowthRate(i);
