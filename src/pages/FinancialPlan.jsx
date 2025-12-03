@@ -685,6 +685,148 @@ export default function FinancialPlan() {
           </div>
         </TabsContent>
 
+        {/* Accounts Tab */}
+        <TabsContent value="accounts" className="space-y-6">
+          <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="font-semibold">Investment Accounts</h3>
+                <p className="text-sm text-zinc-500">Manage taxable and tax-advantaged accounts</p>
+              </div>
+              <Button size="sm" onClick={() => { setEditingAccount(null); resetAccountForm(); setAccountFormOpen(true); }} className="brand-gradient text-white">
+                <Plus className="w-4 h-4 mr-2" />
+                Add Account
+              </Button>
+            </div>
+
+            {/* Account Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="p-4 rounded-xl bg-zinc-800/30">
+                <p className="text-sm text-zinc-500 mb-1">Total Annual Contributions</p>
+                <p className="text-2xl font-bold text-orange-400">${totalAnnualContributions.toLocaleString()}</p>
+              </div>
+              <div className="p-4 rounded-xl bg-zinc-800/30">
+                <p className="text-sm text-zinc-500 mb-1">Tax-Advantaged %</p>
+                <p className="text-2xl font-bold text-emerald-400">
+                  {totalValue > 0 ? (((taxDeferredValue + taxFreeValue) / totalValue) * 100).toFixed(0) : 0}%
+                </p>
+              </div>
+              <div className="p-4 rounded-xl bg-zinc-800/30">
+                <p className="text-sm text-zinc-500 mb-1">Total Accounts</p>
+                <p className="text-2xl font-bold text-zinc-300">{accounts.length}</p>
+              </div>
+            </div>
+
+            {accounts.length === 0 ? (
+              <div className="text-center py-12">
+                <Landmark className="w-12 h-12 text-zinc-700 mx-auto mb-4" />
+                <p className="text-zinc-500">No accounts added yet</p>
+                <p className="text-sm text-zinc-600 mt-1">Add your 401(k), IRA, Roth IRA, and brokerage accounts</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {accounts.map(account => {
+                  const info = ACCOUNT_TYPE_INFO[account.account_type] || ACCOUNT_TYPE_INFO.taxable;
+                  const Icon = info.icon;
+                  const accountHoldings = holdingsWithAccounts.filter(h => h.account_id === account.id);
+                  const accountValue = accountHoldings.reduce((sum, h) => sum + getHoldingValue(h), 0);
+                  
+                  return (
+                    <div key={account.id} className="p-4 rounded-xl bg-zinc-800/30 hover:bg-zinc-800/50 transition-colors">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", 
+                            info.taxFree ? "bg-emerald-400/10" : info.taxDeferred ? "bg-blue-400/10" : "bg-zinc-700")}>
+                            <Icon className={cn("w-5 h-5", info.color)} />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium">{account.name}</p>
+                              <Badge variant="outline" className={cn("text-xs", 
+                                info.taxFree ? "border-emerald-400/50 text-emerald-400" : 
+                                info.taxDeferred ? "border-blue-400/50 text-blue-400" : 
+                                "border-zinc-600 text-zinc-400")}>
+                                {info.label}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-zinc-500">{account.institution || 'No institution'}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <div className="text-right">
+                            <p className="font-semibold text-zinc-200">${accountValue.toLocaleString()}</p>
+                            {account.annual_contribution > 0 && (
+                              <p className="text-xs text-zinc-500">+${account.annual_contribution.toLocaleString()}/yr</p>
+                            )}
+                          </div>
+                          <div className="flex gap-1">
+                            <button onClick={() => { setEditingAccount(account); setAccountFormOpen(true); }} className="p-1.5 rounded-lg hover:bg-zinc-700">
+                              <Pencil className="w-3.5 h-3.5 text-zinc-400" />
+                            </button>
+                            <button onClick={() => deleteAccount.mutate(account.id)} className="p-1.5 rounded-lg hover:bg-rose-600/50">
+                              <Trash2 className="w-3.5 h-3.5 text-zinc-400" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      {(account.employer_match_percent > 0 || info.limit2024) && (
+                        <div className="flex gap-4 mt-3 pt-3 border-t border-zinc-700/50 text-xs text-zinc-500">
+                          {account.employer_match_percent > 0 && (
+                            <span className="text-emerald-400">Employer match: {account.employer_match_percent}% up to ${account.employer_match_limit?.toLocaleString()}</span>
+                          )}
+                          {info.limit2024 && (
+                            <span>2024 limit: ${info.limit2024.toLocaleString()}</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Tax Treatment Breakdown */}
+          <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
+            <h3 className="font-semibold mb-4">Tax Treatment Breakdown</h3>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-3 rounded-lg bg-zinc-800/30">
+                <div className="flex items-center gap-3">
+                  <div className="w-3 h-3 rounded-full bg-zinc-400" />
+                  <span className="text-zinc-300">Taxable (Brokerage)</span>
+                </div>
+                <div className="text-right">
+                  <span className="font-semibold">${taxableValue.toLocaleString()}</span>
+                  <span className="text-zinc-500 ml-2">({totalValue > 0 ? ((taxableValue / totalValue) * 100).toFixed(0) : 0}%)</span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between p-3 rounded-lg bg-blue-500/10">
+                <div className="flex items-center gap-3">
+                  <div className="w-3 h-3 rounded-full bg-blue-400" />
+                  <span className="text-zinc-300">Tax-Deferred (401k, Trad IRA)</span>
+                </div>
+                <div className="text-right">
+                  <span className="font-semibold text-blue-400">${taxDeferredValue.toLocaleString()}</span>
+                  <span className="text-zinc-500 ml-2">({totalValue > 0 ? ((taxDeferredValue / totalValue) * 100).toFixed(0) : 0}%)</span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between p-3 rounded-lg bg-emerald-500/10">
+                <div className="flex items-center gap-3">
+                  <div className="w-3 h-3 rounded-full bg-emerald-400" />
+                  <span className="text-zinc-300">Tax-Free (Roth, HSA)</span>
+                </div>
+                <div className="text-right">
+                  <span className="font-semibold text-emerald-400">${taxFreeValue.toLocaleString()}</span>
+                  <span className="text-zinc-500 ml-2">({totalValue > 0 ? ((taxFreeValue / totalValue) * 100).toFixed(0) : 0}%)</span>
+                </div>
+              </div>
+            </div>
+            <p className="text-xs text-zinc-500 mt-4">
+              Tax-deferred accounts are taxed as ordinary income at withdrawal. Tax-free accounts grow and withdraw tax-free.
+            </p>
+          </div>
+        </TabsContent>
+
         {/* Monte Carlo Tab */}
         <TabsContent value="montecarlo" className="space-y-6">
           <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
