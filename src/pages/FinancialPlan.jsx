@@ -596,6 +596,34 @@ export default function FinancialPlan() {
                 </p>
               </div>
             </div>
+
+            {/* Account Breakdown */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
+              <div className="p-4 rounded-xl bg-zinc-800/30 border border-zinc-700">
+                <div className="flex items-center gap-2 mb-2">
+                  <Building2 className="w-4 h-4 text-zinc-400" />
+                  <p className="text-sm text-zinc-500">Taxable</p>
+                </div>
+                <p className="text-xl font-bold text-zinc-300">${taxableValue.toLocaleString()}</p>
+                <p className="text-xs text-zinc-500 mt-1">Subject to capital gains tax</p>
+              </div>
+              <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20">
+                <div className="flex items-center gap-2 mb-2">
+                  <Landmark className="w-4 h-4 text-blue-400" />
+                  <p className="text-sm text-blue-400">Tax-Deferred</p>
+                </div>
+                <p className="text-xl font-bold text-blue-400">${taxDeferredValue.toLocaleString()}</p>
+                <p className="text-xs text-zinc-500 mt-1">401(k), Traditional IRA</p>
+              </div>
+              <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                <div className="flex items-center gap-2 mb-2">
+                  <PiggyBank className="w-4 h-4 text-emerald-400" />
+                  <p className="text-sm text-emerald-400">Tax-Free</p>
+                </div>
+                <p className="text-xl font-bold text-emerald-400">${taxFreeValue.toLocaleString()}</p>
+                <p className="text-xs text-zinc-500 mt-1">Roth IRA, Roth 401(k), HSA</p>
+              </div>
+            </div>
           </div>
 
           {/* Active Scenario */}
