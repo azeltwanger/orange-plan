@@ -1211,7 +1211,8 @@ export default function FinancialPlan() {
           <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
             <h3 className="font-semibold mb-2">Wealth Projection</h3>
             <p className="text-sm text-zinc-400 mb-4">
-              {lifeEvents.length > 0 && `${lifeEvents.length} life event${lifeEvents.length !== 1 ? 's' : ''} integrated • `}
+              {lifeEvents.length > 0 && `${lifeEvents.length} life event${lifeEvents.length !== 1 ? 's' : ''} • `}
+              {goals.filter(g => g.will_be_spent).length > 0 && `${goals.filter(g => g.will_be_spent).length} planned expense${goals.filter(g => g.will_be_spent).length !== 1 ? 's' : ''} • `}
               {goals.length > 0 && `${goals.length} goal${goals.length !== 1 ? 's' : ''} tracked`}
             </p>
             <div className="h-80">
