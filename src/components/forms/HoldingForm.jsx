@@ -166,7 +166,7 @@ export default function HoldingForm({ open, onClose, onSubmit, initialData }) {
             </Button>
             <Button
               type="submit"
-              className="flex-1 accent-gradient text-zinc-950 font-semibold hover:opacity-90"
+              className="flex-1 brand-gradient text-white font-semibold hover:opacity-90"
             >
               <Save className="w-4 h-4 mr-2" />
               {initialData ? 'Update' : 'Add'}

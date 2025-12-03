@@ -153,7 +153,7 @@ export default function Dashboard() {
           </div>
           <Button
             onClick={() => { setEditingHolding(null); setFormOpen(true); }}
-            className="accent-gradient text-zinc-950 font-semibold hover:opacity-90"
+            className="brand-gradient text-white font-semibold hover:opacity-90 shadow-lg shadow-orange-500/20"
           >
             <Plus className="w-4 h-4 mr-2" />
             Add Asset
@@ -204,7 +204,7 @@ export default function Dashboard() {
             <p className="text-zinc-500 mb-4">Add your first asset to start tracking your portfolio</p>
             <Button
               onClick={() => setFormOpen(true)}
-              className="accent-gradient text-zinc-950 font-semibold"
+              className="brand-gradient text-white font-semibold shadow-lg shadow-orange-500/20"
             >
               <Plus className="w-4 h-4 mr-2" />
               Add Your First Asset
