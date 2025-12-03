@@ -1175,7 +1175,7 @@ export default function FinancialPlan() {
               <div>
                 <Label className="text-zinc-400 text-sm">Success = Not Running Out of Money Through Age {lifeExpectancy}</Label>
                 <p className="text-xs text-zinc-600">
-                  ${retirementAnnualSpending.toLocaleString()}/yr today → ${Math.round(inflationAdjustedRetirementSpending).toLocaleString()}/yr at retirement ({inflationRate}% inflation) for {yearsInRetirement} years
+                  ${(retirementAnnualSpending || 0).toLocaleString()}/yr today → ${Math.round(inflationAdjustedRetirementSpending || 0).toLocaleString()}/yr at retirement ({inflationRate || 0}% inflation) for {yearsInRetirement} years
                 </p>
                 <p className="text-xs text-zinc-500 mt-1">
                   Strategy: <span className="text-orange-400 font-semibold">
