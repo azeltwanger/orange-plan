@@ -123,9 +123,19 @@ export default function FeeAnalyzer({ transactions = [], btcPrice = 97000 }) {
       <div className="card-premium rounded-2xl p-8 border border-zinc-800/50 text-center">
         <DollarSign className="w-12 h-12 text-zinc-700 mx-auto mb-4" />
         <h3 className="text-lg font-semibold text-zinc-300 mb-2">No Fee Data Yet</h3>
-        <p className="text-zinc-500 text-sm max-w-md mx-auto">
-          Add transactions with fee details when adding assets to see your fee analysis and savings opportunities.
+        <p className="text-zinc-500 text-sm max-w-md mx-auto mb-6">
+          Fee data is tracked when you add assets with transaction details. You can add transactions in two ways:
         </p>
+        <div className="flex flex-col sm:flex-row gap-3 justify-center items-center max-w-md mx-auto">
+          <div className="p-4 rounded-xl bg-zinc-800/50 border border-zinc-700 flex-1 text-left">
+            <p className="text-sm font-medium text-orange-400 mb-1">1. Add New Asset</p>
+            <p className="text-xs text-zinc-500">Go to Summary → Add Asset. Include fee details in step 2.</p>
+          </div>
+          <div className="p-4 rounded-xl bg-zinc-800/50 border border-zinc-700 flex-1 text-left">
+            <p className="text-sm font-medium text-orange-400 mb-1">2. Tax Strategy</p>
+            <p className="text-xs text-zinc-500">Record transactions with fees for existing holdings.</p>
+          </div>
+        </div>
       </div>
     );
   }
