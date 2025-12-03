@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format, differenceInDays } from 'date-fns';
-import { Plus, Pencil, Trash2, Receipt, TrendingUp, TrendingDown, Calendar, AlertTriangle, CheckCircle, Bitcoin, Sparkles, RefreshCw, Info } from 'lucide-react';
+import { Plus, Pencil, Trash2, Receipt, TrendingUp, TrendingDown, Calendar, AlertTriangle, CheckCircle, Sparkles, RefreshCw, Info, Download, Calculator, DollarSign, Scale, ChevronRight } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,39 +13,61 @@ import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Progress } from "@/components/ui/progress";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from 'recharts';
 import { cn } from "@/lib/utils";
 
 // 2024 Tax Brackets for Single Filer
 const TAX_BRACKETS_2024 = {
   single: [
-    { min: 0, max: 11600, rate: 0.10 },
-    { min: 11600, max: 47150, rate: 0.12 },
-    { min: 47150, max: 100525, rate: 0.22 },
-    { min: 100525, max: 191950, rate: 0.24 },
-    { min: 191950, max: 243725, rate: 0.32 },
-    { min: 243725, max: 609350, rate: 0.35 },
-    { min: 609350, max: Infinity, rate: 0.37 },
+    { min: 0, max: 11600, rate: 0.10, label: '10%' },
+    { min: 11600, max: 47150, rate: 0.12, label: '12%' },
+    { min: 47150, max: 100525, rate: 0.22, label: '22%' },
+    { min: 100525, max: 191950, rate: 0.24, label: '24%' },
+    { min: 191950, max: 243725, rate: 0.32, label: '32%' },
+    { min: 243725, max: 609350, rate: 0.35, label: '35%' },
+    { min: 609350, max: Infinity, rate: 0.37, label: '37%' },
   ],
-  // Long-term capital gains brackets (0%, 15%, 20%)
   ltcg: [
-    { min: 0, max: 47025, rate: 0 },
-    { min: 47025, max: 518900, rate: 0.15 },
-    { min: 518900, max: Infinity, rate: 0.20 },
+    { min: 0, max: 47025, rate: 0, label: '0%' },
+    { min: 47025, max: 518900, rate: 0.15, label: '15%' },
+    { min: 518900, max: Infinity, rate: 0.20, label: '20%' },
   ],
+};
+
+// Tax lot selection methods
+const LOT_METHODS = {
+  FIFO: { name: 'FIFO', description: 'First In, First Out - Sell oldest lots first' },
+  LIFO: { name: 'LIFO', description: 'Last In, First Out - Sell newest lots first' },
+  HIFO: { name: 'HIFO', description: 'Highest In, First Out - Minimize gains by selling highest cost basis first' },
+  SPECIFIC: { name: 'Specific ID', description: 'Manually select which lots to sell' },
 };
 
 export default function TaxCenter() {
   const [btcPrice, setBtcPrice] = useState(null);
   const [priceLoading, setPriceLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
+  const [saleFormOpen, setSaleFormOpen] = useState(false);
   const [editingTx, setEditingTx] = useState(null);
-  const [activeTab, setActiveTab] = useState('transactions');
+  const [activeTab, setActiveTab] = useState('overview');
   const queryClient = useQueryClient();
 
   // Tax planning settings
   const [annualIncome, setAnnualIncome] = useState(0);
-  const [isRetiredOrSabbatical, setIsRetiredOrSabbatical] = useState(true);
+  const [targetTaxableIncome, setTargetTaxableIncome] = useState(47025);
   const [filingStatus, setFilingStatus] = useState('single');
+
+  // Sale form state
+  const [saleForm, setSaleForm] = useState({
+    quantity: '',
+    price_per_unit: '',
+    date: format(new Date(), 'yyyy-MM-dd'),
+    fee: '',
+    lot_method: 'HIFO',
+    selected_lots: [],
+    exchange_or_wallet: '',
+  });
 
   const [formData, setFormData] = useState({
     type: 'buy',
@@ -57,7 +79,6 @@ export default function TaxCenter() {
     notes: '',
   });
 
-  // Fetch live BTC price
   useEffect(() => {
     const fetchPrice = async () => {
       try {
@@ -80,55 +101,26 @@ export default function TaxCenter() {
     queryFn: () => base44.entities.Transaction.list('-date'),
   });
 
-  const { data: holdings = [] } = useQuery({
-    queryKey: ['holdings'],
-    queryFn: () => base44.entities.Holding.list(),
-  });
-
   const createTx = useMutation({
     mutationFn: async (data) => {
       const total = data.quantity * data.price_per_unit;
       const lotId = `${data.asset_ticker}-${Date.now()}`;
-      const holdingPeriod = 'short_term';
       
       const txData = {
         ...data,
         total_value: total,
         lot_id: data.type === 'buy' ? lotId : undefined,
-        cost_basis: data.type === 'buy' ? total : undefined,
-        holding_period: holdingPeriod,
+        cost_basis: data.type === 'buy' ? total : data.cost_basis,
+        holding_period: data.holding_period || 'short_term',
+        realized_gain_loss: data.realized_gain_loss,
       };
-
-      if (data.type === 'sell') {
-        const buyTxs = transactions
-          .filter(t => t.type === 'buy' && t.asset_ticker === data.asset_ticker)
-          .sort((a, b) => new Date(a.date) - new Date(b.date));
-        
-        let remainingQty = data.quantity;
-        let totalCostBasis = 0;
-        
-        for (const buyTx of buyTxs) {
-          if (remainingQty <= 0) break;
-          const qtyFromLot = Math.min(remainingQty, buyTx.quantity);
-          const costPerUnit = buyTx.price_per_unit;
-          totalCostBasis += qtyFromLot * costPerUnit;
-          remainingQty -= qtyFromLot;
-          
-          const daysDiff = differenceInDays(new Date(data.date), new Date(buyTx.date));
-          if (daysDiff > 365) {
-            txData.holding_period = 'long_term';
-          }
-        }
-        
-        txData.cost_basis = totalCostBasis;
-        txData.realized_gain_loss = total - totalCostBasis;
-      }
 
       return base44.entities.Transaction.create(txData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       setFormOpen(false);
+      setSaleFormOpen(false);
       resetForm();
     },
   });
@@ -152,15 +144,8 @@ export default function TaxCenter() {
   });
 
   const resetForm = () => {
-    setFormData({
-      type: 'buy',
-      asset_ticker: 'BTC',
-      quantity: '',
-      price_per_unit: '',
-      date: '',
-      exchange_or_wallet: '',
-      notes: '',
-    });
+    setFormData({ type: 'buy', asset_ticker: 'BTC', quantity: '', price_per_unit: '', date: '', exchange_or_wallet: '', notes: '' });
+    setSaleForm({ quantity: '', price_per_unit: '', date: format(new Date(), 'yyyy-MM-dd'), fee: '', lot_method: 'HIFO', selected_lots: [], exchange_or_wallet: '' });
   };
 
   useEffect(() => {
@@ -179,11 +164,7 @@ export default function TaxCenter() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const data = {
-      ...formData,
-      quantity: parseFloat(formData.quantity) || 0,
-      price_per_unit: parseFloat(formData.price_per_unit) || 0,
-    };
+    const data = { ...formData, quantity: parseFloat(formData.quantity) || 0, price_per_unit: parseFloat(formData.price_per_unit) || 0 };
     if (editingTx) {
       updateTx.mutate({ id: editingTx.id, data });
     } else {
@@ -193,16 +174,110 @@ export default function TaxCenter() {
 
   const currentPrice = btcPrice || 97000;
 
-  // Calculate tax summary
-  const sellTxs = transactions.filter(t => t.type === 'sell');
-  const shortTermGains = sellTxs
-    .filter(t => t.holding_period === 'short_term')
-    .reduce((sum, t) => sum + (t.realized_gain_loss || 0), 0);
-  const longTermGains = sellTxs
-    .filter(t => t.holding_period === 'long_term')
-    .reduce((sum, t) => sum + (t.realized_gain_loss || 0), 0);
+  // Build tax lots from buy transactions
+  const taxLots = useMemo(() => {
+    const buyTxs = transactions.filter(t => t.type === 'buy' && t.asset_ticker === 'BTC');
+    return buyTxs.map(tx => {
+      const currentValue = tx.quantity * currentPrice;
+      const costBasis = tx.cost_basis || (tx.quantity * tx.price_per_unit);
+      const unrealizedGain = currentValue - costBasis;
+      const daysSincePurchase = differenceInDays(new Date(), new Date(tx.date));
+      const isLongTerm = daysSincePurchase > 365;
+      
+      return {
+        ...tx,
+        currentValue,
+        costBasis,
+        unrealizedGain,
+        unrealizedGainPercent: costBasis > 0 ? (unrealizedGain / costBasis) * 100 : 0,
+        isLongTerm,
+        daysSincePurchase,
+        remainingQuantity: tx.quantity, // In a real app, track sold portions
+      };
+    }).filter(lot => lot.remainingQuantity > 0);
+  }, [transactions, currentPrice]);
 
-  // Calculate effective tax rates based on income
+  // Sort lots by different methods
+  const sortLotsByMethod = (lots, method) => {
+    switch (method) {
+      case 'FIFO': return [...lots].sort((a, b) => new Date(a.date) - new Date(b.date));
+      case 'LIFO': return [...lots].sort((a, b) => new Date(b.date) - new Date(a.date));
+      case 'HIFO': return [...lots].sort((a, b) => b.price_per_unit - a.price_per_unit);
+      default: return lots;
+    }
+  };
+
+  // Calculate sale outcome for different methods
+  const calculateSaleOutcome = (saleQty, salePricePerUnit, fee, method, selectedLots = []) => {
+    const saleProceeds = (saleQty * salePricePerUnit) - (parseFloat(fee) || 0);
+    let remainingQty = saleQty;
+    let totalCostBasis = 0;
+    let hasLongTerm = false;
+    const lotsUsed = [];
+
+    const lotsToUse = method === 'SPECIFIC' && selectedLots.length > 0
+      ? taxLots.filter(l => selectedLots.includes(l.id))
+      : sortLotsByMethod(taxLots, method);
+
+    for (const lot of lotsToUse) {
+      if (remainingQty <= 0) break;
+      const qtyFromLot = Math.min(remainingQty, lot.remainingQuantity);
+      totalCostBasis += qtyFromLot * lot.price_per_unit;
+      if (lot.isLongTerm) hasLongTerm = true;
+      lotsUsed.push({ ...lot, qtyUsed: qtyFromLot });
+      remainingQty -= qtyFromLot;
+    }
+
+    const realizedGain = saleProceeds - totalCostBasis;
+    return {
+      saleProceeds,
+      totalCostBasis,
+      realizedGain,
+      holdingPeriod: hasLongTerm ? 'long_term' : 'short_term',
+      lotsUsed,
+      isComplete: remainingQty <= 0,
+    };
+  };
+
+  // Calculate outcomes for all methods
+  const saleOutcomes = useMemo(() => {
+    if (!saleForm.quantity || !saleForm.price_per_unit) return null;
+    const qty = parseFloat(saleForm.quantity);
+    const price = parseFloat(saleForm.price_per_unit);
+    const fee = parseFloat(saleForm.fee) || 0;
+
+    return {
+      FIFO: calculateSaleOutcome(qty, price, fee, 'FIFO'),
+      LIFO: calculateSaleOutcome(qty, price, fee, 'LIFO'),
+      HIFO: calculateSaleOutcome(qty, price, fee, 'HIFO'),
+      SPECIFIC: calculateSaleOutcome(qty, price, fee, 'SPECIFIC', saleForm.selected_lots),
+    };
+  }, [saleForm.quantity, saleForm.price_per_unit, saleForm.fee, saleForm.selected_lots, taxLots]);
+
+  const handleSaleSubmit = (e) => {
+    e.preventDefault();
+    const outcome = saleOutcomes[saleForm.lot_method];
+    if (!outcome || !outcome.isComplete) return;
+
+    createTx.mutate({
+      type: 'sell',
+      asset_ticker: 'BTC',
+      quantity: parseFloat(saleForm.quantity),
+      price_per_unit: parseFloat(saleForm.price_per_unit),
+      date: saleForm.date,
+      exchange_or_wallet: saleForm.exchange_or_wallet,
+      cost_basis: outcome.totalCostBasis,
+      realized_gain_loss: outcome.realizedGain,
+      holding_period: outcome.holdingPeriod,
+      notes: `Lot method: ${saleForm.lot_method}. Fee: $${saleForm.fee || 0}`,
+    });
+  };
+
+  // Tax calculations
+  const sellTxs = transactions.filter(t => t.type === 'sell');
+  const shortTermGains = sellTxs.filter(t => t.holding_period === 'short_term').reduce((sum, t) => sum + (t.realized_gain_loss || 0), 0);
+  const longTermGains = sellTxs.filter(t => t.holding_period === 'long_term').reduce((sum, t) => sum + (t.realized_gain_loss || 0), 0);
+
   const getLTCGRate = (income) => {
     for (const bracket of TAX_BRACKETS_2024.ltcg) {
       if (income <= bracket.max) return bracket.rate;
@@ -219,14 +294,17 @@ export default function TaxCenter() {
 
   const effectiveLTCGRate = getLTCGRate(annualIncome);
   const effectiveSTCGRate = getSTCGRate(annualIncome);
-
-  // Calculate 0% LTCG bracket room
   const ltcgBracketRoom = Math.max(0, TAX_BRACKETS_2024.ltcg[0].max - annualIncome);
   const canHarvestGainsTaxFree = effectiveLTCGRate === 0;
 
-  const estimatedTax = 
-    (shortTermGains > 0 ? shortTermGains * effectiveSTCGRate : 0) + 
-    (longTermGains > 0 ? longTermGains * effectiveLTCGRate : 0);
+  const estimatedTax = (shortTermGains > 0 ? shortTermGains * effectiveSTCGRate : 0) + (longTermGains > 0 ? longTermGains * effectiveLTCGRate : 0);
+
+  // Loss/Gain harvesting opportunities
+  const harvestLossOpportunities = taxLots.filter(lot => lot.unrealizedGain < 0);
+  const totalHarvestableLoss = harvestLossOpportunities.reduce((sum, lot) => sum + Math.abs(lot.unrealizedGain), 0);
+  const gainHarvestOpportunities = taxLots.filter(lot => lot.unrealizedGain > 0 && lot.isLongTerm);
+  const totalHarvestableGain = gainHarvestOpportunities.reduce((sum, lot) => sum + lot.unrealizedGain, 0);
+  const optimalGainHarvest = Math.min(totalHarvestableGain, ltcgBracketRoom);
 
   // Wash sale detection
   const potentialWashSales = sellTxs.filter(sellTx => {
@@ -240,76 +318,82 @@ export default function TaxCenter() {
     });
   });
 
-  // Tax lots (unrealized)
-  const buyTxs = transactions.filter(t => t.type === 'buy');
-  const lotsWithGains = buyTxs.map(tx => {
-    const currentValue = tx.quantity * currentPrice;
-    const costBasis = tx.cost_basis || (tx.quantity * tx.price_per_unit);
-    const unrealizedGain = currentValue - costBasis;
-    const daysSincePurchase = differenceInDays(new Date(), new Date(tx.date));
-    const isLongTerm = daysSincePurchase > 365;
+  // Tax bracket visualization data
+  const bracketChartData = TAX_BRACKETS_2024.single.slice(0, 5).map(bracket => ({
+    name: bracket.label,
+    max: bracket.max === Infinity ? 500000 : bracket.max,
+    rate: bracket.rate * 100,
+    fill: annualIncome >= bracket.min && annualIncome < bracket.max ? '#F7931A' : '#27272a',
+  }));
+
+  // Generate Form 8949 style report
+  const generateTaxReport = () => {
+    let report = `FORM 8949 - Sales and Other Dispositions of Capital Assets\n`;
+    report += `Tax Year: ${new Date().getFullYear()}\n`;
+    report += `Generated: ${format(new Date(), 'MMMM d, yyyy')}\n\n`;
+    report += `${'='.repeat(80)}\n\n`;
+
+    report += `SUMMARY\n`;
+    report += `-`.repeat(40) + `\n`;
+    report += `Short-Term Capital Gains/Losses: $${shortTermGains.toLocaleString()}\n`;
+    report += `Long-Term Capital Gains/Losses: $${longTermGains.toLocaleString()}\n`;
+    report += `Estimated Tax Liability: $${estimatedTax.toLocaleString()}\n\n`;
+
+    report += `TRANSACTIONS\n`;
+    report += `-`.repeat(40) + `\n`;
+    report += `Date\t\tType\tQty\t\tProceeds\tCost Basis\tGain/Loss\tTerm\n`;
     
-    return {
-      ...tx,
-      currentValue,
-      costBasis,
-      unrealizedGain,
-      unrealizedGainPercent: costBasis > 0 ? (unrealizedGain / costBasis) * 100 : 0,
-      isLongTerm,
-      daysSincePurchase,
-    };
-  });
+    sellTxs.forEach(tx => {
+      report += `${tx.date}\tSELL\t${tx.quantity}\t\t$${tx.total_value?.toLocaleString()}\t$${tx.cost_basis?.toLocaleString()}\t$${tx.realized_gain_loss?.toLocaleString()}\t${tx.holding_period === 'long_term' ? 'LT' : 'ST'}\n`;
+    });
 
-  // Loss harvesting opportunities
-  const harvestLossOpportunities = lotsWithGains.filter(lot => lot.unrealizedGain < 0);
-  const totalHarvestableLoss = harvestLossOpportunities.reduce((sum, lot) => sum + Math.abs(lot.unrealizedGain), 0);
+    return report;
+  };
 
-  // GAIN harvesting opportunities (for 0% bracket)
-  const gainHarvestOpportunities = lotsWithGains.filter(lot => lot.unrealizedGain > 0 && lot.isLongTerm);
-  const totalHarvestableGain = gainHarvestOpportunities.reduce((sum, lot) => sum + lot.unrealizedGain, 0);
-
-  // Calculate optimal gain harvest amount (stay within 0% bracket)
-  const optimalGainHarvest = Math.min(totalHarvestableGain, ltcgBracketRoom);
+  const handleDownloadReport = () => {
+    const report = generateTaxReport();
+    const blob = new Blob([report], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `tax-report-${new Date().getFullYear()}-${format(new Date(), 'yyyy-MM-dd')}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">Tax Center</h1>
-          <p className="text-zinc-500 mt-1">Track lots, cost basis, and optimize taxes</p>
+          <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">Tax Strategy</h1>
+          <p className="text-zinc-500 mt-1">Cost basis optimization and tax planning</p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-zinc-800/50 border border-zinc-700/50">
-            <Bitcoin className="w-4 h-4 text-amber-400" />
-            <span className="text-sm text-zinc-400">BTC:</span>
-            {priceLoading ? (
-              <RefreshCw className="w-4 h-4 text-zinc-500 animate-spin" />
-            ) : (
-              <span className="font-semibold text-amber-400">${currentPrice.toLocaleString()}</span>
-            )}
-          </div>
-          <Button
-            onClick={() => { setEditingTx(null); resetForm(); setFormOpen(true); }}
-            className="accent-gradient text-zinc-950 font-semibold hover:opacity-90"
-          >
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleDownloadReport} className="bg-transparent border-zinc-700">
+            <Download className="w-4 h-4 mr-2" />
+            Export 8949
+          </Button>
+          <Button onClick={() => setSaleFormOpen(true)} className="brand-gradient text-white font-semibold shadow-lg shadow-orange-500/20">
+            <Calculator className="w-4 h-4 mr-2" />
+            Record Sale
+          </Button>
+          <Button onClick={() => { setEditingTx(null); resetForm(); setFormOpen(true); }} variant="outline" className="border-zinc-700">
             <Plus className="w-4 h-4 mr-2" />
-            Add Transaction
+            Add Buy
           </Button>
         </div>
       </div>
 
-      {/* Tax Planning Settings */}
-      <div className="card-glass rounded-2xl p-6">
+      {/* Tax Settings */}
+      <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
         <div className="flex items-center gap-2 mb-4">
           <h3 className="font-semibold">Tax Planning Settings</h3>
           <TooltipProvider>
             <Tooltip>
-              <TooltipTrigger>
-                <Info className="w-4 h-4 text-zinc-500" />
-              </TooltipTrigger>
+              <TooltipTrigger><Info className="w-4 h-4 text-zinc-500" /></TooltipTrigger>
               <TooltipContent className="max-w-xs bg-zinc-800 border-zinc-700">
-                <p>Set your expected annual income to calculate your tax bracket and identify tax optimization opportunities.</p>
+                <p>Set your income to calculate tax brackets and find optimization opportunities.</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -317,32 +401,11 @@ export default function TaxCenter() {
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="flex justify-between">
               <Label className="text-zinc-400">Annual Taxable Income</Label>
-              <span className="text-amber-400 font-semibold">${annualIncome.toLocaleString()}</span>
+              <span className="text-orange-400 font-semibold">${annualIncome.toLocaleString()}</span>
             </div>
-            <Slider
-              value={[annualIncome]}
-              onValueChange={([v]) => setAnnualIncome(v)}
-              min={0}
-              max={200000}
-              step={1000}
-              className="w-full"
-            />
-            <p className="text-xs text-zinc-500">
-              Drag to set your expected taxable income for the year
-            </p>
-          </div>
-
-          <div className="flex items-center gap-4 p-4 rounded-xl bg-zinc-800/30">
-            <Switch
-              checked={isRetiredOrSabbatical}
-              onCheckedChange={setIsRetiredOrSabbatical}
-            />
-            <div>
-              <Label className="text-zinc-300">Retired / Sabbatical / Low Income Year</Label>
-              <p className="text-xs text-zinc-500 mt-1">Enable special tax strategies for low-income years</p>
-            </div>
+            <Slider value={[annualIncome]} onValueChange={([v]) => setAnnualIncome(v)} min={0} max={300000} step={1000} />
           </div>
 
           <div className="p-4 rounded-xl bg-zinc-800/30">
@@ -350,9 +413,7 @@ export default function TaxCenter() {
             <div className="space-y-1">
               <div className="flex justify-between text-sm">
                 <span className="text-zinc-500">Short-term rate:</span>
-                <span className={effectiveSTCGRate === 0.10 ? "text-emerald-400" : "text-zinc-300"}>
-                  {(effectiveSTCGRate * 100).toFixed(0)}%
-                </span>
+                <span className={effectiveSTCGRate <= 0.12 ? "text-emerald-400" : "text-zinc-300"}>{(effectiveSTCGRate * 100).toFixed(0)}%</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-zinc-500">Long-term rate:</span>
@@ -362,51 +423,49 @@ export default function TaxCenter() {
               </div>
             </div>
           </div>
+
+          <div className="p-4 rounded-xl bg-zinc-800/30">
+            <p className="text-sm text-zinc-400 mb-2">0% LTCG Bracket Room</p>
+            <p className="text-2xl font-bold text-emerald-400">${ltcgBracketRoom.toLocaleString()}</p>
+            <Progress value={(annualIncome / TAX_BRACKETS_2024.ltcg[0].max) * 100} className="h-2 mt-2 bg-zinc-700" />
+          </div>
         </div>
       </div>
 
       {/* 0% Tax Bracket Alert */}
       {canHarvestGainsTaxFree && gainHarvestOpportunities.length > 0 && (
-        <div className="card-glass rounded-2xl p-6 border border-emerald-400/30 glow-amber">
+        <div className="card-premium rounded-2xl p-6 border border-emerald-400/30">
           <div className="flex items-start gap-4">
             <div className="p-3 rounded-xl bg-emerald-400/10">
               <Sparkles className="w-6 h-6 text-emerald-400" />
             </div>
             <div className="flex-1">
-              <h3 className="font-semibold text-emerald-400 text-lg mb-2">
-                🎉 Tax-Free Gain Harvesting Opportunity!
-              </h3>
+              <h3 className="font-semibold text-emerald-400 text-lg mb-2">Tax-Free Gain Harvesting Available!</h3>
               <p className="text-zinc-300 mb-4">
-                Your income is below the 0% long-term capital gains threshold. You can sell and immediately rebuy 
-                Bitcoin to <strong className="text-emerald-400">raise your cost basis tax-free</strong>, locking in gains 
-                at 0% tax while resetting to a higher basis for future sales.
+                Your income qualifies for 0% long-term capital gains tax. Sell and immediately rebuy to raise your cost basis tax-free.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 rounded-xl bg-zinc-800/50">
                 <div>
-                  <p className="text-sm text-zinc-500">0% Bracket Room</p>
+                  <p className="text-sm text-zinc-500">Room in 0% Bracket</p>
                   <p className="text-xl font-bold text-emerald-400">${ltcgBracketRoom.toLocaleString()}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-zinc-500">Harvestable Long-Term Gains</p>
-                  <p className="text-xl font-bold text-amber-400">${totalHarvestableGain.toLocaleString()}</p>
+                  <p className="text-sm text-zinc-500">Long-Term Gains Available</p>
+                  <p className="text-xl font-bold text-orange-400">${totalHarvestableGain.toLocaleString()}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-zinc-500">Optimal Harvest Amount</p>
+                  <p className="text-sm text-zinc-500">Optimal Harvest</p>
                   <p className="text-xl font-bold text-emerald-400">${optimalGainHarvest.toLocaleString()}</p>
                 </div>
               </div>
-              <p className="text-xs text-zinc-500 mt-3">
-                💡 Tip: Sell enough BTC to realize ${optimalGainHarvest.toLocaleString()} in gains, then immediately rebuy. 
-                Your cost basis will increase, reducing future tax liability. No wash sale rules apply to gains!
-              </p>
             </div>
           </div>
         </div>
       )}
 
-      {/* Tax Summary */}
+      {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="card-glass rounded-xl p-5">
+        <div className="card-premium rounded-xl p-5 border border-zinc-800/50">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs text-zinc-500 uppercase tracking-wider">Short-Term Gains</span>
             <div className={cn("p-1.5 rounded-lg", shortTermGains >= 0 ? "bg-emerald-400/10" : "bg-rose-400/10")}>
@@ -419,7 +478,7 @@ export default function TaxCenter() {
           <p className="text-xs text-zinc-500 mt-1">Taxed at {(effectiveSTCGRate * 100).toFixed(0)}%</p>
         </div>
 
-        <div className="card-glass rounded-xl p-5">
+        <div className="card-premium rounded-xl p-5 border border-zinc-800/50">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs text-zinc-500 uppercase tracking-wider">Long-Term Gains</span>
             <div className={cn("p-1.5 rounded-lg", longTermGains >= 0 ? "bg-emerald-400/10" : "bg-rose-400/10")}>
@@ -429,22 +488,22 @@ export default function TaxCenter() {
           <p className={cn("text-2xl font-bold", longTermGains >= 0 ? "text-emerald-400" : "text-rose-400")}>
             {longTermGains >= 0 ? '+' : '-'}${Math.abs(longTermGains).toLocaleString()}
           </p>
-          <p className={cn("text-xs mt-1", effectiveLTCGRate === 0 ? "text-emerald-400 font-medium" : "text-zinc-500")}>
-            {effectiveLTCGRate === 0 ? '0% TAX RATE!' : `Taxed at ${(effectiveLTCGRate * 100).toFixed(0)}%`}
+          <p className={cn("text-xs mt-1", effectiveLTCGRate === 0 ? "text-emerald-400" : "text-zinc-500")}>
+            {effectiveLTCGRate === 0 ? '0% TAX!' : `Taxed at ${(effectiveLTCGRate * 100).toFixed(0)}%`}
           </p>
         </div>
 
-        <div className="card-glass rounded-xl p-5">
+        <div className="card-premium rounded-xl p-5 border border-zinc-800/50">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs text-zinc-500 uppercase tracking-wider">Estimated Tax</span>
-            <div className="p-1.5 rounded-lg bg-amber-400/10">
-              <Receipt className="w-4 h-4 text-amber-400" />
+            <div className="p-1.5 rounded-lg bg-orange-400/10">
+              <Receipt className="w-4 h-4 text-orange-400" />
             </div>
           </div>
-          <p className="text-2xl font-bold text-amber-400">${estimatedTax.toLocaleString()}</p>
+          <p className="text-2xl font-bold text-orange-400">${estimatedTax.toLocaleString()}</p>
         </div>
 
-        <div className="card-glass rounded-xl p-5">
+        <div className="card-premium rounded-xl p-5 border border-zinc-800/50">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs text-zinc-500 uppercase tracking-wider">Wash Sale Alerts</span>
             <div className={cn("p-1.5 rounded-lg", potentialWashSales.length > 0 ? "bg-rose-400/10" : "bg-emerald-400/10")}>
@@ -454,119 +513,112 @@ export default function TaxCenter() {
           <p className={cn("text-2xl font-bold", potentialWashSales.length > 0 ? "text-rose-400" : "text-emerald-400")}>
             {potentialWashSales.length}
           </p>
-          <p className="text-xs text-zinc-500 mt-1">{potentialWashSales.length === 0 ? 'No issues' : 'Review needed'}</p>
         </div>
       </div>
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="bg-zinc-800/50 p-1 flex-wrap">
-          <TabsTrigger value="transactions" className="data-[state=active]:bg-zinc-700">Transactions</TabsTrigger>
+          <TabsTrigger value="overview" className="data-[state=active]:bg-zinc-700">Overview</TabsTrigger>
           <TabsTrigger value="lots" className="data-[state=active]:bg-zinc-700">Tax Lots</TabsTrigger>
+          <TabsTrigger value="transactions" className="data-[state=active]:bg-zinc-700">Transactions</TabsTrigger>
           <TabsTrigger value="harvest-loss" className="data-[state=active]:bg-zinc-700">Loss Harvest</TabsTrigger>
           <TabsTrigger value="harvest-gain" className="data-[state=active]:bg-zinc-700">
             Gain Harvest
-            {canHarvestGainsTaxFree && gainHarvestOpportunities.length > 0 && (
-              <span className="ml-2 w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            )}
+            {canHarvestGainsTaxFree && gainHarvestOpportunities.length > 0 && <span className="ml-2 w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />}
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="transactions">
-          <div className="card-glass rounded-2xl p-6">
-            <h3 className="font-semibold mb-6">Transaction History</h3>
-            {transactions.length === 0 ? (
-              <p className="text-center text-zinc-500 py-12">No transactions recorded yet</p>
-            ) : (
-              <div className="space-y-3">
-                {transactions.map((tx) => (
-                  <div key={tx.id} className="flex items-center justify-between p-4 rounded-xl bg-zinc-800/30 hover:bg-zinc-800/50 transition-colors">
-                    <div className="flex items-center gap-4">
-                      <div className={cn(
-                        "w-10 h-10 rounded-xl flex items-center justify-center",
-                        tx.type === 'buy' ? 'bg-emerald-400/10' : 'bg-rose-400/10'
-                      )}>
-                        {tx.type === 'buy' ? (
-                          <TrendingUp className="w-5 h-5 text-emerald-400" />
-                        ) : (
-                          <TrendingDown className="w-5 h-5 text-rose-400" />
-                        )}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <p className="font-medium">{tx.type === 'buy' ? 'Bought' : 'Sold'} {tx.quantity} {tx.asset_ticker}</p>
-                          {tx.holding_period && tx.type === 'sell' && (
-                            <Badge variant="outline" className={cn(
-                              "text-xs",
-                              tx.holding_period === 'long_term' ? 'border-emerald-400/50 text-emerald-400' : 'border-amber-400/50 text-amber-400'
-                            )}>
-                              {tx.holding_period === 'long_term' ? 'Long-term' : 'Short-term'}
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-sm text-zinc-500">
-                          @ ${tx.price_per_unit?.toLocaleString()} • {tx.date && format(new Date(tx.date), 'MMM d, yyyy')}
-                          {tx.exchange_or_wallet && ` • ${tx.exchange_or_wallet}`}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <div className="text-right">
-                        <p className="font-semibold">${tx.total_value?.toLocaleString()}</p>
-                        {tx.type === 'sell' && tx.realized_gain_loss !== undefined && (
-                          <p className={cn(
-                            "text-sm font-medium",
-                            tx.realized_gain_loss >= 0 ? "text-emerald-400" : "text-rose-400"
-                          )}>
-                            {tx.realized_gain_loss >= 0 ? '+' : ''}{tx.realized_gain_loss.toLocaleString()} gain
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex gap-1">
-                        <button
-                          onClick={() => { setEditingTx(tx); setFormOpen(true); }}
-                          className="p-1.5 rounded-lg hover:bg-zinc-700 transition-colors"
-                        >
-                          <Pencil className="w-3.5 h-3.5 text-zinc-400" />
-                        </button>
-                        <button
-                          onClick={() => deleteTx.mutate(tx.id)}
-                          className="p-1.5 rounded-lg hover:bg-rose-600/50 transition-colors"
-                        >
-                          <Trash2 className="w-3.5 h-3.5 text-zinc-400" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+        {/* Overview Tab */}
+        <TabsContent value="overview" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Tax Bracket Chart */}
+            <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
+              <h3 className="font-semibold mb-4">Income Tax Brackets (2024)</h3>
+              <div className="h-48">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={bracketChartData} layout="vertical">
+                    <CartesianGrid strokeDasharray="3 3" stroke="#27272a" horizontal={false} />
+                    <XAxis type="number" stroke="#71717a" fontSize={12} tickFormatter={(v) => `$${(v/1000)}k`} />
+                    <YAxis type="category" dataKey="name" stroke="#71717a" fontSize={12} width={40} />
+                    <RechartsTooltip 
+                      contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '8px' }}
+                      formatter={(value) => [`$${value.toLocaleString()}`, 'Bracket Max']}
+                    />
+                    <Bar dataKey="max" radius={[0, 4, 4, 0]}>
+                      {bracketChartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.fill} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
-            )}
+              <p className="text-xs text-zinc-500 mt-2">Your current bracket is highlighted in orange</p>
+            </div>
+
+            {/* YTD Summary */}
+            <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
+              <h3 className="font-semibold mb-4">Year-to-Date Summary</h3>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center p-3 rounded-lg bg-zinc-800/30">
+                  <span className="text-zinc-400">Total Realized Gains</span>
+                  <span className={cn("font-semibold", (shortTermGains + longTermGains) >= 0 ? "text-emerald-400" : "text-rose-400")}>
+                    ${(shortTermGains + longTermGains).toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center p-3 rounded-lg bg-zinc-800/30">
+                  <span className="text-zinc-400">Total Sales</span>
+                  <span className="font-semibold text-zinc-200">{sellTxs.length}</span>
+                </div>
+                <div className="flex justify-between items-center p-3 rounded-lg bg-zinc-800/30">
+                  <span className="text-zinc-400">Harvestable Losses</span>
+                  <span className="font-semibold text-rose-400">-${totalHarvestableLoss.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between items-center p-3 rounded-lg bg-zinc-800/30">
+                  <span className="text-zinc-400">Harvestable Gains (LT)</span>
+                  <span className="font-semibold text-emerald-400">+${totalHarvestableGain.toLocaleString()}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Lot Method Comparison */}
+          <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
+            <h3 className="font-semibold mb-2">Tax Lot Selection Methods</h3>
+            <p className="text-sm text-zinc-500 mb-4">Compare different methods to minimize your tax liability</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {Object.entries(LOT_METHODS).slice(0, 3).map(([key, method]) => (
+                <div key={key} className="p-4 rounded-xl bg-zinc-800/30 border border-zinc-700">
+                  <h4 className="font-semibold text-orange-400">{method.name}</h4>
+                  <p className="text-sm text-zinc-500 mt-1">{method.description}</p>
+                  {key === 'HIFO' && (
+                    <Badge className="mt-2 bg-emerald-500/20 text-emerald-400">Recommended</Badge>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         </TabsContent>
 
+        {/* Tax Lots Tab */}
         <TabsContent value="lots">
-          <div className="card-glass rounded-2xl p-6">
+          <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
             <h3 className="font-semibold mb-6">Tax Lots (Unrealized)</h3>
-            {lotsWithGains.length === 0 ? (
-              <p className="text-center text-zinc-500 py-12">No tax lots to display</p>
+            {taxLots.length === 0 ? (
+              <p className="text-center text-zinc-500 py-12">No tax lots. Add buy transactions to create lots.</p>
             ) : (
               <div className="space-y-3">
-                {lotsWithGains.map((lot) => (
-                  <div key={lot.id} className="p-4 rounded-xl bg-zinc-800/30">
+                {taxLots.map((lot) => (
+                  <div key={lot.id} className="p-4 rounded-xl bg-zinc-800/30 border border-zinc-800">
                     <div className="flex items-start justify-between mb-3">
                       <div>
                         <div className="flex items-center gap-2">
-                          <p className="font-medium">{lot.quantity} {lot.asset_ticker}</p>
-                          <Badge variant="outline" className={cn(
-                            "text-xs",
-                            lot.isLongTerm ? 'border-emerald-400/50 text-emerald-400' : 'border-amber-400/50 text-amber-400'
-                          )}>
+                          <p className="font-medium">{lot.quantity} BTC</p>
+                          <Badge variant="outline" className={cn("text-xs", lot.isLongTerm ? 'border-emerald-400/50 text-emerald-400' : 'border-amber-400/50 text-amber-400')}>
                             {lot.isLongTerm ? 'Long-term' : `${lot.daysSincePurchase}d`}
                           </Badge>
                           {lot.isLongTerm && lot.unrealizedGain > 0 && canHarvestGainsTaxFree && (
-                            <Badge className="bg-emerald-400/20 text-emerald-400 border-0">
-                              0% Tax Eligible
-                            </Badge>
+                            <Badge className="bg-emerald-400/20 text-emerald-400 border-0">0% Tax Eligible</Badge>
                           )}
                         </div>
                         <p className="text-sm text-zinc-500">
@@ -574,15 +626,10 @@ export default function TaxCenter() {
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className={cn(
-                          "text-lg font-bold",
-                          lot.unrealizedGain >= 0 ? "text-emerald-400" : "text-rose-400"
-                        )}>
+                        <p className={cn("text-lg font-bold", lot.unrealizedGain >= 0 ? "text-emerald-400" : "text-rose-400")}>
                           {lot.unrealizedGain >= 0 ? '+' : ''}{lot.unrealizedGainPercent.toFixed(1)}%
                         </p>
-                        <p className="text-sm text-zinc-500">
-                          {lot.unrealizedGain >= 0 ? '+' : ''}${lot.unrealizedGain.toLocaleString()}
-                        </p>
+                        <p className="text-sm text-zinc-500">{lot.unrealizedGain >= 0 ? '+' : ''}${lot.unrealizedGain.toLocaleString()}</p>
                       </div>
                     </div>
                     <div className="grid grid-cols-3 gap-4 text-sm">
@@ -595,8 +642,8 @@ export default function TaxCenter() {
                         <p className="font-medium">${lot.currentValue.toLocaleString()}</p>
                       </div>
                       <div>
-                        <p className="text-zinc-500">New Basis if Harvested</p>
-                        <p className="font-medium text-emerald-400">${lot.currentValue.toLocaleString()}</p>
+                        <p className="text-zinc-500">Per BTC Cost</p>
+                        <p className="font-medium">${lot.price_per_unit?.toLocaleString()}</p>
                       </div>
                     </div>
                   </div>
@@ -606,16 +653,68 @@ export default function TaxCenter() {
           </div>
         </TabsContent>
 
+        {/* Transactions Tab */}
+        <TabsContent value="transactions">
+          <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
+            <h3 className="font-semibold mb-6">Transaction History</h3>
+            {transactions.length === 0 ? (
+              <p className="text-center text-zinc-500 py-12">No transactions recorded yet</p>
+            ) : (
+              <div className="space-y-3">
+                {transactions.map((tx) => (
+                  <div key={tx.id} className="flex items-center justify-between p-4 rounded-xl bg-zinc-800/30 hover:bg-zinc-800/50 transition-colors border border-zinc-800">
+                    <div className="flex items-center gap-4">
+                      <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", tx.type === 'buy' ? 'bg-emerald-400/10' : 'bg-rose-400/10')}>
+                        {tx.type === 'buy' ? <TrendingUp className="w-5 h-5 text-emerald-400" /> : <TrendingDown className="w-5 h-5 text-rose-400" />}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium">{tx.type === 'buy' ? 'Bought' : 'Sold'} {tx.quantity} {tx.asset_ticker}</p>
+                          {tx.holding_period && tx.type === 'sell' && (
+                            <Badge variant="outline" className={cn("text-xs", tx.holding_period === 'long_term' ? 'border-emerald-400/50 text-emerald-400' : 'border-amber-400/50 text-amber-400')}>
+                              {tx.holding_period === 'long_term' ? 'Long-term' : 'Short-term'}
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-sm text-zinc-500">
+                          @ ${tx.price_per_unit?.toLocaleString()} • {tx.date && format(new Date(tx.date), 'MMM d, yyyy')}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <p className="font-semibold">${tx.total_value?.toLocaleString()}</p>
+                        {tx.type === 'sell' && tx.realized_gain_loss !== undefined && (
+                          <p className={cn("text-sm font-medium", tx.realized_gain_loss >= 0 ? "text-emerald-400" : "text-rose-400")}>
+                            {tx.realized_gain_loss >= 0 ? '+' : ''}{tx.realized_gain_loss.toLocaleString()}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex gap-1">
+                        <button onClick={() => { setEditingTx(tx); setFormOpen(true); }} className="p-1.5 rounded-lg hover:bg-zinc-700">
+                          <Pencil className="w-3.5 h-3.5 text-zinc-400" />
+                        </button>
+                        <button onClick={() => deleteTx.mutate(tx.id)} className="p-1.5 rounded-lg hover:bg-rose-600/50">
+                          <Trash2 className="w-3.5 h-3.5 text-zinc-400" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        {/* Loss Harvest Tab */}
         <TabsContent value="harvest-loss">
-          <div className="card-glass rounded-2xl p-6">
+          <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
             <h3 className="font-semibold mb-2">Tax Loss Harvesting</h3>
-            <p className="text-sm text-zinc-500 mb-6">Lots with unrealized losses that could offset gains (watch for wash sales!)</p>
+            <p className="text-sm text-zinc-500 mb-6">Sell lots at a loss to offset gains. Watch for wash sales!</p>
             
             {harvestLossOpportunities.length > 0 && (
               <div className="p-4 rounded-xl bg-rose-400/10 border border-rose-400/20 mb-6">
-                <p className="text-sm text-rose-400">
-                  Total harvestable losses: <strong>${totalHarvestableLoss.toLocaleString()}</strong>
-                </p>
+                <p className="text-sm text-rose-400">Total harvestable losses: <strong>${totalHarvestableLoss.toLocaleString()}</strong></p>
               </div>
             )}
 
@@ -630,21 +729,15 @@ export default function TaxCenter() {
                   <div key={lot.id} className="p-4 rounded-xl bg-zinc-800/30 border border-rose-400/20">
                     <div className="flex items-start justify-between">
                       <div>
-                        <p className="font-medium">{lot.quantity} {lot.asset_ticker}</p>
-                        <p className="text-sm text-zinc-500">
-                          Bought @ ${lot.price_per_unit?.toLocaleString()} • Now ${currentPrice.toLocaleString()}
-                        </p>
+                        <p className="font-medium">{lot.quantity} BTC</p>
+                        <p className="text-sm text-zinc-500">Bought @ ${lot.price_per_unit?.toLocaleString()} • Now ${currentPrice.toLocaleString()}</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-lg font-bold text-rose-400">
-                          -${Math.abs(lot.unrealizedGain).toLocaleString()}
-                        </p>
+                        <p className="text-lg font-bold text-rose-400">-${Math.abs(lot.unrealizedGain).toLocaleString()}</p>
                         <p className="text-sm text-zinc-500">Harvestable loss</p>
                       </div>
                     </div>
-                    <p className="text-xs text-amber-400 mt-2">
-                      ⚠️ Selling and rebuying within 30 days creates a wash sale
-                    </p>
+                    <p className="text-xs text-amber-400 mt-2">⚠️ Selling and rebuying within 30 days creates a wash sale</p>
                   </div>
                 ))}
               </div>
@@ -652,18 +745,16 @@ export default function TaxCenter() {
           </div>
         </TabsContent>
 
+        {/* Gain Harvest Tab */}
         <TabsContent value="harvest-gain">
-          <div className="card-glass rounded-2xl p-6">
-            <h3 className="font-semibold mb-2">Tax-Free Gain Harvesting (Cost Basis Step-Up)</h3>
-            <p className="text-sm text-zinc-500 mb-6">
-              If you're in the 0% long-term capital gains bracket, you can sell and rebuy to raise your cost basis tax-free!
-            </p>
+          <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
+            <h3 className="font-semibold mb-2">Tax-Free Gain Harvesting</h3>
+            <p className="text-sm text-zinc-500 mb-6">Reset cost basis by selling and rebuying at 0% LTCG rate</p>
 
             {!canHarvestGainsTaxFree ? (
               <div className="p-4 rounded-xl bg-amber-400/10 border border-amber-400/20 mb-6">
                 <p className="text-sm text-amber-400">
-                  ℹ️ Your income (${annualIncome.toLocaleString()}) puts you above the 0% LTCG bracket (${TAX_BRACKETS_2024.ltcg[0].max.toLocaleString()}). 
-                  Adjust your income in settings to see opportunities.
+                  Your income (${annualIncome.toLocaleString()}) puts you above the 0% LTCG bracket (${TAX_BRACKETS_2024.ltcg[0].max.toLocaleString()}).
                 </p>
               </div>
             ) : (
@@ -672,9 +763,7 @@ export default function TaxCenter() {
                   <Sparkles className="w-5 h-5 text-emerald-400" />
                   <p className="font-semibold text-emerald-400">You're eligible for 0% LTCG!</p>
                 </div>
-                <p className="text-sm text-zinc-300">
-                  Room in 0% bracket: <strong className="text-emerald-400">${ltcgBracketRoom.toLocaleString()}</strong>
-                </p>
+                <p className="text-sm text-zinc-300">Room in bracket: <strong className="text-emerald-400">${ltcgBracketRoom.toLocaleString()}</strong></p>
               </div>
             )}
 
@@ -686,91 +775,53 @@ export default function TaxCenter() {
             ) : (
               <div className="space-y-3">
                 {gainHarvestOpportunities.map((lot) => (
-                  <div key={lot.id} className={cn(
-                    "p-4 rounded-xl bg-zinc-800/30",
-                    canHarvestGainsTaxFree && "border border-emerald-400/30"
-                  )}>
+                  <div key={lot.id} className={cn("p-4 rounded-xl bg-zinc-800/30", canHarvestGainsTaxFree && "border border-emerald-400/30")}>
                     <div className="flex items-start justify-between mb-3">
                       <div>
                         <div className="flex items-center gap-2">
-                          <p className="font-medium">{lot.quantity} {lot.asset_ticker}</p>
+                          <p className="font-medium">{lot.quantity} BTC</p>
                           <Badge className="bg-emerald-400/20 text-emerald-400 border-0">Long-term</Badge>
                         </div>
-                        <p className="text-sm text-zinc-500">
-                          Held for {lot.daysSincePurchase} days
-                        </p>
+                        <p className="text-sm text-zinc-500">Held for {lot.daysSincePurchase} days</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-lg font-bold text-emerald-400">
-                          +${lot.unrealizedGain.toLocaleString()}
-                        </p>
-                        <p className={cn(
-                          "text-sm",
-                          canHarvestGainsTaxFree ? "text-emerald-400" : "text-zinc-500"
-                        )}>
+                        <p className="text-lg font-bold text-emerald-400">+${lot.unrealizedGain.toLocaleString()}</p>
+                        <p className={cn("text-sm", canHarvestGainsTaxFree ? "text-emerald-400" : "text-zinc-500")}>
                           {canHarvestGainsTaxFree ? 'TAX FREE!' : `${(effectiveLTCGRate * 100).toFixed(0)}% tax`}
                         </p>
                       </div>
                     </div>
-                    
                     <div className="grid grid-cols-2 gap-4 p-3 rounded-lg bg-zinc-800/50">
                       <div>
                         <p className="text-xs text-zinc-500">Current Cost Basis</p>
                         <p className="font-medium">${lot.costBasis.toLocaleString()}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-zinc-500">New Cost Basis After Harvest</p>
+                        <p className="text-xs text-zinc-500">New Basis After Harvest</p>
                         <p className="font-medium text-emerald-400">${lot.currentValue.toLocaleString()}</p>
                       </div>
                     </div>
-
-                    {canHarvestGainsTaxFree && (
-                      <p className="text-xs text-emerald-400 mt-3">
-                        ✓ Sell & rebuy to lock in ${lot.unrealizedGain.toLocaleString()} gain at 0% tax and reset basis to ${lot.currentValue.toLocaleString()}
-                      </p>
-                    )}
                   </div>
                 ))}
-
-                {canHarvestGainsTaxFree && (
-                  <div className="p-4 rounded-xl bg-zinc-800/50 mt-4">
-                    <h4 className="font-medium mb-2">📊 Harvest Summary</h4>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <p className="text-zinc-500">Total gains available:</p>
-                        <p className="font-semibold text-amber-400">${totalHarvestableGain.toLocaleString()}</p>
-                      </div>
-                      <div>
-                        <p className="text-zinc-500">Optimal harvest (stay in 0%):</p>
-                        <p className="font-semibold text-emerald-400">${optimalGainHarvest.toLocaleString()}</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             )}
           </div>
         </TabsContent>
       </Tabs>
 
-      {/* Form Dialog */}
+      {/* Buy Form Dialog */}
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
-        <DialogContent className="bg-zinc-900 border-zinc-800 text-zinc-100 max-w-md">
+        <DialogContent className="bg-[#0f0f10] border-zinc-800 text-zinc-100 max-w-md">
           <DialogHeader>
-            <DialogTitle>{editingTx ? 'Edit Transaction' : 'Add Transaction'}</DialogTitle>
+            <DialogTitle>{editingTx ? 'Edit Transaction' : 'Add Buy Transaction'}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4 mt-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-zinc-400">Type</Label>
-                <Select
-                  value={formData.type}
-                  onValueChange={(value) => setFormData({ ...formData, type: value })}
-                >
-                  <SelectTrigger className="bg-zinc-800 border-zinc-700">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-zinc-800 border-zinc-700">
+                <Select value={formData.type} onValueChange={(value) => setFormData({ ...formData, type: value })}>
+                  <SelectTrigger className="bg-zinc-900 border-zinc-800"><SelectValue /></SelectTrigger>
+                  <SelectContent className="bg-zinc-900 border-zinc-800">
                     <SelectItem value="buy">Buy</SelectItem>
                     <SelectItem value="sell">Sell</SelectItem>
                   </SelectContent>
@@ -778,70 +829,177 @@ export default function TaxCenter() {
               </div>
               <div className="space-y-2">
                 <Label className="text-zinc-400">Asset</Label>
-                <Input
-                  value={formData.asset_ticker}
-                  onChange={(e) => setFormData({ ...formData, asset_ticker: e.target.value.toUpperCase() })}
-                  className="bg-zinc-800 border-zinc-700"
-                />
+                <Input value={formData.asset_ticker} onChange={(e) => setFormData({ ...formData, asset_ticker: e.target.value.toUpperCase() })} className="bg-zinc-900 border-zinc-800" />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-zinc-400">Quantity</Label>
-                <Input
-                  type="number"
-                  step="any"
-                  value={formData.quantity}
-                  onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-                  className="bg-zinc-800 border-zinc-700"
-                  required
-                />
+                <Input type="number" step="any" value={formData.quantity} onChange={(e) => setFormData({ ...formData, quantity: e.target.value })} className="bg-zinc-900 border-zinc-800" required />
               </div>
               <div className="space-y-2">
                 <Label className="text-zinc-400">Price per Unit</Label>
-                <Input
-                  type="number"
-                  step="any"
-                  value={formData.price_per_unit}
-                  onChange={(e) => setFormData({ ...formData, price_per_unit: e.target.value })}
-                  className="bg-zinc-800 border-zinc-700"
-                  required
-                />
+                <Input type="number" step="any" value={formData.price_per_unit} onChange={(e) => setFormData({ ...formData, price_per_unit: e.target.value })} className="bg-zinc-900 border-zinc-800" required />
               </div>
             </div>
             <div className="space-y-2">
               <Label className="text-zinc-400">Date</Label>
-              <Input
-                type="date"
-                value={formData.date}
-                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                className="bg-zinc-800 border-zinc-700"
-                required
-              />
+              <Input type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} className="bg-zinc-900 border-zinc-800" required />
             </div>
             <div className="space-y-2">
               <Label className="text-zinc-400">Exchange/Wallet</Label>
-              <Input
-                value={formData.exchange_or_wallet}
-                onChange={(e) => setFormData({ ...formData, exchange_or_wallet: e.target.value })}
-                placeholder="e.g., Coinbase, Ledger"
-                className="bg-zinc-800 border-zinc-700"
-              />
+              <Input value={formData.exchange_or_wallet} onChange={(e) => setFormData({ ...formData, exchange_or_wallet: e.target.value })} placeholder="Coinbase, Ledger..." className="bg-zinc-900 border-zinc-800" />
             </div>
             {formData.quantity && formData.price_per_unit && (
               <div className="p-3 rounded-xl bg-zinc-800/50">
                 <p className="text-sm text-zinc-400">Total Value</p>
-                <p className="text-xl font-bold text-amber-400">
-                  ${(parseFloat(formData.quantity) * parseFloat(formData.price_per_unit)).toLocaleString()}
-                </p>
+                <p className="text-xl font-bold text-orange-400">${(parseFloat(formData.quantity) * parseFloat(formData.price_per_unit)).toLocaleString()}</p>
               </div>
             )}
             <div className="flex gap-3 pt-4">
-              <Button type="button" variant="outline" onClick={() => setFormOpen(false)} className="flex-1 bg-transparent border-zinc-700">
-                Cancel
-              </Button>
-              <Button type="submit" className="flex-1 accent-gradient text-zinc-950 font-semibold">
-                {editingTx ? 'Update' : 'Add'} Transaction
+              <Button type="button" variant="outline" onClick={() => setFormOpen(false)} className="flex-1 bg-transparent border-zinc-800">Cancel</Button>
+              <Button type="submit" className="flex-1 brand-gradient text-white font-semibold">{editingTx ? 'Update' : 'Add'}</Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Sale Form Dialog */}
+      <Dialog open={saleFormOpen} onOpenChange={setSaleFormOpen}>
+        <DialogContent className="bg-[#0f0f10] border-zinc-800 text-zinc-100 max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Record Sale with Lot Selection</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSaleSubmit} className="space-y-6 mt-4">
+            {/* Sale Details */}
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label className="text-zinc-400">Quantity (BTC)</Label>
+                <Input type="number" step="any" value={saleForm.quantity} onChange={(e) => setSaleForm({ ...saleForm, quantity: e.target.value })} placeholder="0.1" className="bg-zinc-900 border-zinc-800" required />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-zinc-400">Price per BTC</Label>
+                <Input type="number" step="any" value={saleForm.price_per_unit} onChange={(e) => setSaleForm({ ...saleForm, price_per_unit: e.target.value })} placeholder={currentPrice.toString()} className="bg-zinc-900 border-zinc-800" required />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-zinc-400">Transaction Fee</Label>
+                <Input type="number" step="any" value={saleForm.fee} onChange={(e) => setSaleForm({ ...saleForm, fee: e.target.value })} placeholder="0" className="bg-zinc-900 border-zinc-800" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-zinc-400">Sale Date</Label>
+                <Input type="date" value={saleForm.date} onChange={(e) => setSaleForm({ ...saleForm, date: e.target.value })} className="bg-zinc-900 border-zinc-800" required />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-zinc-400">Exchange/Wallet</Label>
+                <Input value={saleForm.exchange_or_wallet} onChange={(e) => setSaleForm({ ...saleForm, exchange_or_wallet: e.target.value })} className="bg-zinc-900 border-zinc-800" />
+              </div>
+            </div>
+
+            {/* Lot Selection Method */}
+            <div className="space-y-4">
+              <Label className="text-zinc-400">Cost Basis Method</Label>
+              <RadioGroup value={saleForm.lot_method} onValueChange={(value) => setSaleForm({ ...saleForm, lot_method: value })} className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {Object.entries(LOT_METHODS).map(([key, method]) => (
+                  <div key={key} className={cn(
+                    "flex items-center space-x-2 p-3 rounded-xl border cursor-pointer transition-all",
+                    saleForm.lot_method === key ? "border-orange-400/50 bg-orange-500/10" : "border-zinc-800 hover:border-zinc-700"
+                  )}>
+                    <RadioGroupItem value={key} id={key} />
+                    <Label htmlFor={key} className="cursor-pointer">
+                      <span className="font-medium">{method.name}</span>
+                    </Label>
+                  </div>
+                ))}
+              </RadioGroup>
+            </div>
+
+            {/* Method Comparison */}
+            {saleOutcomes && (
+              <div className="space-y-4">
+                <Label className="text-zinc-400">Tax Impact Comparison</Label>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {['FIFO', 'LIFO', 'HIFO'].map(method => {
+                    const outcome = saleOutcomes[method];
+                    const isSelected = saleForm.lot_method === method;
+                    const isBest = method === 'HIFO'; // Simplified - HIFO usually minimizes gains
+                    
+                    return (
+                      <div key={method} className={cn(
+                        "p-4 rounded-xl border transition-all cursor-pointer",
+                        isSelected ? "border-orange-400/50 bg-orange-500/10" : "border-zinc-800 hover:border-zinc-700"
+                      )} onClick={() => setSaleForm({ ...saleForm, lot_method: method })}>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-semibold">{method}</span>
+                          {isBest && <Badge className="bg-emerald-500/20 text-emerald-400 text-xs">Lowest Tax</Badge>}
+                        </div>
+                        <div className="space-y-1 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-zinc-500">Proceeds</span>
+                            <span>${outcome.saleProceeds.toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-zinc-500">Cost Basis</span>
+                            <span>${outcome.totalCostBasis.toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between pt-1 border-t border-zinc-800">
+                            <span className="text-zinc-400">Gain/Loss</span>
+                            <span className={cn("font-semibold", outcome.realizedGain >= 0 ? "text-emerald-400" : "text-rose-400")}>
+                              {outcome.realizedGain >= 0 ? '+' : ''}${outcome.realizedGain.toLocaleString()}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-zinc-500">Term</span>
+                            <span className={outcome.holdingPeriod === 'long_term' ? "text-emerald-400" : "text-amber-400"}>
+                              {outcome.holdingPeriod === 'long_term' ? 'Long' : 'Short'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Selected Method Summary */}
+            {saleOutcomes && saleOutcomes[saleForm.lot_method] && (
+              <div className="p-4 rounded-xl bg-zinc-800/50 border border-zinc-700">
+                <h4 className="font-semibold mb-3">Sale Summary ({saleForm.lot_method})</h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div>
+                    <p className="text-sm text-zinc-500">Sale Proceeds</p>
+                    <p className="text-lg font-semibold">${saleOutcomes[saleForm.lot_method].saleProceeds.toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-zinc-500">Cost Basis</p>
+                    <p className="text-lg font-semibold">${saleOutcomes[saleForm.lot_method].totalCostBasis.toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-zinc-500">Realized Gain/Loss</p>
+                    <p className={cn("text-lg font-semibold", saleOutcomes[saleForm.lot_method].realizedGain >= 0 ? "text-emerald-400" : "text-rose-400")}>
+                      {saleOutcomes[saleForm.lot_method].realizedGain >= 0 ? '+' : ''}${saleOutcomes[saleForm.lot_method].realizedGain.toLocaleString()}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-zinc-500">Est. Tax</p>
+                    <p className="text-lg font-semibold text-orange-400">
+                      ${(saleOutcomes[saleForm.lot_method].realizedGain > 0 
+                        ? saleOutcomes[saleForm.lot_method].realizedGain * (saleOutcomes[saleForm.lot_method].holdingPeriod === 'long_term' ? effectiveLTCGRate : effectiveSTCGRate)
+                        : 0
+                      ).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-3 pt-4">
+              <Button type="button" variant="outline" onClick={() => setSaleFormOpen(false)} className="flex-1 bg-transparent border-zinc-800">Cancel</Button>
+              <Button type="submit" className="flex-1 brand-gradient text-white font-semibold" disabled={!saleOutcomes || !saleOutcomes[saleForm.lot_method]?.isComplete}>
+                Record Sale
               </Button>
             </div>
           </form>
