@@ -868,16 +868,10 @@ export default function FinancialPlan() {
           <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">Projections</h1>
           <p className="text-zinc-500 mt-1">Model your financial future with scenarios and simulations</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setShowMonteCarloSettings(!showMonteCarloSettings)} className="bg-transparent border-zinc-700">
-            <Settings className="w-4 h-4 mr-2" />
-            Assumptions
-          </Button>
-          <Button onClick={handleRunSimulation} className="brand-gradient text-white font-semibold hover:opacity-90 shadow-lg shadow-orange-500/20">
-            <Play className="w-4 h-4 mr-2" />
-            Run Simulation
-          </Button>
-        </div>
+        <Button variant="outline" onClick={() => setShowMonteCarloSettings(!showMonteCarloSettings)} className="bg-transparent border-zinc-700">
+          <Settings className="w-4 h-4 mr-2" />
+          Assumptions
+        </Button>
       </div>
 
       {/* Assumptions Panel */}
