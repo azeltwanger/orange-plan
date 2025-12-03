@@ -1104,7 +1104,7 @@ export default function FinancialPlan() {
               </div>
 
             {/* Withdrawal Strategy */}
-            <div className="mt-6 p-4 rounded-xl bg-gray-100 dark:bg-zinc-800/30">
+            <div className="mt-6 p-4 rounded-xl bg-zinc-800/30">
               <Label className="text-zinc-300 font-medium mb-3 block">Withdrawal Strategy</Label>
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
                 <button
@@ -1113,11 +1113,11 @@ export default function FinancialPlan() {
                     "p-4 rounded-lg border text-left transition-all",
                     withdrawalStrategy === '4percent' 
                       ? "bg-orange-500/20 border-orange-500/50" 
-                      : "bg-white/50 dark:bg-zinc-800/50 border-gray-200 dark:border-zinc-700 hover:border-orange-300 dark:hover:border-zinc-600"
+                      : "bg-zinc-800/50 border-zinc-700 hover:border-zinc-600"
                   )}
                 >
-                  <p className={cn("font-medium text-sm", withdrawalStrategy === '4percent' ? "text-orange-600 dark:text-orange-400" : "text-gray-900 dark:text-zinc-200")}>4% Rule (Traditional)</p>
-                  <p className="text-xs text-gray-500 dark:text-zinc-400 mt-1">Withdraw 4% of initial portfolio, adjust for inflation</p>
+                  <p className={cn("font-medium text-sm", withdrawalStrategy === '4percent' ? "text-orange-400" : "text-zinc-200")}>4% Rule (Traditional)</p>
+                  <p className="text-xs text-zinc-400 mt-1">Withdraw 4% of initial portfolio, adjust for inflation</p>
                 </button>
                 <button
                   onClick={() => setWithdrawalStrategy('dynamic')}
@@ -1125,11 +1125,11 @@ export default function FinancialPlan() {
                     "p-4 rounded-lg border text-left transition-all",
                     withdrawalStrategy === 'dynamic' 
                       ? "bg-orange-500/20 border-orange-500/50" 
-                      : "bg-white/50 dark:bg-zinc-800/50 border-gray-200 dark:border-zinc-700 hover:border-orange-300 dark:hover:border-zinc-600"
+                      : "bg-zinc-800/50 border-zinc-700 hover:border-zinc-600"
                   )}
                 >
-                  <p className={cn("font-medium text-sm", withdrawalStrategy === 'dynamic' ? "text-orange-600 dark:text-orange-400" : "text-gray-900 dark:text-zinc-200")}>Dynamic % of Portfolio</p>
-                  <p className="text-xs text-gray-500 dark:text-zinc-400 mt-1">Withdraw {dynamicWithdrawalRate}% of current value each year</p>
+                  <p className={cn("font-medium text-sm", withdrawalStrategy === 'dynamic' ? "text-orange-400" : "text-zinc-200")}>Dynamic % of Portfolio</p>
+                  <p className="text-xs text-zinc-400 mt-1">Withdraw {dynamicWithdrawalRate}% of current value each year</p>
                 </button>
                 <button
                   onClick={() => setWithdrawalStrategy('variable')}
@@ -1137,11 +1137,11 @@ export default function FinancialPlan() {
                     "p-4 rounded-lg border text-left transition-all",
                     withdrawalStrategy === 'variable' 
                       ? "bg-orange-500/20 border-orange-500/50" 
-                      : "bg-white/50 dark:bg-zinc-800/50 border-gray-200 dark:border-zinc-700 hover:border-orange-300 dark:hover:border-zinc-600"
+                      : "bg-zinc-800/50 border-zinc-700 hover:border-zinc-600"
                   )}
                 >
-                  <p className={cn("font-medium text-sm", withdrawalStrategy === 'variable' ? "text-orange-600 dark:text-orange-400" : "text-gray-900 dark:text-zinc-200")}>Income-Based</p>
-                  <p className="text-xs text-gray-500 dark:text-zinc-400 mt-1">Withdraw exactly what you need ({formatNumber(retirementAnnualSpending)}/yr)</p>
+                  <p className={cn("font-medium text-sm", withdrawalStrategy === 'variable' ? "text-orange-400" : "text-zinc-200")}>Income-Based</p>
+                  <p className="text-xs text-zinc-400 mt-1">Withdraw exactly what you need ({formatNumber(retirementAnnualSpending)}/yr)</p>
                 </button>
               </div>
               
@@ -1160,7 +1160,7 @@ export default function FinancialPlan() {
               )}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6 p-4 rounded-xl bg-gray-100 dark:bg-zinc-800/30">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6 p-4 rounded-xl bg-zinc-800/30">
               <div>
                 <p className="text-sm text-zinc-400">At Retirement (Age {retirementAge})</p>
                 <p className="text-2xl font-bold text-orange-400">{formatNumber(retirementValue, 2)}</p>
