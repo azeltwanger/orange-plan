@@ -1199,26 +1199,6 @@ export default function FinancialPlan() {
                   </div>
                 </div>
 
-                {/* Withdrawal Schedule Chart */}
-                <div className="mb-6">
-                  <h4 className="text-sm font-medium text-zinc-400 mb-3">Annual Withdrawals in Retirement</h4>
-                  <div className="h-48">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={simulationResults.filter(d => d.isRetired)}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-                        <XAxis dataKey="age" stroke="#71717a" fontSize={12} />
-                        <YAxis stroke="#71717a" fontSize={12} tickFormatter={(v) => `$${(v/1000).toFixed(0)}k`} />
-                        <Tooltip
-                          contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '12px' }}
-                          formatter={(value) => [`$${value.toLocaleString()}/yr`, 'Withdrawal']}
-                          labelFormatter={(age) => `Age ${age}`}
-                        />
-                        <Area type="monotone" dataKey="withdrawal" stroke="#a78bfa" fill="#a78bfa" fillOpacity={0.3} name="withdrawal" />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-
                 {/* Summary Stats */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20">
