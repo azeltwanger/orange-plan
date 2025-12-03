@@ -13,7 +13,9 @@ import {
   Menu,
   X,
   Zap,
-  RefreshCw
+  RefreshCw,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
@@ -34,6 +36,17 @@ export default function Layout({ children, currentPageName }) {
   const [priceChange, setPriceChange] = useState(null);
   const [priceLoading, setPriceLoading] = useState(true);
   const [blockHeight, setBlockHeight] = useState(null);
+  const [darkMode, setDarkMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('orangePlanTheme');
+      return saved ? saved === 'dark' : true;
+    }
+    return true;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('orangePlanTheme', darkMode ? 'dark' : 'light');
+  }, [darkMode]);
 
   useEffect(() => {
     const fetchPrice = async () => {
@@ -71,7 +84,7 @@ export default function Layout({ children, currentPageName }) {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#0a0a0b] text-zinc-100">
+    <div className={cn("min-h-screen transition-colors duration-300", darkMode ? "bg-[#0a0a0b] text-zinc-100" : "bg-gray-50 text-gray-900")}>
       <style>{`
         :root {
           --accent: 24 95% 53%;
@@ -124,7 +137,16 @@ export default function Layout({ children, currentPageName }) {
           color: rgb(113 113 122) !important;
         }
         input[type="date"], input[type="number"], input[type="text"] {
-          color-scheme: dark;
+          color-scheme: ${darkMode ? 'dark' : 'light'};
+        }
+        
+        /* Light mode overrides */
+        .light-mode .card-premium {
+          background: linear-gradient(145deg, rgba(255, 255, 255, 0.95) 0%, rgba(249, 250, 251, 0.98) 100%);
+          border: 1px solid rgba(0, 0, 0, 0.08);
+        }
+        .light-mode .card-premium:hover {
+          border-color: rgba(247, 147, 26, 0.3);
         }
 
       `}</style>
@@ -151,12 +173,13 @@ export default function Layout({ children, currentPageName }) {
 
       {/* Sidebar */}
       <aside className={cn(
-        "fixed top-0 left-0 z-40 h-full w-72 bg-[#0a0a0b] border-r border-zinc-800/30 transition-transform duration-300 lg:translate-x-0",
+        "fixed top-0 left-0 z-40 h-full w-72 border-r transition-all duration-300 lg:translate-x-0",
+        darkMode ? "bg-[#0a0a0b] border-zinc-800/30" : "bg-white border-gray-200",
         sidebarOpen ? "translate-x-0" : "-translate-x-full"
       )}>
         <div className="flex flex-col h-full">
           {/* Logo */}
-          <div className="hidden lg:flex items-center gap-4 px-6 h-24 border-b border-zinc-800/30">
+          <div className={cn("hidden lg:flex items-center gap-4 px-6 h-24 border-b", darkMode ? "border-zinc-800/30" : "border-gray-200")}>
             <div className="w-12 h-12 rounded-xl brand-gradient flex items-center justify-center shadow-lg shadow-orange-500/30 glow-subtle">
               <Zap className="w-7 h-7 text-white" strokeWidth={2.5} />
             </div>
@@ -168,7 +191,7 @@ export default function Layout({ children, currentPageName }) {
 
           {/* Navigation */}
           <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto mt-16 lg:mt-0">
-            <p className="px-4 text-[10px] font-semibold text-zinc-600 uppercase tracking-widest mb-4">Navigation</p>
+            <p className={cn("px-4 text-[10px] font-semibold uppercase tracking-widest mb-4", darkMode ? "text-zinc-600" : "text-gray-400")}>Navigation</p>
             {navItems.map((item) => {
               const isActive = currentPageName === item.page;
               return (
@@ -180,17 +203,19 @@ export default function Layout({ children, currentPageName }) {
                     "flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-all duration-200 group",
                     isActive 
                       ? "sidebar-item-active text-orange-400" 
-                      : "text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/30"
+                      : darkMode 
+                        ? "text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/30"
+                        : "text-gray-500 hover:text-gray-900 hover:bg-gray-100"
                   )}
                 >
                   <item.icon className={cn(
                     "w-5 h-5 transition-colors",
-                    isActive ? "text-orange-400" : "text-zinc-600 group-hover:text-zinc-400"
+                    isActive ? "text-orange-400" : darkMode ? "text-zinc-600 group-hover:text-zinc-400" : "text-gray-400 group-hover:text-gray-600"
                   )} />
                   <div className="flex-1">
                     <span className="font-medium">{item.name}</span>
                     {isActive && (
-                      <p className="text-[10px] text-zinc-500 mt-0.5">{item.description}</p>
+                      <p className={cn("text-[10px] mt-0.5", darkMode ? "text-zinc-500" : "text-gray-400")}>{item.description}</p>
                     )}
                   </div>
                 </Link>
@@ -199,11 +224,25 @@ export default function Layout({ children, currentPageName }) {
           </nav>
 
           {/* Footer - Live Data */}
-          <div className="p-4 border-t border-zinc-800/30 space-y-3">
+          <div className={cn("p-4 border-t space-y-3", darkMode ? "border-zinc-800/30" : "border-gray-200")}>
+            {/* Theme Toggle */}
+            <button
+              onClick={() => setDarkMode(!darkMode)}
+              className={cn(
+                "w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors",
+                darkMode ? "bg-zinc-800/50 hover:bg-zinc-800" : "bg-gray-100 hover:bg-gray-200"
+              )}
+            >
+              <span className={cn("text-sm", darkMode ? "text-zinc-400" : "text-gray-600")}>Theme</span>
+              <div className={cn("p-1.5 rounded-lg", darkMode ? "bg-zinc-700" : "bg-white shadow-sm")}>
+                {darkMode ? <Moon className="w-4 h-4 text-orange-400" /> : <Sun className="w-4 h-4 text-orange-500" />}
+              </div>
+            </button>
+            
             {/* BTC Price */}
-            <div className="card-premium rounded-xl p-4">
+            <div className={cn("rounded-xl p-4", darkMode ? "card-premium" : "bg-white border border-gray-200 shadow-sm")}>
               <div className="flex items-center justify-between mb-2">
-                <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest">Bitcoin</p>
+                <p className={cn("text-[10px] font-semibold uppercase tracking-widest", darkMode ? "text-zinc-600" : "text-gray-400")}>Bitcoin</p>
                 <div className="flex items-center gap-1.5">
                   {priceLoading ? (
                     <RefreshCw className="w-3 h-3 text-zinc-600 animate-spin" />
@@ -231,8 +270,8 @@ export default function Layout({ children, currentPageName }) {
 
             {/* Block Height */}
             {blockHeight && (
-              <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-zinc-900/50">
-                <span className="text-[10px] text-zinc-600 uppercase tracking-wider">Block</span>
+              <div className={cn("flex items-center justify-between px-3 py-2 rounded-lg", darkMode ? "bg-zinc-900/50" : "bg-gray-100")}>
+                <span className={cn("text-[10px] uppercase tracking-wider", darkMode ? "text-zinc-600" : "text-gray-400")}>Block</span>
                 <span className="text-xs font-mono text-orange-400/80">{blockHeight.toLocaleString()}</span>
               </div>
             )}
@@ -249,7 +288,7 @@ export default function Layout({ children, currentPageName }) {
       )}
 
       {/* Main Content */}
-      <main className="lg:pl-72 pt-16 lg:pt-0 min-h-screen">
+      <main className={cn("lg:pl-72 pt-16 lg:pt-0 min-h-screen", !darkMode && "light-mode")}>
         <div className="p-5 lg:p-10 max-w-[1600px] mx-auto">
           {children}
         </div>
