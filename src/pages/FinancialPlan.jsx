@@ -1125,9 +1125,9 @@ export default function FinancialPlan() {
                     {successProbability?.toFixed(0)}%
                   </p>
                   <p className="text-xs text-zinc-600 mt-1">
-                  {withdrawalStrategy === '4percent' ? '4% Rule' : 
-                   withdrawalStrategy === 'dynamic' ? `${dynamicWithdrawalRate}% Dynamic` : 'Income-Based'} withdrawal • {btcReturnModel === 'custom' ? `${btcCagr}%` : btcReturnModel} BTC returns
-                </p>
+                      {withdrawalStrategy === '4percent' ? '4% Rule' : 
+                       withdrawalStrategy === 'dynamic' ? `${dynamicWithdrawalRate}% Dynamic` : `Income-Based ($${Math.round(inflationAdjustedRetirementSpending).toLocaleString()}/yr)`} • {btcReturnModel === 'custom' ? `${btcCagr}%` : btcReturnModel} BTC
+                    </p>
                   <p className="text-sm text-zinc-500 mt-2">
                     {successProbability >= 80 ? "Excellent! You're on track for your desired retirement lifestyle." :
                      successProbability >= 50 ? "Good progress, but consider increasing savings or adjusting expectations." :
