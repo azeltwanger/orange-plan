@@ -271,11 +271,21 @@ export default function FinancialPlan() {
   const effectiveStocksCagr = activeScenario?.stocks_cagr_override ?? stocksCagr;
   const effectiveInflation = activeScenario?.inflation_override ?? inflationRate;
 
-  // Generate projection data
+  // Generate projection data with account types
   const projections = useMemo(() => {
     const years = retirementAge - currentAge;
     const data = [];
     const currentYear = new Date().getFullYear();
+    
+    // Starting values by tax treatment
+    let runningTaxable = taxableValue;
+    let runningTaxDeferred = taxDeferredValue;
+    let runningTaxFree = taxFreeValue;
+    
+    // Estimate weighted CAGR based on holdings
+    const weightedCagr = totalValue > 0 
+      ? (btcValue / totalValue * effectiveBtcCagr + (stocksValue + otherValue) / totalValue * effectiveStocksCagr + realEstateValue / totalValue * realEstateCagr + bondsValue / totalValue * bondsCagr)
+      : effectiveStocksCagr;
     
     for (let i = 0; i <= years; i++) {
       const year = currentYear + i;
@@ -294,14 +304,26 @@ export default function FinancialPlan() {
         }
       });
       
+      // Project by asset type
       const btcProjected = (btcValue * Math.pow(1 + effectiveBtcCagr / 100, i) * crashMultiplier);
       const stocksProjected = (stocksValue * Math.pow(1 + effectiveStocksCagr / 100, i) * crashMultiplier);
       const realEstateProjected = realEstateValue * Math.pow(1 + realEstateCagr / 100, i);
       const bondsProjected = bondsValue * Math.pow(1 + bondsCagr / 100, i);
       const otherProjected = otherValue * Math.pow(1 + stocksCagr / 100, i);
       
+      // Project by account type (with contributions)
+      if (i > 0) {
+        runningTaxable = runningTaxable * (1 + weightedCagr / 100) * crashMultiplier;
+        runningTaxDeferred = (runningTaxDeferred + totalAnnualContributions * 0.6) * (1 + weightedCagr / 100) * crashMultiplier; // Assume 60% to tax-deferred
+        runningTaxFree = (runningTaxFree + totalAnnualContributions * 0.4) * (1 + weightedCagr / 100) * crashMultiplier; // Assume 40% to tax-free
+      }
+      
       const total = btcProjected + stocksProjected + realEstateProjected + bondsProjected + otherProjected + eventImpact;
-      const realTotal = total / Math.pow(1 + effectiveInflation / 100, i); // Inflation adjusted
+      const totalByAccount = runningTaxable + runningTaxDeferred + runningTaxFree + eventImpact;
+      const realTotal = total / Math.pow(1 + effectiveInflation / 100, i);
+      
+      // Tax-adjusted retirement value (tax-deferred taxed at estimated 25%)
+      const taxAdjustedTotal = runningTaxable + (runningTaxDeferred * 0.75) + runningTaxFree;
       
       data.push({
         age: currentAge + i,
@@ -312,11 +334,15 @@ export default function FinancialPlan() {
         bonds: Math.round(bondsProjected),
         total: Math.round(total),
         realTotal: Math.round(realTotal),
+        taxable: Math.round(runningTaxable),
+        taxDeferred: Math.round(runningTaxDeferred),
+        taxFree: Math.round(runningTaxFree),
+        taxAdjusted: Math.round(taxAdjustedTotal / Math.pow(1 + effectiveInflation / 100, i)),
         hasEvent: lifeEvents.some(e => e.year === year),
       });
     }
     return data;
-  }, [btcValue, stocksValue, realEstateValue, bondsValue, otherValue, currentAge, retirementAge, effectiveBtcCagr, effectiveStocksCagr, realEstateCagr, bondsCagr, effectiveInflation, lifeEvents, activeScenario]);
+  }, [btcValue, stocksValue, realEstateValue, bondsValue, otherValue, currentAge, retirementAge, effectiveBtcCagr, effectiveStocksCagr, realEstateCagr, bondsCagr, effectiveInflation, lifeEvents, activeScenario, taxableValue, taxDeferredValue, taxFreeValue, totalAnnualContributions, totalValue]);
 
   // Run Monte Carlo when button clicked
   const handleRunSimulation = () => {
