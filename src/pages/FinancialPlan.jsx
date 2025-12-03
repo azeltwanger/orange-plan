@@ -279,6 +279,7 @@ export default function FinancialPlan() {
       // Pre-retirement: save and grow. Post-retirement: grow then withdraw
       let yearSavings = 0;
       let yearWithdrawal = 0;
+      let penaltyPaid = 0;
       
       if (i > 0) {
         // Grow assets
@@ -403,7 +404,7 @@ export default function FinancialPlan() {
         taxDeferred: Math.round(runningTaxDeferred),
         taxFree: Math.round(runningTaxFree),
         canAccessPenaltyFree: currentAge + i >= PENALTY_FREE_AGE,
-        penaltyPaid: 0,
+        penaltyPaid: Math.round(penaltyPaid),
       });
     }
     return data;
