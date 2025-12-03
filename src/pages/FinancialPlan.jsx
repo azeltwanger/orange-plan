@@ -151,6 +151,11 @@ export default function FinancialPlan() {
     queryFn: () => base44.entities.Scenario.list(),
   });
 
+  const { data: accounts = [] } = useQuery({
+    queryKey: ['accounts'],
+    queryFn: () => base44.entities.Account.list(),
+  });
+
   // Mutations
   const createGoal = useMutation({
     mutationFn: (data) => base44.entities.FinancialGoal.create(data),
