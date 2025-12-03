@@ -1,5 +1,5 @@
 import React from 'react';
-import { Zap, DollarSign, TrendingUp, Building, Coins } from 'lucide-react';
+import { Zap, DollarSign, TrendingUp, Building, Coins, Package } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
 const iconMap = {
@@ -20,7 +20,7 @@ const colorMap = {
   other: { icon: 'text-zinc-400', bg: 'bg-zinc-400/10', border: 'border-zinc-400/20' },
 };
 
-export default function AssetCard({ holding, btcPrice }) {
+export default function AssetCard({ holding, btcPrice, lotCount = 0 }) {
   const Icon = iconMap[holding.asset_type] || Coins;
   const colors = colorMap[holding.asset_type] || colorMap.other;
   
@@ -67,6 +67,13 @@ export default function AssetCard({ holding, btcPrice }) {
           </span>
         )}
       </div>
+
+      {lotCount > 0 && (
+        <div className="flex items-center gap-1 mt-3 pt-3 border-t border-zinc-800/50">
+          <Package className="w-3 h-3 text-zinc-500" />
+          <span className="text-xs text-zinc-500">{lotCount} tax lot{lotCount !== 1 ? 's' : ''}</span>
+        </div>
+      )}
     </div>
   );
 }
