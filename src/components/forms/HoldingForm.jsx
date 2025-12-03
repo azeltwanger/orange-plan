@@ -68,7 +68,7 @@ export default function HoldingForm({ open, onClose, onSubmit, initialData }) {
               value={formData.asset_name}
               onChange={(e) => setFormData({ ...formData, asset_name: e.target.value })}
               placeholder="e.g., Bitcoin"
-              className="bg-zinc-800 border-zinc-700 text-zinc-100"
+              className="bg-zinc-900 border-zinc-800 text-zinc-100"
               required
             />
           </div>
@@ -80,10 +80,10 @@ export default function HoldingForm({ open, onClose, onSubmit, initialData }) {
                 value={formData.asset_type}
                 onValueChange={(value) => setFormData({ ...formData, asset_type: value })}
               >
-                <SelectTrigger className="bg-zinc-800 border-zinc-700 text-zinc-100">
+                <SelectTrigger className="bg-zinc-900 border-zinc-800 text-zinc-100">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-zinc-800 border-zinc-700">
+                <SelectContent className="bg-zinc-900 border-zinc-800">
                   <SelectItem value="crypto">Crypto</SelectItem>
                   <SelectItem value="cash">Cash</SelectItem>
                   <SelectItem value="stocks">Stocks</SelectItem>
@@ -100,7 +100,7 @@ export default function HoldingForm({ open, onClose, onSubmit, initialData }) {
                 value={formData.ticker}
                 onChange={(e) => setFormData({ ...formData, ticker: e.target.value.toUpperCase() })}
                 placeholder="BTC"
-                className="bg-zinc-800 border-zinc-700 text-zinc-100"
+                className="bg-zinc-900 border-zinc-800 text-zinc-100"
               />
             </div>
           </div>
@@ -114,7 +114,7 @@ export default function HoldingForm({ open, onClose, onSubmit, initialData }) {
                 value={formData.quantity}
                 onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
                 placeholder="0.00"
-                className="bg-zinc-800 border-zinc-700 text-zinc-100"
+                className="bg-zinc-900 border-zinc-800 text-zinc-100"
                 required
               />
             </div>
@@ -127,7 +127,7 @@ export default function HoldingForm({ open, onClose, onSubmit, initialData }) {
                 value={formData.current_price}
                 onChange={(e) => setFormData({ ...formData, current_price: e.target.value })}
                 placeholder="0.00"
-                className="bg-zinc-800 border-zinc-700 text-zinc-100"
+                className="bg-zinc-900 border-zinc-800 text-zinc-100"
               />
             </div>
           </div>
@@ -140,7 +140,7 @@ export default function HoldingForm({ open, onClose, onSubmit, initialData }) {
               value={formData.cost_basis_total}
               onChange={(e) => setFormData({ ...formData, cost_basis_total: e.target.value })}
               placeholder="0.00"
-              className="bg-zinc-800 border-zinc-700 text-zinc-100"
+              className="bg-zinc-900 border-zinc-800 text-zinc-100"
             />
           </div>
 
