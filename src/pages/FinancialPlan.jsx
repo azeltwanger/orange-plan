@@ -580,6 +580,17 @@ export default function FinancialPlan() {
     
     const percentiles = calculatePercentiles(simulations);
     
+    // Calculate withdrawals for display
+    const withdrawals = calculateWithdrawals({
+      currentAge,
+      retirementAge,
+      lifeExpectancy,
+      inflationRate: effectiveInflation,
+      retirementAnnualSpending,
+      withdrawalStrategy,
+      dynamicWithdrawalRate,
+    });
+    
     // Calculate success probability - did you NOT run out of money through life expectancy?
     const probability = calculateSuccessProbability(successResults);
     setSuccessProbability(probability);
@@ -587,11 +598,13 @@ export default function FinancialPlan() {
     const chartData = percentiles.map((p, i) => ({
       age: currentAge + i,
       year: new Date().getFullYear() + i,
-      p10: Math.round(p.p10),
-      p25: Math.round(p.p25),
-      p50: Math.round(p.p50),
-      p75: Math.round(p.p75),
-      p90: Math.round(p.p90),
+      p10: Math.round(p.p10 || 0),
+      p25: Math.round(p.p25 || 0),
+      p50: Math.round(p.p50 || 0),
+      p75: Math.round(p.p75 || 0),
+      p90: Math.round(p.p90 || 0),
+      withdrawal: withdrawals[i] || 0,
+      isRetired: i >= (retirementAge - currentAge),
     }));
     
     setSimulationResults(chartData);
