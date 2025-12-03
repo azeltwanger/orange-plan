@@ -16,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
-// Monte Carlo simulation with full projection logic through retirement
+// Monte Carlo simulation - simplified and realistic
 const runMonteCarloSimulation = (params, numSimulations = 1000) => {
   const {
     btcValue, stocksValue, realEstateValue, bondsValue, otherValue,
@@ -24,25 +24,29 @@ const runMonteCarloSimulation = (params, numSimulations = 1000) => {
     getBtcGrowthRate, stocksCagr, realEstateCagr, bondsCagr, inflationRate,
     annualSavings, incomeGrowth, retirementAnnualSpending,
     withdrawalStrategy, dynamicWithdrawalRate,
-    btcVolatility = 60, stocksVolatility = 15
+    btcVolatility = 50, stocksVolatility = 15
   } = params;
   
   const results = [];
-  const successResults = []; // Track if simulation succeeded (didn't run out of money)
-  const years = lifeExpectancy - currentAge; // Project through entire life
+  const successResults = [];
+  const years = lifeExpectancy - currentAge;
   const yearsToRetirement = retirementAge - currentAge;
+  const totalStartingAssets = btcValue + stocksValue + realEstateValue + bondsValue + otherValue;
+  
+  // Calculate portfolio allocation percentages
+  const btcPct = totalStartingAssets > 0 ? btcValue / totalStartingAssets : 0;
+  const stocksPct = totalStartingAssets > 0 ? stocksValue / totalStartingAssets : 0;
+  const realEstatePct = totalStartingAssets > 0 ? realEstateValue / totalStartingAssets : 0;
+  const bondsPct = totalStartingAssets > 0 ? bondsValue / totalStartingAssets : 0;
+  const otherPct = totalStartingAssets > 0 ? otherValue / totalStartingAssets : 0;
   
   for (let sim = 0; sim < numSimulations; sim++) {
-    let runningBtc = btcValue;
-    let runningStocks = stocksValue;
-    let runningRealEstate = realEstateValue;
-    let runningBonds = bondsValue;
-    let runningOther = otherValue;
-    let runningSavings = 0;
+    let portfolio = totalStartingAssets;
+    let savings = 0;
     let ranOutOfMoney = false;
     let initialRetirementWithdrawal = 0;
     
-    const path = [runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther];
+    const path = [portfolio];
     
     for (let year = 1; year <= years; year++) {
       const isRetired = year > yearsToRetirement;
@@ -51,74 +55,66 @@ const runMonteCarloSimulation = (params, numSimulations = 1000) => {
       // Get expected BTC return based on model
       const expectedBtcReturn = getBtcGrowthRate(year);
       
-      // Generate random returns with volatility (Box-Muller)
-      const u1 = Math.random();
+      // Generate random returns (Box-Muller for normal distribution)
+      const u1 = Math.max(0.0001, Math.random());
       const u2 = Math.random();
       const z1 = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
       const z2 = Math.sqrt(-2 * Math.log(u1)) * Math.sin(2 * Math.PI * u2);
       
-      // BTC return with high volatility
-      const btcReturn = expectedBtcReturn + btcVolatility * z1;
-      // Stocks return with moderate volatility
-      const stocksReturn = stocksCagr + stocksVolatility * z2;
-      // Real estate and bonds with low volatility
-      const realEstateReturn = realEstateCagr + 5 * Math.random() - 2.5;
-      const bondsReturn = bondsCagr + 3 * Math.random() - 1.5;
+      // Asset returns with realistic volatility
+      // BTC: high vol but capped to prevent extreme swings
+      const btcReturn = Math.max(-60, Math.min(200, expectedBtcReturn + btcVolatility * z1));
+      const stocksReturn = Math.max(-40, Math.min(50, stocksCagr + stocksVolatility * z2));
+      const realEstateReturn = realEstateCagr + (Math.random() * 10 - 5);
+      const bondsReturn = bondsCagr + (Math.random() * 4 - 2);
       
-      // Grow assets
-      runningBtc = Math.max(0, runningBtc * (1 + btcReturn / 100));
-      runningStocks = Math.max(0, runningStocks * (1 + stocksReturn / 100));
-      runningRealEstate = Math.max(0, runningRealEstate * (1 + realEstateReturn / 100));
-      runningBonds = Math.max(0, runningBonds * (1 + bondsReturn / 100));
-      runningOther = Math.max(0, runningOther * (1 + stocksReturn / 100));
+      // Calculate blended portfolio return based on allocation
+      const portfolioReturn = (
+        btcPct * btcReturn +
+        stocksPct * stocksReturn +
+        realEstatePct * realEstateReturn +
+        bondsPct * bondsReturn +
+        otherPct * stocksReturn
+      ) / 100;
       
-      // Grow savings at blended rate
-      const blendedGrowthRate = (btcReturn * 0.3 + stocksReturn * 0.7) / 100;
-      runningSavings = Math.max(0, runningSavings * (1 + blendedGrowthRate));
-      
-      let total = runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther + runningSavings;
+      // Grow portfolio
+      portfolio = Math.max(0, portfolio * (1 + portfolioReturn));
+      savings = Math.max(0, savings * (1 + portfolioReturn));
       
       if (!isRetired) {
-        // Add annual savings (pre-retirement only)
+        // Add annual savings
         const yearSavings = annualSavings * Math.pow(1 + incomeGrowth / 100, year);
-        runningSavings += yearSavings;
-        total += yearSavings;
+        savings += yearSavings;
       } else {
-        // Retirement: withdraw money
+        // Retirement withdrawals
         let yearWithdrawal = 0;
+        const total = portfolio + savings;
         
         if (withdrawalStrategy === '4percent') {
-          // 4% rule: fixed amount based on initial retirement portfolio, inflation-adjusted
           if (yearsIntoRetirement === 1) {
             initialRetirementWithdrawal = total * 0.04;
           }
           yearWithdrawal = initialRetirementWithdrawal * Math.pow(1 + inflationRate / 100, yearsIntoRetirement - 1);
         } else if (withdrawalStrategy === 'dynamic') {
-          // Dynamic: % of current portfolio
           yearWithdrawal = total * (dynamicWithdrawalRate / 100);
         } else {
-          // Income-based (variable): withdraw exactly what you need, inflation-adjusted
+          // Income-based withdrawal
           yearWithdrawal = retirementAnnualSpending * Math.pow(1 + inflationRate / 100, yearsToRetirement + yearsIntoRetirement);
         }
         
-        // Withdraw proportionally from all assets
+        // Withdraw from portfolio and savings proportionally
         if (total > 0 && yearWithdrawal > 0) {
           const withdrawRatio = Math.min(1, yearWithdrawal / total);
-          runningBtc -= runningBtc * withdrawRatio;
-          runningStocks -= runningStocks * withdrawRatio;
-          runningRealEstate -= runningRealEstate * withdrawRatio;
-          runningBonds -= runningBonds * withdrawRatio;
-          runningOther -= runningOther * withdrawRatio;
-          runningSavings -= runningSavings * withdrawRatio;
-          total = total - yearWithdrawal;
+          portfolio = Math.max(0, portfolio * (1 - withdrawRatio));
+          savings = Math.max(0, savings * (1 - withdrawRatio));
         }
         
-        if (total <= 0) {
+        if (portfolio + savings <= 0) {
           ranOutOfMoney = true;
         }
       }
       
-      path.push(Math.max(0, total));
+      path.push(Math.max(0, portfolio + savings));
     }
     
     results.push(path);
