@@ -1699,32 +1699,33 @@ export default function FinancialPlan() {
       {/* Goal Form Dialog */}
       <Dialog open={goalFormOpen} onOpenChange={setGoalFormOpen}>
         <DialogContent className="bg-[#0f0f10] border-zinc-800 text-zinc-100 max-w-md">
-          <DialogHeader><DialogTitle>{editingGoal ? 'Edit Goal' : 'Add Goal'}</DialogTitle></DialogHeader>
-          <form onSubmit={handleSubmitGoal} className="space-y-4 mt-4">
+          <DialogHeader><DialogTitle>{editingGoal ? 'Edit Goal' : 'Add Financial Goal'}</DialogTitle></DialogHeader>
+          <p className="text-sm text-zinc-500 -mt-2">Track savings targets like down payments, emergency funds, or investment milestones.</p>
+          <form onSubmit={handleSubmitGoal} className="space-y-4 mt-2">
             <div className="space-y-2">
               <Label className="text-zinc-400">Goal Name</Label>
-              <Input value={goalForm.name} onChange={(e) => setGoalForm({ ...goalForm, name: e.target.value })} className="bg-zinc-900 border-zinc-800" required />
+              <Input value={goalForm.name} onChange={(e) => setGoalForm({ ...goalForm, name: e.target.value })} placeholder="e.g., House Down Payment" className="bg-zinc-900 border-zinc-700 text-zinc-100" required />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-zinc-400">Target Amount</Label>
-                <Input type="number" value={goalForm.target_amount} onChange={(e) => setGoalForm({ ...goalForm, target_amount: e.target.value })} className="bg-zinc-900 border-zinc-800" required />
+                <Label className="text-zinc-400">Target Amount ($)</Label>
+                <Input type="number" value={goalForm.target_amount} onChange={(e) => setGoalForm({ ...goalForm, target_amount: e.target.value })} placeholder="100000" className="bg-zinc-900 border-zinc-700 text-zinc-100" required />
               </div>
               <div className="space-y-2">
-                <Label className="text-zinc-400">Current Amount</Label>
-                <Input type="number" value={goalForm.current_amount} onChange={(e) => setGoalForm({ ...goalForm, current_amount: e.target.value })} className="bg-zinc-900 border-zinc-800" />
+                <Label className="text-zinc-400">Saved So Far ($)</Label>
+                <Input type="number" value={goalForm.current_amount} onChange={(e) => setGoalForm({ ...goalForm, current_amount: e.target.value })} placeholder="25000" className="bg-zinc-900 border-zinc-700 text-zinc-100" />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-zinc-400">Goal Type</Label>
                 <Select value={goalForm.goal_type} onValueChange={(value) => setGoalForm({ ...goalForm, goal_type: value })}>
-                  <SelectTrigger className="bg-zinc-900 border-zinc-800"><SelectValue /></SelectTrigger>
-                  <SelectContent className="bg-zinc-900 border-zinc-800">
-                    <SelectItem value="retirement">Retirement</SelectItem>
-                    <SelectItem value="btc_stack">BTC Stack</SelectItem>
-                    <SelectItem value="emergency_fund">Emergency Fund</SelectItem>
+                  <SelectTrigger className="bg-zinc-900 border-zinc-700 text-zinc-100"><SelectValue /></SelectTrigger>
+                  <SelectContent className="bg-zinc-900 border-zinc-700">
                     <SelectItem value="major_purchase">Major Purchase</SelectItem>
+                    <SelectItem value="emergency_fund">Emergency Fund</SelectItem>
+                    <SelectItem value="btc_stack">BTC Stack</SelectItem>
+                    <SelectItem value="retirement">Retirement</SelectItem>
                     <SelectItem value="debt_payoff">Debt Payoff</SelectItem>
                     <SelectItem value="other">Other</SelectItem>
                   </SelectContent>
@@ -1732,12 +1733,12 @@ export default function FinancialPlan() {
               </div>
               <div className="space-y-2">
                 <Label className="text-zinc-400">Target Date</Label>
-                <Input type="date" value={goalForm.target_date} onChange={(e) => setGoalForm({ ...goalForm, target_date: e.target.value })} className="bg-zinc-900 border-zinc-800" />
+                <Input type="date" value={goalForm.target_date} onChange={(e) => setGoalForm({ ...goalForm, target_date: e.target.value })} className="bg-zinc-900 border-zinc-700 text-zinc-100" />
               </div>
             </div>
             <div className="flex gap-3 pt-4">
-              <Button type="button" variant="outline" onClick={() => setGoalFormOpen(false)} className="flex-1 bg-transparent border-zinc-800">Cancel</Button>
-              <Button type="submit" className="flex-1 brand-gradient text-white font-semibold">{editingGoal ? 'Update' : 'Add'} Goal</Button>
+              <Button type="button" variant="outline" onClick={() => setGoalFormOpen(false)} className="flex-1 bg-zinc-800 border-zinc-700 text-zinc-100 hover:bg-zinc-700">Cancel</Button>
+              <Button type="submit" className="flex-1 brand-gradient text-white font-semibold">{editingGoal ? 'Update Goal' : 'Add Goal'}</Button>
             </div>
           </form>
         </DialogContent>
@@ -1745,103 +1746,128 @@ export default function FinancialPlan() {
 
       {/* Event Form Dialog */}
       <Dialog open={eventFormOpen} onOpenChange={setEventFormOpen}>
-        <DialogContent className="bg-[#0f0f10] border-zinc-800 text-zinc-100 max-w-md">
-          <DialogHeader><DialogTitle>{editingEvent ? 'Edit Life Event' : 'Add Life Event'}</DialogTitle></DialogHeader>
-          <form onSubmit={handleSubmitEvent} className="space-y-4 mt-4">
+        <DialogContent className="bg-[#0f0f10] border-zinc-800 text-zinc-100 max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>{editingEvent ? 'Edit Life Event' : 'Plan a Future Life Event'}</DialogTitle></DialogHeader>
+          <p className="text-sm text-zinc-500 -mt-2">Model future expenses or income changes to see their impact on your projections.</p>
+          <form onSubmit={handleSubmitEvent} className="space-y-4 mt-2">
             <div className="space-y-2">
               <Label className="text-zinc-400">Event Name</Label>
-              <Input value={eventForm.name} onChange={(e) => setEventForm({ ...eventForm, name: e.target.value })} placeholder="e.g., Buy a house" className="bg-zinc-900 border-zinc-800" required />
+              <Input value={eventForm.name} onChange={(e) => setEventForm({ ...eventForm, name: e.target.value })} placeholder="e.g., Buy a house, New job, Have kids" className="bg-zinc-900 border-zinc-700 text-zinc-100" required />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-zinc-400">Event Type</Label>
                 <Select value={eventForm.event_type} onValueChange={(value) => setEventForm({ ...eventForm, event_type: value })}>
-                  <SelectTrigger className="bg-zinc-900 border-zinc-800"><SelectValue /></SelectTrigger>
-                  <SelectContent className="bg-zinc-900 border-zinc-800">
-                    <SelectItem value="income_change">Income Change</SelectItem>
-                    <SelectItem value="expense_change">Expense Change</SelectItem>
-                    <SelectItem value="asset_purchase">Asset Purchase</SelectItem>
-                    <SelectItem value="asset_sale">Asset Sale</SelectItem>
-                    <SelectItem value="home_purchase">Home Purchase (w/ Mortgage)</SelectItem>
-                    <SelectItem value="major_expense">Major Expense</SelectItem>
-                    <SelectItem value="inheritance">Inheritance</SelectItem>
-                    <SelectItem value="retirement">Retirement</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
+                  <SelectTrigger className="bg-zinc-900 border-zinc-700 text-zinc-100"><SelectValue /></SelectTrigger>
+                  <SelectContent className="bg-zinc-900 border-zinc-700">
+                    <SelectItem value="home_purchase">🏠 Home Purchase</SelectItem>
+                    <SelectItem value="major_expense">💸 Major One-Time Expense</SelectItem>
+                    <SelectItem value="expense_change">📊 Recurring Expense Change</SelectItem>
+                    <SelectItem value="income_change">💼 Income Change</SelectItem>
+                    <SelectItem value="inheritance">🎁 Inheritance/Windfall</SelectItem>
+                    <SelectItem value="asset_purchase">📈 Asset Purchase</SelectItem>
+                    <SelectItem value="asset_sale">📉 Asset Sale</SelectItem>
+                    <SelectItem value="other">📝 Other</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
                 <Label className="text-zinc-400">Year</Label>
-                <Input type="number" value={eventForm.year} onChange={(e) => setEventForm({ ...eventForm, year: e.target.value })} className="bg-zinc-900 border-zinc-800" required />
+                <Input type="number" value={eventForm.year} onChange={(e) => setEventForm({ ...eventForm, year: e.target.value })} className="bg-zinc-900 border-zinc-700 text-zinc-100" required />
               </div>
             </div>
 
             {eventForm.event_type === 'home_purchase' ? (
               <>
-                <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 mb-2">
-                  <p className="text-xs text-blue-400">Home purchase affects assets (down payment), liabilities (mortgage), and expenses (monthly payment)</p>
+                <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                  <p className="text-xs text-blue-400 font-medium mb-1">🏠 Home Purchase Modeling</p>
+                  <p className="text-xs text-zinc-400">This will deduct your down payment from assets in that year. Add a Goal to track saving for the down payment!</p>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label className="text-zinc-400">Home Price</Label>
-                    <Input type="number" value={eventForm.amount} onChange={(e) => setEventForm({ ...eventForm, amount: e.target.value })} placeholder="500000" className="bg-zinc-900 border-zinc-800" required />
+                    <Label className="text-zinc-400">Home Price ($)</Label>
+                    <Input type="number" value={eventForm.amount} onChange={(e) => setEventForm({ ...eventForm, amount: e.target.value })} placeholder="500000" className="bg-zinc-900 border-zinc-700 text-zinc-100" required />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-zinc-400">Down Payment</Label>
-                    <Input type="number" value={eventForm.down_payment} onChange={(e) => setEventForm({ ...eventForm, down_payment: e.target.value })} placeholder="100000" className="bg-zinc-900 border-zinc-800" />
+                    <Label className="text-zinc-400">Down Payment ($)</Label>
+                    <Input type="number" value={eventForm.down_payment} onChange={(e) => setEventForm({ ...eventForm, down_payment: e.target.value })} placeholder="100000" className="bg-zinc-900 border-zinc-700 text-zinc-100" />
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-3 gap-3">
                   <div className="space-y-2">
-                    <Label className="text-zinc-400">Mortgage Amount</Label>
-                    <Input type="number" value={eventForm.liability_amount} onChange={(e) => setEventForm({ ...eventForm, liability_amount: e.target.value })} placeholder="400000" className="bg-zinc-900 border-zinc-800" />
+                    <Label className="text-zinc-400 text-xs">Mortgage ($)</Label>
+                    <Input type="number" value={eventForm.liability_amount} onChange={(e) => setEventForm({ ...eventForm, liability_amount: e.target.value })} placeholder="400000" className="bg-zinc-900 border-zinc-700 text-zinc-100" />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-zinc-400">Interest Rate %</Label>
-                    <Input type="number" step="0.1" value={eventForm.interest_rate} onChange={(e) => setEventForm({ ...eventForm, interest_rate: e.target.value })} placeholder="6.5" className="bg-zinc-900 border-zinc-800" />
+                    <Label className="text-zinc-400 text-xs">Rate (%)</Label>
+                    <Input type="number" step="0.1" value={eventForm.interest_rate} onChange={(e) => setEventForm({ ...eventForm, interest_rate: e.target.value })} placeholder="6.5" className="bg-zinc-900 border-zinc-700 text-zinc-100" />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-zinc-400">Term (Years)</Label>
-                    <Input type="number" value={eventForm.loan_term_years} onChange={(e) => setEventForm({ ...eventForm, loan_term_years: e.target.value })} placeholder="30" className="bg-zinc-900 border-zinc-800" />
+                    <Label className="text-zinc-400 text-xs">Term (Yrs)</Label>
+                    <Input type="number" value={eventForm.loan_term_years} onChange={(e) => setEventForm({ ...eventForm, loan_term_years: e.target.value })} placeholder="30" className="bg-zinc-900 border-zinc-700 text-zinc-100" />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-zinc-400">Monthly Payment (inc. taxes/insurance)</Label>
-                  <Input type="number" value={eventForm.monthly_expense_impact} onChange={(e) => setEventForm({ ...eventForm, monthly_expense_impact: e.target.value })} placeholder="3000" className="bg-zinc-900 border-zinc-800" />
+                  <Label className="text-zinc-400">Est. Monthly Payment ($)</Label>
+                  <Input type="number" value={eventForm.monthly_expense_impact} onChange={(e) => setEventForm({ ...eventForm, monthly_expense_impact: e.target.value })} placeholder="3000" className="bg-zinc-900 border-zinc-700 text-zinc-100" />
+                  <p className="text-xs text-zinc-500">Include mortgage, taxes, insurance</p>
+                </div>
+              </>
+            ) : eventForm.event_type === 'expense_change' ? (
+              <>
+                <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                  <p className="text-xs text-amber-400">💡 For recurring expense changes (like having kids), enter the annual amount change and mark as recurring.</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-zinc-400">Annual Expense Change ($)</Label>
+                  <Input type="number" value={eventForm.amount} onChange={(e) => setEventForm({ ...eventForm, amount: e.target.value })} placeholder="-15000 (negative = more spending)" className="bg-zinc-900 border-zinc-700 text-zinc-100" required />
+                  <p className="text-xs text-zinc-500">Use negative for increased expenses, positive for decreased</p>
+                </div>
+              </>
+            ) : eventForm.event_type === 'income_change' ? (
+              <>
+                <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                  <p className="text-xs text-emerald-400">💼 Model a job change, raise, or income reduction.</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-zinc-400">Annual Income Change ($)</Label>
+                  <Input type="number" value={eventForm.amount} onChange={(e) => setEventForm({ ...eventForm, amount: e.target.value })} placeholder="20000 (positive = more income)" className="bg-zinc-900 border-zinc-700 text-zinc-100" required />
+                  <p className="text-xs text-zinc-500">Use positive for raises, negative for reductions</p>
                 </div>
               </>
             ) : (
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-zinc-400">Amount (+ or -)</Label>
-                  <Input type="number" value={eventForm.amount} onChange={(e) => setEventForm({ ...eventForm, amount: e.target.value })} placeholder="-50000" className="bg-zinc-900 border-zinc-800" required />
+                  <Label className="text-zinc-400">Amount ($)</Label>
+                  <Input type="number" value={eventForm.amount} onChange={(e) => setEventForm({ ...eventForm, amount: e.target.value })} placeholder="-50000" className="bg-zinc-900 border-zinc-700 text-zinc-100" required />
+                  <p className="text-xs text-zinc-500">Negative = expense, Positive = income/gain</p>
                 </div>
                 <div className="space-y-2">
                   <Label className="text-zinc-400">Affects</Label>
                   <Select value={eventForm.affects} onValueChange={(value) => setEventForm({ ...eventForm, affects: value })}>
-                    <SelectTrigger className="bg-zinc-900 border-zinc-800"><SelectValue /></SelectTrigger>
-                    <SelectContent className="bg-zinc-900 border-zinc-800">
-                      <SelectItem value="assets">Assets</SelectItem>
-                      <SelectItem value="income">Income</SelectItem>
-                      <SelectItem value="expenses">Expenses</SelectItem>
+                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-zinc-100"><SelectValue /></SelectTrigger>
+                    <SelectContent className="bg-zinc-900 border-zinc-700">
+                      <SelectItem value="assets">Assets (one-time)</SelectItem>
+                      <SelectItem value="income">Income (recurring)</SelectItem>
+                      <SelectItem value="expenses">Expenses (recurring)</SelectItem>
                       <SelectItem value="liabilities">Liabilities</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
             )}
-            <div className="flex items-center gap-4 p-3 rounded-xl bg-zinc-800/30">
+            <div className="flex items-center gap-4 p-3 rounded-xl bg-zinc-800/50 border border-zinc-700">
               <Switch checked={eventForm.is_recurring} onCheckedChange={(checked) => setEventForm({ ...eventForm, is_recurring: checked })} />
               <div className="flex-1">
-                <Label className="text-zinc-300">Recurring Event</Label>
+                <Label className="text-zinc-300">Recurring for multiple years</Label>
                 {eventForm.is_recurring && (
-                  <Input type="number" value={eventForm.recurring_years} onChange={(e) => setEventForm({ ...eventForm, recurring_years: e.target.value })} placeholder="Number of years" className="bg-zinc-900 border-zinc-800 mt-2" />
+                  <Input type="number" value={eventForm.recurring_years} onChange={(e) => setEventForm({ ...eventForm, recurring_years: e.target.value })} placeholder="How many years?" className="bg-zinc-900 border-zinc-700 text-zinc-100 mt-2" />
                 )}
               </div>
             </div>
             <div className="flex gap-3 pt-4">
-              <Button type="button" variant="outline" onClick={() => setEventFormOpen(false)} className="flex-1 bg-transparent border-zinc-800">Cancel</Button>
-              <Button type="submit" className="flex-1 brand-gradient text-white font-semibold">{editingEvent ? 'Update' : 'Add'} Event</Button>
+              <Button type="button" variant="outline" onClick={() => setEventFormOpen(false)} className="flex-1 bg-zinc-800 border-zinc-700 text-zinc-100 hover:bg-zinc-700">Cancel</Button>
+              <Button type="submit" className="flex-1 brand-gradient text-white font-semibold">{editingEvent ? 'Update Event' : 'Add Event'}</Button>
             </div>
           </form>
         </DialogContent>
