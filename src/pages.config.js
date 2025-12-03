@@ -1,9 +1,17 @@
 import Dashboard from './pages/Dashboard';
+import Performance from './pages/Performance';
+import FinancialPlan from './pages/FinancialPlan';
+import Budget from './pages/Budget';
+import DCAStrategy from './pages/DCAStrategy';
 import __Layout from './Layout.jsx';
 
 
 export const PAGES = {
     "Dashboard": Dashboard,
+    "Performance": Performance,
+    "FinancialPlan": FinancialPlan,
+    "Budget": Budget,
+    "DCAStrategy": DCAStrategy,
 }
 
 export const pagesConfig = {
