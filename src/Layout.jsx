@@ -162,7 +162,7 @@ export default function Layout({ children, currentPageName }) {
             </div>
             <div>
               <span className="font-bold text-xl tracking-tight">Orange Plan</span>
-              <p className="text-xs text-zinc-500 mt-0.5">Sovereign Wealth Protocol</p>
+              <p className="text-xs text-zinc-500 mt-0.5">Financial Planning Dashboard</p>
             </div>
           </div>
 

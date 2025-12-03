@@ -6,6 +6,7 @@ import DCAStrategy from './pages/DCAStrategy';
 import TaxCenter from './pages/TaxCenter';
 import Liabilities from './pages/Liabilities';
 import EstateSecurity from './pages/EstateSecurity';
+import Landing from './pages/Landing';
 import __Layout from './Layout.jsx';
 
 
@@ -18,6 +19,7 @@ export const PAGES = {
     "TaxCenter": TaxCenter,
     "Liabilities": Liabilities,
     "EstateSecurity": EstateSecurity,
+    "Landing": Landing,
 }
 
 export const pagesConfig = {

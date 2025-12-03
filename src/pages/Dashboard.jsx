@@ -131,8 +131,8 @@ export default function Dashboard() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl lg:text-4xl font-bold tracking-tight">Command Center</h1>
-          <p className="text-zinc-500 mt-2">Your sovereign wealth at a glance</p>
+          <h1 className="text-3xl lg:text-4xl font-bold tracking-tight">Net Worth Dashboard</h1>
+          <p className="text-zinc-500 mt-2">Your complete financial overview</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-zinc-800/50 border border-zinc-700/50">
@@ -201,7 +201,7 @@ export default function Dashboard() {
               <Bitcoin className="w-10 h-10 text-orange-400" />
             </div>
             <h3 className="text-xl font-semibold mb-3 text-zinc-200">Begin Your Journey</h3>
-            <p className="text-zinc-500 mb-6 max-w-sm mx-auto">Add your first asset to start tracking your sovereign wealth</p>
+            <p className="text-zinc-500 mb-6 max-w-sm mx-auto">Add your first asset to start tracking your wealth</p>
             <Button
               onClick={() => setFormOpen(true)}
               className="brand-gradient text-white font-semibold shadow-lg shadow-orange-500/20"
