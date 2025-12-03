@@ -306,12 +306,31 @@ export default function EstateSecurity() {
   const reminders = estateItems.filter(i => i.item_type === 'reminder');
   const protocols = estateItems.filter(i => i.item_type === 'security_protocol');
 
-  // Calculate weighted security score
-  const totalCustodyBtc = custodyLocations.reduce((sum, c) => sum + (c.btc_amount || 0), 0);
-  const weightedSecurityScore = custodyLocations.length > 0 && totalCustodyBtc > 0
-    ? custodyLocations.reduce((sum, c) => {
-        const weight = (c.btc_amount || 0) / totalCustodyBtc;
-        return sum + (c.security_score || SECURITY_SCORES[c.custody_type] || 5) * weight;
+  // Calculate weighted security score - only for BTC custody (crypto assets that need security scoring)
+  const btcCustodyForScore = custodyLocations.filter(c => 
+    !c.description?.includes('asset_type:') || c.description?.includes('asset_type:btc') || c.description?.includes('asset_type:crypto_other')
+  );
+  const totalCustodyBtc = btcCustodyForScore.reduce((sum, c) => sum + (c.btc_amount || 0), 0);
+  
+  // Calculate total value for weighting (BTC value + other crypto value)
+  const getTotalValueForScoring = () => {
+    let totalValue = 0;
+    btcCustodyForScore.forEach(c => {
+      if (c.btc_amount) {
+        totalValue += c.btc_amount * currentPrice;
+      }
+    });
+    return totalValue;
+  };
+  const totalValueForScoring = getTotalValueForScoring();
+  
+  // Weighted security score based on USD value of holdings
+  const weightedSecurityScore = btcCustodyForScore.length > 0 && totalValueForScoring > 0
+    ? btcCustodyForScore.reduce((sum, c) => {
+        const custodyValue = (c.btc_amount || 0) * currentPrice;
+        const weight = custodyValue / totalValueForScoring;
+        const score = c.security_score || SECURITY_SCORES[c.custody_type] || 5;
+        return sum + (score * weight);
       }, 0)
     : 0;
 
@@ -1231,7 +1250,7 @@ export default function EstateSecurity() {
               <Label className="text-zinc-400">Item Type</Label>
               <Select value={formData.item_type} onValueChange={(value) => setFormData({ ...formData, item_type: value })}>
                 <SelectTrigger className="bg-zinc-900 border-zinc-800"><SelectValue /></SelectTrigger>
-                <SelectContent className="bg-zinc-900 border-zinc-800">
+                <SelectContent className="bg-zinc-900 border-zinc-800 text-zinc-100">
                   <SelectItem value="custody_location">Custody Location</SelectItem>
                   <SelectItem value="beneficiary">Beneficiary</SelectItem>
                   <SelectItem value="reminder">Reminder</SelectItem>
@@ -1250,7 +1269,7 @@ export default function EstateSecurity() {
                   <Label className="text-zinc-400">Asset Type</Label>
                   <Select value={formData.asset_type} onValueChange={(value) => setFormData({ ...formData, asset_type: value })}>
                     <SelectTrigger className="bg-zinc-900 border-zinc-800"><SelectValue /></SelectTrigger>
-                    <SelectContent className="bg-zinc-900 border-zinc-800">
+                    <SelectContent className="bg-zinc-900 border-zinc-800 text-zinc-100">
                       {ASSET_TYPES.map(type => (
                         <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
                       ))}
@@ -1265,7 +1284,7 @@ export default function EstateSecurity() {
                         <Label className="text-zinc-400">Custody Type</Label>
                         <Select value={formData.custody_type} onValueChange={(value) => setFormData({ ...formData, custody_type: value })}>
                           <SelectTrigger className="bg-zinc-900 border-zinc-800"><SelectValue /></SelectTrigger>
-                          <SelectContent className="bg-zinc-900 border-zinc-800">
+                          <SelectContent className="bg-zinc-900 border-zinc-800 text-zinc-100">
                             <SelectItem value="multisig">Multisig (10/10)</SelectItem>
                             <SelectItem value="passphrase">Passphrase/25th Word (9/10)</SelectItem>
                             <SelectItem value="hardware_wallet">Hardware Wallet (8/10)</SelectItem>
@@ -1294,10 +1313,13 @@ export default function EstateSecurity() {
                   </>
                 )}
 
-                <div className="space-y-2">
-                  <Label className="text-zinc-400">Last Verified</Label>
-                  <Input type="date" value={formData.last_verified} onChange={(e) => setFormData({ ...formData, last_verified: e.target.value })} className="bg-zinc-900 border-zinc-800" />
-                </div>
+                {/* Only show Last Verified for BTC and other crypto assets */}
+                {(formData.asset_type === 'btc' || formData.asset_type === 'crypto_other') && (
+                  <div className="space-y-2">
+                    <Label className="text-zinc-400">Last Verified</Label>
+                    <Input type="date" value={formData.last_verified} onChange={(e) => setFormData({ ...formData, last_verified: e.target.value })} className="bg-zinc-900 border-zinc-800" />
+                  </div>
+                )}
               </>
             )}
 
@@ -1328,7 +1350,7 @@ export default function EstateSecurity() {
                   <Label className="text-zinc-400">Frequency</Label>
                   <Select value={formData.reminder_frequency || ''} onValueChange={(value) => setFormData({ ...formData, reminder_frequency: value })}>
                     <SelectTrigger className="bg-zinc-900 border-zinc-800"><SelectValue placeholder="One-time" /></SelectTrigger>
-                    <SelectContent className="bg-zinc-900 border-zinc-800">
+                    <SelectContent className="bg-zinc-900 border-zinc-800 text-zinc-100">
                       <SelectItem value="one_time">One-time</SelectItem>
                       <SelectItem value="monthly">Monthly</SelectItem>
                       <SelectItem value="quarterly">Quarterly</SelectItem>
@@ -1363,7 +1385,7 @@ export default function EstateSecurity() {
               <Label className="text-zinc-400">Custody Location</Label>
               <Select value={protocolForm.custody_location_id} onValueChange={(value) => setProtocolForm({ ...protocolForm, custody_location_id: value })}>
                 <SelectTrigger className="bg-zinc-900 border-zinc-800"><SelectValue placeholder="Select location" /></SelectTrigger>
-                <SelectContent className="bg-zinc-900 border-zinc-800">
+                <SelectContent className="bg-zinc-900 border-zinc-800 text-zinc-100">
                   {custodyLocations.map(c => (
                     <SelectItem key={c.id} value={c.id}>{c.title} ({c.btc_amount || 0} BTC)</SelectItem>
                   ))}
