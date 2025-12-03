@@ -128,11 +128,10 @@ const runMonteCarloSimulation = (params, numSimulations = 1000) => {
   return { paths: results, successResults };
 };
 
-// Calculate success probability (percentage of simulations meeting target)
-const calculateSuccessProbability = (simulations, targetValue) => {
-  const finalValues = simulations.map(sim => sim[sim.length - 1]);
-  const successCount = finalValues.filter(v => v >= targetValue).length;
-  return (successCount / simulations.length) * 100;
+// Calculate success probability (percentage of simulations that didn't run out of money)
+const calculateSuccessProbability = (successResults) => {
+  const successCount = successResults.filter(s => s).length;
+  return (successCount / successResults.length) * 100;
 };
 
 // Calculate percentiles from simulation results
