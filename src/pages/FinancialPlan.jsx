@@ -1207,7 +1207,11 @@ export default function FinancialPlan() {
 
           {/* Projection Chart */}
           <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
-            <h3 className="font-semibold mb-6">Wealth Projection</h3>
+            <h3 className="font-semibold mb-2">Wealth Projection</h3>
+            <p className="text-sm text-zinc-400 mb-4">
+              {lifeEvents.length > 0 && `${lifeEvents.length} life event${lifeEvents.length !== 1 ? 's' : ''} integrated • `}
+              {goals.length > 0 && `${goals.length} goal${goals.length !== 1 ? 's' : ''} tracked`}
+            </p>
             <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={projections}>
@@ -1219,14 +1223,50 @@ export default function FinancialPlan() {
                       formatter={(value, name, props) => {
                         if (name === 'Total') {
                           const p = props.payload;
-                          return [`$${value.toLocaleString()}${p.isRetired ? ` (withdrawing $${(p.yearWithdrawal/1000).toFixed(0)}k/yr)` : ''}`, name];
+                          let extra = '';
+                          if (p.isRetired) extra = ` (withdrawing $${(p.yearWithdrawal/1000).toFixed(0)}k/yr)`;
+                          if (p.hasEvent) extra += ' 📅';
+                          return [`$${value.toLocaleString()}${extra}`, name];
                         }
                         return [`$${value.toLocaleString()}`, name];
                       }}
-                      labelFormatter={(age) => `Age ${age}`}
+                      labelFormatter={(age) => {
+                        const yearEvents = lifeEvents.filter(e => e.year === new Date().getFullYear() + (age - currentAge));
+                        let label = `Age ${age}`;
+                        if (yearEvents.length > 0) {
+                          label += ` • ${yearEvents.map(e => e.name).join(', ')}`;
+                        }
+                        return label;
+                      }}
                     />
-                    <ReferenceLine x={retirementAge} stroke="#F7931A" strokeDasharray="5 5" label={{ value: 'Retirement', fill: '#F7931A', fontSize: 12 }} />
-                    <ReferenceLine x={lifeExpectancy} stroke="#a78bfa" strokeDasharray="5 5" label={{ value: 'Life Exp.', fill: '#a78bfa', fontSize: 12 }} />
+                    <ReferenceLine x={retirementAge} stroke="#F7931A" strokeDasharray="5 5" label={{ value: 'Retire', fill: '#F7931A', fontSize: 10 }} />
+                    {/* Life Event Reference Lines */}
+                    {lifeEvents.slice(0, 5).map((event, i) => {
+                      const eventAge = currentAge + (event.year - new Date().getFullYear());
+                      if (eventAge > currentAge && eventAge < lifeExpectancy) {
+                        return (
+                          <ReferenceLine 
+                            key={event.id} 
+                            x={eventAge} 
+                            stroke={event.amount < 0 ? "#f87171" : "#34d399"} 
+                            strokeDasharray="3 3"
+                            strokeOpacity={0.5}
+                          />
+                        );
+                      }
+                      return null;
+                    })}
+                    {/* Goal target lines */}
+                    {goalsWithProjections.filter(g => g.target_amount > 0).slice(0, 3).map((goal, i) => (
+                      <ReferenceLine 
+                        key={goal.id} 
+                        y={goal.target_amount} 
+                        stroke="#60a5fa" 
+                        strokeDasharray="8 4"
+                        strokeOpacity={0.4}
+                        label={{ value: goal.name, fill: '#60a5fa', fontSize: 10, position: 'right' }}
+                      />
+                    ))}
                     <Area type="monotone" dataKey="bonds" stackId="1" stroke="#a78bfa" fill="#a78bfa" fillOpacity={0.3} name="Bonds" />
                     <Area type="monotone" dataKey="realEstate" stackId="1" stroke="#10b981" fill="#10b981" fillOpacity={0.3} name="Real Estate" />
                     <Area type="monotone" dataKey="stocks" stackId="1" stroke="#60a5fa" fill="#60a5fa" fillOpacity={0.3} name="Stocks" />
@@ -1240,7 +1280,8 @@ export default function FinancialPlan() {
               <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-blue-400" /><span className="text-sm text-zinc-400">Stocks</span></div>
               <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-400" /><span className="text-sm text-zinc-400">Real Estate</span></div>
               <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-purple-400" /><span className="text-sm text-zinc-400">Bonds</span></div>
-              <div className="flex items-center gap-2"><div className="w-3 h-0.5 bg-rose-400" /><span className="text-sm text-zinc-400">Inflation Adjusted</span></div>
+              {lifeEvents.length > 0 && <div className="flex items-center gap-2"><div className="w-3 h-0.5 bg-rose-400/50" /><span className="text-sm text-zinc-400">Life Events</span></div>}
+              {goals.length > 0 && <div className="flex items-center gap-2"><div className="w-6 h-0.5 bg-blue-400/50" style={{backgroundImage: 'repeating-linear-gradient(90deg, #60a5fa 0, #60a5fa 8px, transparent 8px, transparent 12px)'}} /><span className="text-sm text-zinc-400">Goal Targets</span></div>}
             </div>
           </div>
         </TabsContent>
