@@ -24,7 +24,7 @@ const EXCHANGE_INFO = {
 
 // Best-in-class total cost (Kraken Pro: 0.26% fee + ~0.1% spread = ~0.36%)
 const BEST_TOTAL_COST_PERCENT = 0.36;
-const INDUSTRY_AVG_COST_PERCENT = 1.5;
+const INDUSTRY_AVG_COST_PERCENT = 1.0;
 
 export default function FeeAnalyzer({ transactions = [], btcPrice = 97000 }) {
   const analysis = useMemo(() => {
