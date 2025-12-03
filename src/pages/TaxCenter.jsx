@@ -304,6 +304,7 @@ export default function TaxCenter() {
   const currentYear = new Date().getFullYear();
   const ytdSellTxs = transactions.filter(t => t.type === 'sell' && new Date(t.date).getFullYear() === currentYear);
   const allSellTxs = transactions.filter(t => t.type === 'sell');
+  const sellTxs = allSellTxs;
   const shortTermGains = ytdSellTxs.filter(t => t.holding_period === 'short_term').reduce((sum, t) => sum + (t.realized_gain_loss || 0), 0);
   const longTermGains = ytdSellTxs.filter(t => t.holding_period === 'long_term').reduce((sum, t) => sum + (t.realized_gain_loss || 0), 0);
   
