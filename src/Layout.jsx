@@ -257,6 +257,23 @@ export default function Layout({ children, currentPageName }) {
           background-clip: text;
         }
 
+        /* Light mode specific component fixes */
+        .light-mode .bg-gray-100 {
+          background-color: rgb(243 244 246) !important;
+        }
+        .light-mode .bg-white\/50 {
+          background-color: rgba(255, 255, 255, 0.8) !important;
+        }
+        .light-mode .border-gray-200 {
+          border-color: rgb(229 231 235) !important;
+        }
+        .light-mode .text-gray-900 {
+          color: rgb(17 24 39) !important;
+        }
+        .light-mode .text-gray-500 {
+          color: rgb(107 114 128) !important;
+        }
+
       `}</style>
 
       {/* Mobile Header */}
