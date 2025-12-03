@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, RefreshCw, Pencil, Trash2, Bitcoin } from 'lucide-react';
+import { Plus, RefreshCw, Pencil, Trash2, Bitcoin, Package } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import NetWorthCard from '@/components/dashboard/NetWorthCard';
 import AssetCard from '@/components/dashboard/AssetCard';
 import QuickStats from '@/components/dashboard/QuickStats';
 import AddAssetWithTransaction from '@/components/forms/AddAssetWithTransaction';
+import ManageLotsDialog from '@/components/dashboard/ManageLotsDialog';
 
 export default function Dashboard() {
   const [btcPrice, setBtcPrice] = useState(null);
@@ -36,6 +37,7 @@ export default function Dashboard() {
   const currentPrice = btcPrice || 97000;
   const [formOpen, setFormOpen] = useState(false);
   const [editingHolding, setEditingHolding] = useState(null);
+  const [lotsDialogHolding, setLotsDialogHolding] = useState(null);
   const queryClient = useQueryClient();
 
   const { data: holdings = [], isLoading: holdingsLoading } = useQuery({
@@ -57,6 +59,19 @@ export default function Dashboard() {
     queryKey: ['estateItems'],
     queryFn: () => base44.entities.EstateItem.list(),
   });
+
+  const { data: transactions = [] } = useQuery({
+    queryKey: ['transactions'],
+    queryFn: () => base44.entities.Transaction.list(),
+  });
+
+  // Get lot counts per ticker
+  const lotCountsByTicker = transactions
+    .filter(t => t.type === 'buy')
+    .reduce((acc, t) => {
+      acc[t.asset_ticker] = (acc[t.asset_ticker] || 0) + 1;
+      return acc;
+    }, {});
 
   const createHolding = useMutation({
     mutationFn: async ({ holding, transaction }) => {
@@ -230,8 +245,15 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {holdings.map((holding) => (
               <div key={holding.id} className="relative group">
-                <AssetCard holding={holding} btcPrice={currentPrice} />
+                <AssetCard holding={holding} btcPrice={currentPrice} lotCount={lotCountsByTicker[holding.ticker] || 0} />
                 <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                  <button
+                    onClick={() => setLotsDialogHolding(holding)}
+                    className="p-1.5 rounded-lg bg-zinc-800/90 hover:bg-orange-600/50 transition-colors"
+                    title="Manage Tax Lots"
+                  >
+                    <Package className="w-3.5 h-3.5 text-zinc-400" />
+                  </button>
                   <button
                     onClick={() => handleEdit(holding)}
                     className="p-1.5 rounded-lg bg-zinc-800/90 hover:bg-zinc-700 transition-colors"
@@ -298,6 +320,13 @@ export default function Dashboard() {
         onClose={() => { setFormOpen(false); setEditingHolding(null); }}
         onSubmit={handleSubmit}
         initialData={editingHolding}
+        btcPrice={currentPrice}
+      />
+
+      <ManageLotsDialog
+        open={!!lotsDialogHolding}
+        onClose={() => setLotsDialogHolding(null)}
+        holding={lotsDialogHolding}
         btcPrice={currentPrice}
       />
     </div>

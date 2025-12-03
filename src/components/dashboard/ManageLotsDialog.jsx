@@ -1,0 +1,278 @@
+import React, { useState, useEffect } from 'react';
+import { base44 } from '@/api/base44Client';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { format } from 'date-fns';
+import { Plus, Trash2, Package, Calendar, DollarSign } from 'lucide-react';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
+
+export default function ManageLotsDialog({ open, onClose, holding, btcPrice }) {
+  const queryClient = useQueryClient();
+  const [addingLot, setAddingLot] = useState(false);
+  const [newLot, setNewLot] = useState({
+    quantity: '',
+    price_per_unit: '',
+    date: format(new Date(), 'yyyy-MM-dd'),
+    exchange_or_wallet: '',
+  });
+
+  const { data: transactions = [] } = useQuery({
+    queryKey: ['transactions'],
+    queryFn: () => base44.entities.Transaction.list('-date'),
+  });
+
+  // Get lots for this holding's ticker
+  const lots = transactions.filter(
+    t => t.type === 'buy' && t.asset_ticker === holding?.ticker
+  );
+
+  const totalFromLots = lots.reduce((sum, l) => sum + (l.quantity || 0), 0);
+  const holdingQty = holding?.quantity || 0;
+  const unallocated = holdingQty - totalFromLots;
+
+  const createLot = useMutation({
+    mutationFn: async (data) => {
+      const total = data.quantity * data.price_per_unit;
+      const lotId = `${holding.ticker}-${Date.now()}`;
+      
+      await base44.entities.Transaction.create({
+        type: 'buy',
+        asset_ticker: holding.ticker,
+        quantity: data.quantity,
+        price_per_unit: data.price_per_unit,
+        total_value: total,
+        date: data.date,
+        lot_id: lotId,
+        cost_basis: total,
+        exchange_or_wallet: data.exchange_or_wallet,
+        holding_id: holding.id,
+      });
+
+      // Update holding cost basis
+      const newCostBasis = (holding.cost_basis_total || 0) + total;
+      await base44.entities.Holding.update(holding.id, {
+        cost_basis_total: newCostBasis,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['holdings'] });
+      setAddingLot(false);
+      setNewLot({ quantity: '', price_per_unit: '', date: format(new Date(), 'yyyy-MM-dd'), exchange_or_wallet: '' });
+    },
+  });
+
+  const deleteLot = useMutation({
+    mutationFn: async (lot) => {
+      await base44.entities.Transaction.delete(lot.id);
+      
+      // Update holding cost basis
+      const newCostBasis = Math.max(0, (holding.cost_basis_total || 0) - (lot.total_value || 0));
+      await base44.entities.Holding.update(holding.id, {
+        cost_basis_total: newCostBasis,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['holdings'] });
+    },
+  });
+
+  const handleAddLot = (e) => {
+    e.preventDefault();
+    createLot.mutate({
+      ...newLot,
+      quantity: parseFloat(newLot.quantity),
+      price_per_unit: parseFloat(newLot.price_per_unit),
+    });
+  };
+
+  if (!holding) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="bg-[#0f0f10] border-zinc-800 text-zinc-100 max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Package className="w-5 h-5 text-orange-400" />
+            Manage Tax Lots - {holding.asset_name} ({holding.ticker})
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-6 mt-4">
+          {/* Summary */}
+          <div className="grid grid-cols-3 gap-4">
+            <div className="p-4 rounded-xl bg-zinc-800/30">
+              <p className="text-sm text-zinc-500">Total Holding</p>
+              <p className="text-xl font-bold">{holdingQty.toFixed(holding.ticker === 'BTC' ? 8 : 2)} {holding.ticker}</p>
+            </div>
+            <div className="p-4 rounded-xl bg-zinc-800/30">
+              <p className="text-sm text-zinc-500">Allocated to Lots</p>
+              <p className="text-xl font-bold text-emerald-400">{totalFromLots.toFixed(holding.ticker === 'BTC' ? 8 : 2)}</p>
+            </div>
+            <div className="p-4 rounded-xl bg-zinc-800/30">
+              <p className="text-sm text-zinc-500">Unallocated</p>
+              <p className={cn("text-xl font-bold", unallocated > 0 ? "text-amber-400" : "text-zinc-400")}>
+                {unallocated.toFixed(holding.ticker === 'BTC' ? 8 : 2)}
+              </p>
+            </div>
+          </div>
+
+          {unallocated > 0.00000001 && (
+            <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-sm text-amber-400">
+              You have {unallocated.toFixed(holding.ticker === 'BTC' ? 8 : 2)} {holding.ticker} not yet assigned to purchase lots. 
+              Add lots below to track cost basis for tax purposes.
+            </div>
+          )}
+
+          {/* Existing Lots */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold">Purchase Lots ({lots.length})</h3>
+              <Button
+                size="sm"
+                onClick={() => setAddingLot(true)}
+                className="brand-gradient text-white"
+              >
+                <Plus className="w-4 h-4 mr-1" />
+                Add Lot
+              </Button>
+            </div>
+
+            {lots.length === 0 ? (
+              <div className="text-center py-8 text-zinc-500">
+                <Package className="w-10 h-10 mx-auto mb-3 opacity-50" />
+                <p>No purchase lots recorded yet</p>
+                <p className="text-sm mt-1">Add lots to track cost basis for taxes</p>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {lots.map((lot) => (
+                  <div key={lot.id} className="flex items-center justify-between p-3 rounded-xl bg-zinc-800/30 border border-zinc-800 hover:border-zinc-700 transition-colors">
+                    <div className="flex items-center gap-4">
+                      <div className="text-left">
+                        <p className="font-medium">{lot.quantity?.toFixed(holding.ticker === 'BTC' ? 8 : 2)} {holding.ticker}</p>
+                        <p className="text-sm text-zinc-500">
+                          @ ${lot.price_per_unit?.toLocaleString()} • {lot.date && format(new Date(lot.date), 'MMM d, yyyy')}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <p className="font-semibold">${(lot.total_value || 0).toLocaleString()}</p>
+                        {lot.exchange_or_wallet && (
+                          <p className="text-xs text-zinc-500">{lot.exchange_or_wallet}</p>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => deleteLot.mutate(lot)}
+                        className="p-1.5 rounded-lg hover:bg-rose-600/30 transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4 text-zinc-500 hover:text-rose-400" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Add Lot Form */}
+          {addingLot && (
+            <form onSubmit={handleAddLot} className="p-4 rounded-xl bg-zinc-800/50 border border-zinc-700 space-y-4">
+              <h4 className="font-semibold flex items-center gap-2">
+                <Plus className="w-4 h-4 text-orange-400" />
+                Add Purchase Lot
+              </h4>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-zinc-400">Quantity</Label>
+                  <Input
+                    type="number"
+                    step="any"
+                    value={newLot.quantity}
+                    onChange={(e) => setNewLot({ ...newLot, quantity: e.target.value })}
+                    placeholder={unallocated > 0 ? unallocated.toFixed(8) : "0.1"}
+                    className="bg-zinc-900 border-zinc-800"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-zinc-400">Price per {holding.ticker}</Label>
+                  <Input
+                    type="number"
+                    step="any"
+                    value={newLot.price_per_unit}
+                    onChange={(e) => setNewLot({ ...newLot, price_per_unit: e.target.value })}
+                    placeholder={btcPrice?.toString() || "97000"}
+                    className="bg-zinc-900 border-zinc-800"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-zinc-400">Purchase Date</Label>
+                  <Input
+                    type="date"
+                    value={newLot.date}
+                    onChange={(e) => setNewLot({ ...newLot, date: e.target.value })}
+                    className="bg-zinc-900 border-zinc-800"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-zinc-400">Exchange/Wallet</Label>
+                  <Input
+                    value={newLot.exchange_or_wallet}
+                    onChange={(e) => setNewLot({ ...newLot, exchange_or_wallet: e.target.value })}
+                    placeholder="Coinbase, Strike..."
+                    className="bg-zinc-900 border-zinc-800"
+                  />
+                </div>
+              </div>
+
+              {newLot.quantity && newLot.price_per_unit && (
+                <div className="p-3 rounded-lg bg-zinc-800/50">
+                  <p className="text-sm text-zinc-400">Total Cost Basis</p>
+                  <p className="text-lg font-bold text-orange-400">
+                    ${(parseFloat(newLot.quantity) * parseFloat(newLot.price_per_unit)).toLocaleString()}
+                  </p>
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <Button type="button" variant="outline" onClick={() => setAddingLot(false)} className="flex-1 bg-transparent border-zinc-700">
+                  Cancel
+                </Button>
+                <Button type="submit" className="flex-1 brand-gradient text-white">
+                  Add Lot
+                </Button>
+              </div>
+            </form>
+          )}
+
+          {/* Quick Fill Unallocated */}
+          {unallocated > 0.00000001 && !addingLot && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                setNewLot({ ...newLot, quantity: unallocated.toString() });
+                setAddingLot(true);
+              }}
+              className="w-full bg-transparent border-zinc-700 hover:border-orange-500/50"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add Lot for Remaining {unallocated.toFixed(holding.ticker === 'BTC' ? 8 : 2)} {holding.ticker}
+            </Button>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
