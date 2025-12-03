@@ -6,16 +6,18 @@ import { cn } from "@/lib/utils";
 const COLORS = ['#F7931A', '#60a5fa', '#a78bfa', '#f472b6', '#34d399', '#fbbf24'];
 
 const EXCHANGE_INFO = {
-  coinbase: { name: 'Coinbase', avgFee: 1.49 },
-  coinbase_pro: { name: 'Coinbase Pro', avgFee: 0.5 },
-  kraken: { name: 'Kraken', avgFee: 0.26 },
-  gemini: { name: 'Gemini', avgFee: 1.49 },
-  binance_us: { name: 'Binance US', avgFee: 0.1 },
-  strike: { name: 'Strike', avgFee: 0 },
-  cash_app: { name: 'Cash App', avgFee: 2.2 },
-  swan: { name: 'Swan Bitcoin', avgFee: 0.99 },
-  river: { name: 'River', avgFee: 0 },
-  robinhood: { name: 'Robinhood', avgFee: 0 },
+  coinbase: { name: 'Coinbase', avgFee: 1.49, color: '#0052FF' },
+  coinbase_pro: { name: 'Coinbase Pro', avgFee: 0.5, color: '#1652F0' },
+  kraken: { name: 'Kraken', avgFee: 0.26, color: '#7B61FF' },
+  gemini: { name: 'Gemini', avgFee: 1.49, color: '#00DCFA' },
+  binance_us: { name: 'Binance US', avgFee: 0.1, color: '#F0B90B' },
+  strike: { name: 'Strike', avgFee: 0, color: '#000000' },
+  cash_app: { name: 'Cash App', avgFee: 2.2, color: '#00D632' },
+  swan: { name: 'Swan Bitcoin', avgFee: 0.99, color: '#F7931A' },
+  river: { name: 'River', avgFee: 0, color: '#0066FF' },
+  robinhood: { name: 'Robinhood', avgFee: 0, color: '#00C805' },
+  other: { name: 'Other', avgFee: 0, color: '#71717a' },
+  unknown: { name: 'Unknown', avgFee: 0, color: '#52525b' },
 };
 
 export default function FeeAnalyzer({ transactions = [], btcPrice = 97000 }) {
@@ -77,6 +79,7 @@ export default function FeeAnalyzer({ transactions = [], btcPrice = 97000 }) {
     // Convert byExchange to array for charts
     const exchangeData = Object.entries(byExchange).map(([key, data]) => ({
       exchange: data.name,
+      exchangeKey: key,
       total: data.tradingFees + data.withdrawalFees + data.depositFees,
       tradingFees: data.tradingFees,
       withdrawalFees: data.withdrawalFees,
@@ -84,6 +87,7 @@ export default function FeeAnalyzer({ transactions = [], btcPrice = 97000 }) {
       volume: data.volume,
       feeRate: data.volume > 0 ? ((data.tradingFees + data.withdrawalFees + data.depositFees) / data.volume) * 100 : 0,
       transactions: data.transactions,
+      color: EXCHANGE_INFO[key]?.color || '#71717a',
     })).sort((a, b) => b.total - a.total);
 
     // Fee breakdown for pie chart
@@ -277,15 +281,25 @@ export default function FeeAnalyzer({ transactions = [], btcPrice = 97000 }) {
                     contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '12px' }}
                     formatter={(value, name) => [`$${value.toFixed(2)}`, name]}
                   />
-                  <Bar dataKey="tradingFees" stackId="a" fill="#F7931A" name="Trading" />
-                  <Bar dataKey="withdrawalFees" stackId="a" fill="#60a5fa" name="Withdrawal" />
-                  <Bar dataKey="depositFees" stackId="a" fill="#a78bfa" name="Deposit" />
+                  <Bar dataKey="total" name="Total Fees" radius={[0, 4, 4, 0]}>
+                    {analysis.exchangeData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </div>
           ) : (
             <p className="text-zinc-500 text-center py-12">No exchange data available</p>
           )}
+          <div className="flex flex-wrap justify-center gap-3 mt-4">
+            {analysis.exchangeData.map((ex, i) => (
+              <div key={i} className="flex items-center gap-1.5">
+                <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: ex.color }} />
+                <span className="text-xs text-zinc-400">{ex.exchange}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -307,7 +321,12 @@ export default function FeeAnalyzer({ transactions = [], btcPrice = 97000 }) {
               <tbody>
                 {analysis.exchangeData.map((ex, i) => (
                   <tr key={i} className="border-b border-zinc-800/50 hover:bg-zinc-800/20">
-                    <td className="py-3 px-4 font-medium">{ex.exchange}</td>
+                    <td className="py-3 px-4 font-medium">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: ex.color }} />
+                        {ex.exchange}
+                      </div>
+                    </td>
                     <td className="py-3 px-4 text-right text-zinc-400">${ex.volume.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
                     <td className="py-3 px-4 text-right">
                       <span className={cn(ex.total > 0 ? "text-amber-400" : "text-emerald-400")}>
