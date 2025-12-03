@@ -86,13 +86,13 @@ export default function FinancialPlan() {
   // Retirement settings
   const [retirementAge, setRetirementAge] = useState(65);
   const [currentAge, setCurrentAge] = useState(35);
-  const [annualSpending, setAnnualSpending] = useState(100000);
+  const [currentAnnualSpending, setCurrentAnnualSpending] = useState(80000);
+  const [retirementAnnualSpending, setRetirementAnnualSpending] = useState(100000);
   
   // Monte Carlo
   const [runSimulation, setRunSimulation] = useState(false);
   const [simulationResults, setSimulationResults] = useState(null);
   const [successProbability, setSuccessProbability] = useState(null);
-  const [retirementTarget, setRetirementTarget] = useState(2500000);
   
   // Forms
   const [goalFormOpen, setGoalFormOpen] = useState(false);
@@ -255,8 +255,8 @@ export default function FinancialPlan() {
     const simulations = runMonteCarloSimulation(totalValue, years, blendedReturn, blendedVolatility, 1000);
     const percentiles = calculatePercentiles(simulations);
     
-    // Calculate success probability against target
-    const probability = calculateSuccessProbability(simulations, retirementTarget);
+    // Calculate success probability against inflation-adjusted retirement income need
+    const probability = calculateSuccessProbability(simulations, requiredNestEgg);
     setSuccessProbability(probability);
     
     const chartData = percentiles.map((p, i) => ({
@@ -276,7 +276,12 @@ export default function FinancialPlan() {
   const realRetirementValue = projections[projections.length - 1]?.realTotal || 0;
   const withdrawalRate = 0.04;
   const sustainableWithdrawal = realRetirementValue * withdrawalRate;
-  const canRetire = sustainableWithdrawal >= annualSpending;
+  // Calculate inflation-adjusted retirement spending need at retirement
+  const yearsToRetirement = retirementAge - currentAge;
+  const inflationAdjustedRetirementSpending = retirementAnnualSpending * Math.pow(1 + inflationRate / 100, yearsToRetirement);
+  const canRetire = sustainableWithdrawal >= inflationAdjustedRetirementSpending;
+  // Calculate required nest egg for retirement income
+  const requiredNestEgg = inflationAdjustedRetirementSpending / withdrawalRate;
 
   const eventIcons = {
     income_change: Briefcase,
@@ -442,12 +447,16 @@ export default function FinancialPlan() {
                 <Input type="number" value={retirementAge} onChange={(e) => setRetirementAge(parseInt(e.target.value) || 65)} className="bg-zinc-900 border-zinc-800" />
               </div>
               <div className="space-y-2">
-                <Label className="text-zinc-400">Annual Spending Need</Label>
-                <Input type="number" value={annualSpending} onChange={(e) => setAnnualSpending(parseInt(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
+                <Label className="text-zinc-400">Current Annual Spending</Label>
+                <Input type="number" value={currentAnnualSpending} onChange={(e) => setCurrentAnnualSpending(parseInt(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-zinc-400">Desired Retirement Income</Label>
+                <Input type="number" value={retirementAnnualSpending} onChange={(e) => setRetirementAnnualSpending(parseInt(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mt-6 p-4 rounded-xl bg-zinc-800/30">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mt-6 p-4 rounded-xl bg-zinc-800/30">
               <div>
                 <p className="text-sm text-zinc-500">Projected at Retirement</p>
                 <p className="text-2xl font-bold text-orange-400">${(retirementValue / 1000000).toFixed(2)}M</p>
@@ -459,6 +468,11 @@ export default function FinancialPlan() {
               <div>
                 <p className="text-sm text-zinc-500">Safe Withdrawal (4%)</p>
                 <p className="text-2xl font-bold text-emerald-400">${(sustainableWithdrawal / 1000).toFixed(0)}k/yr</p>
+              </div>
+              <div>
+                <p className="text-sm text-zinc-500">Needed at Retirement</p>
+                <p className="text-xl font-bold text-amber-400">${(inflationAdjustedRetirementSpending / 1000).toFixed(0)}k/yr</p>
+                <p className="text-xs text-zinc-600">({inflationRate}% inflation adjusted)</p>
               </div>
               <div>
                 <p className="text-sm text-zinc-500">Retirement Status</p>
@@ -506,26 +520,22 @@ export default function FinancialPlan() {
 
         {/* Monte Carlo Tab */}
         <TabsContent value="montecarlo" className="space-y-6">
-          {/* Target Setting */}
+          {/* Income-Based Target */}
           <div className="card-premium rounded-xl p-4 border border-zinc-800/50">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-              <div className="flex-1">
-                <Label className="text-zinc-400 text-sm">Retirement Target</Label>
-                <p className="text-xs text-zinc-600">Set your goal to calculate success probability</p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <Label className="text-zinc-400 text-sm">Success Based on Retirement Income Need</Label>
+                <p className="text-xs text-zinc-600">
+                  ${retirementAnnualSpending.toLocaleString()}/yr today → ${Math.round(inflationAdjustedRetirementSpending).toLocaleString()}/yr at retirement ({inflationRate}% inflation)
+                </p>
+                <p className="text-xs text-zinc-500 mt-1">
+                  Required nest egg (4% rule): <span className="text-orange-400 font-semibold">${(requiredNestEgg / 1000000).toFixed(2)}M</span>
+                </p>
               </div>
-              <div className="flex items-center gap-3">
-                <span className="text-zinc-500">$</span>
-                <Input 
-                  type="number" 
-                  value={retirementTarget} 
-                  onChange={(e) => setRetirementTarget(parseFloat(e.target.value) || 0)} 
-                  className="bg-zinc-900 border-zinc-800 w-40" 
-                />
-                <Button onClick={handleRunSimulation} className="brand-gradient text-white font-semibold">
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  Run
-                </Button>
-              </div>
+              <Button onClick={handleRunSimulation} className="brand-gradient text-white font-semibold">
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Run Simulation
+              </Button>
             </div>
           </div>
 
@@ -549,7 +559,9 @@ export default function FinancialPlan() {
                   successProbability >= 50 ? "bg-amber-500/10 border border-amber-500/30" :
                   "bg-rose-500/10 border border-rose-500/30"
                 )}>
-                  <p className="text-sm text-zinc-400 mb-2">Probability of Reaching ${(retirementTarget / 1000000).toFixed(1)}M</p>
+                  <p className="text-sm text-zinc-400 mb-2">
+                    Probability of Funding ${Math.round(inflationAdjustedRetirementSpending).toLocaleString()}/yr Retirement Income
+                  </p>
                   <p className={cn(
                     "text-5xl font-bold",
                     successProbability >= 80 ? "text-emerald-400" :
@@ -558,10 +570,11 @@ export default function FinancialPlan() {
                   )}>
                     {successProbability?.toFixed(0)}%
                   </p>
+                  <p className="text-xs text-zinc-600 mt-1">Requires ${(requiredNestEgg / 1000000).toFixed(2)}M nest egg (4% safe withdrawal)</p>
                   <p className="text-sm text-zinc-500 mt-2">
-                    {successProbability >= 80 ? "Excellent! You're on track for retirement." :
-                     successProbability >= 50 ? "Good progress, but consider increasing savings." :
-                     "You may need to adjust your plan to reach your goal."}
+                    {successProbability >= 80 ? "Excellent! You're on track for your desired retirement lifestyle." :
+                     successProbability >= 50 ? "Good progress, but consider increasing savings or adjusting expectations." :
+                     "You may need to save more or adjust your retirement income goal."}
                   </p>
                 </div>
 
@@ -578,7 +591,7 @@ export default function FinancialPlan() {
                           return [`$${value.toLocaleString()}`, labels[name] || name];
                         }}
                       />
-                      <ReferenceLine y={retirementTarget} stroke="#F7931A" strokeDasharray="5 5" label={{ value: 'Target', fill: '#F7931A', fontSize: 12 }} />
+                      <ReferenceLine y={requiredNestEgg} stroke="#F7931A" strokeDasharray="5 5" label={{ value: 'Target', fill: '#F7931A', fontSize: 12 }} />
                       <Area type="monotone" dataKey="p10" stackId="1" stroke="none" fill="#ef4444" fillOpacity={0.1} name="p10" />
                       <Area type="monotone" dataKey="p25" stackId="2" stroke="none" fill="#f59e0b" fillOpacity={0.15} name="p25" />
                       <Area type="monotone" dataKey="p75" stackId="3" stroke="none" fill="#10b981" fillOpacity={0.15} name="p75" />

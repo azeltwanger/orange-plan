@@ -318,10 +318,10 @@ export default function TaxCenter() {
     });
   });
 
-  // Tax bracket visualization data - include up to 35% bracket for 300k slider
-  const bracketChartData = TAX_BRACKETS_2024.single.slice(0, 6).map(bracket => ({
+  // Tax bracket visualization data - include all brackets up to 37%
+  const bracketChartData = TAX_BRACKETS_2024.single.map(bracket => ({
     name: bracket.label,
-    max: bracket.max === Infinity ? 700000 : bracket.max,
+    max: bracket.max === Infinity ? 800000 : bracket.max,
     rate: bracket.rate * 100,
     fill: annualIncome >= bracket.min && (bracket.max === Infinity || annualIncome < bracket.max) ? '#F7931A' : '#27272a',
   }));
