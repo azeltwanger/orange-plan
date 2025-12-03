@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
@@ -7,8 +7,29 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { cn } from "@/lib/utils";
 
 export default function Performance() {
-  const [btcPrice] = useState(97000);
+  const [btcPrice, setBtcPrice] = useState(null);
+  const [priceLoading, setPriceLoading] = useState(true);
   const [timeframe, setTimeframe] = useState('1Y');
+
+  // Fetch live BTC price
+  useEffect(() => {
+    const fetchPrice = async () => {
+      try {
+        const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd');
+        const data = await response.json();
+        setBtcPrice(data.bitcoin.usd);
+        setPriceLoading(false);
+      } catch (err) {
+        setBtcPrice(97000);
+        setPriceLoading(false);
+      }
+    };
+    fetchPrice();
+    const interval = setInterval(fetchPrice, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const currentPrice = btcPrice || 97000;
 
   const { data: holdings = [] } = useQuery({
     queryKey: ['holdings'],
@@ -24,7 +45,7 @@ export default function Performance() {
   const btcHoldings = holdings.filter(h => h.ticker === 'BTC').reduce((sum, h) => sum + h.quantity, 0);
   const totalCostBasis = holdings.reduce((sum, h) => sum + (h.cost_basis_total || 0), 0);
   const currentValue = holdings.reduce((sum, h) => {
-    if (h.ticker === 'BTC') return sum + (h.quantity * btcPrice);
+    if (h.ticker === 'BTC') return sum + (h.quantity * currentPrice);
     return sum + (h.quantity * (h.current_price || 0));
   }, 0);
   
@@ -37,7 +58,7 @@ export default function Performance() {
     return months.map((month, i) => ({
       name: month,
       portfolio: Math.round(currentValue * (0.5 + (i / 12) * 0.6 + Math.random() * 0.1)),
-      btc: Math.round(btcPrice * (0.6 + (i / 12) * 0.5 + Math.random() * 0.1)),
+      btc: Math.round(currentPrice * (0.6 + (i / 12) * 0.5 + Math.random() * 0.1)),
     }));
   };
 
@@ -153,9 +174,9 @@ export default function Performance() {
         <h3 className="font-semibold mb-6">Asset Performance</h3>
         <div className="space-y-4">
           {holdings.map((holding) => {
-            const value = holding.ticker === 'BTC' 
-              ? holding.quantity * btcPrice 
-              : holding.quantity * (holding.current_price || 0);
+          const value = holding.ticker === 'BTC' 
+            ? holding.quantity * currentPrice 
+            : holding.quantity * (holding.current_price || 0);
             const gain = value - (holding.cost_basis_total || 0);
             const gainPercent = holding.cost_basis_total ? (gain / holding.cost_basis_total) * 100 : 0;
 

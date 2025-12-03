@@ -13,8 +13,29 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 
 export default function Liabilities() {
-  const [btcPrice] = useState(97000);
+  const [btcPrice, setBtcPrice] = useState(null);
+  const [priceLoading, setPriceLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
+
+  // Fetch live BTC price
+  useEffect(() => {
+    const fetchPrice = async () => {
+      try {
+        const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd');
+        const data = await response.json();
+        setBtcPrice(data.bitcoin.usd);
+        setPriceLoading(false);
+      } catch (err) {
+        setBtcPrice(97000);
+        setPriceLoading(false);
+      }
+    };
+    fetchPrice();
+    const interval = setInterval(fetchPrice, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const currentPrice = btcPrice || 97000;
   const [editingLiability, setEditingLiability] = useState(null);
   const queryClient = useQueryClient();
 
@@ -120,7 +141,7 @@ export default function Liabilities() {
 
   // Calculate totals
   const totalAssets = holdings.reduce((sum, h) => {
-    if (h.ticker === 'BTC') return sum + (h.quantity * btcPrice);
+    if (h.ticker === 'BTC') return sum + (h.quantity * currentPrice);
     return sum + (h.quantity * (h.current_price || 0));
   }, 0);
 
@@ -134,13 +155,13 @@ export default function Liabilities() {
   // BTC collateral health
   const btcLoans = liabilities.filter(l => l.type === 'btc_collateralized');
   const totalCollateralBtc = btcLoans.reduce((sum, l) => sum + (l.collateral_btc_amount || 0), 0);
-  const totalCollateralValue = totalCollateralBtc * btcPrice;
+  const totalCollateralValue = totalCollateralBtc * currentPrice;
   const collateralRatio = btcCollateralizedDebt > 0 ? (totalCollateralValue / btcCollateralizedDebt) * 100 : 0;
 
   // Check for at-risk loans
   const atRiskLoans = btcLoans.filter(l => {
     if (!l.liquidation_price) return false;
-    const marginToLiquidation = ((btcPrice - l.liquidation_price) / btcPrice) * 100;
+    const marginToLiquidation = ((currentPrice - l.liquidation_price) / currentPrice) * 100;
     return marginToLiquidation < 30;
   });
 
@@ -276,7 +297,7 @@ export default function Liabilities() {
 
               let collateralHealth = null;
               if (liability.type === 'btc_collateralized' && liability.liquidation_price) {
-                const marginToLiquidation = ((btcPrice - liability.liquidation_price) / btcPrice) * 100;
+                const marginToLiquidation = ((currentPrice - liability.liquidation_price) / currentPrice) * 100;
                 collateralHealth = {
                   margin: marginToLiquidation,
                   isHealthy: marginToLiquidation >= 50,
@@ -386,7 +407,7 @@ export default function Liabilities() {
                           {collateralHealth.margin.toFixed(1)}% margin to liquidation
                         </p>
                         <p className="text-sm text-zinc-500">
-                          Liquidation at ${liability.liquidation_price?.toLocaleString()} • Current ${btcPrice.toLocaleString()}
+                          Liquidation at ${liability.liquidation_price?.toLocaleString()} • Current ${currentPrice.toLocaleString()}
                         </p>
                       </div>
                     </div>
