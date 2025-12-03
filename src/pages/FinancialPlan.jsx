@@ -217,13 +217,53 @@ export default function FinancialPlan() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['accounts'] }),
   });
 
-  // Calculate portfolio values
+  // Account type helpers
+  const ACCOUNT_TYPE_INFO = {
+    taxable: { label: 'Taxable Brokerage', icon: Building2, color: 'text-zinc-400', taxDeferred: false, taxFree: false },
+    '401k_traditional': { label: 'Traditional 401(k)', icon: Landmark, color: 'text-blue-400', taxDeferred: true, taxFree: false, limit2024: 23000 },
+    '401k_roth': { label: 'Roth 401(k)', icon: Landmark, color: 'text-emerald-400', taxDeferred: false, taxFree: true, limit2024: 23000 },
+    'ira_traditional': { label: 'Traditional IRA', icon: PiggyBank, color: 'text-purple-400', taxDeferred: true, taxFree: false, limit2024: 7000 },
+    'ira_roth': { label: 'Roth IRA', icon: PiggyBank, color: 'text-emerald-400', taxDeferred: false, taxFree: true, limit2024: 7000 },
+    'hsa': { label: 'HSA', icon: Shield, color: 'text-cyan-400', taxDeferred: false, taxFree: true, limit2024: 4150 },
+    '529': { label: '529 Plan', icon: PiggyBank, color: 'text-amber-400', taxDeferred: false, taxFree: true },
+  };
+
+  // Calculate portfolio values by account type
+  const getHoldingValue = (h) => {
+    if (h.ticker === 'BTC') return h.quantity * currentPrice;
+    return h.quantity * (h.current_price || 0);
+  };
+
+  const holdingsWithAccounts = holdings.map(h => {
+    const account = accounts.find(a => a.id === h.account_id);
+    return { ...h, account, accountType: account?.account_type || 'taxable' };
+  });
+
+  // Group by tax treatment
+  const taxableHoldings = holdingsWithAccounts.filter(h => !ACCOUNT_TYPE_INFO[h.accountType]?.taxDeferred && !ACCOUNT_TYPE_INFO[h.accountType]?.taxFree);
+  const taxDeferredHoldings = holdingsWithAccounts.filter(h => ACCOUNT_TYPE_INFO[h.accountType]?.taxDeferred);
+  const taxFreeHoldings = holdingsWithAccounts.filter(h => ACCOUNT_TYPE_INFO[h.accountType]?.taxFree);
+
+  const taxableValue = taxableHoldings.reduce((sum, h) => sum + getHoldingValue(h), 0);
+  const taxDeferredValue = taxDeferredHoldings.reduce((sum, h) => sum + getHoldingValue(h), 0);
+  const taxFreeValue = taxFreeHoldings.reduce((sum, h) => sum + getHoldingValue(h), 0);
+
+  // Calculate portfolio values by asset type
   const btcValue = holdings.filter(h => h.ticker === 'BTC').reduce((sum, h) => sum + h.quantity * currentPrice, 0);
   const stocksValue = holdings.filter(h => h.asset_type === 'stocks').reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
   const realEstateValue = holdings.filter(h => h.asset_type === 'real_estate').reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
   const bondsValue = holdings.filter(h => h.asset_type === 'bonds').reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
   const otherValue = holdings.filter(h => !['BTC'].includes(h.ticker) && !['stocks', 'real_estate', 'bonds'].includes(h.asset_type)).reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
   const totalValue = btcValue + stocksValue + realEstateValue + bondsValue + otherValue;
+
+  // Annual contributions from accounts
+  const totalAnnualContributions = accounts.reduce((sum, a) => {
+    const contrib = a.annual_contribution || 0;
+    const match = a.employer_match_percent && a.employer_match_limit 
+      ? Math.min((contrib * a.employer_match_percent / 100), a.employer_match_limit)
+      : 0;
+    return sum + contrib + match;
+  }, 0);
 
   // Get active scenario overrides
   const activeScenario = scenarios.find(s => s.id === activeScenarioId);
