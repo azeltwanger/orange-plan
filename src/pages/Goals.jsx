@@ -245,29 +245,11 @@ export default function Goals() {
   };
 
   const openGoalForm = (bucket) => {
-    setSelectedBucket(bucket);
     let goalType = 'major_purchase';
     if (bucket === 'emergency') goalType = 'emergency_fund';
     if (bucket === 'longterm') goalType = 'retirement';
     setGoalForm({ ...goalForm, bucket, goal_type: goalType });
     setGoalFormOpen(true);
-  };
-
-  // Calculate months to goal
-  const getMonthsToGoal = (goal) => {
-    if (!goal.target_date) return null;
-    const targetDate = new Date(goal.target_date);
-    const now = new Date();
-    const months = (targetDate.getFullYear() - now.getFullYear()) * 12 + (targetDate.getMonth() - now.getMonth());
-    return Math.max(0, months);
-  };
-
-  // Calculate monthly needed
-  const getMonthlyNeeded = (goal) => {
-    const months = getMonthsToGoal(goal);
-    if (!months || months <= 0) return 0;
-    const remaining = (goal.target_amount || 0) - (goal.current_amount || 0);
-    return remaining / months;
   };
 
   const currentYear = new Date().getFullYear();
