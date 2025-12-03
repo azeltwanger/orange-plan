@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
-import { Plus, Pencil, Trash2, ArrowUpRight, ArrowDownRight, Bitcoin, TrendingUp, Calendar, Play, Pause } from 'lucide-react';
+import { Plus, Pencil, Trash2, ArrowUpRight, Bitcoin, TrendingUp, Calendar, Play, Pause, Info, PieChart } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,7 +10,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
+import { Slider } from "@/components/ui/slider";
+import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { Link } from 'react-router-dom';
+import { createPageUrl } from '../utils';
 
 export default function DCAStrategy() {
   const [btcPrice, setBtcPrice] = useState(null);
@@ -42,7 +46,7 @@ export default function DCAStrategy() {
   const [formData, setFormData] = useState({
     name: '',
     asset_ticker: 'BTC',
-    strategy_type: 'accumulation',
+    strategy_type: 'accumulation', // Always accumulation now
     amount_per_period: '',
     frequency: 'weekly',
     start_date: '',
@@ -61,6 +65,27 @@ export default function DCAStrategy() {
     queryKey: ['transactions'],
     queryFn: () => base44.entities.Transaction.list(),
   });
+
+  const { data: budgetItems = [] } = useQuery({
+    queryKey: ['budgetItems'],
+    queryFn: () => base44.entities.BudgetItem.list(),
+  });
+
+  // Calculate savings from Income & Expenses (single source of truth)
+  const budgetFreqMultiplier = { monthly: 12, weekly: 52, biweekly: 26, quarterly: 4, annual: 1, one_time: 0 };
+  const monthlyIncome = budgetItems
+    .filter(b => b.type === 'income' && b.is_active !== false)
+    .reduce((sum, b) => sum + (b.amount * (budgetFreqMultiplier[b.frequency] || 12) / 12), 0);
+  const monthlyExpenses = budgetItems
+    .filter(b => b.type === 'expense' && b.is_active !== false)
+    .reduce((sum, b) => sum + (b.amount * (budgetFreqMultiplier[b.frequency] || 12) / 12), 0);
+  const monthlySavings = Math.max(0, monthlyIncome - monthlyExpenses);
+  const annualSavings = monthlySavings * 12;
+
+  // Allocation state
+  const [btcAllocation, setBtcAllocation] = useState(50);
+  const [stocksAllocation, setStocksAllocation] = useState(30);
+  const [cashAllocation, setCashAllocation] = useState(20);
 
   const createPlan = useMutation({
     mutationFn: (data) => base44.entities.DCAPlan.create(data),
@@ -133,16 +158,16 @@ export default function DCAStrategy() {
     }
   };
 
-  // Calculate totals
-  const activePlans = dcaPlans.filter(p => p.is_active);
+  // Calculate totals - accumulation only (withdrawals handled in Projections)
+  const activePlans = dcaPlans.filter(p => p.is_active && p.strategy_type === 'accumulation');
   const freqMultiplier = { daily: 30, weekly: 4.33, biweekly: 2.17, monthly: 1 };
   const totalMonthlyDCA = activePlans
-    .filter(p => p.strategy_type === 'accumulation')
     .reduce((sum, p) => sum + (p.amount_per_period * (freqMultiplier[p.frequency] || 1)), 0);
 
-  const totalMonthlyWithdrawal = activePlans
-    .filter(p => p.strategy_type === 'withdrawal')
-    .reduce((sum, p) => sum + (p.amount_per_period * (freqMultiplier[p.frequency] || 1)), 0);
+  // Calculated allocation amounts
+  const monthlyBtcAmount = (monthlySavings * btcAllocation) / 100;
+  const monthlyStocksAmount = (monthlySavings * stocksAllocation) / 100;
+  const monthlyCashAmount = (monthlySavings * cashAllocation) / 100;
 
   // Generate projection chart
   const generateDCAProjection = () => {
@@ -185,36 +210,135 @@ export default function DCAStrategy() {
         </Button>
       </div>
 
+      {/* Savings Source Card */}
+      <div className="card-glass rounded-xl p-6 border border-zinc-800/50">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <h3 className="font-semibold">Available for Investing</h3>
+            <TooltipProvider>
+              <UITooltip>
+                <TooltipTrigger><Info className="w-4 h-4 text-zinc-500" /></TooltipTrigger>
+                <TooltipContent className="max-w-xs bg-zinc-800 border-zinc-700">
+                  <p>Calculated from Income & Expenses. Adjust your budget to change this amount.</p>
+                </TooltipContent>
+              </UITooltip>
+            </TooltipProvider>
+          </div>
+          <Link to={createPageUrl('Budget')} className="text-sm text-orange-400 hover:underline">
+            Edit Budget →
+          </Link>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="p-4 rounded-lg bg-zinc-800/30">
+            <p className="text-sm text-zinc-500">Monthly Income</p>
+            <p className="text-xl font-bold text-emerald-400">${monthlyIncome.toLocaleString('en-US', { maximumFractionDigits: 0 })}</p>
+          </div>
+          <div className="p-4 rounded-lg bg-zinc-800/30">
+            <p className="text-sm text-zinc-500">Monthly Expenses</p>
+            <p className="text-xl font-bold text-rose-400">${monthlyExpenses.toLocaleString('en-US', { maximumFractionDigits: 0 })}</p>
+          </div>
+          <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+            <p className="text-sm text-zinc-500">Monthly Savings</p>
+            <p className="text-2xl font-bold text-emerald-400">${monthlySavings.toLocaleString('en-US', { maximumFractionDigits: 0 })}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Allocation Strategy */}
+      <div className="card-glass rounded-xl p-6 border border-zinc-800/50">
+        <div className="flex items-center gap-2 mb-4">
+          <PieChart className="w-5 h-5 text-orange-400" />
+          <h3 className="font-semibold">Savings Allocation</h3>
+        </div>
+        <p className="text-sm text-zinc-500 mb-6">How do you want to allocate your ${monthlySavings.toLocaleString('en-US', { maximumFractionDigits: 0 })}/month savings?</p>
+        
+        <div className="space-y-6">
+          <div className="space-y-3">
+            <div className="flex justify-between">
+              <Label className="text-zinc-400 flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-orange-400" />
+                Bitcoin
+              </Label>
+              <span className="text-orange-400 font-semibold">{btcAllocation}% (${monthlyBtcAmount.toLocaleString('en-US', { maximumFractionDigits: 0 })}/mo)</span>
+            </div>
+            <Slider value={[btcAllocation]} onValueChange={([v]) => {
+              setBtcAllocation(v);
+              const remaining = 100 - v;
+              const ratio = stocksAllocation / (stocksAllocation + cashAllocation) || 0.5;
+              setStocksAllocation(Math.round(remaining * ratio));
+              setCashAllocation(remaining - Math.round(remaining * ratio));
+            }} min={0} max={100} step={5} />
+          </div>
+          
+          <div className="space-y-3">
+            <div className="flex justify-between">
+              <Label className="text-zinc-400 flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-blue-400" />
+                Stocks/ETFs
+              </Label>
+              <span className="text-blue-400 font-semibold">{stocksAllocation}% (${monthlyStocksAmount.toLocaleString('en-US', { maximumFractionDigits: 0 })}/mo)</span>
+            </div>
+            <Slider value={[stocksAllocation]} onValueChange={([v]) => {
+              setStocksAllocation(v);
+              setCashAllocation(Math.max(0, 100 - btcAllocation - v));
+            }} min={0} max={100 - btcAllocation} step={5} />
+          </div>
+          
+          <div className="space-y-3">
+            <div className="flex justify-between">
+              <Label className="text-zinc-400 flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-emerald-400" />
+                Cash/Bonds
+              </Label>
+              <span className="text-emerald-400 font-semibold">{cashAllocation}% (${monthlyCashAmount.toLocaleString('en-US', { maximumFractionDigits: 0 })}/mo)</span>
+            </div>
+            <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
+              <div className="h-full bg-emerald-500/50 rounded-full" style={{ width: `${cashAllocation}%` }} />
+            </div>
+          </div>
+        </div>
+
+        {/* Visual allocation bar */}
+        <div className="mt-6 h-4 rounded-full overflow-hidden flex">
+          <div className="bg-orange-500" style={{ width: `${btcAllocation}%` }} />
+          <div className="bg-blue-500" style={{ width: `${stocksAllocation}%` }} />
+          <div className="bg-emerald-500" style={{ width: `${cashAllocation}%` }} />
+        </div>
+      </div>
+
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="card-glass rounded-xl p-6">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-sm text-zinc-500 uppercase tracking-wider">Monthly DCA</span>
-            <div className="p-2 rounded-lg bg-emerald-400/10">
-              <ArrowUpRight className="w-4 h-4 text-emerald-400" />
+            <span className="text-sm text-zinc-500 uppercase tracking-wider">Monthly to BTC</span>
+            <div className="p-2 rounded-lg bg-orange-400/10">
+              <Bitcoin className="w-4 h-4 text-orange-400" />
             </div>
           </div>
-          <p className="text-3xl font-bold text-emerald-400">${totalMonthlyDCA.toLocaleString()}</p>
+          <p className="text-3xl font-bold text-orange-400">${monthlyBtcAmount.toLocaleString('en-US', { maximumFractionDigits: 0 })}</p>
           <p className="text-sm text-zinc-500 mt-1">
-            ≈ {(totalMonthlyDCA / currentPrice).toFixed(6)} BTC/mo
+            ≈ {(monthlyBtcAmount / currentPrice).toFixed(6)} BTC/mo
           </p>
         </div>
 
         <div className="card-glass rounded-xl p-6">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-sm text-zinc-500 uppercase tracking-wider">Monthly Withdrawal</span>
-            <div className="p-2 rounded-lg bg-rose-400/10">
-              <ArrowDownRight className="w-4 h-4 text-rose-400" />
+            <span className="text-sm text-zinc-500 uppercase tracking-wider">Annual to BTC</span>
+            <div className="p-2 rounded-lg bg-orange-400/10">
+              <TrendingUp className="w-4 h-4 text-orange-400" />
             </div>
           </div>
-          <p className="text-3xl font-bold text-rose-400">${totalMonthlyWithdrawal.toLocaleString()}</p>
+          <p className="text-3xl font-bold text-orange-400">${(monthlyBtcAmount * 12).toLocaleString('en-US', { maximumFractionDigits: 0 })}</p>
+          <p className="text-sm text-zinc-500 mt-1">
+            ≈ {((monthlyBtcAmount * 12) / currentPrice).toFixed(4)} BTC/yr
+          </p>
         </div>
 
         <div className="card-glass rounded-xl p-6">
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm text-zinc-500 uppercase tracking-wider">Active Plans</span>
             <div className="p-2 rounded-lg bg-amber-400/10">
-              <TrendingUp className="w-4 h-4 text-amber-400" />
+              <Calendar className="w-4 h-4 text-amber-400" />
             </div>
           </div>
           <p className="text-3xl font-bold text-amber-400">{activePlans.length}</p>
@@ -222,12 +346,26 @@ export default function DCAStrategy() {
       </div>
 
       {/* Projection Chart */}
-      {totalMonthlyDCA > 0 && (
+      {monthlyBtcAmount > 0 && (
         <div className="card-glass rounded-2xl p-6">
-          <h3 className="font-semibold mb-6">12-Month DCA Projection</h3>
+          <h3 className="font-semibold mb-6">12-Month BTC Accumulation Projection</h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={projectionData}>
+              <AreaChart data={(() => {
+                const data = [];
+                let totalBtc = 0;
+                let totalInvested = 0;
+                for (let i = 0; i <= 12; i++) {
+                  totalBtc += monthlyBtcAmount / currentPrice;
+                  totalInvested += monthlyBtcAmount;
+                  data.push({
+                    month: i,
+                    btc: parseFloat(totalBtc.toFixed(4)),
+                    invested: Math.round(totalInvested),
+                  });
+                }
+                return data;
+              })()}>
                 <defs>
                   <linearGradient id="btcGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#F7931A" stopOpacity={0.3}/>
@@ -245,7 +383,7 @@ export default function DCAStrategy() {
                   }}
                   formatter={(value, name) => [
                     name === 'btc' ? `${value} BTC` : `$${value.toLocaleString()}`,
-                    name === 'btc' ? 'Accumulated' : name === 'invested' ? 'Invested' : 'Value'
+                    name === 'btc' ? 'Accumulated' : 'Invested'
                   ]}
                 />
                 <Area type="monotone" dataKey="btc" stroke="#F7931A" fill="url(#btcGradient)" strokeWidth={2} />
@@ -255,15 +393,15 @@ export default function DCAStrategy() {
           <div className="grid grid-cols-3 gap-4 mt-6 p-4 rounded-xl bg-zinc-800/30">
             <div className="text-center">
               <p className="text-sm text-zinc-500">Total Invested</p>
-              <p className="text-lg font-bold text-zinc-100">${(totalMonthlyDCA * 12).toLocaleString()}</p>
+              <p className="text-lg font-bold text-zinc-100">${(monthlyBtcAmount * 12).toLocaleString('en-US', { maximumFractionDigits: 0 })}</p>
             </div>
             <div className="text-center">
               <p className="text-sm text-zinc-500">BTC Accumulated</p>
-              <p className="text-lg font-bold text-amber-400">{((totalMonthlyDCA * 12) / currentPrice).toFixed(4)} BTC</p>
+              <p className="text-lg font-bold text-amber-400">{((monthlyBtcAmount * 12) / currentPrice).toFixed(4)} BTC</p>
             </div>
             <div className="text-center">
               <p className="text-sm text-zinc-500">At Current Price</p>
-              <p className="text-lg font-bold text-emerald-400">${(totalMonthlyDCA * 12).toLocaleString()}</p>
+              <p className="text-lg font-bold text-emerald-400">${(monthlyBtcAmount * 12).toLocaleString('en-US', { maximumFractionDigits: 0 })}</p>
             </div>
           </div>
         </div>
@@ -271,7 +409,8 @@ export default function DCAStrategy() {
 
       {/* DCA Plans */}
       <div className="card-glass rounded-2xl p-6">
-        <h3 className="font-semibold mb-6">Your DCA Plans</h3>
+        <h3 className="font-semibold mb-2">Your DCA Plans</h3>
+        <p className="text-sm text-zinc-500 mb-6">Schedule recurring buys. Withdrawals are managed in Projections → Retirement Planning.</p>
         {dcaPlans.length === 0 ? (
           <div className="text-center py-12">
             <Bitcoin className="w-12 h-12 text-zinc-700 mx-auto mb-4" />
@@ -290,26 +429,14 @@ export default function DCAStrategy() {
                 )}>
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-4">
-                      <div className={cn(
-                        "w-12 h-12 rounded-xl flex items-center justify-center",
-                        plan.strategy_type === 'accumulation' ? 'bg-emerald-400/10' : 'bg-rose-400/10'
-                      )}>
-                        {plan.strategy_type === 'accumulation' ? (
-                          <ArrowUpRight className="w-6 h-6 text-emerald-400" />
-                        ) : (
-                          <ArrowDownRight className="w-6 h-6 text-rose-400" />
-                        )}
+                      <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-orange-400/10">
+                        <Bitcoin className="w-6 h-6 text-orange-400" />
                       </div>
                       <div>
                         <h4 className="font-semibold text-lg">{plan.name}</h4>
                         <div className="flex items-center gap-2 text-sm text-zinc-500">
-                          <span className={cn(
-                            "px-2 py-0.5 rounded-full text-xs font-medium",
-                            plan.strategy_type === 'accumulation' 
-                              ? 'bg-emerald-400/10 text-emerald-400' 
-                              : 'bg-rose-400/10 text-rose-400'
-                          )}>
-                            {plan.strategy_type}
+                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-400/10 text-emerald-400">
+                            DCA
                           </span>
                           <span>•</span>
                           <span>{plan.asset_ticker}</span>
@@ -393,30 +520,14 @@ export default function DCAStrategy() {
                 required
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-zinc-400">Strategy</Label>
-                <Select
-                  value={formData.strategy_type}
-                  onValueChange={(value) => setFormData({ ...formData, strategy_type: value })}
-                >
-                  <SelectTrigger className="bg-zinc-800 border-zinc-700">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-zinc-800 border-zinc-700">
-                    <SelectItem value="accumulation">Accumulation</SelectItem>
-                    <SelectItem value="withdrawal">Withdrawal</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-zinc-400">Asset</Label>
-                <Input
-                  value={formData.asset_ticker}
-                  onChange={(e) => setFormData({ ...formData, asset_ticker: e.target.value.toUpperCase() })}
-                  className="bg-zinc-800 border-zinc-700"
-                />
-              </div>
+            <div className="space-y-2">
+              <Label className="text-zinc-400">Asset</Label>
+              <Input
+                value={formData.asset_ticker}
+                onChange={(e) => setFormData({ ...formData, asset_ticker: e.target.value.toUpperCase() })}
+                className="bg-zinc-800 border-zinc-700"
+                placeholder="BTC"
+              />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">

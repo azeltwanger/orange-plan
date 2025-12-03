@@ -81,7 +81,6 @@ export default function FinancialPlan() {
   const [bondsCagr, setBondsCagr] = useState(3);
   const [inflationRate, setInflationRate] = useState(3);
   const [incomeGrowth, setIncomeGrowth] = useState(3);
-  const [annualSavings, setAnnualSavings] = useState(20000);
   
   // Retirement settings
   const [retirementAge, setRetirementAge] = useState(65);
@@ -153,6 +152,21 @@ export default function FinancialPlan() {
     queryKey: ['lifeEvents'],
     queryFn: () => base44.entities.LifeEvent.list(),
   });
+
+  const { data: budgetItems = [] } = useQuery({
+    queryKey: ['budgetItems'],
+    queryFn: () => base44.entities.BudgetItem.list(),
+  });
+
+  // Calculate annual savings from Income & Expenses (single source of truth)
+  const freqMultiplier = { monthly: 12, weekly: 52, biweekly: 26, quarterly: 4, annual: 1, one_time: 0 };
+  const monthlyIncome = budgetItems
+    .filter(b => b.type === 'income' && b.is_active !== false)
+    .reduce((sum, b) => sum + (b.amount * (freqMultiplier[b.frequency] || 12) / 12), 0);
+  const monthlyExpenses = budgetItems
+    .filter(b => b.type === 'expense' && b.is_active !== false)
+    .reduce((sum, b) => sum + (b.amount * (freqMultiplier[b.frequency] || 12) / 12), 0);
+  const annualSavings = Math.max(0, (monthlyIncome - monthlyExpenses) * 12);
 
 
 
@@ -654,11 +668,22 @@ export default function FinancialPlan() {
               <Slider value={[incomeGrowth]} onValueChange={([v]) => setIncomeGrowth(v)} min={0} max={10} step={0.5} />
             </div>
             <div className="space-y-3 lg:col-span-2">
-              <div className="flex justify-between">
-                <Label className="text-zinc-400">Annual Savings (grows with income)</Label>
-                <span className="text-emerald-400 font-semibold">${annualSavings.toLocaleString()}</span>
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <Label className="text-zinc-400">Annual Savings (from Income & Expenses)</Label>
+                  <span className="text-xs text-zinc-600 bg-zinc-800 px-2 py-0.5 rounded">Auto-calculated</span>
+                </div>
+                <span className="text-emerald-400 font-semibold">{formatNumberFull(annualSavings)}</span>
               </div>
-              <Slider value={[annualSavings]} onValueChange={([v]) => setAnnualSavings(v)} min={0} max={100000} step={1000} />
+              <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-emerald-500/50 rounded-full" 
+                  style={{ width: `${Math.min(100, (annualSavings / 100000) * 100)}%` }}
+                />
+              </div>
+              <p className="text-xs text-zinc-500">
+                Monthly: {formatNumberFull(monthlyIncome)} income − {formatNumberFull(monthlyExpenses)} expenses = {formatNumberFull(monthlyIncome - monthlyExpenses)} surplus
+              </p>
             </div>
           </div>
         </div>
