@@ -143,12 +143,13 @@ export default function Layout({ children, currentPageName }) {
         
         /* Light mode overrides */
         .light-mode .card-premium {
-          background: linear-gradient(145deg, rgba(255, 255, 255, 0.98) 0%, rgba(249, 250, 251, 0.99) 100%);
-          border: 1px solid rgba(0, 0, 0, 0.1);
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+          background: white;
+          border: 1px solid rgb(229 231 235);
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
         }
         .light-mode .card-premium:hover {
-          border-color: rgba(247, 147, 26, 0.3);
+          border-color: rgba(247, 147, 26, 0.4);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         }
 
         /* Light mode text fixes */
@@ -157,21 +158,103 @@ export default function Layout({ children, currentPageName }) {
         .light-mode .text-zinc-300 {
           color: rgb(24 24 27) !important;
         }
-        .light-mode .text-zinc-400,
-        .light-mode .text-zinc-500 {
+        .light-mode .text-zinc-400 {
+          color: rgb(82 82 91) !important;
+        }
+        .light-mode .text-zinc-500,
+        .light-mode .text-zinc-600 {
           color: rgb(113 113 122) !important;
         }
+
+        /* Light mode backgrounds */
         .light-mode .bg-zinc-800\/30,
         .light-mode .bg-zinc-800\/50 {
-          background-color: rgba(244, 244, 245, 0.8) !important;
+          background-color: rgb(249 250 251) !important;
         }
-        .light-mode .bg-zinc-900 {
-          background-color: rgb(250 250 250) !important;
+        .light-mode .bg-zinc-900,
+        .light-mode .bg-zinc-900\/50 {
+          background-color: rgb(243 244 246) !important;
         }
+        .light-mode .bg-\[\#0f0f10\],
+        .light-mode .bg-\[\#0a0a0b\] {
+          background-color: white !important;
+        }
+
+        /* Light mode borders */
         .light-mode .border-zinc-800,
         .light-mode .border-zinc-800\/50,
-        .light-mode .border-zinc-700 {
-          border-color: rgba(0, 0, 0, 0.1) !important;
+        .light-mode .border-zinc-800\/30,
+        .light-mode .border-zinc-700,
+        .light-mode .border-zinc-700\/50 {
+          border-color: rgb(229 231 235) !important;
+        }
+
+        /* Light mode hover states */
+        .light-mode .hover\:bg-zinc-700:hover,
+        .light-mode .hover\:bg-zinc-800:hover,
+        .light-mode .hover\:bg-zinc-800\/50:hover {
+          background-color: rgb(243 244 246) !important;
+        }
+
+        /* Light mode tabs */
+        .light-mode [data-state=active] {
+          background-color: white !important;
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+        .light-mode .bg-zinc-800\/50 {
+          background-color: rgb(243 244 246) !important;
+        }
+
+        /* Light mode inputs */
+        .light-mode input,
+        .light-mode textarea,
+        .light-mode select,
+        .light-mode [role="combobox"] {
+          background-color: white !important;
+          border-color: rgb(209 213 219) !important;
+          color: rgb(17 24 39) !important;
+        }
+        .light-mode input::placeholder,
+        .light-mode textarea::placeholder {
+          color: rgb(156 163 175) !important;
+        }
+
+        /* Light mode dialogs */
+        .light-mode [role="dialog"] {
+          background-color: white !important;
+          border-color: rgb(229 231 235) !important;
+        }
+
+        /* Light mode select dropdowns */
+        .light-mode [role="listbox"] {
+          background-color: white !important;
+          border-color: rgb(229 231 235) !important;
+        }
+        .light-mode [role="option"] {
+          color: rgb(17 24 39) !important;
+        }
+        .light-mode [role="option"]:hover,
+        .light-mode [role="option"][data-highlighted] {
+          background-color: rgb(249 250 251) !important;
+        }
+
+        /* Light mode progress bars */
+        .light-mode .bg-zinc-700,
+        .light-mode .bg-zinc-800 {
+          background-color: rgb(229 231 235) !important;
+        }
+
+        /* Light mode badges */
+        .light-mode .border-zinc-600 {
+          border-color: rgb(209 213 219) !important;
+        }
+
+        /* Brand gradient text stays visible */
+        .light-mode .brand-gradient-text {
+          background: linear-gradient(135deg, #F7931A 0%, #c76c0f 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
         }
 
       `}</style>
