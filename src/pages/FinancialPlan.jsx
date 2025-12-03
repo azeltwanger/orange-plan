@@ -86,6 +86,7 @@ export default function FinancialPlan() {
   // Retirement settings
   const [retirementAge, setRetirementAge] = useState(65);
   const [currentAge, setCurrentAge] = useState(35);
+  const [lifeExpectancy, setLifeExpectancy] = useState(90);
   const [currentAnnualSpending, setCurrentAnnualSpending] = useState(80000);
   const [retirementAnnualSpending, setRetirementAnnualSpending] = useState(100000);
   
@@ -107,6 +108,7 @@ export default function FinancialPlan() {
 
   const [eventForm, setEventForm] = useState({
     name: '', event_type: 'expense_change', year: new Date().getFullYear() + 1, amount: '', is_recurring: false, recurring_years: '', affects: 'expenses', notes: '',
+    monthly_expense_impact: '', liability_amount: '', down_payment: '', interest_rate: '', loan_term_years: '',
   });
 
 
@@ -193,42 +195,62 @@ export default function FinancialPlan() {
   const effectiveStocksCagr = stocksCagr;
   const effectiveInflation = inflationRate;
 
-  // Generate projection data with cumulative savings factored in
+  // Generate projection data with cumulative savings factored in - now extends to life expectancy
   const projections = useMemo(() => {
-    const years = retirementAge - currentAge;
+    const years = lifeExpectancy - currentAge;
     const data = [];
     const currentYear = new Date().getFullYear();
-    
+
     let cumulativeSavings = 0;
-    
+    let cumulativeWithdrawals = 0;
+
     for (let i = 0; i <= years; i++) {
       const year = currentYear + i;
       
       // Calculate life event impacts for this year
       let eventImpact = 0;
+      let liabilityImpact = 0;
       lifeEvents.forEach(event => {
         if (event.year === year || (event.is_recurring && event.year <= year && year < event.year + (event.recurring_years || 1))) {
           if (event.affects === 'assets') eventImpact += event.amount;
+          if (event.affects === 'liabilities') liabilityImpact += event.amount;
+          // Handle home purchase specially
+          if (event.event_type === 'home_purchase' && event.year === year) {
+            eventImpact -= (event.down_payment || 0); // Down payment reduces assets
+            liabilityImpact += (event.liability_amount || 0); // Mortgage adds liability
+          }
         }
       });
-      
-      // Annual savings grows with income growth rate
-      const yearSavings = i > 0 ? annualSavings * Math.pow(1 + incomeGrowth / 100, i) : 0;
-      cumulativeSavings += yearSavings;
+
+      const isRetired = currentAge + i >= retirementAge;
+
+      // Pre-retirement: save. Post-retirement: withdraw
+      let yearSavings = 0;
+      let yearWithdrawal = 0;
+      if (!isRetired) {
+        yearSavings = i > 0 ? annualSavings * Math.pow(1 + incomeGrowth / 100, i) : 0;
+        cumulativeSavings += yearSavings;
+      } else {
+        // Inflation-adjusted retirement spending
+        const yearsIntoRetirement = currentAge + i - retirementAge;
+        yearWithdrawal = retirementAnnualSpending * Math.pow(1 + effectiveInflation / 100, retirementAge - currentAge + yearsIntoRetirement);
+        cumulativeWithdrawals += yearWithdrawal;
+      }
       
       // Assume new savings are invested in a mix (simplified: grows at blended rate)
       const blendedGrowthRate = (effectiveBtcCagr * 0.3 + effectiveStocksCagr * 0.7) / 100;
       const savingsGrown = cumulativeSavings * Math.pow(1 + blendedGrowthRate, Math.max(0, i - 1));
-      
+
       const btcProjected = btcValue * Math.pow(1 + effectiveBtcCagr / 100, i);
       const stocksProjected = stocksValue * Math.pow(1 + effectiveStocksCagr / 100, i);
       const realEstateProjected = realEstateValue * Math.pow(1 + realEstateCagr / 100, i);
       const bondsProjected = bondsValue * Math.pow(1 + bondsCagr / 100, i);
       const otherProjected = otherValue * Math.pow(1 + stocksCagr / 100, i);
-      
-      const total = btcProjected + stocksProjected + realEstateProjected + bondsProjected + otherProjected + savingsGrown + eventImpact;
+
+      // Subtract cumulative withdrawals in retirement
+      const total = Math.max(0, btcProjected + stocksProjected + realEstateProjected + bondsProjected + otherProjected + savingsGrown + eventImpact - cumulativeWithdrawals);
       const realTotal = total / Math.pow(1 + effectiveInflation / 100, i); // Inflation adjusted
-      
+
       data.push({
         age: currentAge + i,
         year,
@@ -240,10 +262,12 @@ export default function FinancialPlan() {
         total: Math.round(total),
         realTotal: Math.round(realTotal),
         hasEvent: lifeEvents.some(e => e.year === year),
+        isRetired: isRetired,
+        yearWithdrawal: Math.round(yearWithdrawal),
       });
-    }
-    return data;
-  }, [btcValue, stocksValue, realEstateValue, bondsValue, otherValue, currentAge, retirementAge, effectiveBtcCagr, effectiveStocksCagr, realEstateCagr, bondsCagr, effectiveInflation, lifeEvents, annualSavings, incomeGrowth]);
+      }
+      return data;
+      }, [btcValue, stocksValue, realEstateValue, bondsValue, otherValue, currentAge, retirementAge, lifeExpectancy, effectiveBtcCagr, effectiveStocksCagr, realEstateCagr, bondsCagr, effectiveInflation, lifeEvents, annualSavings, incomeGrowth, retirementAnnualSpending]);
 
   // Run Monte Carlo when button clicked
   const handleRunSimulation = () => {
@@ -272,8 +296,12 @@ export default function FinancialPlan() {
     setSimulationResults(chartData);
   };
 
-  const retirementValue = projections[projections.length - 1]?.total || 0;
-  const realRetirementValue = projections[projections.length - 1]?.realTotal || 0;
+  const retirementYearIndex = retirementAge - currentAge;
+  const retirementValue = projections[retirementYearIndex]?.total || 0;
+  const realRetirementValue = projections[retirementYearIndex]?.realTotal || 0;
+  const endOfLifeValue = projections[projections.length - 1]?.total || 0;
+  const runOutOfMoneyAge = projections.findIndex(p => p.total <= 0 && p.isRetired);
+  const willRunOutOfMoney = runOutOfMoneyAge !== -1;
   const withdrawalRate = 0.04;
   const sustainableWithdrawal = realRetirementValue * withdrawalRate;
   // Calculate inflation-adjusted retirement spending need at retirement
@@ -291,6 +319,7 @@ export default function FinancialPlan() {
     retirement: Heart,
     inheritance: Heart,
     major_expense: Car,
+    home_purchase: Home,
     other: Calendar,
   };
 
@@ -318,6 +347,8 @@ export default function FinancialPlan() {
         name: editingEvent.name || '', event_type: editingEvent.event_type || 'expense_change', year: editingEvent.year || new Date().getFullYear() + 1,
         amount: editingEvent.amount || '', is_recurring: editingEvent.is_recurring || false, recurring_years: editingEvent.recurring_years || '',
         affects: editingEvent.affects || 'expenses', notes: editingEvent.notes || '',
+        monthly_expense_impact: editingEvent.monthly_expense_impact || '', liability_amount: editingEvent.liability_amount || '',
+        down_payment: editingEvent.down_payment || '', interest_rate: editingEvent.interest_rate || '', loan_term_years: editingEvent.loan_term_years || '',
       });
     }
   }, [editingEvent]);
@@ -332,14 +363,25 @@ export default function FinancialPlan() {
 
   const handleSubmitEvent = (e) => {
     e.preventDefault();
-    const data = { ...eventForm, year: parseInt(eventForm.year), amount: parseFloat(eventForm.amount) || 0, recurring_years: parseInt(eventForm.recurring_years) || 0 };
+    const data = { 
+      ...eventForm, 
+      year: parseInt(eventForm.year), 
+      amount: parseFloat(eventForm.amount) || 0, 
+      recurring_years: parseInt(eventForm.recurring_years) || 0,
+      monthly_expense_impact: parseFloat(eventForm.monthly_expense_impact) || 0,
+      liability_amount: parseFloat(eventForm.liability_amount) || 0,
+      down_payment: parseFloat(eventForm.down_payment) || 0,
+      interest_rate: parseFloat(eventForm.interest_rate) || 0,
+      loan_term_years: parseInt(eventForm.loan_term_years) || 0,
+      affects: eventForm.event_type === 'home_purchase' ? 'multiple' : eventForm.affects,
+    };
     editingEvent ? updateEvent.mutate({ id: editingEvent.id, data }) : createEvent.mutate(data);
   };
 
 
 
   const resetGoalForm = () => setGoalForm({ name: '', target_amount: '', current_amount: '', target_date: '', goal_type: 'other', priority: 'medium', notes: '' });
-  const resetEventForm = () => setEventForm({ name: '', event_type: 'expense_change', year: new Date().getFullYear() + 1, amount: '', is_recurring: false, recurring_years: '', affects: 'expenses', notes: '' });
+  const resetEventForm = () => setEventForm({ name: '', event_type: 'expense_change', year: new Date().getFullYear() + 1, amount: '', is_recurring: false, recurring_years: '', affects: 'expenses', notes: '', monthly_expense_impact: '', liability_amount: '', down_payment: '', interest_rate: '', loan_term_years: '' });
 
 
   return (
@@ -437,33 +479,37 @@ export default function FinancialPlan() {
           {/* Retirement Settings */}
           <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
             <h3 className="font-semibold mb-6">Retirement Planning</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-              <div className="space-y-2">
-                <Label className="text-zinc-400">Current Age</Label>
-                <Input type="number" value={currentAge} onChange={(e) => setCurrentAge(parseInt(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+                <div className="space-y-2">
+                  <Label className="text-zinc-400">Current Age</Label>
+                  <Input type="number" value={currentAge} onChange={(e) => setCurrentAge(parseInt(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-zinc-400">Retirement Age</Label>
+                  <Input type="number" value={retirementAge} onChange={(e) => setRetirementAge(parseInt(e.target.value) || 65)} className="bg-zinc-900 border-zinc-800" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-zinc-400">Life Expectancy</Label>
+                  <Input type="number" value={lifeExpectancy} onChange={(e) => setLifeExpectancy(parseInt(e.target.value) || 90)} className="bg-zinc-900 border-zinc-800" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-zinc-400">Current Annual Spending</Label>
+                  <Input type="number" value={currentAnnualSpending} onChange={(e) => setCurrentAnnualSpending(parseInt(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-zinc-400">Retirement Income Need</Label>
+                  <Input type="number" value={retirementAnnualSpending} onChange={(e) => setRetirementAnnualSpending(parseInt(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label className="text-zinc-400">Target Retirement Age</Label>
-                <Input type="number" value={retirementAge} onChange={(e) => setRetirementAge(parseInt(e.target.value) || 65)} className="bg-zinc-900 border-zinc-800" />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-zinc-400">Current Annual Spending</Label>
-                <Input type="number" value={currentAnnualSpending} onChange={(e) => setCurrentAnnualSpending(parseInt(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-zinc-400">Desired Retirement Income</Label>
-                <Input type="number" value={retirementAnnualSpending} onChange={(e) => setRetirementAnnualSpending(parseInt(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
-              </div>
-            </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mt-6 p-4 rounded-xl bg-zinc-800/30">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-6 p-4 rounded-xl bg-zinc-800/30">
               <div>
-                <p className="text-sm text-zinc-500">Projected at Retirement</p>
+                <p className="text-sm text-zinc-500">At Retirement (Age {retirementAge})</p>
                 <p className="text-2xl font-bold text-orange-400">${(retirementValue / 1000000).toFixed(2)}M</p>
               </div>
               <div>
-                <p className="text-sm text-zinc-500">Inflation Adjusted</p>
-                <p className="text-2xl font-bold text-zinc-300">${(realRetirementValue / 1000000).toFixed(2)}M</p>
+                <p className="text-sm text-zinc-500">At Life Expectancy (Age {lifeExpectancy})</p>
+                <p className="text-2xl font-bold text-zinc-300">${(endOfLifeValue / 1000000).toFixed(2)}M</p>
               </div>
               <div>
                 <p className="text-sm text-zinc-500">Safe Withdrawal (4%)</p>
@@ -476,9 +522,13 @@ export default function FinancialPlan() {
               </div>
               <div>
                 <p className="text-sm text-zinc-500">Retirement Status</p>
-                <p className={cn("text-2xl font-bold", canRetire ? "text-emerald-400" : "text-rose-400")}>
-                  {canRetire ? 'On Track ✓' : 'Needs Work'}
+                <p className={cn("text-2xl font-bold", canRetire && !willRunOutOfMoney ? "text-emerald-400" : "text-rose-400")}>
+                  {willRunOutOfMoney ? `Runs out at ${currentAge + runOutOfMoneyAge}` : canRetire ? 'On Track ✓' : 'Needs Work'}
                 </p>
+              </div>
+              <div>
+                <p className="text-sm text-zinc-500">Retirement Years</p>
+                <p className="text-xl font-bold text-purple-400">{lifeExpectancy - retirementAge} years</p>
               </div>
             </div>
           </div>
@@ -489,25 +539,32 @@ export default function FinancialPlan() {
           <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
             <h3 className="font-semibold mb-6">Wealth Projection</h3>
             <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={projections}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-                  <XAxis dataKey="age" stroke="#71717a" fontSize={12} />
-                  <YAxis stroke="#71717a" fontSize={12} tickFormatter={(v) => `$${(v/1000000).toFixed(1)}M`} />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '12px' }}
-                    formatter={(value) => [`$${value.toLocaleString()}`, '']}
-                    labelFormatter={(age) => `Age ${age}`}
-                  />
-                  <ReferenceLine x={retirementAge} stroke="#F7931A" strokeDasharray="5 5" label={{ value: 'Retirement', fill: '#F7931A', fontSize: 12 }} />
-                  <Area type="monotone" dataKey="bonds" stackId="1" stroke="#a78bfa" fill="#a78bfa" fillOpacity={0.3} name="Bonds" />
-                  <Area type="monotone" dataKey="realEstate" stackId="1" stroke="#10b981" fill="#10b981" fillOpacity={0.3} name="Real Estate" />
-                  <Area type="monotone" dataKey="stocks" stackId="1" stroke="#60a5fa" fill="#60a5fa" fillOpacity={0.3} name="Stocks" />
-                  <Area type="monotone" dataKey="btc" stackId="1" stroke="#F7931A" fill="#F7931A" fillOpacity={0.5} name="Bitcoin" />
-                  <Line type="monotone" dataKey="realTotal" stroke="#ef4444" strokeWidth={2} strokeDasharray="5 5" dot={false} name="Inflation Adjusted" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={projections}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+                    <XAxis dataKey="age" stroke="#71717a" fontSize={12} />
+                    <YAxis stroke="#71717a" fontSize={12} tickFormatter={(v) => `$${(v/1000000).toFixed(1)}M`} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '12px' }}
+                      formatter={(value, name, props) => {
+                        if (name === 'Total') {
+                          const p = props.payload;
+                          return [`$${value.toLocaleString()}${p.isRetired ? ` (withdrawing $${(p.yearWithdrawal/1000).toFixed(0)}k/yr)` : ''}`, name];
+                        }
+                        return [`$${value.toLocaleString()}`, name];
+                      }}
+                      labelFormatter={(age) => `Age ${age}`}
+                    />
+                    <ReferenceLine x={retirementAge} stroke="#F7931A" strokeDasharray="5 5" label={{ value: 'Retirement', fill: '#F7931A', fontSize: 12 }} />
+                    <ReferenceLine x={lifeExpectancy} stroke="#a78bfa" strokeDasharray="5 5" label={{ value: 'Life Exp.', fill: '#a78bfa', fontSize: 12 }} />
+                    <Area type="monotone" dataKey="bonds" stackId="1" stroke="#a78bfa" fill="#a78bfa" fillOpacity={0.3} name="Bonds" />
+                    <Area type="monotone" dataKey="realEstate" stackId="1" stroke="#10b981" fill="#10b981" fillOpacity={0.3} name="Real Estate" />
+                    <Area type="monotone" dataKey="stocks" stackId="1" stroke="#60a5fa" fill="#60a5fa" fillOpacity={0.3} name="Stocks" />
+                    <Area type="monotone" dataKey="btc" stackId="1" stroke="#F7931A" fill="#F7931A" fillOpacity={0.5} name="Bitcoin" />
+                    <Line type="monotone" dataKey="total" stroke="#ffffff" strokeWidth={2} dot={false} name="Total" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
             <div className="flex flex-wrap justify-center gap-4 mt-4">
               <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-orange-400" /><span className="text-sm text-zinc-400">Bitcoin</span></div>
               <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-blue-400" /><span className="text-sm text-zinc-400">Stocks</span></div>
@@ -801,6 +858,7 @@ export default function FinancialPlan() {
                     <SelectItem value="expense_change">Expense Change</SelectItem>
                     <SelectItem value="asset_purchase">Asset Purchase</SelectItem>
                     <SelectItem value="asset_sale">Asset Sale</SelectItem>
+                    <SelectItem value="home_purchase">Home Purchase (w/ Mortgage)</SelectItem>
                     <SelectItem value="major_expense">Major Expense</SelectItem>
                     <SelectItem value="inheritance">Inheritance</SelectItem>
                     <SelectItem value="retirement">Retirement</SelectItem>
@@ -813,24 +871,61 @@ export default function FinancialPlan() {
                 <Input type="number" value={eventForm.year} onChange={(e) => setEventForm({ ...eventForm, year: e.target.value })} className="bg-zinc-900 border-zinc-800" required />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-zinc-400">Amount (+ or -)</Label>
-                <Input type="number" value={eventForm.amount} onChange={(e) => setEventForm({ ...eventForm, amount: e.target.value })} placeholder="-50000" className="bg-zinc-900 border-zinc-800" required />
+
+            {eventForm.event_type === 'home_purchase' ? (
+              <>
+                <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 mb-2">
+                  <p className="text-xs text-blue-400">Home purchase affects assets (down payment), liabilities (mortgage), and expenses (monthly payment)</p>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-zinc-400">Home Price</Label>
+                    <Input type="number" value={eventForm.amount} onChange={(e) => setEventForm({ ...eventForm, amount: e.target.value })} placeholder="500000" className="bg-zinc-900 border-zinc-800" required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-zinc-400">Down Payment</Label>
+                    <Input type="number" value={eventForm.down_payment} onChange={(e) => setEventForm({ ...eventForm, down_payment: e.target.value })} placeholder="100000" className="bg-zinc-900 border-zinc-800" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-zinc-400">Mortgage Amount</Label>
+                    <Input type="number" value={eventForm.liability_amount} onChange={(e) => setEventForm({ ...eventForm, liability_amount: e.target.value })} placeholder="400000" className="bg-zinc-900 border-zinc-800" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-zinc-400">Interest Rate %</Label>
+                    <Input type="number" step="0.1" value={eventForm.interest_rate} onChange={(e) => setEventForm({ ...eventForm, interest_rate: e.target.value })} placeholder="6.5" className="bg-zinc-900 border-zinc-800" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-zinc-400">Term (Years)</Label>
+                    <Input type="number" value={eventForm.loan_term_years} onChange={(e) => setEventForm({ ...eventForm, loan_term_years: e.target.value })} placeholder="30" className="bg-zinc-900 border-zinc-800" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-zinc-400">Monthly Payment (inc. taxes/insurance)</Label>
+                  <Input type="number" value={eventForm.monthly_expense_impact} onChange={(e) => setEventForm({ ...eventForm, monthly_expense_impact: e.target.value })} placeholder="3000" className="bg-zinc-900 border-zinc-800" />
+                </div>
+              </>
+            ) : (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-zinc-400">Amount (+ or -)</Label>
+                  <Input type="number" value={eventForm.amount} onChange={(e) => setEventForm({ ...eventForm, amount: e.target.value })} placeholder="-50000" className="bg-zinc-900 border-zinc-800" required />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-zinc-400">Affects</Label>
+                  <Select value={eventForm.affects} onValueChange={(value) => setEventForm({ ...eventForm, affects: value })}>
+                    <SelectTrigger className="bg-zinc-900 border-zinc-800"><SelectValue /></SelectTrigger>
+                    <SelectContent className="bg-zinc-900 border-zinc-800">
+                      <SelectItem value="assets">Assets</SelectItem>
+                      <SelectItem value="income">Income</SelectItem>
+                      <SelectItem value="expenses">Expenses</SelectItem>
+                      <SelectItem value="liabilities">Liabilities</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label className="text-zinc-400">Affects</Label>
-                <Select value={eventForm.affects} onValueChange={(value) => setEventForm({ ...eventForm, affects: value })}>
-                  <SelectTrigger className="bg-zinc-900 border-zinc-800"><SelectValue /></SelectTrigger>
-                  <SelectContent className="bg-zinc-900 border-zinc-800">
-                    <SelectItem value="assets">Assets</SelectItem>
-                    <SelectItem value="income">Income</SelectItem>
-                    <SelectItem value="expenses">Expenses</SelectItem>
-                    <SelectItem value="liabilities">Liabilities</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+            )}
             <div className="flex items-center gap-4 p-3 rounded-xl bg-zinc-800/30">
               <Switch checked={eventForm.is_recurring} onCheckedChange={(checked) => setEventForm({ ...eventForm, is_recurring: checked })} />
               <div className="flex-1">

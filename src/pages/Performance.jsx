@@ -110,6 +110,9 @@ export default function Performance() {
             <SelectItem value="3M">3 Months</SelectItem>
             <SelectItem value="6M">6 Months</SelectItem>
             <SelectItem value="1Y">1 Year</SelectItem>
+            <SelectItem value="3Y">3 Years</SelectItem>
+            <SelectItem value="5Y">5 Years</SelectItem>
+            <SelectItem value="10Y">10 Years</SelectItem>
             <SelectItem value="ALL">All Time</SelectItem>
           </SelectContent>
         </Select>
