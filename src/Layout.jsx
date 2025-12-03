@@ -2,21 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from './utils';
 import { 
-  LayoutDashboard, 
-  TrendingUp, 
-  Target, 
-  Wallet, 
-  ArrowLeftRight,
-  Receipt,
-  Scale,
-  Shield,
-  Menu,
-  X,
-  Zap,
-  RefreshCw,
-  Sun,
-  Moon
-} from 'lucide-react';
+        LayoutDashboard, 
+        TrendingUp, 
+        Target, 
+        Wallet, 
+        ArrowLeftRight,
+        Receipt,
+        Scale,
+        Shield,
+        Menu,
+        X,
+        Zap,
+        RefreshCw
+      } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -37,17 +35,9 @@ export default function Layout({ children, currentPageName }) {
   const [priceChange, setPriceChange] = useState(null);
   const [priceLoading, setPriceLoading] = useState(true);
   const [blockHeight, setBlockHeight] = useState(null);
-  const [darkMode, setDarkMode] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('orangePlanTheme');
-      return saved ? saved === 'dark' : true;
-    }
-    return true;
-  });
+  const darkMode = true;
 
-  useEffect(() => {
-    localStorage.setItem('orangePlanTheme', darkMode ? 'dark' : 'light');
-  }, [darkMode]);
+
 
   useEffect(() => {
     const fetchPrice = async () => {
@@ -352,19 +342,7 @@ export default function Layout({ children, currentPageName }) {
 
           {/* Footer - Live Data */}
           <div className={cn("p-4 border-t space-y-3", darkMode ? "border-zinc-800/30" : "border-gray-200")}>
-            {/* Theme Toggle */}
-            <button
-              onClick={() => setDarkMode(!darkMode)}
-              className={cn(
-                "w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors",
-                darkMode ? "bg-zinc-800/50 hover:bg-zinc-800" : "bg-gray-100 hover:bg-gray-200"
-              )}
-            >
-              <span className={cn("text-sm", darkMode ? "text-zinc-400" : "text-gray-600")}>Theme</span>
-              <div className={cn("p-1.5 rounded-lg", darkMode ? "bg-zinc-700" : "bg-white shadow-sm")}>
-                {darkMode ? <Moon className="w-4 h-4 text-orange-400" /> : <Sun className="w-4 h-4 text-orange-500" />}
-              </div>
-            </button>
+
             
             {/* BTC Price */}
             <div className={cn("rounded-xl p-4", darkMode ? "card-premium" : "bg-white border border-gray-200 shadow-sm")}>
