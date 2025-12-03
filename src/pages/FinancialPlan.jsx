@@ -403,7 +403,7 @@ export default function FinancialPlan() {
         taxDeferred: Math.round(runningTaxDeferred),
         taxFree: Math.round(runningTaxFree),
         canAccessPenaltyFree: currentAge + i >= PENALTY_FREE_AGE,
-        penaltyPaid: Math.round(penaltyPaid || 0),
+        penaltyPaid: 0,
       });
     }
     return data;
