@@ -724,19 +724,32 @@ export default function FinancialPlan() {
                 const yearsUntilPenaltyFree = Math.ceil(59.5 - retirementAge);
                 const annualNeedAtRetirement = retirementAnnualSpending * Math.pow(1 + inflationRate / 100, retirementAge - currentAge);
 
-                // Calculate bridge funds needed accounting for portfolio growth during bridge period
-                // Use a conservative blended return (taxable accounts likely stocks/bonds mix)
-                const bridgeGrowthRate = (effectiveStocksCagr * 0.6 + bondsCagr * 0.4) / 100; // 60/40 assumption
-                const realReturnRate = bridgeGrowthRate - (inflationRate / 100); // inflation-adjusted
+                // Calculate blended growth rate based on actual taxable portfolio composition
+                const taxableBtc = taxableHoldings.filter(h => h.ticker === 'BTC').reduce((sum, h) => sum + h.quantity * currentPrice, 0);
+                const taxableStocks = taxableHoldings.filter(h => h.asset_type === 'stocks').reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
+                const taxableRealEstate = taxableHoldings.filter(h => h.asset_type === 'real_estate').reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
+                const taxableBonds = taxableHoldings.filter(h => h.asset_type === 'bonds').reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
+                const taxableOther = taxableValue - taxableBtc - taxableStocks - taxableRealEstate - taxableBonds;
 
-                // Present value of withdrawals: how much needed today to fund inflation-adjusted withdrawals
-                // PV = PMT * [(1 - (1+r)^-n) / r] adjusted for inflation
+                // Weighted average growth rate based on taxable portfolio allocation
+                let bridgeGrowthRate = 0.05; // default 5%
+                if (taxableValue > 0) {
+                  bridgeGrowthRate = (
+                    (taxableBtc / taxableValue) * (effectiveBtcCagr / 100) +
+                    (taxableStocks / taxableValue) * (effectiveStocksCagr / 100) +
+                    (taxableRealEstate / taxableValue) * (realEstateCagr / 100) +
+                    (taxableBonds / taxableValue) * (bondsCagr / 100) +
+                    (taxableOther / taxableValue) * (effectiveStocksCagr / 100)
+                  );
+                }
+
+                const realReturnRate = bridgeGrowthRate - (inflationRate / 100);
+
+                // Present value of withdrawals
                 let bridgeFundsNeeded;
                 if (Math.abs(realReturnRate) < 0.001) {
-                  // If real return ≈ 0, simple multiplication
                   bridgeFundsNeeded = annualNeedAtRetirement * yearsUntilPenaltyFree;
                 } else {
-                  // PV of growing annuity (withdrawals grow with inflation, portfolio grows at blended rate)
                   bridgeFundsNeeded = annualNeedAtRetirement * (1 - Math.pow(1 + realReturnRate, -yearsUntilPenaltyFree)) / realReturnRate;
                 }
 
@@ -747,7 +760,7 @@ export default function FinancialPlan() {
                   <div className="mt-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
                     <p className="text-sm text-amber-400">
                       ⚠️ Retiring at {retirementAge} means {yearsUntilPenaltyFree} years before penalty-free access to retirement accounts.
-                      You'll need <span className="font-bold">{formatNumber(bridgeFundsNeeded)}</span> in taxable accounts to cover {formatNumber(annualNeedAtRetirement)}/yr for {yearsUntilPenaltyFree} years (assuming {((bridgeGrowthRate)*100).toFixed(1)}% growth, {inflationRate}% inflation).
+                      You'll need <span className="font-bold">{formatNumber(bridgeFundsNeeded)}</span> in taxable accounts to cover {formatNumber(annualNeedAtRetirement)}/yr for {yearsUntilPenaltyFree} years (assuming {((bridgeGrowthRate)*100).toFixed(1)}% blended growth, {inflationRate}% inflation).
                       {shortfall > 0 ? (
                         <span className="text-rose-400"> Current shortfall: <span className="font-bold">{formatNumber(shortfall)}</span></span>
                       ) : (
