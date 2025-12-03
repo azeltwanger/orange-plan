@@ -442,6 +442,7 @@ export default function FinancialPlan() {
   };
   
   const formatNumberFull = (num) => {
+    if (num == null || isNaN(num)) return '$0';
     return `$${num.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
   };
 
