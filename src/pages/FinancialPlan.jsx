@@ -447,6 +447,29 @@ export default function FinancialPlan() {
   const resetGoalForm = () => setGoalForm({ name: '', target_amount: '', current_amount: '', target_date: '', goal_type: 'other', priority: 'medium', notes: '' });
   const resetEventForm = () => setEventForm({ name: '', event_type: 'expense_change', year: new Date().getFullYear() + 1, amount: '', is_recurring: false, recurring_years: '', affects: 'expenses', notes: '' });
   const resetScenarioForm = () => setScenarioForm({ name: '', scenario_type: 'custom', btc_cagr_override: '', stocks_cagr_override: '', inflation_override: '', market_crash_year: '', crash_severity_percent: '', description: '' });
+  const resetAccountForm = () => setAccountForm({ name: '', account_type: 'taxable', institution: '', annual_contribution: '', employer_match_percent: '', employer_match_limit: '', notes: '' });
+
+  useEffect(() => {
+    if (editingAccount) {
+      setAccountForm({
+        name: editingAccount.name || '', account_type: editingAccount.account_type || 'taxable',
+        institution: editingAccount.institution || '', annual_contribution: editingAccount.annual_contribution || '',
+        employer_match_percent: editingAccount.employer_match_percent || '', employer_match_limit: editingAccount.employer_match_limit || '',
+        notes: editingAccount.notes || '',
+      });
+    }
+  }, [editingAccount]);
+
+  const handleSubmitAccount = (e) => {
+    e.preventDefault();
+    const data = {
+      ...accountForm,
+      annual_contribution: parseFloat(accountForm.annual_contribution) || 0,
+      employer_match_percent: parseFloat(accountForm.employer_match_percent) || 0,
+      employer_match_limit: parseFloat(accountForm.employer_match_limit) || 0,
+    };
+    editingAccount ? updateAccount.mutate({ id: editingAccount.id, data }) : createAccount.mutate(data);
+  };
 
   return (
     <div className="space-y-6">
