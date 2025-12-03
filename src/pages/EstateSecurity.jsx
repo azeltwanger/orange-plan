@@ -673,11 +673,11 @@ export default function EstateSecurity() {
             {btcCustody.length === 0 ? (
               <div className="text-center py-12">
                 <Key className="w-12 h-12 text-zinc-700 mx-auto mb-4" />
-                <p className="text-zinc-500">No custody locations added yet</p>
+                <p className="text-zinc-500">No Bitcoin custody locations added yet</p>
               </div>
             ) : (
               <div className="space-y-4">
-                {custodyLocations.map((location) => {
+                {btcCustody.map((location) => {
                   const Icon = custodyIcons[location.custody_type] || Wallet;
                   const colorClass = custodyColors[location.custody_type] || 'bg-zinc-400/10 text-zinc-400';
                   const autoScore = SECURITY_SCORES[location.custody_type] || 5;
@@ -1246,26 +1246,53 @@ export default function EstateSecurity() {
 
             {formData.item_type === 'custody_location' && (
               <>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-zinc-400">Custody Type</Label>
-                    <Select value={formData.custody_type} onValueChange={(value) => setFormData({ ...formData, custody_type: value })}>
-                      <SelectTrigger className="bg-zinc-900 border-zinc-800"><SelectValue /></SelectTrigger>
-                      <SelectContent className="bg-zinc-900 border-zinc-800">
-                        <SelectItem value="multisig">Multisig (10/10)</SelectItem>
-                        <SelectItem value="passphrase">Passphrase/25th Word (9/10)</SelectItem>
-                        <SelectItem value="hardware_wallet">Hardware Wallet (8/10)</SelectItem>
-                        <SelectItem value="custodian">Custodian (6/10)</SelectItem>
-                        <SelectItem value="exchange">Exchange (4/10)</SelectItem>
-                        <SelectItem value="hot_wallet">Hot Wallet (2/10)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-zinc-400">BTC Amount</Label>
-                    <Input type="number" step="any" value={formData.btc_amount} onChange={(e) => setFormData({ ...formData, btc_amount: e.target.value })} className="bg-zinc-900 border-zinc-800" />
-                  </div>
+                <div className="space-y-2">
+                  <Label className="text-zinc-400">Asset Type</Label>
+                  <Select value={formData.asset_type} onValueChange={(value) => setFormData({ ...formData, asset_type: value })}>
+                    <SelectTrigger className="bg-zinc-900 border-zinc-800"><SelectValue /></SelectTrigger>
+                    <SelectContent className="bg-zinc-900 border-zinc-800">
+                      {ASSET_TYPES.map(type => (
+                        <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
+
+                {formData.asset_type === 'btc' ? (
+                  <>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-zinc-400">Custody Type</Label>
+                        <Select value={formData.custody_type} onValueChange={(value) => setFormData({ ...formData, custody_type: value })}>
+                          <SelectTrigger className="bg-zinc-900 border-zinc-800"><SelectValue /></SelectTrigger>
+                          <SelectContent className="bg-zinc-900 border-zinc-800">
+                            <SelectItem value="multisig">Multisig (10/10)</SelectItem>
+                            <SelectItem value="passphrase">Passphrase/25th Word (9/10)</SelectItem>
+                            <SelectItem value="hardware_wallet">Hardware Wallet (8/10)</SelectItem>
+                            <SelectItem value="custodian">Custodian (6/10)</SelectItem>
+                            <SelectItem value="exchange">Exchange (4/10)</SelectItem>
+                            <SelectItem value="hot_wallet">Hot Wallet (2/10)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-zinc-400">BTC Amount</Label>
+                        <Input type="number" step="any" value={formData.btc_amount} onChange={(e) => setFormData({ ...formData, btc_amount: e.target.value })} className="bg-zinc-900 border-zinc-800" />
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="space-y-2">
+                      <Label className="text-zinc-400">Estimated Value (USD)</Label>
+                      <Input type="number" value={formData.usd_value} onChange={(e) => setFormData({ ...formData, usd_value: e.target.value })} placeholder="100000" className="bg-zinc-900 border-zinc-800" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-zinc-400">Access Instructions</Label>
+                      <Input value={formData.access_instructions} onChange={(e) => setFormData({ ...formData, access_instructions: e.target.value })} placeholder="Account #, login info location, contact person..." className="bg-zinc-900 border-zinc-800" />
+                    </div>
+                  </>
+                )}
 
                 <div className="space-y-2">
                   <Label className="text-zinc-400">Last Verified</Label>
