@@ -9,7 +9,31 @@ import QuickStats from '@/components/dashboard/QuickStats';
 import HoldingForm from '@/components/forms/HoldingForm';
 
 export default function Dashboard() {
-  const [btcPrice, setBtcPrice] = useState(97000);
+  const [btcPrice, setBtcPrice] = useState(null);
+  const [priceLoading, setPriceLoading] = useState(true);
+  const [priceChange, setPriceChange] = useState(null);
+
+  // Fetch live BTC price
+  useEffect(() => {
+    const fetchPrice = async () => {
+      try {
+        const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd&include_24hr_change=true');
+        const data = await response.json();
+        setBtcPrice(data.bitcoin.usd);
+        setPriceChange(data.bitcoin.usd_24h_change);
+        setPriceLoading(false);
+      } catch (err) {
+        setBtcPrice(97000);
+        setPriceChange(0);
+        setPriceLoading(false);
+      }
+    };
+    fetchPrice();
+    const interval = setInterval(fetchPrice, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const currentPrice = btcPrice || 97000;
   const [formOpen, setFormOpen] = useState(false);
   const [editingHolding, setEditingHolding] = useState(null);
   const queryClient = useQueryClient();
@@ -58,7 +82,7 @@ export default function Dashboard() {
 
   // Calculate totals
   const totalAssets = holdings.reduce((sum, h) => {
-    if (h.ticker === 'BTC') return sum + (h.quantity * btcPrice);
+    if (h.ticker === 'BTC') return sum + (h.quantity * currentPrice);
     return sum + (h.quantity * (h.current_price || 0));
   }, 0);
 
@@ -114,7 +138,18 @@ export default function Dashboard() {
           <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-zinc-800/50 border border-zinc-700/50">
             <Bitcoin className="w-4 h-4 text-amber-400" />
             <span className="text-sm text-zinc-400">BTC:</span>
-            <span className="font-semibold text-amber-400">${btcPrice.toLocaleString()}</span>
+            {priceLoading ? (
+              <RefreshCw className="w-4 h-4 text-zinc-500 animate-spin" />
+            ) : (
+              <>
+                <span className="font-semibold text-amber-400">${currentPrice.toLocaleString()}</span>
+                {priceChange !== null && (
+                  <span className={`text-xs ${priceChange >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {priceChange >= 0 ? '↑' : '↓'}{Math.abs(priceChange).toFixed(1)}%
+                  </span>
+                )}
+              </>
+            )}
           </div>
           <Button
             onClick={() => { setEditingHolding(null); setFormOpen(true); }}
@@ -131,7 +166,7 @@ export default function Dashboard() {
         totalAssets={totalAssets}
         totalLiabilities={totalLiabilities}
         btcHoldings={btcHoldings}
-        btcPrice={btcPrice}
+        btcPrice={currentPrice}
       />
 
       {/* Quick Stats */}
@@ -179,7 +214,7 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {holdings.map((holding) => (
               <div key={holding.id} className="relative group">
-                <AssetCard holding={holding} btcPrice={btcPrice} />
+                <AssetCard holding={holding} btcPrice={currentPrice} />
                 <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
                   <button
                     onClick={() => handleEdit(holding)}
