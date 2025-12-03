@@ -174,25 +174,47 @@ export default function TaxCenter() {
 
   const currentPrice = btcPrice || 97000;
 
-  // Build tax lots from buy transactions
+  // Build tax lots from buy transactions, accounting for sales
   const taxLots = useMemo(() => {
     const buyTxs = transactions.filter(t => t.type === 'buy' && t.asset_ticker === 'BTC');
-    return buyTxs.map(tx => {
-      const currentValue = tx.quantity * currentPrice;
-      const costBasis = tx.cost_basis || (tx.quantity * tx.price_per_unit);
+    const sellTxs = transactions.filter(t => t.type === 'sell' && t.asset_ticker === 'BTC');
+    
+    // Calculate total sold quantity
+    const totalSold = sellTxs.reduce((sum, t) => sum + (t.quantity || 0), 0);
+    
+    // Sort buys by date for FIFO tracking (we'll use this to reduce quantities)
+    const sortedBuys = [...buyTxs].sort((a, b) => new Date(a.date) - new Date(b.date));
+    
+    // Track remaining quantity per lot after sales (using FIFO for simplicity)
+    let remainingSold = totalSold;
+    
+    return sortedBuys.map(tx => {
+      let remainingQuantity = tx.quantity || 0;
+      
+      // Reduce this lot's quantity by sold amount (FIFO)
+      if (remainingSold > 0) {
+        const soldFromThisLot = Math.min(remainingSold, remainingQuantity);
+        remainingQuantity -= soldFromThisLot;
+        remainingSold -= soldFromThisLot;
+      }
+      
+      const currentValue = remainingQuantity * currentPrice;
+      const perUnitCost = tx.price_per_unit || 0;
+      const costBasis = remainingQuantity * perUnitCost;
       const unrealizedGain = currentValue - costBasis;
       const daysSincePurchase = differenceInDays(new Date(), new Date(tx.date));
       const isLongTerm = daysSincePurchase > 365;
       
       return {
         ...tx,
+        originalQuantity: tx.quantity,
+        remainingQuantity,
         currentValue,
         costBasis,
         unrealizedGain,
         unrealizedGainPercent: costBasis > 0 ? (unrealizedGain / costBasis) * 100 : 0,
         isLongTerm,
         daysSincePurchase,
-        remainingQuantity: tx.quantity, // In a real app, track sold portions
       };
     }).filter(lot => lot.remainingQuantity > 0);
   }, [transactions, currentPrice]);
