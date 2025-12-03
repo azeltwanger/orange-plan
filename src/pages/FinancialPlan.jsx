@@ -720,14 +720,27 @@ export default function FinancialPlan() {
                 <p className="text-xs text-zinc-500">Roth IRA/401k, HSA • Contributions accessible</p>
               </div>
             </div>
-            {retirementAge < 59.5 && (
-              <div className="mt-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                <p className="text-sm text-amber-400">
-                  ⚠️ Retiring at {retirementAge} means {Math.ceil(59.5 - retirementAge)} years before penalty-free access to retirement accounts.
-                  You'll need <span className="font-bold">{formatNumber(taxableValue)}</span> in taxable accounts to bridge the gap (Roth contributions also accessible).
-                </p>
-              </div>
-            )}
+            {retirementAge < 59.5 && (() => {
+              const yearsUntilPenaltyFree = Math.ceil(59.5 - retirementAge);
+              const annualNeedAtRetirement = retirementAnnualSpending * Math.pow(1 + inflationRate / 100, retirementAge - currentAge);
+              const bridgeFundsNeeded = annualNeedAtRetirement * yearsUntilPenaltyFree;
+              const currentBridgeFunds = taxableValue; // Roth contributions tracked separately
+              const shortfall = Math.max(0, bridgeFundsNeeded - currentBridgeFunds);
+
+              return (
+                <div className="mt-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                  <p className="text-sm text-amber-400">
+                    ⚠️ Retiring at {retirementAge} means {yearsUntilPenaltyFree} years before penalty-free access to retirement accounts.
+                    You'll need <span className="font-bold">{formatNumber(bridgeFundsNeeded)}</span> in taxable accounts to cover {formatNumber(annualNeedAtRetirement)}/yr for {yearsUntilPenaltyFree} years.
+                    {shortfall > 0 ? (
+                      <span className="text-rose-400"> Current shortfall: <span className="font-bold">{formatNumber(shortfall)}</span></span>
+                    ) : (
+                      <span className="text-emerald-400"> ✓ You have {formatNumber(currentBridgeFunds)} — sufficient!</span>
+                    )}
+                  </p>
+                </div>
+              );
+            })()}
           </div>
 
           {/* Retirement Settings */}
