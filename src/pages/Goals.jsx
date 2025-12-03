@@ -63,22 +63,6 @@ export default function Goals() {
   const [expandedBucket, setExpandedBucket] = useState(null);
   const queryClient = useQueryClient();
 
-  // Fetch BTC price
-  useEffect(() => {
-    const fetchPrice = async () => {
-      try {
-        const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd');
-        const data = await response.json();
-        setBtcPrice(data.bitcoin.usd);
-      } catch (err) {
-        setBtcPrice(97000);
-      }
-    };
-    fetchPrice();
-  }, []);
-
-  const currentPrice = btcPrice || 97000;
-
   // Form states
   const [goalForm, setGoalForm] = useState({
     name: '', target_amount: '', current_amount: '', target_date: '', goal_type: 'major_purchase', priority: 'medium', notes: '', bucket: 'goals',
