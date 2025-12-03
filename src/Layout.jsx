@@ -202,15 +202,17 @@ export default function Layout({ children, currentPageName }) {
                   className={cn(
                     "flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-all duration-200 group",
                     isActive 
-                      ? "sidebar-item-active text-orange-400" 
+                      ? darkMode ? "sidebar-item-active text-orange-400" : "bg-orange-50 text-orange-600 border-l-2 border-orange-500"
                       : darkMode 
                         ? "text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/30"
-                        : "text-gray-500 hover:text-gray-900 hover:bg-gray-100"
+                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
                   )}
                 >
                   <item.icon className={cn(
                     "w-5 h-5 transition-colors",
-                    isActive ? "text-orange-400" : darkMode ? "text-zinc-600 group-hover:text-zinc-400" : "text-gray-400 group-hover:text-gray-600"
+                    isActive 
+                      ? darkMode ? "text-orange-400" : "text-orange-600" 
+                      : darkMode ? "text-zinc-600 group-hover:text-zinc-400" : "text-gray-500 group-hover:text-gray-700"
                   )} />
                   <div className="flex-1">
                     <span className="font-medium">{item.name}</span>
