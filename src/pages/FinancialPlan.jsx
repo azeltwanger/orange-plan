@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Area, AreaChart, Legend } from 'recharts';
-import { Target, Plus, Pencil, Trash2, TrendingUp, Calendar, Settings, Play, AlertTriangle, ChevronDown, ChevronUp, Sparkles, Home, Car, Baby, Briefcase, Heart, DollarSign, RefreshCw, Landmark, Building2, PiggyBank, Shield } from 'lucide-react';
+import { Target, Plus, Pencil, Trash2, TrendingUp, Calendar, Settings, Play, AlertTriangle, ChevronDown, ChevronUp, Sparkles, Home, Car, Baby, Briefcase, Heart, DollarSign, RefreshCw } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
@@ -93,8 +93,6 @@ export default function FinancialPlan() {
   const [scenarioFormOpen, setScenarioFormOpen] = useState(false);
   const [editingScenario, setEditingScenario] = useState(null);
   const [activeScenarioId, setActiveScenarioId] = useState(null);
-  const [accountFormOpen, setAccountFormOpen] = useState(false);
-  const [editingAccount, setEditingAccount] = useState(null);
 
   const [goalForm, setGoalForm] = useState({
     name: '', target_amount: '', current_amount: '', target_date: '', goal_type: 'other', priority: 'medium', notes: '',
@@ -106,10 +104,6 @@ export default function FinancialPlan() {
 
   const [scenarioForm, setScenarioForm] = useState({
     name: '', scenario_type: 'custom', btc_cagr_override: '', stocks_cagr_override: '', inflation_override: '', market_crash_year: '', crash_severity_percent: '', description: '',
-  });
-
-  const [accountForm, setAccountForm] = useState({
-    name: '', account_type: 'taxable', institution: '', annual_contribution: '', employer_match_percent: '', employer_match_limit: '', notes: '',
   });
 
   // Fetch BTC price
@@ -149,11 +143,6 @@ export default function FinancialPlan() {
   const { data: scenarios = [] } = useQuery({
     queryKey: ['scenarios'],
     queryFn: () => base44.entities.Scenario.list(),
-  });
-
-  const { data: accounts = [] } = useQuery({
-    queryKey: ['accounts'],
-    queryFn: () => base44.entities.Account.list(),
   });
 
   // Mutations
@@ -202,53 +191,7 @@ export default function FinancialPlan() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['scenarios'] }),
   });
 
-  const createAccount = useMutation({
-    mutationFn: (data) => base44.entities.Account.create(data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['accounts'] }); setAccountFormOpen(false); },
-  });
-
-  const updateAccount = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.Account.update(id, data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['accounts'] }); setAccountFormOpen(false); setEditingAccount(null); },
-  });
-
-  const deleteAccount = useMutation({
-    mutationFn: (id) => base44.entities.Account.delete(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['accounts'] }),
-  });
-
-  // Account type helpers
-  const ACCOUNT_TYPE_INFO = {
-    taxable: { label: 'Taxable Brokerage', icon: Building2, color: 'text-zinc-400', taxDeferred: false, taxFree: false },
-    '401k_traditional': { label: 'Traditional 401(k)', icon: Landmark, color: 'text-blue-400', taxDeferred: true, taxFree: false, limit2024: 23000 },
-    '401k_roth': { label: 'Roth 401(k)', icon: Landmark, color: 'text-emerald-400', taxDeferred: false, taxFree: true, limit2024: 23000 },
-    'ira_traditional': { label: 'Traditional IRA', icon: PiggyBank, color: 'text-purple-400', taxDeferred: true, taxFree: false, limit2024: 7000 },
-    'ira_roth': { label: 'Roth IRA', icon: PiggyBank, color: 'text-emerald-400', taxDeferred: false, taxFree: true, limit2024: 7000 },
-    'hsa': { label: 'HSA', icon: Shield, color: 'text-cyan-400', taxDeferred: false, taxFree: true, limit2024: 4150 },
-    '529': { label: '529 Plan', icon: PiggyBank, color: 'text-amber-400', taxDeferred: false, taxFree: true },
-  };
-
-  // Calculate portfolio values by account type
-  const getHoldingValue = (h) => {
-    if (h.ticker === 'BTC') return h.quantity * currentPrice;
-    return h.quantity * (h.current_price || 0);
-  };
-
-  const holdingsWithAccounts = holdings.map(h => {
-    const account = accounts.find(a => a.id === h.account_id);
-    return { ...h, account, accountType: account?.account_type || 'taxable' };
-  });
-
-  // Group by tax treatment
-  const taxableHoldings = holdingsWithAccounts.filter(h => !ACCOUNT_TYPE_INFO[h.accountType]?.taxDeferred && !ACCOUNT_TYPE_INFO[h.accountType]?.taxFree);
-  const taxDeferredHoldings = holdingsWithAccounts.filter(h => ACCOUNT_TYPE_INFO[h.accountType]?.taxDeferred);
-  const taxFreeHoldings = holdingsWithAccounts.filter(h => ACCOUNT_TYPE_INFO[h.accountType]?.taxFree);
-
-  const taxableValue = taxableHoldings.reduce((sum, h) => sum + getHoldingValue(h), 0);
-  const taxDeferredValue = taxDeferredHoldings.reduce((sum, h) => sum + getHoldingValue(h), 0);
-  const taxFreeValue = taxFreeHoldings.reduce((sum, h) => sum + getHoldingValue(h), 0);
-
-  // Calculate portfolio values by asset type
+  // Calculate portfolio values
   const btcValue = holdings.filter(h => h.ticker === 'BTC').reduce((sum, h) => sum + h.quantity * currentPrice, 0);
   const stocksValue = holdings.filter(h => h.asset_type === 'stocks').reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
   const realEstateValue = holdings.filter(h => h.asset_type === 'real_estate').reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
@@ -256,36 +199,17 @@ export default function FinancialPlan() {
   const otherValue = holdings.filter(h => !['BTC'].includes(h.ticker) && !['stocks', 'real_estate', 'bonds'].includes(h.asset_type)).reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
   const totalValue = btcValue + stocksValue + realEstateValue + bondsValue + otherValue;
 
-  // Annual contributions from accounts
-  const totalAnnualContributions = accounts.reduce((sum, a) => {
-    const contrib = a.annual_contribution || 0;
-    const match = a.employer_match_percent && a.employer_match_limit 
-      ? Math.min((contrib * a.employer_match_percent / 100), a.employer_match_limit)
-      : 0;
-    return sum + contrib + match;
-  }, 0);
-
   // Get active scenario overrides
   const activeScenario = scenarios.find(s => s.id === activeScenarioId);
   const effectiveBtcCagr = activeScenario?.btc_cagr_override ?? btcCagr;
   const effectiveStocksCagr = activeScenario?.stocks_cagr_override ?? stocksCagr;
   const effectiveInflation = activeScenario?.inflation_override ?? inflationRate;
 
-  // Generate projection data with account types
+  // Generate projection data
   const projections = useMemo(() => {
     const years = retirementAge - currentAge;
     const data = [];
     const currentYear = new Date().getFullYear();
-    
-    // Starting values by tax treatment
-    let runningTaxable = taxableValue;
-    let runningTaxDeferred = taxDeferredValue;
-    let runningTaxFree = taxFreeValue;
-    
-    // Estimate weighted CAGR based on holdings
-    const weightedCagr = totalValue > 0 
-      ? (btcValue / totalValue * effectiveBtcCagr + (stocksValue + otherValue) / totalValue * effectiveStocksCagr + realEstateValue / totalValue * realEstateCagr + bondsValue / totalValue * bondsCagr)
-      : effectiveStocksCagr;
     
     for (let i = 0; i <= years; i++) {
       const year = currentYear + i;
@@ -304,26 +228,14 @@ export default function FinancialPlan() {
         }
       });
       
-      // Project by asset type
       const btcProjected = (btcValue * Math.pow(1 + effectiveBtcCagr / 100, i) * crashMultiplier);
       const stocksProjected = (stocksValue * Math.pow(1 + effectiveStocksCagr / 100, i) * crashMultiplier);
       const realEstateProjected = realEstateValue * Math.pow(1 + realEstateCagr / 100, i);
       const bondsProjected = bondsValue * Math.pow(1 + bondsCagr / 100, i);
       const otherProjected = otherValue * Math.pow(1 + stocksCagr / 100, i);
       
-      // Project by account type (with contributions)
-      if (i > 0) {
-        runningTaxable = runningTaxable * (1 + weightedCagr / 100) * crashMultiplier;
-        runningTaxDeferred = (runningTaxDeferred + totalAnnualContributions * 0.6) * (1 + weightedCagr / 100) * crashMultiplier; // Assume 60% to tax-deferred
-        runningTaxFree = (runningTaxFree + totalAnnualContributions * 0.4) * (1 + weightedCagr / 100) * crashMultiplier; // Assume 40% to tax-free
-      }
-      
       const total = btcProjected + stocksProjected + realEstateProjected + bondsProjected + otherProjected + eventImpact;
-      const totalByAccount = runningTaxable + runningTaxDeferred + runningTaxFree + eventImpact;
-      const realTotal = total / Math.pow(1 + effectiveInflation / 100, i);
-      
-      // Tax-adjusted retirement value (tax-deferred taxed at estimated 25%)
-      const taxAdjustedTotal = runningTaxable + (runningTaxDeferred * 0.75) + runningTaxFree;
+      const realTotal = total / Math.pow(1 + effectiveInflation / 100, i); // Inflation adjusted
       
       data.push({
         age: currentAge + i,
@@ -334,15 +246,11 @@ export default function FinancialPlan() {
         bonds: Math.round(bondsProjected),
         total: Math.round(total),
         realTotal: Math.round(realTotal),
-        taxable: Math.round(runningTaxable),
-        taxDeferred: Math.round(runningTaxDeferred),
-        taxFree: Math.round(runningTaxFree),
-        taxAdjusted: Math.round(taxAdjustedTotal / Math.pow(1 + effectiveInflation / 100, i)),
         hasEvent: lifeEvents.some(e => e.year === year),
       });
     }
     return data;
-  }, [btcValue, stocksValue, realEstateValue, bondsValue, otherValue, currentAge, retirementAge, effectiveBtcCagr, effectiveStocksCagr, realEstateCagr, bondsCagr, effectiveInflation, lifeEvents, activeScenario, taxableValue, taxDeferredValue, taxFreeValue, totalAnnualContributions, totalValue]);
+  }, [btcValue, stocksValue, realEstateValue, bondsValue, otherValue, currentAge, retirementAge, effectiveBtcCagr, effectiveStocksCagr, realEstateCagr, bondsCagr, effectiveInflation, lifeEvents, activeScenario]);
 
   // Run Monte Carlo when button clicked
   const handleRunSimulation = () => {
@@ -447,29 +355,6 @@ export default function FinancialPlan() {
   const resetGoalForm = () => setGoalForm({ name: '', target_amount: '', current_amount: '', target_date: '', goal_type: 'other', priority: 'medium', notes: '' });
   const resetEventForm = () => setEventForm({ name: '', event_type: 'expense_change', year: new Date().getFullYear() + 1, amount: '', is_recurring: false, recurring_years: '', affects: 'expenses', notes: '' });
   const resetScenarioForm = () => setScenarioForm({ name: '', scenario_type: 'custom', btc_cagr_override: '', stocks_cagr_override: '', inflation_override: '', market_crash_year: '', crash_severity_percent: '', description: '' });
-  const resetAccountForm = () => setAccountForm({ name: '', account_type: 'taxable', institution: '', annual_contribution: '', employer_match_percent: '', employer_match_limit: '', notes: '' });
-
-  useEffect(() => {
-    if (editingAccount) {
-      setAccountForm({
-        name: editingAccount.name || '', account_type: editingAccount.account_type || 'taxable',
-        institution: editingAccount.institution || '', annual_contribution: editingAccount.annual_contribution || '',
-        employer_match_percent: editingAccount.employer_match_percent || '', employer_match_limit: editingAccount.employer_match_limit || '',
-        notes: editingAccount.notes || '',
-      });
-    }
-  }, [editingAccount]);
-
-  const handleSubmitAccount = (e) => {
-    e.preventDefault();
-    const data = {
-      ...accountForm,
-      annual_contribution: parseFloat(accountForm.annual_contribution) || 0,
-      employer_match_percent: parseFloat(accountForm.employer_match_percent) || 0,
-      employer_match_limit: parseFloat(accountForm.employer_match_limit) || 0,
-    };
-    editingAccount ? updateAccount.mutate({ id: editingAccount.id, data }) : createAccount.mutate(data);
-  };
 
   return (
     <div className="space-y-6">
@@ -549,7 +434,6 @@ export default function FinancialPlan() {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="bg-zinc-800/50 p-1 flex-wrap">
           <TabsTrigger value="projections" className="data-[state=active]:bg-zinc-700">Projections</TabsTrigger>
-          <TabsTrigger value="accounts" className="data-[state=active]:bg-zinc-700">Accounts</TabsTrigger>
           <TabsTrigger value="montecarlo" className="data-[state=active]:bg-zinc-700">Monte Carlo</TabsTrigger>
           <TabsTrigger value="scenarios" className="data-[state=active]:bg-zinc-700">Scenarios</TabsTrigger>
           <TabsTrigger value="lifeevents" className="data-[state=active]:bg-zinc-700">Life Events</TabsTrigger>
@@ -594,34 +478,6 @@ export default function FinancialPlan() {
                 <p className={cn("text-2xl font-bold", canRetire ? "text-emerald-400" : "text-rose-400")}>
                   {canRetire ? 'On Track ✓' : 'Needs Work'}
                 </p>
-              </div>
-            </div>
-
-            {/* Account Breakdown */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
-              <div className="p-4 rounded-xl bg-zinc-800/30 border border-zinc-700">
-                <div className="flex items-center gap-2 mb-2">
-                  <Building2 className="w-4 h-4 text-zinc-400" />
-                  <p className="text-sm text-zinc-500">Taxable</p>
-                </div>
-                <p className="text-xl font-bold text-zinc-300">${taxableValue.toLocaleString()}</p>
-                <p className="text-xs text-zinc-500 mt-1">Subject to capital gains tax</p>
-              </div>
-              <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20">
-                <div className="flex items-center gap-2 mb-2">
-                  <Landmark className="w-4 h-4 text-blue-400" />
-                  <p className="text-sm text-blue-400">Tax-Deferred</p>
-                </div>
-                <p className="text-xl font-bold text-blue-400">${taxDeferredValue.toLocaleString()}</p>
-                <p className="text-xs text-zinc-500 mt-1">401(k), Traditional IRA</p>
-              </div>
-              <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-                <div className="flex items-center gap-2 mb-2">
-                  <PiggyBank className="w-4 h-4 text-emerald-400" />
-                  <p className="text-sm text-emerald-400">Tax-Free</p>
-                </div>
-                <p className="text-xl font-bold text-emerald-400">${taxFreeValue.toLocaleString()}</p>
-                <p className="text-xs text-zinc-500 mt-1">Roth IRA, Roth 401(k), HSA</p>
               </div>
             </div>
           </div>
@@ -682,148 +538,6 @@ export default function FinancialPlan() {
               <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-purple-400" /><span className="text-sm text-zinc-400">Bonds</span></div>
               <div className="flex items-center gap-2"><div className="w-3 h-0.5 bg-rose-400" /><span className="text-sm text-zinc-400">Inflation Adjusted</span></div>
             </div>
-          </div>
-        </TabsContent>
-
-        {/* Accounts Tab */}
-        <TabsContent value="accounts" className="space-y-6">
-          <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className="font-semibold">Investment Accounts</h3>
-                <p className="text-sm text-zinc-500">Manage taxable and tax-advantaged accounts</p>
-              </div>
-              <Button size="sm" onClick={() => { setEditingAccount(null); resetAccountForm(); setAccountFormOpen(true); }} className="brand-gradient text-white">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Account
-              </Button>
-            </div>
-
-            {/* Account Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              <div className="p-4 rounded-xl bg-zinc-800/30">
-                <p className="text-sm text-zinc-500 mb-1">Total Annual Contributions</p>
-                <p className="text-2xl font-bold text-orange-400">${totalAnnualContributions.toLocaleString()}</p>
-              </div>
-              <div className="p-4 rounded-xl bg-zinc-800/30">
-                <p className="text-sm text-zinc-500 mb-1">Tax-Advantaged %</p>
-                <p className="text-2xl font-bold text-emerald-400">
-                  {totalValue > 0 ? (((taxDeferredValue + taxFreeValue) / totalValue) * 100).toFixed(0) : 0}%
-                </p>
-              </div>
-              <div className="p-4 rounded-xl bg-zinc-800/30">
-                <p className="text-sm text-zinc-500 mb-1">Total Accounts</p>
-                <p className="text-2xl font-bold text-zinc-300">{accounts.length}</p>
-              </div>
-            </div>
-
-            {accounts.length === 0 ? (
-              <div className="text-center py-12">
-                <Landmark className="w-12 h-12 text-zinc-700 mx-auto mb-4" />
-                <p className="text-zinc-500">No accounts added yet</p>
-                <p className="text-sm text-zinc-600 mt-1">Add your 401(k), IRA, Roth IRA, and brokerage accounts</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {accounts.map(account => {
-                  const info = ACCOUNT_TYPE_INFO[account.account_type] || ACCOUNT_TYPE_INFO.taxable;
-                  const Icon = info.icon;
-                  const accountHoldings = holdingsWithAccounts.filter(h => h.account_id === account.id);
-                  const accountValue = accountHoldings.reduce((sum, h) => sum + getHoldingValue(h), 0);
-                  
-                  return (
-                    <div key={account.id} className="p-4 rounded-xl bg-zinc-800/30 hover:bg-zinc-800/50 transition-colors">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", 
-                            info.taxFree ? "bg-emerald-400/10" : info.taxDeferred ? "bg-blue-400/10" : "bg-zinc-700")}>
-                            <Icon className={cn("w-5 h-5", info.color)} />
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <p className="font-medium">{account.name}</p>
-                              <Badge variant="outline" className={cn("text-xs", 
-                                info.taxFree ? "border-emerald-400/50 text-emerald-400" : 
-                                info.taxDeferred ? "border-blue-400/50 text-blue-400" : 
-                                "border-zinc-600 text-zinc-400")}>
-                                {info.label}
-                              </Badge>
-                            </div>
-                            <p className="text-sm text-zinc-500">{account.institution || 'No institution'}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <div className="text-right">
-                            <p className="font-semibold text-zinc-200">${accountValue.toLocaleString()}</p>
-                            {account.annual_contribution > 0 && (
-                              <p className="text-xs text-zinc-500">+${account.annual_contribution.toLocaleString()}/yr</p>
-                            )}
-                          </div>
-                          <div className="flex gap-1">
-                            <button onClick={() => { setEditingAccount(account); setAccountFormOpen(true); }} className="p-1.5 rounded-lg hover:bg-zinc-700">
-                              <Pencil className="w-3.5 h-3.5 text-zinc-400" />
-                            </button>
-                            <button onClick={() => deleteAccount.mutate(account.id)} className="p-1.5 rounded-lg hover:bg-rose-600/50">
-                              <Trash2 className="w-3.5 h-3.5 text-zinc-400" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                      {(account.employer_match_percent > 0 || info.limit2024) && (
-                        <div className="flex gap-4 mt-3 pt-3 border-t border-zinc-700/50 text-xs text-zinc-500">
-                          {account.employer_match_percent > 0 && (
-                            <span className="text-emerald-400">Employer match: {account.employer_match_percent}% up to ${account.employer_match_limit?.toLocaleString()}</span>
-                          )}
-                          {info.limit2024 && (
-                            <span>2024 limit: ${info.limit2024.toLocaleString()}</span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Tax Treatment Breakdown */}
-          <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
-            <h3 className="font-semibold mb-4">Tax Treatment Breakdown</h3>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-3 rounded-lg bg-zinc-800/30">
-                <div className="flex items-center gap-3">
-                  <div className="w-3 h-3 rounded-full bg-zinc-400" />
-                  <span className="text-zinc-300">Taxable (Brokerage)</span>
-                </div>
-                <div className="text-right">
-                  <span className="font-semibold">${taxableValue.toLocaleString()}</span>
-                  <span className="text-zinc-500 ml-2">({totalValue > 0 ? ((taxableValue / totalValue) * 100).toFixed(0) : 0}%)</span>
-                </div>
-              </div>
-              <div className="flex items-center justify-between p-3 rounded-lg bg-blue-500/10">
-                <div className="flex items-center gap-3">
-                  <div className="w-3 h-3 rounded-full bg-blue-400" />
-                  <span className="text-zinc-300">Tax-Deferred (401k, Trad IRA)</span>
-                </div>
-                <div className="text-right">
-                  <span className="font-semibold text-blue-400">${taxDeferredValue.toLocaleString()}</span>
-                  <span className="text-zinc-500 ml-2">({totalValue > 0 ? ((taxDeferredValue / totalValue) * 100).toFixed(0) : 0}%)</span>
-                </div>
-              </div>
-              <div className="flex items-center justify-between p-3 rounded-lg bg-emerald-500/10">
-                <div className="flex items-center gap-3">
-                  <div className="w-3 h-3 rounded-full bg-emerald-400" />
-                  <span className="text-zinc-300">Tax-Free (Roth, HSA)</span>
-                </div>
-                <div className="text-right">
-                  <span className="font-semibold text-emerald-400">${taxFreeValue.toLocaleString()}</span>
-                  <span className="text-zinc-500 ml-2">({totalValue > 0 ? ((taxFreeValue / totalValue) * 100).toFixed(0) : 0}%)</span>
-                </div>
-              </div>
-            </div>
-            <p className="text-xs text-zinc-500 mt-4">
-              Tax-deferred accounts are taxed as ordinary income at withdrawal. Tax-free accounts grow and withdraw tax-free.
-            </p>
           </div>
         </TabsContent>
 
