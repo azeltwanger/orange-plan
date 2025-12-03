@@ -1071,19 +1071,19 @@ export default function FinancialPlan() {
           <div className="card-premium rounded-xl p-4 border border-zinc-800/50">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <Label className="text-zinc-400 text-sm">Success Based on Retirement Income Need</Label>
+                <Label className="text-zinc-400 text-sm">Success = Not Running Out of Money Through Age {lifeExpectancy}</Label>
                 <p className="text-xs text-zinc-600">
-                  ${retirementAnnualSpending.toLocaleString()}/yr today → ${Math.round(inflationAdjustedRetirementSpending).toLocaleString()}/yr at retirement ({inflationRate}% inflation)
+                  ${retirementAnnualSpending.toLocaleString()}/yr today → ${Math.round(inflationAdjustedRetirementSpending).toLocaleString()}/yr at retirement ({inflationRate}% inflation) for {yearsInRetirement} years
                 </p>
                 <p className="text-xs text-zinc-500 mt-1">
                   Strategy: <span className="text-orange-400 font-semibold">
                     {withdrawalStrategy === '4percent' ? '4% Rule' : 
                      withdrawalStrategy === 'dynamic' ? `${dynamicWithdrawalRate}% Dynamic` : 'Income-Based'}
                   </span> • BTC Model: <span className="text-orange-400 font-semibold">
-                    {btcReturnModel === 'custom' ? `${btcCagr}% Custom` : 
+                    {btcReturnModel === 'custom' ? `${btcCagr}%` : 
                      btcReturnModel === 'saylor24' ? 'Saylor Bitcoin24' : 
                      btcReturnModel === 'powerlaw' ? 'Power Law' : 'Conservative'}
-                  </span> • Required: <span className="text-orange-400 font-semibold">{formatNumber(requiredNestEgg, 2)}</span>
+                  </span>
                 </p>
               </div>
               <Button onClick={handleRunSimulation} className="brand-gradient text-white font-semibold">
