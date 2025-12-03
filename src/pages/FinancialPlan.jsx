@@ -732,10 +732,22 @@ export default function FinancialPlan() {
                 const taxableOther = taxableValue - taxableBtc - taxableStocks - taxableRealEstate - taxableBonds;
 
                 // Weighted average growth rate based on taxable portfolio allocation
+                // Use average BTC growth rate over the bridge period based on selected model
+                const avgBtcGrowthForBridge = (() => {
+                  if (btcReturnModel === 'custom') return effectiveBtcCagr;
+                  // Calculate average growth rate over bridge period
+                  let totalGrowth = 0;
+                  const yearsToRetire = retirementAge - currentAge;
+                  for (let y = yearsToRetire; y < yearsToRetire + yearsUntilPenaltyFree; y++) {
+                    totalGrowth += getBtcGrowthRate(y);
+                  }
+                  return totalGrowth / yearsUntilPenaltyFree;
+                })();
+
                 let bridgeGrowthRate = 0.05; // default 5%
                 if (taxableValue > 0) {
                   bridgeGrowthRate = (
-                    (taxableBtc / taxableValue) * (effectiveBtcCagr / 100) +
+                    (taxableBtc / taxableValue) * (avgBtcGrowthForBridge / 100) +
                     (taxableStocks / taxableValue) * (effectiveStocksCagr / 100) +
                     (taxableRealEstate / taxableValue) * (realEstateCagr / 100) +
                     (taxableBonds / taxableValue) * (bondsCagr / 100) +
