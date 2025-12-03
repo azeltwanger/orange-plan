@@ -549,6 +549,7 @@ export default function FinancialPlan() {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="bg-zinc-800/50 p-1 flex-wrap">
           <TabsTrigger value="projections" className="data-[state=active]:bg-zinc-700">Projections</TabsTrigger>
+          <TabsTrigger value="accounts" className="data-[state=active]:bg-zinc-700">Accounts</TabsTrigger>
           <TabsTrigger value="montecarlo" className="data-[state=active]:bg-zinc-700">Monte Carlo</TabsTrigger>
           <TabsTrigger value="scenarios" className="data-[state=active]:bg-zinc-700">Scenarios</TabsTrigger>
           <TabsTrigger value="lifeevents" className="data-[state=active]:bg-zinc-700">Life Events</TabsTrigger>
