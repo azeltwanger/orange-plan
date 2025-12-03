@@ -6,9 +6,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Save, ChevronRight, ChevronLeft, Info, DollarSign } from 'lucide-react';
+import { Save, ChevronRight, ChevronLeft, Info, DollarSign, Plus, Trash2 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { format } from 'date-fns';
 
 const accountTaxMapping = {
   taxable: 'taxable',
@@ -38,15 +39,14 @@ export default function AddAssetWithTransaction({
     notes: '',
   });
 
-  const [transactionData, setTransactionData] = useState({
+  const [lots, setLots] = useState([{
+    id: Date.now(),
+    quantity: '',
     date: new Date().toISOString().split('T')[0],
     price_per_unit: '',
     exchange_or_wallet: '',
     trading_fee: '',
-    withdrawal_fee: '',
-    deposit_fee: '',
-    global_fmv_at_purchase: '',
-  });
+  }]);
 
   const [includeTransaction, setIncludeTransaction] = useState(true);
 
@@ -78,15 +78,14 @@ export default function AddAssetWithTransaction({
       account_type: 'taxable',
       notes: '',
     });
-    setTransactionData({
+    setLots([{
+      id: Date.now(),
+      quantity: '',
       date: new Date().toISOString().split('T')[0],
       price_per_unit: '',
       exchange_or_wallet: '',
       trading_fee: '',
-      withdrawal_fee: '',
-      deposit_fee: '',
-      global_fmv_at_purchase: '',
-    });
+    }]);
     setIncludeTransaction(true);
     setStep(1);
   };
@@ -95,73 +94,75 @@ export default function AddAssetWithTransaction({
   useEffect(() => {
     if (assetData.ticker === 'BTC' && btcPrice) {
       setAssetData(prev => ({ ...prev, current_price: btcPrice }));
-      if (!transactionData.price_per_unit) {
-        setTransactionData(prev => ({ ...prev, price_per_unit: btcPrice, global_fmv_at_purchase: btcPrice }));
-      }
     }
   }, [assetData.ticker, btcPrice]);
 
+  const addLot = () => {
+    setLots([...lots, {
+      id: Date.now(),
+      quantity: '',
+      date: new Date().toISOString().split('T')[0],
+      price_per_unit: assetData.ticker === 'BTC' ? btcPrice : '',
+      exchange_or_wallet: lots[lots.length - 1]?.exchange_or_wallet || '',
+      trading_fee: '',
+    }]);
+  };
+
+  const removeLot = (id) => {
+    if (lots.length > 1) {
+      setLots(lots.filter(l => l.id !== id));
+    }
+  };
+
+  const updateLot = (id, field, value) => {
+    setLots(lots.map(l => l.id === id ? { ...l, [field]: value } : l));
+  };
+
+  // Calculate totals from lots
+  const lotsTotal = lots.reduce((sum, l) => sum + (parseFloat(l.quantity) || 0), 0);
+  const lotsCostBasis = lots.reduce((sum, l) => {
+    const qty = parseFloat(l.quantity) || 0;
+    const price = parseFloat(l.price_per_unit) || 0;
+    const fee = parseFloat(l.trading_fee) || 0;
+    return sum + (qty * price) + fee;
+  }, 0);
+
   const handleSubmit = () => {
     const quantity = parseFloat(assetData.quantity) || 0;
-    const pricePerUnit = parseFloat(transactionData.price_per_unit) || parseFloat(assetData.current_price) || 0;
-    const tradingFee = parseFloat(transactionData.trading_fee) || 0;
-    const withdrawalFee = parseFloat(transactionData.withdrawal_fee) || 0;
-    const depositFee = parseFloat(transactionData.deposit_fee) || 0;
-    
-    const totalFees = tradingFee + withdrawalFee + depositFee;
-    const costBasis = (quantity * pricePerUnit) + totalFees;
 
     const holdingData = {
       ...assetData,
       quantity,
       current_price: parseFloat(assetData.current_price) || 0,
-      cost_basis_total: costBasis,
+      cost_basis_total: includeTransaction ? lotsCostBasis : 0,
       tax_treatment: accountTaxMapping[assetData.account_type] || 'taxable',
     };
 
-    let txData = null;
-    if (includeTransaction && transactionData.date) {
-      txData = {
-        type: 'buy',
-        asset_ticker: assetData.ticker,
-        quantity,
-        price_per_unit: pricePerUnit,
-        total_value: quantity * pricePerUnit,
-        date: transactionData.date,
-        exchange_or_wallet: transactionData.exchange_or_wallet,
-        trading_fee: tradingFee,
-        withdrawal_fee: withdrawalFee,
-        deposit_fee: depositFee,
-        global_fmv_at_purchase: parseFloat(transactionData.global_fmv_at_purchase) || pricePerUnit,
-        cost_basis: costBasis,
-        lot_id: `${assetData.ticker}-${Date.now()}`,
-      };
+    let transactions = [];
+    if (includeTransaction && lots.length > 0) {
+      transactions = lots
+        .filter(l => parseFloat(l.quantity) > 0 && parseFloat(l.price_per_unit) > 0)
+        .map(l => ({
+          type: 'buy',
+          asset_ticker: assetData.ticker,
+          quantity: parseFloat(l.quantity),
+          price_per_unit: parseFloat(l.price_per_unit),
+          total_value: parseFloat(l.quantity) * parseFloat(l.price_per_unit),
+          date: l.date,
+          exchange_or_wallet: l.exchange_or_wallet,
+          trading_fee: parseFloat(l.trading_fee) || 0,
+          cost_basis: (parseFloat(l.quantity) * parseFloat(l.price_per_unit)) + (parseFloat(l.trading_fee) || 0),
+          lot_id: `${assetData.ticker}-${l.id}`,
+        }));
     }
 
-    onSubmit({ holding: holdingData, transaction: txData });
+    onSubmit({ holding: holdingData, transactions });
     onClose();
     resetForm();
   };
 
-  // Calculate friction cost
-  const calculateFriction = () => {
-    const qty = parseFloat(assetData.quantity) || 0;
-    const pricePaid = parseFloat(transactionData.price_per_unit) || 0;
-    const globalFmv = parseFloat(transactionData.global_fmv_at_purchase) || pricePaid;
-    const tradingFee = parseFloat(transactionData.trading_fee) || 0;
-    const withdrawalFee = parseFloat(transactionData.withdrawal_fee) || 0;
-    const depositFee = parseFloat(transactionData.deposit_fee) || 0;
-    
-    const totalPaid = (qty * pricePaid) + tradingFee + withdrawalFee + depositFee;
-    const fairValue = qty * globalFmv;
-    const totalFriction = totalPaid - fairValue;
-    const explicitFees = tradingFee + withdrawalFee + depositFee;
-    const spreadCost = (qty * pricePaid) - fairValue;
-    
-    return { totalFriction, explicitFees, spreadCost, totalPaid, fairValue };
-  };
-
-  const friction = calculateFriction();
+  // Calculate total fees from lots
+  const totalFees = lots.reduce((sum, l) => sum + (parseFloat(l.trading_fee) || 0), 0);
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -313,7 +314,7 @@ export default function AddAssetWithTransaction({
           <div className="space-y-4">
             <div className="p-3 rounded-lg bg-orange-500/10 border border-orange-500/20">
               <p className="text-sm text-orange-400">
-                Recording the purchase details helps track cost basis for taxes and analyze fees.
+                Add purchase lots to track cost basis for taxes. Each lot = a separate purchase.
               </p>
             </div>
 
@@ -325,167 +326,151 @@ export default function AddAssetWithTransaction({
                 className="w-4 h-4 rounded border-zinc-600"
               />
               <Label className="text-zinc-300 cursor-pointer" onClick={() => setIncludeTransaction(!includeTransaction)}>
-                Record purchase transaction
+                Record purchase lots (recommended for tax tracking)
               </Label>
             </div>
 
             {includeTransaction && (
               <>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-zinc-400">Purchase Date</Label>
-                    <Input
-                      type="date"
-                      value={transactionData.date}
-                      onChange={(e) => setTransactionData({ ...transactionData, date: e.target.value })}
-                      className="bg-zinc-900 border-zinc-800"
-                    />
+                {/* Lots Summary */}
+                <div className="p-3 rounded-lg bg-zinc-800/30 border border-zinc-700/50">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-zinc-500">Total from {lots.length} lot{lots.length !== 1 ? 's' : ''}</span>
+                    <span className={cn("font-medium", Math.abs(lotsTotal - parseFloat(assetData.quantity || 0)) < 0.00000001 ? "text-emerald-400" : "text-amber-400")}>
+                      {lotsTotal.toFixed(assetData.ticker === 'BTC' ? 8 : 4)} / {parseFloat(assetData.quantity || 0).toFixed(assetData.ticker === 'BTC' ? 8 : 4)} {assetData.ticker}
+                    </span>
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-zinc-400">Price Paid (per unit)</Label>
-                    <Input
-                      type="number"
-                      step="any"
-                      value={transactionData.price_per_unit}
-                      onChange={(e) => setTransactionData({ ...transactionData, price_per_unit: e.target.value })}
-                      placeholder={assetData.current_price || "0.00"}
-                      className="bg-zinc-900 border-zinc-800"
-                    />
-                  </div>
+                  {Math.abs(lotsTotal - parseFloat(assetData.quantity || 0)) > 0.00000001 && (
+                    <p className="text-xs text-amber-400 mt-1">
+                      Lot quantities should sum to your total holding
+                    </p>
+                  )}
                 </div>
 
-                <div className="space-y-2">
-                  <Label className="text-zinc-400">Exchange / Wallet</Label>
-                  <Select
-                    value={transactionData.exchange_or_wallet}
-                    onValueChange={(value) => setTransactionData({ ...transactionData, exchange_or_wallet: value })}
-                  >
-                    <SelectTrigger className="bg-zinc-900 border-zinc-800">
-                      <SelectValue placeholder="Select exchange..." />
-                    </SelectTrigger>
-                    <SelectContent className="bg-zinc-900 border-zinc-800">
-                      <SelectItem value="coinbase">Coinbase</SelectItem>
-                      <SelectItem value="coinbase_pro">Coinbase Pro / Advanced</SelectItem>
-                      <SelectItem value="kraken">Kraken</SelectItem>
-                      <SelectItem value="gemini">Gemini</SelectItem>
-                      <SelectItem value="binance_us">Binance US</SelectItem>
-                      <SelectItem value="strike">Strike</SelectItem>
-                      <SelectItem value="cash_app">Cash App</SelectItem>
-                      <SelectItem value="swan">Swan Bitcoin</SelectItem>
-                      <SelectItem value="river">River</SelectItem>
-                      <SelectItem value="robinhood">Robinhood</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                {/* Lots List */}
+                <div className="space-y-3 max-h-64 overflow-y-auto">
+                  {lots.map((lot, index) => (
+                    <div key={lot.id} className="p-3 rounded-lg bg-zinc-800/30 border border-zinc-700 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-zinc-400">Lot {index + 1}</span>
+                        {lots.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeLot(lot.id)}
+                            className="p-1 rounded hover:bg-rose-600/30 transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4 text-zinc-500 hover:text-rose-400" />
+                          </button>
+                        )}
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-xs text-zinc-500">Quantity</Label>
+                          <Input
+                            type="number"
+                            step="any"
+                            value={lot.quantity}
+                            onChange={(e) => updateLot(lot.id, 'quantity', e.target.value)}
+                            placeholder="0.1"
+                            className="bg-zinc-900 border-zinc-800 text-sm h-9"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-zinc-500">Price per unit</Label>
+                          <Input
+                            type="number"
+                            step="any"
+                            value={lot.price_per_unit}
+                            onChange={(e) => updateLot(lot.id, 'price_per_unit', e.target.value)}
+                            placeholder={btcPrice?.toString() || "0"}
+                            className="bg-zinc-900 border-zinc-800 text-sm h-9"
+                          />
+                        </div>
+                      </div>
 
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Label className="text-zinc-400">Fees Paid</Label>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger>
-                          <Info className="w-4 h-4 text-zinc-500" />
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-xs bg-zinc-800 border-zinc-700">
-                          <p>Track all fees to see your true cost of acquisition. These get added to your cost basis.</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                  
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="space-y-1">
-                      <Label className="text-xs text-zinc-500">Trading Fee</Label>
-                      <Input
-                        type="number"
-                        step="any"
-                        value={transactionData.trading_fee}
-                        onChange={(e) => setTransactionData({ ...transactionData, trading_fee: e.target.value })}
-                        placeholder="0.00"
-                        className="bg-zinc-900 border-zinc-800 text-sm"
-                      />
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-xs text-zinc-500">Date</Label>
+                          <Input
+                            type="date"
+                            value={lot.date}
+                            onChange={(e) => updateLot(lot.id, 'date', e.target.value)}
+                            className="bg-zinc-900 border-zinc-800 text-sm h-9"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-zinc-500">Fee (optional)</Label>
+                          <Input
+                            type="number"
+                            step="any"
+                            value={lot.trading_fee}
+                            onChange={(e) => updateLot(lot.id, 'trading_fee', e.target.value)}
+                            placeholder="0"
+                            className="bg-zinc-900 border-zinc-800 text-sm h-9"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label className="text-xs text-zinc-500">Exchange</Label>
+                        <Select
+                          value={lot.exchange_or_wallet}
+                          onValueChange={(value) => updateLot(lot.id, 'exchange_or_wallet', value)}
+                        >
+                          <SelectTrigger className="bg-zinc-900 border-zinc-800 h-9 text-sm">
+                            <SelectValue placeholder="Select..." />
+                          </SelectTrigger>
+                          <SelectContent className="bg-zinc-900 border-zinc-800">
+                            <SelectItem value="coinbase">Coinbase</SelectItem>
+                            <SelectItem value="kraken">Kraken</SelectItem>
+                            <SelectItem value="strike">Strike</SelectItem>
+                            <SelectItem value="cash_app">Cash App</SelectItem>
+                            <SelectItem value="swan">Swan Bitcoin</SelectItem>
+                            <SelectItem value="river">River</SelectItem>
+                            <SelectItem value="other">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {parseFloat(lot.quantity) > 0 && parseFloat(lot.price_per_unit) > 0 && (
+                        <div className="text-xs text-zinc-500 pt-1 border-t border-zinc-700/50">
+                          Cost basis: ${((parseFloat(lot.quantity) * parseFloat(lot.price_per_unit)) + (parseFloat(lot.trading_fee) || 0)).toLocaleString()}
+                        </div>
+                      )}
                     </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs text-zinc-500">Withdrawal Fee</Label>
-                      <Input
-                        type="number"
-                        step="any"
-                        value={transactionData.withdrawal_fee}
-                        onChange={(e) => setTransactionData({ ...transactionData, withdrawal_fee: e.target.value })}
-                        placeholder="0.00"
-                        className="bg-zinc-900 border-zinc-800 text-sm"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs text-zinc-500">Deposit Fee</Label>
-                      <Input
-                        type="number"
-                        step="any"
-                        value={transactionData.deposit_fee}
-                        onChange={(e) => setTransactionData({ ...transactionData, deposit_fee: e.target.value })}
-                        placeholder="0.00"
-                        className="bg-zinc-900 border-zinc-800 text-sm"
-                      />
-                    </div>
-                  </div>
+                  ))}
                 </div>
 
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Label className="text-zinc-400">Global FMV at Purchase</Label>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger>
-                          <Info className="w-4 h-4 text-zinc-500" />
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-xs bg-zinc-800 border-zinc-700">
-                          <p>The market price at time of purchase (from CoinGecko, etc). Used to calculate spread/friction cost.</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                  <Input
-                    type="number"
-                    step="any"
-                    value={transactionData.global_fmv_at_purchase}
-                    onChange={(e) => setTransactionData({ ...transactionData, global_fmv_at_purchase: e.target.value })}
-                    placeholder={transactionData.price_per_unit || "0.00"}
-                    className="bg-zinc-900 border-zinc-800"
-                  />
-                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={addLot}
+                  className="w-full bg-transparent border-zinc-700 border-dashed hover:border-orange-500/50"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Another Lot
+                </Button>
 
-                {/* Friction Summary */}
-                {parseFloat(assetData.quantity) > 0 && parseFloat(transactionData.price_per_unit) > 0 && (
+                {/* Cost Summary */}
+                {lotsCostBasis > 0 && (
                   <div className="p-4 rounded-xl bg-zinc-800/30 border border-zinc-700/50">
                     <div className="flex items-center gap-2 mb-3">
                       <DollarSign className="w-4 h-4 text-orange-400" />
-                      <span className="text-sm font-medium text-zinc-300">Cost Analysis</span>
+                      <span className="text-sm font-medium text-zinc-300">Total Cost Basis</span>
                     </div>
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
-                        <span className="text-zinc-500">Total Paid</span>
-                        <span className="text-zinc-300">${friction.totalPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        <span className="text-zinc-500">Purchases</span>
+                        <span className="text-zinc-300">${(lotsCostBasis - totalFees).toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-zinc-500">Fair Market Value</span>
-                        <span className="text-zinc-300">${friction.fairValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        <span className="text-zinc-500">Fees</span>
+                        <span className="text-amber-400">${totalFees.toLocaleString()}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-zinc-500">Explicit Fees</span>
-                        <span className="text-amber-400">${friction.explicitFees.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                      </div>
-                      {friction.spreadCost > 0 && (
-                        <div className="flex justify-between">
-                          <span className="text-zinc-500">Spread Cost</span>
-                          <span className="text-rose-400">${friction.spreadCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                        </div>
-                      )}
                       <div className="flex justify-between pt-2 border-t border-zinc-700">
-                        <span className="text-zinc-400 font-medium">Total Friction</span>
-                        <span className={cn("font-semibold", friction.totalFriction > 0 ? "text-rose-400" : "text-emerald-400")}>
-                          ${Math.abs(friction.totalFriction).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </span>
+                        <span className="text-zinc-400 font-medium">Total</span>
+                        <span className="font-semibold text-orange-400">${lotsCostBasis.toLocaleString()}</span>
                       </div>
                     </div>
                   </div>
