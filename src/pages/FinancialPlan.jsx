@@ -39,6 +39,13 @@ const runMonteCarloSimulation = (initialValue, years, meanReturn, volatility, nu
   return results;
 };
 
+// Calculate success probability (percentage of simulations meeting target)
+const calculateSuccessProbability = (simulations, targetValue) => {
+  const finalValues = simulations.map(sim => sim[sim.length - 1]);
+  const successCount = finalValues.filter(v => v >= targetValue).length;
+  return (successCount / simulations.length) * 100;
+};
+
 // Calculate percentiles from simulation results
 const calculatePercentiles = (simulations, percentiles = [10, 25, 50, 75, 90]) => {
   const years = simulations[0].length;
@@ -84,6 +91,8 @@ export default function FinancialPlan() {
   // Monte Carlo
   const [runSimulation, setRunSimulation] = useState(false);
   const [simulationResults, setSimulationResults] = useState(null);
+  const [successProbability, setSuccessProbability] = useState(null);
+  const [retirementTarget, setRetirementTarget] = useState(2500000);
   
   // Forms
   const [goalFormOpen, setGoalFormOpen] = useState(false);
@@ -255,8 +264,12 @@ export default function FinancialPlan() {
   // Run Monte Carlo when button clicked
   const handleRunSimulation = () => {
     const years = retirementAge - currentAge;
-    const simulations = runMonteCarloSimulation(totalValue, years, effectiveBtcCagr * (btcValue / totalValue) + effectiveStocksCagr * ((totalValue - btcValue) / totalValue), btcVolatility * (btcValue / totalValue) + stocksVolatility * ((totalValue - btcValue) / totalValue), 500);
+    const simulations = runMonteCarloSimulation(totalValue, years, effectiveBtcCagr * (btcValue / totalValue) + effectiveStocksCagr * ((totalValue - btcValue) / totalValue), btcVolatility * (btcValue / totalValue) + stocksVolatility * ((totalValue - btcValue) / totalValue), 1000);
     const percentiles = calculatePercentiles(simulations);
+    
+    // Calculate success probability against target
+    const probability = calculateSuccessProbability(simulations, retirementTarget);
+    setSuccessProbability(probability);
     
     const chartData = percentiles.map((p, i) => ({
       age: currentAge + i,
@@ -543,6 +556,29 @@ export default function FinancialPlan() {
 
         {/* Monte Carlo Tab */}
         <TabsContent value="montecarlo" className="space-y-6">
+          {/* Target Setting */}
+          <div className="card-premium rounded-xl p-4 border border-zinc-800/50">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+              <div className="flex-1">
+                <Label className="text-zinc-400 text-sm">Retirement Target</Label>
+                <p className="text-xs text-zinc-600">Set your goal to calculate success probability</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-zinc-500">$</span>
+                <Input 
+                  type="number" 
+                  value={retirementTarget} 
+                  onChange={(e) => setRetirementTarget(parseFloat(e.target.value) || 0)} 
+                  className="bg-zinc-900 border-zinc-800 w-40" 
+                />
+                <Button onClick={handleRunSimulation} className="brand-gradient text-white font-semibold">
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Run
+                </Button>
+              </div>
+            </div>
+          </div>
+
           <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
             <div className="flex items-center justify-between mb-6">
               <div>
@@ -550,17 +586,36 @@ export default function FinancialPlan() {
                   <Sparkles className="w-5 h-5 text-orange-400" />
                   Monte Carlo Simulation
                 </h3>
-                <p className="text-sm text-zinc-500 mt-1">500 randomized scenarios based on historical volatility</p>
+                <p className="text-sm text-zinc-500 mt-1">1,000 randomized scenarios based on historical volatility</p>
               </div>
-              <Button onClick={handleRunSimulation} className="brand-gradient text-white font-semibold">
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Run Simulation
-              </Button>
             </div>
 
             {simulationResults ? (
               <>
-                <div className="h-80">
+                {/* Success Probability - Main Focus */}
+                <div className={cn(
+                  "p-6 rounded-2xl mb-6 text-center",
+                  successProbability >= 80 ? "bg-emerald-500/10 border border-emerald-500/30" :
+                  successProbability >= 50 ? "bg-amber-500/10 border border-amber-500/30" :
+                  "bg-rose-500/10 border border-rose-500/30"
+                )}>
+                  <p className="text-sm text-zinc-400 mb-2">Probability of Reaching ${(retirementTarget / 1000000).toFixed(1)}M</p>
+                  <p className={cn(
+                    "text-5xl font-bold",
+                    successProbability >= 80 ? "text-emerald-400" :
+                    successProbability >= 50 ? "text-amber-400" :
+                    "text-rose-400"
+                  )}>
+                    {successProbability?.toFixed(0)}%
+                  </p>
+                  <p className="text-sm text-zinc-500 mt-2">
+                    {successProbability >= 80 ? "Excellent! You're on track for retirement." :
+                     successProbability >= 50 ? "Good progress, but consider increasing savings." :
+                     "You may need to adjust your plan to reach your goal."}
+                  </p>
+                </div>
+
+                <div className="h-72">
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={simulationResults}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
@@ -568,37 +623,46 @@ export default function FinancialPlan() {
                       <YAxis stroke="#71717a" fontSize={12} tickFormatter={(v) => `$${(v/1000000).toFixed(1)}M`} />
                       <Tooltip
                         contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '12px' }}
-                        formatter={(value, name) => [`$${value.toLocaleString()}`, name.replace('p', '') + 'th percentile']}
+                        formatter={(value, name) => {
+                          const labels = { p10: 'Worst Case (10%)', p25: 'Pessimistic (25%)', p50: 'Most Likely', p75: 'Optimistic (75%)', p90: 'Best Case (90%)' };
+                          return [`$${value.toLocaleString()}`, labels[name] || name];
+                        }}
                       />
-                      <Area type="monotone" dataKey="p10" stackId="1" stroke="none" fill="#ef4444" fillOpacity={0.1} />
-                      <Area type="monotone" dataKey="p25" stackId="2" stroke="none" fill="#f59e0b" fillOpacity={0.2} />
-                      <Area type="monotone" dataKey="p75" stackId="3" stroke="none" fill="#10b981" fillOpacity={0.2} />
-                      <Area type="monotone" dataKey="p90" stackId="4" stroke="none" fill="#10b981" fillOpacity={0.1} />
-                      <Line type="monotone" dataKey="p50" stroke="#F7931A" strokeWidth={3} dot={false} name="Median" />
-                      <Line type="monotone" dataKey="p10" stroke="#ef4444" strokeWidth={1} strokeDasharray="3 3" dot={false} />
-                      <Line type="monotone" dataKey="p90" stroke="#10b981" strokeWidth={1} strokeDasharray="3 3" dot={false} />
+                      <ReferenceLine y={retirementTarget} stroke="#F7931A" strokeDasharray="5 5" label={{ value: 'Target', fill: '#F7931A', fontSize: 12 }} />
+                      <Area type="monotone" dataKey="p10" stackId="1" stroke="none" fill="#ef4444" fillOpacity={0.1} name="p10" />
+                      <Area type="monotone" dataKey="p25" stackId="2" stroke="none" fill="#f59e0b" fillOpacity={0.15} name="p25" />
+                      <Area type="monotone" dataKey="p75" stackId="3" stroke="none" fill="#10b981" fillOpacity={0.15} name="p75" />
+                      <Area type="monotone" dataKey="p90" stackId="4" stroke="none" fill="#10b981" fillOpacity={0.1} name="p90" />
+                      <Line type="monotone" dataKey="p50" stroke="#F7931A" strokeWidth={3} dot={false} name="p50" />
+                      <Line type="monotone" dataKey="p10" stroke="#ef4444" strokeWidth={1} strokeDasharray="3 3" dot={false} name="p10" />
+                      <Line type="monotone" dataKey="p90" stroke="#10b981" strokeWidth={1} strokeDasharray="3 3" dot={false} name="p90" />
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
+
                 <div className="grid grid-cols-3 gap-4 mt-6">
                   <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20">
-                    <p className="text-sm text-zinc-500">10th Percentile (Worst)</p>
+                    <p className="text-sm text-zinc-500">Worst Case (10%)</p>
                     <p className="text-2xl font-bold text-rose-400">${(simulationResults[simulationResults.length - 1]?.p10 / 1000000).toFixed(2)}M</p>
+                    <p className="text-xs text-zinc-600 mt-1">90% chance to beat this</p>
                   </div>
                   <div className="p-4 rounded-xl bg-orange-500/10 border border-orange-500/20">
-                    <p className="text-sm text-zinc-500">50th Percentile (Median)</p>
+                    <p className="text-sm text-zinc-500">Most Likely (Median)</p>
                     <p className="text-2xl font-bold text-orange-400">${(simulationResults[simulationResults.length - 1]?.p50 / 1000000).toFixed(2)}M</p>
+                    <p className="text-xs text-zinc-600 mt-1">50% chance to beat this</p>
                   </div>
                   <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-                    <p className="text-sm text-zinc-500">90th Percentile (Best)</p>
+                    <p className="text-sm text-zinc-500">Best Case (90%)</p>
                     <p className="text-2xl font-bold text-emerald-400">${(simulationResults[simulationResults.length - 1]?.p90 / 1000000).toFixed(2)}M</p>
+                    <p className="text-xs text-zinc-600 mt-1">10% chance to beat this</p>
                   </div>
                 </div>
               </>
             ) : (
               <div className="text-center py-16">
                 <Play className="w-16 h-16 text-zinc-700 mx-auto mb-4" />
-                <p className="text-zinc-500">Click "Run Simulation" to generate Monte Carlo projections</p>
+                <p className="text-zinc-500">Click "Run" to generate Monte Carlo projections</p>
+                <p className="text-xs text-zinc-600 mt-2">Set your retirement target above to see your success probability</p>
               </div>
             )}
           </div>
