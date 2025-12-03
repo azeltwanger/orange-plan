@@ -75,13 +75,13 @@ export default function FinancialPlan() {
 
   // Assumption states
   const [btcCagr, setBtcCagr] = useState(25);
-  const [btcVolatility, setBtcVolatility] = useState(60);
   const [stocksCagr, setStocksCagr] = useState(7);
   const [stocksVolatility, setStocksVolatility] = useState(15);
   const [realEstateCagr, setRealEstateCagr] = useState(4);
   const [bondsCagr, setBondsCagr] = useState(3);
   const [inflationRate, setInflationRate] = useState(3);
   const [incomeGrowth, setIncomeGrowth] = useState(3);
+  const [annualSavings, setAnnualSavings] = useState(20000);
   
   // Retirement settings
   const [retirementAge, setRetirementAge] = useState(65);
@@ -99,9 +99,7 @@ export default function FinancialPlan() {
   const [editingGoal, setEditingGoal] = useState(null);
   const [eventFormOpen, setEventFormOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null);
-  const [scenarioFormOpen, setScenarioFormOpen] = useState(false);
-  const [editingScenario, setEditingScenario] = useState(null);
-  const [activeScenarioId, setActiveScenarioId] = useState(null);
+
 
   const [goalForm, setGoalForm] = useState({
     name: '', target_amount: '', current_amount: '', target_date: '', goal_type: 'other', priority: 'medium', notes: '',
@@ -111,9 +109,7 @@ export default function FinancialPlan() {
     name: '', event_type: 'expense_change', year: new Date().getFullYear() + 1, amount: '', is_recurring: false, recurring_years: '', affects: 'expenses', notes: '',
   });
 
-  const [scenarioForm, setScenarioForm] = useState({
-    name: '', scenario_type: 'custom', btc_cagr_override: '', stocks_cagr_override: '', inflation_override: '', market_crash_year: '', crash_severity_percent: '', description: '',
-  });
+
 
   // Fetch BTC price
   useEffect(() => {
@@ -149,10 +145,7 @@ export default function FinancialPlan() {
     queryFn: () => base44.entities.LifeEvent.list(),
   });
 
-  const { data: scenarios = [] } = useQuery({
-    queryKey: ['scenarios'],
-    queryFn: () => base44.entities.Scenario.list(),
-  });
+
 
   // Mutations
   const createGoal = useMutation({
@@ -185,20 +178,7 @@ export default function FinancialPlan() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['lifeEvents'] }),
   });
 
-  const createScenario = useMutation({
-    mutationFn: (data) => base44.entities.Scenario.create(data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['scenarios'] }); setScenarioFormOpen(false); },
-  });
 
-  const updateScenario = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.Scenario.update(id, data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['scenarios'] }); setScenarioFormOpen(false); setEditingScenario(null); },
-  });
-
-  const deleteScenario = useMutation({
-    mutationFn: (id) => base44.entities.Scenario.delete(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['scenarios'] }),
-  });
 
   // Calculate portfolio values
   const btcValue = holdings.filter(h => h.ticker === 'BTC').reduce((sum, h) => sum + h.quantity * currentPrice, 0);
@@ -208,26 +188,21 @@ export default function FinancialPlan() {
   const otherValue = holdings.filter(h => !['BTC'].includes(h.ticker) && !['stocks', 'real_estate', 'bonds'].includes(h.asset_type)).reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
   const totalValue = btcValue + stocksValue + realEstateValue + bondsValue + otherValue;
 
-  // Get active scenario overrides
-  const activeScenario = scenarios.find(s => s.id === activeScenarioId);
-  const effectiveBtcCagr = activeScenario?.btc_cagr_override ?? btcCagr;
-  const effectiveStocksCagr = activeScenario?.stocks_cagr_override ?? stocksCagr;
-  const effectiveInflation = activeScenario?.inflation_override ?? inflationRate;
+  // Use slider values directly (scenarios removed)
+  const effectiveBtcCagr = btcCagr;
+  const effectiveStocksCagr = stocksCagr;
+  const effectiveInflation = inflationRate;
 
-  // Generate projection data
+  // Generate projection data with cumulative savings factored in
   const projections = useMemo(() => {
     const years = retirementAge - currentAge;
     const data = [];
     const currentYear = new Date().getFullYear();
     
+    let cumulativeSavings = 0;
+    
     for (let i = 0; i <= years; i++) {
       const year = currentYear + i;
-      
-      // Apply market crash if scenario specifies one
-      let crashMultiplier = 1;
-      if (activeScenario?.market_crash_year === year) {
-        crashMultiplier = 1 - (activeScenario.crash_severity_percent || 40) / 100;
-      }
       
       // Calculate life event impacts for this year
       let eventImpact = 0;
@@ -237,13 +212,21 @@ export default function FinancialPlan() {
         }
       });
       
-      const btcProjected = (btcValue * Math.pow(1 + effectiveBtcCagr / 100, i) * crashMultiplier);
-      const stocksProjected = (stocksValue * Math.pow(1 + effectiveStocksCagr / 100, i) * crashMultiplier);
+      // Annual savings grows with income growth rate
+      const yearSavings = i > 0 ? annualSavings * Math.pow(1 + incomeGrowth / 100, i) : 0;
+      cumulativeSavings += yearSavings;
+      
+      // Assume new savings are invested in a mix (simplified: grows at blended rate)
+      const blendedGrowthRate = (effectiveBtcCagr * 0.3 + effectiveStocksCagr * 0.7) / 100;
+      const savingsGrown = cumulativeSavings * Math.pow(1 + blendedGrowthRate, Math.max(0, i - 1));
+      
+      const btcProjected = btcValue * Math.pow(1 + effectiveBtcCagr / 100, i);
+      const stocksProjected = stocksValue * Math.pow(1 + effectiveStocksCagr / 100, i);
       const realEstateProjected = realEstateValue * Math.pow(1 + realEstateCagr / 100, i);
       const bondsProjected = bondsValue * Math.pow(1 + bondsCagr / 100, i);
       const otherProjected = otherValue * Math.pow(1 + stocksCagr / 100, i);
       
-      const total = btcProjected + stocksProjected + realEstateProjected + bondsProjected + otherProjected + eventImpact;
+      const total = btcProjected + stocksProjected + realEstateProjected + bondsProjected + otherProjected + savingsGrown + eventImpact;
       const realTotal = total / Math.pow(1 + effectiveInflation / 100, i); // Inflation adjusted
       
       data.push({
@@ -253,18 +236,23 @@ export default function FinancialPlan() {
         stocks: Math.round(stocksProjected),
         realEstate: Math.round(realEstateProjected),
         bonds: Math.round(bondsProjected),
+        savings: Math.round(savingsGrown),
         total: Math.round(total),
         realTotal: Math.round(realTotal),
         hasEvent: lifeEvents.some(e => e.year === year),
       });
     }
     return data;
-  }, [btcValue, stocksValue, realEstateValue, bondsValue, otherValue, currentAge, retirementAge, effectiveBtcCagr, effectiveStocksCagr, realEstateCagr, bondsCagr, effectiveInflation, lifeEvents, activeScenario]);
+  }, [btcValue, stocksValue, realEstateValue, bondsValue, otherValue, currentAge, retirementAge, effectiveBtcCagr, effectiveStocksCagr, realEstateCagr, bondsCagr, effectiveInflation, lifeEvents, annualSavings, incomeGrowth]);
 
   // Run Monte Carlo when button clicked
   const handleRunSimulation = () => {
     const years = retirementAge - currentAge;
-    const simulations = runMonteCarloSimulation(totalValue, years, effectiveBtcCagr * (btcValue / totalValue) + effectiveStocksCagr * ((totalValue - btcValue) / totalValue), btcVolatility * (btcValue / totalValue) + stocksVolatility * ((totalValue - btcValue) / totalValue), 1000);
+    // Use a blended volatility based on portfolio composition
+    const btcWeight = totalValue > 0 ? btcValue / totalValue : 0.5;
+    const blendedVolatility = 60 * btcWeight + stocksVolatility * (1 - btcWeight); // BTC ~60% vol, stocks ~15%
+    const blendedReturn = effectiveBtcCagr * btcWeight + effectiveStocksCagr * (1 - btcWeight);
+    const simulations = runMonteCarloSimulation(totalValue, years, blendedReturn, blendedVolatility, 1000);
     const percentiles = calculatePercentiles(simulations);
     
     // Calculate success probability against target
@@ -329,16 +317,7 @@ export default function FinancialPlan() {
     }
   }, [editingEvent]);
 
-  useEffect(() => {
-    if (editingScenario) {
-      setScenarioForm({
-        name: editingScenario.name || '', scenario_type: editingScenario.scenario_type || 'custom',
-        btc_cagr_override: editingScenario.btc_cagr_override || '', stocks_cagr_override: editingScenario.stocks_cagr_override || '',
-        inflation_override: editingScenario.inflation_override || '', market_crash_year: editingScenario.market_crash_year || '',
-        crash_severity_percent: editingScenario.crash_severity_percent || '', description: editingScenario.description || '',
-      });
-    }
-  }, [editingScenario]);
+
 
   const handleSubmitGoal = (e) => {
     e.preventDefault();
@@ -352,22 +331,11 @@ export default function FinancialPlan() {
     editingEvent ? updateEvent.mutate({ id: editingEvent.id, data }) : createEvent.mutate(data);
   };
 
-  const handleSubmitScenario = (e) => {
-    e.preventDefault();
-    const data = {
-      ...scenarioForm,
-      btc_cagr_override: scenarioForm.btc_cagr_override ? parseFloat(scenarioForm.btc_cagr_override) : null,
-      stocks_cagr_override: scenarioForm.stocks_cagr_override ? parseFloat(scenarioForm.stocks_cagr_override) : null,
-      inflation_override: scenarioForm.inflation_override ? parseFloat(scenarioForm.inflation_override) : null,
-      market_crash_year: scenarioForm.market_crash_year ? parseInt(scenarioForm.market_crash_year) : null,
-      crash_severity_percent: scenarioForm.crash_severity_percent ? parseFloat(scenarioForm.crash_severity_percent) : null,
-    };
-    editingScenario ? updateScenario.mutate({ id: editingScenario.id, data }) : createScenario.mutate(data);
-  };
+
 
   const resetGoalForm = () => setGoalForm({ name: '', target_amount: '', current_amount: '', target_date: '', goal_type: 'other', priority: 'medium', notes: '' });
   const resetEventForm = () => setEventForm({ name: '', event_type: 'expense_change', year: new Date().getFullYear() + 1, amount: '', is_recurring: false, recurring_years: '', affects: 'expenses', notes: '' });
-  const resetScenarioForm = () => setScenarioForm({ name: '', scenario_type: 'custom', btc_cagr_override: '', stocks_cagr_override: '', inflation_override: '', market_crash_year: '', crash_severity_percent: '', description: '' });
+
 
   return (
     <div className="space-y-6">
@@ -406,13 +374,6 @@ export default function FinancialPlan() {
             </div>
             <div className="space-y-3">
               <div className="flex justify-between">
-                <Label className="text-zinc-400">BTC Volatility</Label>
-                <span className="text-orange-400 font-semibold">{btcVolatility}%</span>
-              </div>
-              <Slider value={[btcVolatility]} onValueChange={([v]) => setBtcVolatility(v)} min={10} max={100} step={1} />
-            </div>
-            <div className="space-y-3">
-              <div className="flex justify-between">
                 <Label className="text-zinc-400">Stocks CAGR</Label>
                 <span className="text-blue-400 font-semibold">{stocksCagr}%</span>
               </div>
@@ -439,6 +400,20 @@ export default function FinancialPlan() {
               </div>
               <Slider value={[inflationRate]} onValueChange={([v]) => setInflationRate(v)} min={0} max={15} step={0.5} />
             </div>
+            <div className="space-y-3">
+              <div className="flex justify-between">
+                <Label className="text-zinc-400">Income Growth</Label>
+                <span className="text-cyan-400 font-semibold">{incomeGrowth}%</span>
+              </div>
+              <Slider value={[incomeGrowth]} onValueChange={([v]) => setIncomeGrowth(v)} min={0} max={10} step={0.5} />
+            </div>
+            <div className="space-y-3 lg:col-span-2">
+              <div className="flex justify-between">
+                <Label className="text-zinc-400">Annual Savings (grows with income)</Label>
+                <span className="text-emerald-400 font-semibold">${annualSavings.toLocaleString()}</span>
+              </div>
+              <Slider value={[annualSavings]} onValueChange={([v]) => setAnnualSavings(v)} min={0} max={100000} step={1000} />
+            </div>
           </div>
         </div>
       )}
@@ -448,7 +423,6 @@ export default function FinancialPlan() {
         <TabsList className="bg-zinc-800/50 p-1 flex-wrap">
           <TabsTrigger value="projections" className="data-[state=active]:bg-zinc-700">Projections</TabsTrigger>
           <TabsTrigger value="montecarlo" className="data-[state=active]:bg-zinc-700">Monte Carlo</TabsTrigger>
-          <TabsTrigger value="scenarios" className="data-[state=active]:bg-zinc-700">Scenarios</TabsTrigger>
           <TabsTrigger value="lifeevents" className="data-[state=active]:bg-zinc-700">Life Events</TabsTrigger>
           <TabsTrigger value="goals" className="data-[state=active]:bg-zinc-700">Goals</TabsTrigger>
         </TabsList>
@@ -495,31 +469,7 @@ export default function FinancialPlan() {
             </div>
           </div>
 
-          {/* Active Scenario */}
-          {scenarios.length > 0 && (
-            <div className="card-premium rounded-xl p-4 border border-zinc-800/50">
-              <div className="flex items-center gap-4">
-                <Label className="text-zinc-400">Active Scenario:</Label>
-                <Select value={activeScenarioId || 'base'} onValueChange={(v) => setActiveScenarioId(v === 'base' ? null : v)}>
-                  <SelectTrigger className="bg-zinc-900 border-zinc-800 w-48">
-                    <SelectValue placeholder="Base Case" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-zinc-900 border-zinc-800">
-                    <SelectItem value="base">Base Case</SelectItem>
-                    {scenarios.map(s => (
-                      <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {activeScenario && (
-                  <Badge variant="outline" className="border-orange-400/50 text-orange-400">
-                    {activeScenario.btc_cagr_override && `BTC: ${activeScenario.btc_cagr_override}%`}
-                    {activeScenario.market_crash_year && ` | Crash: ${activeScenario.market_crash_year}`}
-                  </Badge>
-                )}
-              </div>
-            </div>
-          )}
+
 
           {/* Projection Chart */}
           <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
@@ -668,64 +618,7 @@ export default function FinancialPlan() {
           </div>
         </TabsContent>
 
-        {/* Scenarios Tab */}
-        <TabsContent value="scenarios" className="space-y-6">
-          <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="font-semibold">Economic Scenarios</h3>
-              <Button size="sm" onClick={() => { setEditingScenario(null); resetScenarioForm(); setScenarioFormOpen(true); }} className="brand-gradient text-white">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Scenario
-              </Button>
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Base Case Card */}
-              <div className={cn(
-                "p-5 rounded-xl border transition-all cursor-pointer",
-                !activeScenarioId ? "bg-orange-500/10 border-orange-500/30" : "bg-zinc-800/30 border-zinc-800 hover:border-zinc-700"
-              )} onClick={() => setActiveScenarioId(null)}>
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="font-semibold">Base Case</h4>
-                  {!activeScenarioId && <Badge className="bg-orange-500/20 text-orange-400">Active</Badge>}
-                </div>
-                <p className="text-sm text-zinc-500">Default assumptions with no market shocks</p>
-                <div className="flex gap-4 mt-3 text-sm">
-                  <span className="text-orange-400">BTC: {btcCagr}%</span>
-                  <span className="text-blue-400">Stocks: {stocksCagr}%</span>
-                  <span className="text-rose-400">Inflation: {inflationRate}%</span>
-                </div>
-              </div>
-
-              {scenarios.map(scenario => (
-                <div key={scenario.id} className={cn(
-                  "p-5 rounded-xl border transition-all cursor-pointer",
-                  activeScenarioId === scenario.id ? "bg-orange-500/10 border-orange-500/30" : "bg-zinc-800/30 border-zinc-800 hover:border-zinc-700"
-                )} onClick={() => setActiveScenarioId(scenario.id)}>
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="font-semibold">{scenario.name}</h4>
-                    <div className="flex items-center gap-2">
-                      {activeScenarioId === scenario.id && <Badge className="bg-orange-500/20 text-orange-400">Active</Badge>}
-                      <button onClick={(e) => { e.stopPropagation(); setEditingScenario(scenario); setScenarioFormOpen(true); }} className="p-1 hover:bg-zinc-700 rounded">
-                        <Pencil className="w-3.5 h-3.5 text-zinc-400" />
-                      </button>
-                      <button onClick={(e) => { e.stopPropagation(); deleteScenario.mutate(scenario.id); }} className="p-1 hover:bg-rose-600/50 rounded">
-                        <Trash2 className="w-3.5 h-3.5 text-zinc-400" />
-                      </button>
-                    </div>
-                  </div>
-                  {scenario.description && <p className="text-sm text-zinc-500 mb-3">{scenario.description}</p>}
-                  <div className="flex flex-wrap gap-3 text-sm">
-                    {scenario.btc_cagr_override && <span className="text-orange-400">BTC: {scenario.btc_cagr_override}%</span>}
-                    {scenario.stocks_cagr_override && <span className="text-blue-400">Stocks: {scenario.stocks_cagr_override}%</span>}
-                    {scenario.inflation_override && <span className="text-rose-400">Inflation: {scenario.inflation_override}%</span>}
-                    {scenario.market_crash_year && <Badge variant="outline" className="border-rose-400/50 text-rose-400">Crash: {scenario.market_crash_year} (-{scenario.crash_severity_percent}%)</Badge>}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </TabsContent>
 
         {/* Life Events Tab */}
         <TabsContent value="lifeevents" className="space-y-6">
@@ -942,56 +835,7 @@ export default function FinancialPlan() {
         </DialogContent>
       </Dialog>
 
-      {/* Scenario Form Dialog */}
-      <Dialog open={scenarioFormOpen} onOpenChange={setScenarioFormOpen}>
-        <DialogContent className="bg-[#0f0f10] border-zinc-800 text-zinc-100 max-w-md max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>{editingScenario ? 'Edit Scenario' : 'Add Scenario'}</DialogTitle></DialogHeader>
-          <form onSubmit={handleSubmitScenario} className="space-y-4 mt-4">
-            <div className="space-y-2">
-              <Label className="text-zinc-400">Scenario Name</Label>
-              <Input value={scenarioForm.name} onChange={(e) => setScenarioForm({ ...scenarioForm, name: e.target.value })} placeholder="e.g., Bear Market 2026" className="bg-zinc-900 border-zinc-800" required />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-zinc-400">Description</Label>
-              <Textarea value={scenarioForm.description} onChange={(e) => setScenarioForm({ ...scenarioForm, description: e.target.value })} placeholder="Describe this scenario..." className="bg-zinc-900 border-zinc-800 resize-none" rows={2} />
-            </div>
-            <div className="p-4 rounded-xl bg-zinc-800/30">
-              <p className="text-sm font-medium text-zinc-300 mb-3">Override Assumptions (leave blank to use defaults)</p>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-zinc-400 text-xs">Bitcoin CAGR %</Label>
-                  <Input type="number" value={scenarioForm.btc_cagr_override} onChange={(e) => setScenarioForm({ ...scenarioForm, btc_cagr_override: e.target.value })} placeholder={btcCagr.toString()} className="bg-zinc-900 border-zinc-800" />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-zinc-400 text-xs">Stocks CAGR %</Label>
-                  <Input type="number" value={scenarioForm.stocks_cagr_override} onChange={(e) => setScenarioForm({ ...scenarioForm, stocks_cagr_override: e.target.value })} placeholder={stocksCagr.toString()} className="bg-zinc-900 border-zinc-800" />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-zinc-400 text-xs">Inflation %</Label>
-                  <Input type="number" value={scenarioForm.inflation_override} onChange={(e) => setScenarioForm({ ...scenarioForm, inflation_override: e.target.value })} placeholder={inflationRate.toString()} className="bg-zinc-900 border-zinc-800" />
-                </div>
-              </div>
-            </div>
-            <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20">
-              <p className="text-sm font-medium text-rose-400 mb-3">Market Crash (optional)</p>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-zinc-400 text-xs">Crash Year</Label>
-                  <Input type="number" value={scenarioForm.market_crash_year} onChange={(e) => setScenarioForm({ ...scenarioForm, market_crash_year: e.target.value })} placeholder="2026" className="bg-zinc-900 border-zinc-800" />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-zinc-400 text-xs">Severity %</Label>
-                  <Input type="number" value={scenarioForm.crash_severity_percent} onChange={(e) => setScenarioForm({ ...scenarioForm, crash_severity_percent: e.target.value })} placeholder="40" className="bg-zinc-900 border-zinc-800" />
-                </div>
-              </div>
-            </div>
-            <div className="flex gap-3 pt-4">
-              <Button type="button" variant="outline" onClick={() => setScenarioFormOpen(false)} className="flex-1 bg-transparent border-zinc-800">Cancel</Button>
-              <Button type="submit" className="flex-1 brand-gradient text-white font-semibold">{editingScenario ? 'Update' : 'Add'} Scenario</Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
+
     </div>
   );
 }
