@@ -582,6 +582,7 @@ export default function FinancialPlan() {
   const endOfLifeValue = projections[projections.length - 1]?.total || 0;
   const runOutOfMoneyAge = projections.findIndex(p => p.total <= 0 && p.isRetired);
   const willRunOutOfMoney = runOutOfMoneyAge !== -1;
+  const yearsInRetirement = lifeExpectancy - retirementAge;
   
   // Calculate first year withdrawal and average withdrawal in retirement
   const firstRetirementWithdrawal = projections[retirementYearIndex]?.yearWithdrawal || 0;
