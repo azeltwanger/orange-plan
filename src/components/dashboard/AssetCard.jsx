@@ -1,9 +1,9 @@
 import React from 'react';
-import { Bitcoin, DollarSign, TrendingUp, Building, Coins } from 'lucide-react';
+import { Zap, DollarSign, TrendingUp, Building, Coins } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
 const iconMap = {
-  crypto: Bitcoin,
+  crypto: Zap,
   cash: DollarSign,
   stocks: TrendingUp,
   real_estate: Building,
@@ -12,17 +12,17 @@ const iconMap = {
 };
 
 const colorMap = {
-  crypto: 'text-amber-400 bg-amber-400/10',
-  cash: 'text-emerald-400 bg-emerald-400/10',
-  stocks: 'text-blue-400 bg-blue-400/10',
-  real_estate: 'text-purple-400 bg-purple-400/10',
-  bonds: 'text-cyan-400 bg-cyan-400/10',
-  other: 'text-zinc-400 bg-zinc-400/10',
+  crypto: { icon: 'text-orange-400', bg: 'bg-orange-400/10', border: 'border-orange-400/20' },
+  cash: { icon: 'text-emerald-400', bg: 'bg-emerald-400/10', border: 'border-emerald-400/20' },
+  stocks: { icon: 'text-blue-400', bg: 'bg-blue-400/10', border: 'border-blue-400/20' },
+  real_estate: { icon: 'text-purple-400', bg: 'bg-purple-400/10', border: 'border-purple-400/20' },
+  bonds: { icon: 'text-cyan-400', bg: 'bg-cyan-400/10', border: 'border-cyan-400/20' },
+  other: { icon: 'text-zinc-400', bg: 'bg-zinc-400/10', border: 'border-zinc-400/20' },
 };
 
 export default function AssetCard({ holding, btcPrice }) {
   const Icon = iconMap[holding.asset_type] || Coins;
-  const colorClass = colorMap[holding.asset_type] || colorMap.other;
+  const colors = colorMap[holding.asset_type] || colorMap.other;
   
   const value = holding.ticker === 'BTC' 
     ? holding.quantity * btcPrice 
@@ -36,29 +36,32 @@ export default function AssetCard({ holding, btcPrice }) {
     : 0;
 
   return (
-    <div className="card-glass rounded-xl p-5 hover:border-zinc-700/50 transition-all duration-300 group">
+    <div className={cn(
+      "card-premium rounded-xl p-5 border transition-all duration-300 hover:scale-[1.02] group",
+      colors.border
+    )}>
       <div className="flex items-start justify-between mb-4">
-        <div className={cn("p-2.5 rounded-xl", colorClass)}>
-          <Icon className="w-5 h-5" />
+        <div className={cn("p-2.5 rounded-xl", colors.bg)}>
+          <Icon className={cn("w-5 h-5", colors.icon)} />
         </div>
-        <span className="text-xs font-medium text-zinc-500 uppercase tracking-wider">
+        <span className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest">
           {holding.ticker}
         </span>
       </div>
 
-      <h3 className="font-semibold text-zinc-100 mb-1">{holding.asset_name}</h3>
-      <p className="text-2xl font-bold text-zinc-100 mb-2">
+      <h3 className="font-semibold text-zinc-200 mb-1">{holding.asset_name}</h3>
+      <p className="text-2xl font-bold text-zinc-100 mb-3">
         ${value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
       </p>
 
       <div className="flex items-center justify-between text-sm">
-        <span className="text-zinc-500">
-          {holding.quantity.toLocaleString()} {holding.ticker}
+        <span className="text-zinc-500 font-mono text-xs">
+          {holding.ticker === 'BTC' ? holding.quantity.toFixed(8) : holding.quantity.toLocaleString()} {holding.ticker}
         </span>
         {holding.cost_basis_total > 0 && (
           <span className={cn(
-            "font-medium",
-            gainLoss >= 0 ? "text-emerald-400" : "text-rose-400"
+            "font-semibold text-xs px-2 py-0.5 rounded",
+            gainLoss >= 0 ? "text-emerald-400 bg-emerald-400/10" : "text-rose-400 bg-rose-400/10"
           )}>
             {gainLoss >= 0 ? '+' : ''}{gainLossPercent.toFixed(1)}%
           </span>
