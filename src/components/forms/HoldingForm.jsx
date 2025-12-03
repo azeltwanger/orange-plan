@@ -15,8 +15,21 @@ export default function HoldingForm({ open, onClose, onSubmit, initialData }) {
     quantity: '',
     current_price: '',
     cost_basis_total: '',
+    account_type: 'taxable',
+    tax_treatment: 'taxable',
     notes: '',
   });
+
+  // Account type to tax treatment mapping
+  const accountTaxMapping = {
+    taxable: 'taxable',
+    traditional_401k: 'tax_deferred',
+    roth_401k: 'tax_free',
+    traditional_ira: 'tax_deferred',
+    roth_ira: 'tax_free',
+    hsa: 'tax_free',
+    '529': 'tax_free',
+  };
 
   useEffect(() => {
     if (initialData) {
@@ -27,6 +40,8 @@ export default function HoldingForm({ open, onClose, onSubmit, initialData }) {
         quantity: initialData.quantity || '',
         current_price: initialData.current_price || '',
         cost_basis_total: initialData.cost_basis_total || '',
+        account_type: initialData.account_type || 'taxable',
+        tax_treatment: initialData.tax_treatment || 'taxable',
         notes: initialData.notes || '',
       });
     } else {
@@ -37,6 +52,8 @@ export default function HoldingForm({ open, onClose, onSubmit, initialData }) {
         quantity: '',
         current_price: '',
         cost_basis_total: '',
+        account_type: 'taxable',
+        tax_treatment: 'taxable',
         notes: '',
       });
     }
@@ -49,6 +66,15 @@ export default function HoldingForm({ open, onClose, onSubmit, initialData }) {
       quantity: parseFloat(formData.quantity) || 0,
       current_price: parseFloat(formData.current_price) || 0,
       cost_basis_total: parseFloat(formData.cost_basis_total) || 0,
+      tax_treatment: accountTaxMapping[formData.account_type] || 'taxable',
+    });
+  };
+
+  const handleAccountTypeChange = (value) => {
+    setFormData({ 
+      ...formData, 
+      account_type: value,
+      tax_treatment: accountTaxMapping[value] || 'taxable'
     });
   };
 
@@ -142,6 +168,36 @@ export default function HoldingForm({ open, onClose, onSubmit, initialData }) {
               placeholder="0.00"
               className="bg-zinc-900 border-zinc-800 text-zinc-100"
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-zinc-400">Account Type</Label>
+            <Select
+              value={formData.account_type}
+              onValueChange={handleAccountTypeChange}
+            >
+              <SelectTrigger className="bg-zinc-900 border-zinc-800 text-zinc-100">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-zinc-900 border-zinc-800">
+                <SelectItem value="taxable">Taxable (Brokerage/Self-Custody)</SelectItem>
+                <SelectItem value="traditional_401k">Traditional 401(k)</SelectItem>
+                <SelectItem value="roth_401k">Roth 401(k)</SelectItem>
+                <SelectItem value="traditional_ira">Traditional IRA</SelectItem>
+                <SelectItem value="roth_ira">Roth IRA</SelectItem>
+                <SelectItem value="hsa">HSA</SelectItem>
+                <SelectItem value="529">529 Plan</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-zinc-500 mt-1">
+              {formData.account_type === 'taxable' && '💰 Taxable: Pay taxes on gains when sold'}
+              {formData.account_type === 'traditional_401k' && '⏳ Tax-Deferred: Taxed on withdrawal, 10% penalty before 59½'}
+              {formData.account_type === 'roth_401k' && '✨ Tax-Free: No tax on qualified withdrawals after 59½'}
+              {formData.account_type === 'traditional_ira' && '⏳ Tax-Deferred: Taxed on withdrawal, 10% penalty before 59½'}
+              {formData.account_type === 'roth_ira' && '✨ Tax-Free: No tax on qualified withdrawals, contributions accessible anytime'}
+              {formData.account_type === 'hsa' && '✨ Triple Tax-Free: No tax if used for medical expenses'}
+              {formData.account_type === '529' && '✨ Tax-Free: No tax if used for education expenses'}
+            </p>
           </div>
 
           <div className="space-y-2">
