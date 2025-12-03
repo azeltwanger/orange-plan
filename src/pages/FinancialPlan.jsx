@@ -93,6 +93,8 @@ export default function FinancialPlan() {
   const [scenarioFormOpen, setScenarioFormOpen] = useState(false);
   const [editingScenario, setEditingScenario] = useState(null);
   const [activeScenarioId, setActiveScenarioId] = useState(null);
+  const [accountFormOpen, setAccountFormOpen] = useState(false);
+  const [editingAccount, setEditingAccount] = useState(null);
 
   const [goalForm, setGoalForm] = useState({
     name: '', target_amount: '', current_amount: '', target_date: '', goal_type: 'other', priority: 'medium', notes: '',
