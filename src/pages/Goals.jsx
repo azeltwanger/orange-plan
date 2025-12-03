@@ -179,6 +179,8 @@ export default function Goals() {
         priority: editingGoal.priority || 'medium',
         notes: editingGoal.notes || '',
         bucket: categorizeGoal(editingGoal),
+        will_be_spent: editingGoal.will_be_spent || false,
+        fund_from: editingGoal.fund_from || 'auto',
       });
     }
   }, [editingGoal]);
@@ -214,7 +216,9 @@ export default function Goals() {
       ...goalForm, 
       goal_type: goalType,
       target_amount: parseFloat(goalForm.target_amount) || 0, 
-      current_amount: parseFloat(goalForm.current_amount) || 0 
+      current_amount: parseFloat(goalForm.current_amount) || 0,
+      will_be_spent: goalForm.will_be_spent,
+      fund_from: goalForm.fund_from,
     };
     delete data.bucket;
     editingGoal ? updateGoal.mutate({ id: editingGoal.id, data }) : createGoal.mutate(data);
