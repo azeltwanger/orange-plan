@@ -74,7 +74,7 @@ export default function TaxCenter() {
     asset_ticker: 'BTC',
     quantity: '',
     price_per_unit: '',
-    date: '',
+    date: format(new Date(), 'yyyy-MM-dd'),
     exchange_or_wallet: '',
     notes: '',
   });
@@ -144,7 +144,7 @@ export default function TaxCenter() {
   });
 
   const resetForm = () => {
-    setFormData({ type: 'buy', asset_ticker: 'BTC', quantity: '', price_per_unit: '', date: '', exchange_or_wallet: '', notes: '' });
+    setFormData({ type: 'buy', asset_ticker: 'BTC', quantity: '', price_per_unit: '', date: format(new Date(), 'yyyy-MM-dd'), exchange_or_wallet: '', notes: '' });
     setSaleForm({ quantity: '', price_per_unit: '', date: format(new Date(), 'yyyy-MM-dd'), fee: '', lot_method: 'HIFO', selected_lots: [], exchange_or_wallet: '' });
   };
 

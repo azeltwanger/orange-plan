@@ -495,18 +495,18 @@ export default function Liabilities() {
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
                     <div>
                       <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">Outstanding</p>
-                      <p className="text-2xl font-bold text-rose-400">${liability.current_balance?.toLocaleString()}</p>
+                      <p className="text-2xl font-bold text-rose-400">${(liability.current_balance || 0).toLocaleString()}</p>
                     </div>
                     {liability.principal_amount > 0 && (
                       <div>
                         <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">Original</p>
-                        <p className="text-2xl font-bold text-zinc-300">${liability.principal_amount?.toLocaleString()}</p>
+                        <p className="text-2xl font-bold text-zinc-300">${(liability.principal_amount || 0).toLocaleString()}</p>
                       </div>
                     )}
                     {liability.monthly_payment > 0 && (
                       <div>
                         <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">Monthly</p>
-                        <p className="text-2xl font-bold text-zinc-300">${liability.monthly_payment?.toLocaleString()}</p>
+                        <p className="text-2xl font-bold text-zinc-300">${(liability.monthly_payment || 0).toLocaleString()}</p>
                       </div>
                     )}
                     {liability.type === 'btc_collateralized' && liability.collateral_btc_amount > 0 && (
