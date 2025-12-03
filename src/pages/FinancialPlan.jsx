@@ -724,7 +724,7 @@ export default function FinancialPlan() {
               <div className="mt-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
                 <p className="text-sm text-amber-400">
                   ⚠️ Retiring at {retirementAge} means {Math.ceil(59.5 - retirementAge)} years before penalty-free access to retirement accounts.
-                  You'll need <span className="font-bold">{formatNumber(taxableValue + taxFreeValue * 0.5)}</span> in taxable/Roth to bridge the gap.
+                  You'll need <span className="font-bold">{formatNumber(taxableValue)}</span> in taxable accounts to bridge the gap (Roth contributions also accessible).
                 </p>
               </div>
             )}
