@@ -312,21 +312,21 @@ export default function FinancialPlan() {
     if (!settingsLoaded) return;
     const timeoutId = setTimeout(() => {
       saveSettings.mutate({
-        btc_cagr_assumption: btcCagr,
-        stocks_cagr: stocksCagr,
-        stocks_volatility: stocksVolatility,
-        real_estate_cagr: realEstateCagr,
-        bonds_cagr: bondsCagr,
-        inflation_rate: inflationRate,
-        income_growth_rate: incomeGrowth,
-        retirement_age: retirementAge,
-        current_age: currentAge,
-        life_expectancy: lifeExpectancy,
-        current_annual_spending: currentAnnualSpending,
-        annual_retirement_spending: retirementAnnualSpending,
-        withdrawal_strategy: withdrawalStrategy,
-        dynamic_withdrawal_rate: dynamicWithdrawalRate,
-        btc_return_model: btcReturnModel,
+        btc_cagr_assumption: btcCagr || 25,
+        stocks_cagr: stocksCagr || 7,
+        stocks_volatility: stocksVolatility || 15,
+        real_estate_cagr: realEstateCagr || 4,
+        bonds_cagr: bondsCagr || 3,
+        inflation_rate: inflationRate || 3,
+        income_growth_rate: incomeGrowth || 3,
+        retirement_age: retirementAge || 65,
+        current_age: currentAge || 35,
+        life_expectancy: lifeExpectancy || 90,
+        current_annual_spending: currentAnnualSpending || 80000,
+        annual_retirement_spending: retirementAnnualSpending || 100000,
+        withdrawal_strategy: withdrawalStrategy || 'dynamic',
+        dynamic_withdrawal_rate: dynamicWithdrawalRate || 5,
+        btc_return_model: btcReturnModel || 'custom',
       });
     }, 1000); // Debounce 1 second
     return () => clearTimeout(timeoutId);
