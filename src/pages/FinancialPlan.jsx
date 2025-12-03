@@ -616,7 +616,7 @@ export default function FinancialPlan() {
         savings: Math.round(runningSavings),
         total: Math.round(total),
         realTotal: Math.round(realTotal),
-        hasEvent: lifeEvents.some(e => e.year === year),
+        hasEvent: lifeEvents.some(e => e.year === year) || goals.some(g => g.will_be_spent && g.target_date && new Date(g.target_date).getFullYear() === year),
         isRetired: isRetired,
         yearWithdrawal: Math.round(yearWithdrawal),
         btcGrowthRate: yearBtcGrowth,
