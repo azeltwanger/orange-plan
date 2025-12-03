@@ -115,6 +115,17 @@ export default function Layout({ children, currentPageName }) {
           0%, 100% { opacity: 1; box-shadow: 0 0 8px rgba(16, 185, 129, 0.6); }
           50% { opacity: 0.7; box-shadow: 0 0 16px rgba(16, 185, 129, 0.8); }
         }
+        
+        /* Fix dark mode input text color */
+        input, textarea, select {
+          color: inherit !important;
+        }
+        input::placeholder, textarea::placeholder {
+          color: rgb(113 113 122) !important;
+        }
+        input[type="date"], input[type="number"], input[type="text"] {
+          color-scheme: dark;
+        }
 
       `}</style>
 
