@@ -405,7 +405,7 @@ export default function TaxCenter() {
               <Label className="text-zinc-400">Annual Taxable Income</Label>
               <span className="text-orange-400 font-semibold">${annualIncome.toLocaleString()}</span>
             </div>
-            <Slider value={[annualIncome]} onValueChange={([v]) => setAnnualIncome(v)} min={0} max={300000} step={1000} />
+            <Slider value={[annualIncome]} onValueChange={([v]) => setAnnualIncome(v)} min={0} max={1000000} step={5000} />
           </div>
 
           <div className="p-4 rounded-xl bg-zinc-800/30">
