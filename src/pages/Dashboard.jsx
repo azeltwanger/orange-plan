@@ -109,8 +109,22 @@ export default function Dashboard() {
   });
 
   const deleteHolding = useMutation({
-    mutationFn: (id) => base44.entities.Holding.delete(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['holdings'] }),
+    mutationFn: async (id) => {
+      // Find holding to get ticker
+      const holdingToDelete = holdings.find(h => h.id === id);
+      if (holdingToDelete) {
+        // Delete all transactions for this ticker
+        const relatedTxs = transactions.filter(t => t.asset_ticker === holdingToDelete.ticker);
+        for (const tx of relatedTxs) {
+          await base44.entities.Transaction.delete(tx.id);
+        }
+      }
+      return base44.entities.Holding.delete(id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['holdings'] });
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+    },
   });
 
   // Calculate totals
