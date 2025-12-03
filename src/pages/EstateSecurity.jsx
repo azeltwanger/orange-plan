@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format, differenceInDays, differenceInMonths } from 'date-fns';
-import { Plus, Pencil, Trash2, Shield, Key, Users, FileText, Bell, CheckCircle, AlertTriangle, Lock, HardDrive, Building2, Wallet, Mail, Clock, Download, Eye, EyeOff, Zap, Copy, ChevronRight, Info } from 'lucide-react';
+import { Plus, Pencil, Trash2, Shield, Key, Users, FileText, Bell, CheckCircle, AlertTriangle, Lock, HardDrive, Building2, Wallet, Mail, Clock, Download, Eye, EyeOff, Zap, Copy, ChevronRight, Info, TrendingUp, PiggyBank, Coins, Package, ClipboardList } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,6 +34,58 @@ const SECURITY_FEATURES = {
   exchange: ['Hot wallet exposure', 'Counterparty risk', 'Convenient but risky'],
   hot_wallet: ['Always online', 'Highest attack surface', 'Only for small amounts'],
 };
+
+// Verification guidance per custody type
+const VERIFICATION_STEPS = {
+  multisig: [
+    'Verify all signing devices are functional',
+    'Test a small transaction with required signatures',
+    'Confirm backup seeds for each key are secure',
+    'Review co-signer contact info is current',
+  ],
+  passphrase: [
+    'Verify hardware device powers on and PIN works',
+    'Confirm passphrase unlocks the hidden wallet',
+    'Check firmware is up to date',
+    'Test receiving a small amount to verify address',
+  ],
+  hardware_wallet: [
+    'Power on device and verify PIN works',
+    'Check firmware version and update if needed',
+    'Verify seed backup is readable and secure',
+    'Confirm device shows correct balance',
+  ],
+  custodian: [
+    'Log in to account and verify balance',
+    'Confirm 2FA is enabled and working',
+    'Review beneficiary designations on account',
+    'Check insurance coverage is current',
+  ],
+  exchange: [
+    'Log in and verify account balance',
+    'Confirm 2FA and security settings',
+    'Review withdrawal addresses whitelist',
+    'Check for any security alerts',
+  ],
+  hot_wallet: [
+    'Open wallet app and verify balance',
+    'Confirm backup phrase is secured',
+    'Check for app updates',
+    'Review connected sites/permissions',
+  ],
+};
+
+// Asset types for non-BTC assets
+const ASSET_TYPES = [
+  { value: 'btc', label: 'Bitcoin (BTC)', icon: 'Zap' },
+  { value: 'stocks', label: 'Stocks/ETFs', icon: 'TrendingUp' },
+  { value: 'real_estate', label: 'Real Estate', icon: 'Building2' },
+  { value: 'bank', label: 'Bank Accounts', icon: 'Wallet' },
+  { value: 'retirement', label: '401k/IRA', icon: 'PiggyBank' },
+  { value: 'crypto_other', label: 'Other Crypto', icon: 'Coins' },
+  { value: 'insurance', label: 'Life Insurance', icon: 'Shield' },
+  { value: 'other', label: 'Other Assets', icon: 'Package' },
+];
 
 export default function EstateSecurity() {
   const [btcPrice, setBtcPrice] = useState(null);
@@ -70,7 +122,9 @@ export default function EstateSecurity() {
     title: '',
     description: '',
     custody_type: 'hardware_wallet',
+    asset_type: 'btc',
     btc_amount: '',
+    usd_value: '',
     beneficiary_name: '',
     beneficiary_allocation_percent: '',
     beneficiary_email: '',
@@ -78,7 +132,7 @@ export default function EstateSecurity() {
     reminder_frequency: '',
     last_verified: '',
     notes: '',
-    has_passphrase: false,
+    access_instructions: '',
   });
 
   const [protocolForm, setProtocolForm] = useState({
@@ -147,8 +201,8 @@ export default function EstateSecurity() {
   const resetForm = () => {
     setFormData({
       item_type: 'custody_location', title: '', description: '', custody_type: 'hardware_wallet',
-      btc_amount: '', beneficiary_name: '', beneficiary_allocation_percent: '', beneficiary_email: '',
-      reminder_date: '', reminder_frequency: '', last_verified: '', notes: '', has_passphrase: false,
+      asset_type: 'btc', btc_amount: '', usd_value: '', beneficiary_name: '', beneficiary_allocation_percent: '', 
+      beneficiary_email: '', reminder_date: '', reminder_frequency: '', last_verified: '', notes: '', access_instructions: '',
     });
   };
 
@@ -166,7 +220,13 @@ export default function EstateSecurity() {
         title: editingItem.title || '',
         description: editingItem.description || '',
         custody_type: editingItem.custody_type || 'hardware_wallet',
+        asset_type: editingItem.description?.includes('asset_type:') 
+          ? editingItem.description.split('asset_type:')[1]?.split(',')[0] 
+          : 'btc',
         btc_amount: editingItem.btc_amount || '',
+        usd_value: editingItem.description?.includes('usd_value:') 
+          ? editingItem.description.split('usd_value:')[1]?.split(',')[0] 
+          : '',
         beneficiary_name: editingItem.beneficiary_name || '',
         beneficiary_allocation_percent: editingItem.beneficiary_allocation_percent || '',
         beneficiary_email: editingItem.beneficiary_email || '',
@@ -174,7 +234,9 @@ export default function EstateSecurity() {
         reminder_frequency: editingItem.reminder_frequency || '',
         last_verified: editingItem.last_verified || '',
         notes: editingItem.notes || '',
-        has_passphrase: editingItem.has_passphrase || false,
+        access_instructions: editingItem.description?.includes('access:') 
+          ? editingItem.description.split('access:')[1] 
+          : '',
       });
     }
   }, [editingItem]);
@@ -197,12 +259,19 @@ export default function EstateSecurity() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const securityScore = formData.item_type === 'custody_location' 
+    const securityScore = formData.item_type === 'custody_location' && formData.asset_type === 'btc'
       ? SECURITY_SCORES[formData.custody_type] || 5
       : 0;
     
+    // Store extra fields in description for non-BTC assets
+    const descParts = [];
+    if (formData.asset_type) descParts.push(`asset_type:${formData.asset_type}`);
+    if (formData.usd_value) descParts.push(`usd_value:${formData.usd_value}`);
+    if (formData.access_instructions) descParts.push(`access:${formData.access_instructions}`);
+    
     const data = {
       ...formData,
+      description: descParts.join(','),
       btc_amount: parseFloat(formData.btc_amount) || 0,
       security_score: securityScore,
       beneficiary_allocation_percent: parseFloat(formData.beneficiary_allocation_percent) || 0,
@@ -231,6 +300,8 @@ export default function EstateSecurity() {
 
   // Filter by type
   const custodyLocations = estateItems.filter(i => i.item_type === 'custody_location');
+  const btcCustody = custodyLocations.filter(c => !c.description?.includes('asset_type:') || c.description?.includes('asset_type:btc'));
+  const otherAssets = custodyLocations.filter(c => c.description?.includes('asset_type:') && !c.description?.includes('asset_type:btc'));
   const beneficiaries = estateItems.filter(i => i.item_type === 'beneficiary');
   const reminders = estateItems.filter(i => i.item_type === 'reminder');
   const protocols = estateItems.filter(i => i.item_type === 'security_protocol');
@@ -277,25 +348,37 @@ export default function EstateSecurity() {
     queryClient.invalidateQueries({ queryKey: ['userSettings'] });
   };
 
+  // Calculate total value of other assets
+  const totalOtherAssetsValue = otherAssets.reduce((sum, a) => {
+    const usdVal = a.description?.includes('usd_value:') 
+      ? parseFloat(a.description.split('usd_value:')[1]?.split(',')[0]) || 0 
+      : 0;
+    return sum + usdVal;
+  }, 0);
+
   // Generate protocol report
   const generateProtocolReport = () => {
     let report = `INHERITANCE PROTOCOL DOCUMENT\n`;
     report += `Generated: ${format(new Date(), 'MMMM d, yyyy')}\n`;
-    report += `Total BTC in Custody: ${totalCustodyBtc.toFixed(8)} BTC\n`;
-    report += `Current Value: $${(totalCustodyBtc * currentPrice).toLocaleString()}\n\n`;
-    report += `${'='.repeat(50)}\n\n`;
+    report += `${'='.repeat(60)}\n\n`;
+
+    report += `ESTATE SUMMARY\n`;
+    report += `${'-'.repeat(40)}\n`;
+    report += `Bitcoin Holdings: ${totalCustodyBtc.toFixed(8)} BTC ($${(totalCustodyBtc * currentPrice).toLocaleString()})\n`;
+    report += `Other Assets Value: $${totalOtherAssetsValue.toLocaleString()}\n`;
+    report += `Total Estate Value: $${((totalCustodyBtc * currentPrice) + totalOtherAssetsValue).toLocaleString()}\n\n`;
 
     report += `BENEFICIARIES\n`;
-    report += `${'-'.repeat(30)}\n`;
+    report += `${'-'.repeat(40)}\n`;
     beneficiaries.forEach(b => {
       report += `• ${b.beneficiary_name || b.title}: ${b.beneficiary_allocation_percent}%\n`;
       if (b.beneficiary_email) report += `  Email: ${b.beneficiary_email}\n`;
     });
     report += `\n`;
 
-    report += `CUSTODY LOCATIONS & RECOVERY STEPS\n`;
-    report += `${'-'.repeat(30)}\n`;
-    custodyLocations.forEach(custody => {
+    report += `BITCOIN CUSTODY & RECOVERY\n`;
+    report += `${'-'.repeat(40)}\n`;
+    btcCustody.forEach(custody => {
       report += `\n📍 ${custody.title}\n`;
       report += `   Type: ${custody.custody_type?.replace('_', ' ')}\n`;
       report += `   Amount: ${custody.btc_amount || 0} BTC\n`;
@@ -317,6 +400,32 @@ export default function EstateSecurity() {
         report += `   ⚠️ NO RECOVERY PROTOCOL DEFINED\n`;
       }
     });
+
+    if (otherAssets.length > 0) {
+      report += `\n\nOTHER ASSETS CHECKLIST\n`;
+      report += `${'-'.repeat(40)}\n`;
+      otherAssets.forEach(asset => {
+        const assetType = asset.description?.includes('asset_type:') 
+          ? asset.description.split('asset_type:')[1]?.split(',')[0] 
+          : 'other';
+        const usdValue = asset.description?.includes('usd_value:') 
+          ? parseFloat(asset.description.split('usd_value:')[1]?.split(',')[0]) || 0 
+          : 0;
+        const accessInstructions = asset.description?.includes('access:') 
+          ? asset.description.split('access:')[1] 
+          : '';
+        
+        report += `\n☐ ${asset.title}\n`;
+        report += `   Type: ${ASSET_TYPES.find(t => t.value === assetType)?.label || assetType}\n`;
+        if (usdValue) report += `   Value: $${usdValue.toLocaleString()}\n`;
+        if (accessInstructions) report += `   Access: ${accessInstructions}\n`;
+        if (asset.notes) report += `   Notes: ${asset.notes}\n`;
+      });
+    }
+
+    report += `\n\n${'='.repeat(60)}\n`;
+    report += `IMPORTANT: Keep this document secure. Store copies with your\n`;
+    report += `attorney, in a safe deposit box, and with trusted family members.\n`;
 
     return report;
   };
@@ -520,10 +629,14 @@ export default function EstateSecurity() {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="bg-zinc-800/50 p-1 flex-wrap">
-          <TabsTrigger value="custody" className="data-[state=active]:bg-zinc-700">Custody</TabsTrigger>
+          <TabsTrigger value="custody" className="data-[state=active]:bg-zinc-700">Bitcoin Custody</TabsTrigger>
+          <TabsTrigger value="other-assets" className="data-[state=active]:bg-zinc-700">Other Assets</TabsTrigger>
           <TabsTrigger value="protocols" className="data-[state=active]:bg-zinc-700">Recovery Protocols</TabsTrigger>
           <TabsTrigger value="beneficiaries" className="data-[state=active]:bg-zinc-700">Beneficiaries</TabsTrigger>
-          <TabsTrigger value="reminders" className="data-[state=active]:bg-zinc-700">Reminders</TabsTrigger>
+          <TabsTrigger value="checklist" className="data-[state=active]:bg-zinc-700">
+            <ClipboardList className="w-4 h-4 mr-1" />
+            Full Checklist
+          </TabsTrigger>
         </TabsList>
 
         {/* Custody Tab */}
@@ -531,12 +644,12 @@ export default function EstateSecurity() {
           <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h3 className="font-semibold">Custody Locations</h3>
+                <h3 className="font-semibold">Bitcoin Custody Locations</h3>
                 <p className="text-sm text-zinc-500">Security scores are auto-calculated based on custody type</p>
               </div>
-              <Button size="sm" onClick={() => openAddForm('custody_location')} className="brand-gradient text-white">
+              <Button size="sm" onClick={() => { resetForm(); setFormData(prev => ({ ...prev, item_type: 'custody_location', asset_type: 'btc' })); setFormOpen(true); }} className="brand-gradient text-white">
                 <Plus className="w-4 h-4 mr-2" />
-                Add Location
+                Add BTC Location
               </Button>
             </div>
 
@@ -557,7 +670,7 @@ export default function EstateSecurity() {
               })}
             </div>
 
-            {custodyLocations.length === 0 ? (
+            {btcCustody.length === 0 ? (
               <div className="text-center py-12">
                 <Key className="w-12 h-12 text-zinc-700 mx-auto mb-4" />
                 <p className="text-zinc-500">No custody locations added yet</p>
@@ -637,9 +750,127 @@ export default function EstateSecurity() {
                           ))}
                         </div>
                       </div>
+
+                      {/* Verification Steps */}
+                      {VERIFICATION_STEPS[location.custody_type] && (
+                        <div className="mt-4 pt-4 border-t border-zinc-800">
+                          <p className="text-xs text-zinc-500 uppercase tracking-wider mb-2">Verification Checklist</p>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            {VERIFICATION_STEPS[location.custody_type].map((step, i) => (
+                              <div key={i} className="flex items-center gap-2 text-sm text-zinc-400">
+                                <CheckCircle className="w-3.5 h-3.5 text-zinc-600" />
+                                {step}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        {/* Other Assets Tab */}
+        <TabsContent value="other-assets">
+          <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="font-semibold">Other Assets</h3>
+                <p className="text-sm text-zinc-500">Stocks, real estate, bank accounts, retirement accounts, etc.</p>
+              </div>
+              <Button size="sm" onClick={() => { resetForm(); setFormData(prev => ({ ...prev, item_type: 'custody_location', asset_type: 'stocks' })); setFormOpen(true); }} className="brand-gradient text-white">
+                <Plus className="w-4 h-4 mr-2" />
+                Add Asset
+              </Button>
+            </div>
+
+            {otherAssets.length === 0 ? (
+              <div className="text-center py-12">
+                <Package className="w-12 h-12 text-zinc-700 mx-auto mb-4" />
+                <p className="text-zinc-500">No other assets added yet</p>
+                <p className="text-xs text-zinc-600 mt-2">Add stocks, real estate, bank accounts, etc. to create a complete estate plan</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {otherAssets.map((asset) => {
+                  const assetType = asset.description?.includes('asset_type:') 
+                    ? asset.description.split('asset_type:')[1]?.split(',')[0] 
+                    : 'other';
+                  const usdValue = asset.description?.includes('usd_value:') 
+                    ? parseFloat(asset.description.split('usd_value:')[1]?.split(',')[0]) || 0 
+                    : 0;
+                  const accessInstructions = asset.description?.includes('access:') 
+                    ? asset.description.split('access:')[1] 
+                    : '';
+                  const assetInfo = ASSET_TYPES.find(t => t.value === assetType);
+                  
+                  return (
+                    <div key={asset.id} className="p-5 rounded-xl bg-zinc-800/30 hover:bg-zinc-800/50 transition-colors border border-zinc-800">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 rounded-xl bg-blue-400/10 flex items-center justify-center border border-blue-400/20">
+                            {assetType === 'stocks' && <TrendingUp className="w-6 h-6 text-blue-400" />}
+                            {assetType === 'real_estate' && <Building2 className="w-6 h-6 text-purple-400" />}
+                            {assetType === 'bank' && <Wallet className="w-6 h-6 text-emerald-400" />}
+                            {assetType === 'retirement' && <PiggyBank className="w-6 h-6 text-amber-400" />}
+                            {assetType === 'crypto_other' && <Coins className="w-6 h-6 text-orange-400" />}
+                            {assetType === 'insurance' && <Shield className="w-6 h-6 text-cyan-400" />}
+                            {(assetType === 'other' || !assetType) && <Package className="w-6 h-6 text-zinc-400" />}
+                          </div>
+                          <div>
+                            <h4 className="font-semibold text-lg">{asset.title}</h4>
+                            <span className="text-sm text-zinc-500">{assetInfo?.label || 'Other Asset'}</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => { setEditingItem(asset); setFormOpen(true); }} className="p-2 rounded-lg hover:bg-zinc-700">
+                            <Pencil className="w-4 h-4 text-zinc-400" />
+                          </button>
+                          <button onClick={() => deleteItem.mutate(asset.id)} className="p-2 rounded-lg hover:bg-rose-600/50">
+                            <Trash2 className="w-4 h-4 text-zinc-400" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-sm text-zinc-500">Estimated Value</p>
+                          <p className="text-lg font-semibold text-emerald-400">${usdValue.toLocaleString()}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-zinc-500">Last Verified</p>
+                          <p className="text-lg font-semibold text-zinc-300">
+                            {asset.last_verified ? format(new Date(asset.last_verified), 'MMM d, yyyy') : 'Never'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {accessInstructions && (
+                        <div className="mt-4 p-3 rounded-lg bg-zinc-800/50">
+                          <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">Access Instructions</p>
+                          <p className="text-sm text-zinc-300">{accessInstructions}</p>
+                        </div>
+                      )}
+
+                      {asset.notes && (
+                        <p className="mt-3 text-sm text-zinc-500">{asset.notes}</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Total Other Assets */}
+            {otherAssets.length > 0 && (
+              <div className="mt-6 p-4 rounded-xl bg-zinc-800/30 border border-zinc-700">
+                <div className="flex items-center justify-between">
+                  <span className="text-zinc-400">Total Other Assets Value</span>
+                  <span className="text-xl font-bold text-emerald-400">${totalOtherAssetsValue.toLocaleString()}</span>
+                </div>
               </div>
             )}
           </div>
@@ -838,71 +1069,151 @@ export default function EstateSecurity() {
           </div>
         </TabsContent>
 
-        {/* Reminders Tab */}
-        <TabsContent value="reminders">
+        {/* Full Checklist Tab */}
+        <TabsContent value="checklist">
           <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="font-semibold">Protocol Reminders</h3>
-              <Button size="sm" onClick={() => openAddForm('reminder')} className="brand-gradient text-white">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Reminder
-              </Button>
-            </div>
-            {reminders.length === 0 ? (
-              <div className="text-center py-12">
-                <Bell className="w-12 h-12 text-zinc-700 mx-auto mb-4" />
-                <p className="text-zinc-500">No reminders set</p>
+              <div>
+                <h3 className="font-semibold">Complete Inheritance Checklist</h3>
+                <p className="text-sm text-zinc-500">Everything your beneficiaries need in one place</p>
               </div>
-            ) : (
-              <div className="space-y-3">
-                {reminders.map((reminder) => {
-                  const daysUntil = reminder.reminder_date ? differenceInDays(new Date(reminder.reminder_date), new Date()) : null;
-                  const isOverdue = daysUntil !== null && daysUntil < 0;
-                  const isUpcoming = daysUntil !== null && daysUntil >= 0 && daysUntil <= 7;
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={handleDownloadProtocol} className="bg-transparent border-zinc-700">
+                  <Download className="w-4 h-4 mr-2" />
+                  Download
+                </Button>
+                <Button onClick={handleEmailProtocol} className="brand-gradient text-white">
+                  <Mail className="w-4 h-4 mr-2" />
+                  Email to Beneficiaries
+                </Button>
+              </div>
+            </div>
 
-                  return (
-                    <div key={reminder.id} className={cn(
-                      "flex items-center justify-between p-4 rounded-xl transition-colors border",
-                      isOverdue ? "bg-rose-400/10 border-rose-500/30" : isUpcoming ? "bg-amber-400/10 border-amber-500/30" : "bg-zinc-800/30 border-zinc-800"
-                    )}>
-                      <div className="flex items-center gap-4">
-                        <div className={cn(
-                          "w-10 h-10 rounded-xl flex items-center justify-center",
-                          isOverdue ? "bg-rose-400/20" : isUpcoming ? "bg-amber-400/20" : "bg-blue-400/10"
-                        )}>
-                          <Bell className={cn(
-                            "w-5 h-5",
-                            isOverdue ? "text-rose-400" : isUpcoming ? "text-amber-400" : "text-blue-400"
-                          )} />
+            {/* Estate Summary */}
+            <div className="p-5 rounded-xl bg-orange-500/5 border border-orange-500/20 mb-6">
+              <h4 className="font-semibold text-orange-400 mb-4">Estate Summary</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <p className="text-sm text-zinc-500">Bitcoin Holdings</p>
+                  <p className="text-xl font-bold text-orange-400">{totalCustodyBtc.toFixed(4)} BTC</p>
+                  <p className="text-sm text-zinc-500">${(totalCustodyBtc * currentPrice).toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-zinc-500">Other Assets</p>
+                  <p className="text-xl font-bold text-emerald-400">${totalOtherAssetsValue.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-zinc-500">Total Estate Value</p>
+                  <p className="text-xl font-bold text-white">${((totalCustodyBtc * currentPrice) + totalOtherAssetsValue).toLocaleString()}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Beneficiaries Summary */}
+            <div className="p-5 rounded-xl bg-zinc-800/30 border border-zinc-800 mb-6">
+              <h4 className="font-semibold mb-4">Beneficiaries</h4>
+              {beneficiaries.length === 0 ? (
+                <p className="text-zinc-500 text-sm">No beneficiaries configured</p>
+              ) : (
+                <div className="space-y-2">
+                  {beneficiaries.map(b => (
+                    <div key={b.id} className="flex items-center justify-between p-3 rounded-lg bg-zinc-800/50">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-purple-400/10 flex items-center justify-center">
+                          <span className="text-purple-400 font-semibold text-sm">
+                            {b.beneficiary_name?.[0]?.toUpperCase() || '?'}
+                          </span>
                         </div>
                         <div>
-                          <p className="font-medium">{reminder.title}</p>
-                          <div className="flex items-center gap-2 text-sm text-zinc-500">
-                            {reminder.reminder_date && <span>{format(new Date(reminder.reminder_date), 'MMM d, yyyy')}</span>}
-                            {reminder.reminder_frequency && <><span>•</span><span className="capitalize">{reminder.reminder_frequency}</span></>}
-                          </div>
+                          <p className="font-medium">{b.beneficiary_name || b.title}</p>
+                          {b.beneficiary_email && <p className="text-xs text-zinc-500">{b.beneficiary_email}</p>}
                         </div>
                       </div>
-                      <div className="flex items-center gap-4">
-                        {daysUntil !== null && (
-                          <Badge variant="outline" className={cn(
-                            isOverdue ? "border-rose-400/50 text-rose-400" : isUpcoming ? "border-amber-400/50 text-amber-400" : "border-zinc-600 text-zinc-400"
-                          )}>
-                            {isOverdue ? `${Math.abs(daysUntil)}d overdue` : `${daysUntil}d`}
-                          </Badge>
-                        )}
-                        <div className="flex gap-1">
-                          <button onClick={() => { setEditingItem(reminder); setFormOpen(true); }} className="p-1.5 rounded-lg hover:bg-zinc-700">
-                            <Pencil className="w-3.5 h-3.5 text-zinc-400" />
-                          </button>
-                          <button onClick={() => deleteItem.mutate(reminder.id)} className="p-1.5 rounded-lg hover:bg-rose-600/50">
-                            <Trash2 className="w-3.5 h-3.5 text-zinc-400" />
-                          </button>
-                        </div>
-                      </div>
+                      <span className="text-purple-400 font-semibold">{b.beneficiary_allocation_percent}%</span>
                     </div>
-                  );
-                })}
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Bitcoin Assets Checklist */}
+            <div className="p-5 rounded-xl bg-zinc-800/30 border border-zinc-800 mb-6">
+              <h4 className="font-semibold mb-4 flex items-center gap-2">
+                <Zap className="w-5 h-5 text-orange-400" />
+                Bitcoin Recovery Checklist
+              </h4>
+              {btcCustody.length === 0 ? (
+                <p className="text-zinc-500 text-sm">No Bitcoin custody locations configured</p>
+              ) : (
+                <div className="space-y-3">
+                  {btcCustody.map(custody => {
+                    const hasProtocol = recoveryProtocols.some(p => p.custody_location_id === custody.id);
+                    return (
+                      <div key={custody.id} className="p-4 rounded-lg bg-zinc-800/50">
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <p className="font-medium">{custody.title}</p>
+                            <p className="text-sm text-zinc-500">{custody.btc_amount} BTC • {custody.custody_type?.replace('_', ' ')}</p>
+                          </div>
+                          {hasProtocol ? (
+                            <Badge className="bg-emerald-500/20 text-emerald-400">Protocol Ready</Badge>
+                          ) : (
+                            <Badge className="bg-amber-500/20 text-amber-400">Needs Protocol</Badge>
+                          )}
+                        </div>
+                        {hasProtocol && (
+                          <div className="mt-3 space-y-1">
+                            {recoveryProtocols
+                              .filter(p => p.custody_location_id === custody.id)
+                              .sort((a, b) => a.step_number - b.step_number)
+                              .map(p => (
+                                <div key={p.id} className="flex items-center gap-2 text-sm">
+                                  <span className="text-orange-400 font-mono">{p.step_number}.</span>
+                                  <span className="text-zinc-300">{p.instruction}</span>
+                                </div>
+                              ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Other Assets Checklist */}
+            {otherAssets.length > 0 && (
+              <div className="p-5 rounded-xl bg-zinc-800/30 border border-zinc-800">
+                <h4 className="font-semibold mb-4 flex items-center gap-2">
+                  <Package className="w-5 h-5 text-blue-400" />
+                  Other Assets Checklist
+                </h4>
+                <div className="space-y-3">
+                  {otherAssets.map(asset => {
+                    const assetType = asset.description?.includes('asset_type:') 
+                      ? asset.description.split('asset_type:')[1]?.split(',')[0] 
+                      : 'other';
+                    const usdValue = asset.description?.includes('usd_value:') 
+                      ? parseFloat(asset.description.split('usd_value:')[1]?.split(',')[0]) || 0 
+                      : 0;
+                    const accessInstructions = asset.description?.includes('access:') 
+                      ? asset.description.split('access:')[1] 
+                      : '';
+                    
+                    return (
+                      <div key={asset.id} className="p-4 rounded-lg bg-zinc-800/50">
+                        <div className="flex items-center gap-2 mb-2">
+                          <CheckCircle className="w-4 h-4 text-zinc-600" />
+                          <p className="font-medium">{asset.title}</p>
+                          <span className="text-emerald-400 ml-auto">${usdValue.toLocaleString()}</span>
+                        </div>
+                        {accessInstructions && (
+                          <p className="text-sm text-zinc-400 ml-6">Access: {accessInstructions}</p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>
