@@ -447,24 +447,22 @@ export default function FinancialPlan() {
         
         if (withdrawalStrategy === '4percent') {
           // Traditional 4% rule: fixed amount based on initial retirement portfolio
+          const retirementStartIndex = Math.max(0, retirementAge - currentAge);
           if (yearsIntoRetirement === 0) {
             yearWithdrawal = totalBeforeWithdrawal * 0.04;
           } else {
             // Inflation-adjusted from initial withdrawal
-            const initialWithdrawal = data[retirementAge - currentAge]?.yearWithdrawal || totalBeforeWithdrawal * 0.04;
+            const initialWithdrawal = data[retirementStartIndex]?.yearWithdrawal || totalBeforeWithdrawal * 0.04;
             yearWithdrawal = initialWithdrawal * Math.pow(1 + effectiveInflation / 100, yearsIntoRetirement);
           }
         } else if (withdrawalStrategy === 'dynamic') {
           // Dynamic withdrawal: withdraw % of current portfolio (allows more when portfolio grows)
           const withdrawRate = dynamicWithdrawalRate / 100;
           yearWithdrawal = totalBeforeWithdrawal * withdrawRate;
-          
-          // Floor: at least inflation-adjusted base spending
-          const minWithdrawal = retirementAnnualSpending * Math.pow(1 + effectiveInflation / 100, retirementAge - currentAge + yearsIntoRetirement);
-          yearWithdrawal = Math.max(yearWithdrawal, Math.min(minWithdrawal, totalBeforeWithdrawal * 0.1));
         } else {
           // Income-based (variable): withdraw exactly what you need, inflation-adjusted
-          yearWithdrawal = retirementAnnualSpending * Math.pow(1 + effectiveInflation / 100, retirementAge - currentAge + yearsIntoRetirement);
+          const yearsOfInflation = Math.max(0, retirementAge - currentAge) + yearsIntoRetirement;
+          yearWithdrawal = retirementAnnualSpending * Math.pow(1 + effectiveInflation / 100, yearsOfInflation);
         }
         
         // Smart withdrawal order based on age and account types
