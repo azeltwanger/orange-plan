@@ -13,8 +13,29 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 
 export default function DCAStrategy() {
-  const [btcPrice] = useState(97000);
+  const [btcPrice, setBtcPrice] = useState(null);
+  const [priceLoading, setPriceLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
+
+  // Fetch live BTC price
+  useEffect(() => {
+    const fetchPrice = async () => {
+      try {
+        const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd');
+        const data = await response.json();
+        setBtcPrice(data.bitcoin.usd);
+        setPriceLoading(false);
+      } catch (err) {
+        setBtcPrice(97000);
+        setPriceLoading(false);
+      }
+    };
+    fetchPrice();
+    const interval = setInterval(fetchPrice, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const currentPrice = btcPrice || 97000;
   const [editingPlan, setEditingPlan] = useState(null);
   const queryClient = useQueryClient();
 
@@ -131,7 +152,7 @@ export default function DCAStrategy() {
     let totalInvested = 0;
 
     for (let i = 0; i <= months; i++) {
-      const monthlyBtc = totalMonthlyDCA / btcPrice;
+      const monthlyBtc = totalMonthlyDCA / currentPrice;
       totalBtc += monthlyBtc;
       totalInvested += totalMonthlyDCA;
       
@@ -139,7 +160,7 @@ export default function DCAStrategy() {
         month: i,
         btc: parseFloat(totalBtc.toFixed(4)),
         invested: Math.round(totalInvested),
-        value: Math.round(totalBtc * btcPrice),
+        value: Math.round(totalBtc * currentPrice),
       });
     }
     return data;
@@ -175,7 +196,7 @@ export default function DCAStrategy() {
           </div>
           <p className="text-3xl font-bold text-emerald-400">${totalMonthlyDCA.toLocaleString()}</p>
           <p className="text-sm text-zinc-500 mt-1">
-            ≈ {(totalMonthlyDCA / btcPrice).toFixed(6)} BTC/mo
+            ≈ {(totalMonthlyDCA / currentPrice).toFixed(6)} BTC/mo
           </p>
         </div>
 
@@ -238,7 +259,7 @@ export default function DCAStrategy() {
             </div>
             <div className="text-center">
               <p className="text-sm text-zinc-500">BTC Accumulated</p>
-              <p className="text-lg font-bold text-amber-400">{((totalMonthlyDCA * 12) / btcPrice).toFixed(4)} BTC</p>
+              <p className="text-lg font-bold text-amber-400">{((totalMonthlyDCA * 12) / currentPrice).toFixed(4)} BTC</p>
             </div>
             <div className="text-center">
               <p className="text-sm text-zinc-500">At Current Price</p>

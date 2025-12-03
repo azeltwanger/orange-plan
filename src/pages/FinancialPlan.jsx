@@ -13,8 +13,29 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 
 export default function FinancialPlan() {
-  const [btcPrice] = useState(97000);
+  const [btcPrice, setBtcPrice] = useState(null);
+  const [priceLoading, setPriceLoading] = useState(true);
   const [btcCagr, setBtcCagr] = useState(25);
+
+  // Fetch live BTC price
+  useEffect(() => {
+    const fetchPrice = async () => {
+      try {
+        const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd');
+        const data = await response.json();
+        setBtcPrice(data.bitcoin.usd);
+        setPriceLoading(false);
+      } catch (err) {
+        setBtcPrice(97000);
+        setPriceLoading(false);
+      }
+    };
+    fetchPrice();
+    const interval = setInterval(fetchPrice, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const currentPrice = btcPrice || 97000;
   const [otherCagr, setOtherCagr] = useState(7);
   const [retirementAge, setRetirementAge] = useState(65);
   const [currentAge, setCurrentAge] = useState(35);
@@ -94,7 +115,7 @@ export default function FinancialPlan() {
   }, [editingGoal]);
 
   // Calculate current portfolio
-  const btcValue = holdings.filter(h => h.ticker === 'BTC').reduce((sum, h) => sum + h.quantity * btcPrice, 0);
+  const btcValue = holdings.filter(h => h.ticker === 'BTC').reduce((sum, h) => sum + h.quantity * currentPrice, 0);
   const otherValue = holdings.filter(h => h.ticker !== 'BTC').reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
   const totalValue = btcValue + otherValue;
 

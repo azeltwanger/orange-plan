@@ -15,8 +15,29 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 export default function EstateSecurity() {
-  const [btcPrice] = useState(97000);
+  const [btcPrice, setBtcPrice] = useState(null);
+  const [priceLoading, setPriceLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
+
+  // Fetch live BTC price
+  useEffect(() => {
+    const fetchPrice = async () => {
+      try {
+        const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd');
+        const data = await response.json();
+        setBtcPrice(data.bitcoin.usd);
+        setPriceLoading(false);
+      } catch (err) {
+        setBtcPrice(97000);
+        setPriceLoading(false);
+      }
+    };
+    fetchPrice();
+    const interval = setInterval(fetchPrice, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const currentPrice = btcPrice || 97000;
   const [editingItem, setEditingItem] = useState(null);
   const [activeTab, setActiveTab] = useState('custody');
   const queryClient = useQueryClient();
@@ -426,7 +447,7 @@ export default function EstateSecurity() {
                       <div className="text-right">
                         <p className="text-xl font-bold text-purple-400">{beneficiary.beneficiary_allocation_percent || 0}%</p>
                         <p className="text-xs text-zinc-500">
-                          ≈ {((beneficiary.beneficiary_allocation_percent || 0) / 100 * btcHoldings).toFixed(4)} BTC
+                          ≈ ${(((beneficiary.beneficiary_allocation_percent || 0) / 100 * btcHoldings) * currentPrice).toLocaleString()}
                         </p>
                       </div>
                       <div className="flex gap-1">
