@@ -90,9 +90,12 @@ export default function FinancialPlan() {
   const [currentAnnualSpending, setCurrentAnnualSpending] = useState(80000);
   const [retirementAnnualSpending, setRetirementAnnualSpending] = useState(100000);
   
-  // Withdrawal strategy
-  const [withdrawalStrategy, setWithdrawalStrategy] = useState('dynamic'); // '4percent', 'dynamic', 'saylor24', 'powerlaw'
+  // Withdrawal strategy - separate from return model
+  const [withdrawalStrategy, setWithdrawalStrategy] = useState('dynamic'); // '4percent', 'dynamic', 'variable'
   const [dynamicWithdrawalRate, setDynamicWithdrawalRate] = useState(5); // For dynamic: withdraw % of portfolio each year
+  
+  // BTC return model (separate from withdrawal)
+  const [btcReturnModel, setBtcReturnModel] = useState('custom'); // 'custom', 'saylor24', 'powerlaw', 'conservative'
   
   // Monte Carlo
   const [runSimulation, setRunSimulation] = useState(false);
@@ -217,9 +220,9 @@ export default function FinancialPlan() {
   const effectiveStocksCagr = stocksCagr;
   const effectiveInflation = inflationRate;
 
-  // BTC growth models
-  const getBtcGrowthRate = (strategy, yearFromNow) => {
-    switch (strategy) {
+  // BTC growth models - now based on btcReturnModel, not withdrawalStrategy
+  const getBtcGrowthRate = (yearFromNow) => {
+    switch (btcReturnModel) {
       case 'saylor24':
         // Saylor's Bitcoin24 model: ~29% CAGR declining over time
         // Starts at ~45% and declines to ~15% over 20 years
@@ -232,9 +235,24 @@ export default function FinancialPlan() {
         const plBase = 60;
         const plDecline = 2;
         return Math.max(20, plBase - (yearFromNow * plDecline));
+      case 'conservative':
+        // Conservative model: 10% flat
+        return 10;
       default:
         return effectiveBtcCagr;
     }
+  };
+  
+  // Number formatting helper
+  const formatNumber = (num, decimals = 0) => {
+    if (num >= 1e9) return `$${(num / 1e9).toFixed(decimals)}B`;
+    if (num >= 1e6) return `$${(num / 1e6).toFixed(decimals)}M`;
+    if (num >= 1e3) return `$${(num / 1e3).toFixed(decimals)}k`;
+    return `$${num.toLocaleString()}`;
+  };
+  
+  const formatNumberFull = (num) => {
+    return `$${num.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
   };
 
   // Generate projection data with dynamic withdrawal based on portfolio growth and account types
@@ -273,8 +291,8 @@ export default function FinancialPlan() {
       const isRetired = currentAge + i >= retirementAge;
       const yearsIntoRetirement = isRetired ? currentAge + i - retirementAge : 0;
 
-      // Get BTC growth rate based on strategy
-      const yearBtcGrowth = getBtcGrowthRate(withdrawalStrategy, i);
+      // Get BTC growth rate based on return model (not withdrawal strategy)
+      const yearBtcGrowth = getBtcGrowthRate(i);
       
       // Pre-retirement: save and grow. Post-retirement: grow then withdraw
       let yearSavings = 0;
@@ -408,7 +426,7 @@ export default function FinancialPlan() {
       });
     }
     return data;
-  }, [btcValue, stocksValue, realEstateValue, bondsValue, otherValue, taxableValue, taxDeferredValue, taxFreeValue, currentAge, retirementAge, lifeExpectancy, effectiveBtcCagr, effectiveStocksCagr, realEstateCagr, bondsCagr, effectiveInflation, lifeEvents, annualSavings, incomeGrowth, retirementAnnualSpending, withdrawalStrategy, dynamicWithdrawalRate]);
+  }, [btcValue, stocksValue, realEstateValue, bondsValue, otherValue, taxableValue, taxDeferredValue, taxFreeValue, currentAge, retirementAge, lifeExpectancy, effectiveBtcCagr, effectiveStocksCagr, realEstateCagr, bondsCagr, effectiveInflation, lifeEvents, annualSavings, incomeGrowth, retirementAnnualSpending, withdrawalStrategy, dynamicWithdrawalRate, btcReturnModel]);
 
   // Run Monte Carlo when button clicked
   const handleRunSimulation = () => {
@@ -560,13 +578,45 @@ export default function FinancialPlan() {
             <Settings className="w-5 h-5 text-orange-400" />
             Rate Assumptions
           </h3>
+          {/* BTC Return Model Selection */}
+          <div className="mb-6 p-4 rounded-xl bg-orange-500/5 border border-orange-500/20">
+            <Label className="text-zinc-300 font-medium mb-3 block">Bitcoin Return Model</Label>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+              {[
+                { value: 'custom', label: 'Custom', desc: `${btcCagr}% CAGR` },
+                { value: 'saylor24', label: 'Saylor Bitcoin24', desc: '45%→15% declining' },
+                { value: 'powerlaw', label: 'Power Law', desc: '60%→20% declining' },
+                { value: 'conservative', label: 'Conservative', desc: '10% flat' },
+              ].map(model => (
+                <button
+                  key={model.value}
+                  onClick={() => setBtcReturnModel(model.value)}
+                  className={cn(
+                    "p-3 rounded-lg border text-left transition-all",
+                    btcReturnModel === model.value 
+                      ? "bg-orange-500/20 border-orange-500/50 text-orange-400" 
+                      : "bg-zinc-800/50 border-zinc-700 text-zinc-400 hover:border-zinc-600"
+                  )}
+                >
+                  <p className="font-medium text-sm">{model.label}</p>
+                  <p className="text-xs opacity-70">{model.desc}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div className="space-y-3">
+            <div className={cn("space-y-3", btcReturnModel !== 'custom' && "opacity-50")}>
               <div className="flex justify-between">
-                <Label className="text-zinc-400">Bitcoin CAGR</Label>
-                <span className="text-orange-400 font-semibold">{btcCagr}%</span>
+                <Label className="text-zinc-400">Bitcoin CAGR {btcReturnModel !== 'custom' && '(using model)'}</Label>
+                <span className="text-orange-400 font-semibold">{btcReturnModel === 'custom' ? btcCagr : getBtcGrowthRate(0)}%</span>
               </div>
-              <Slider value={[btcCagr]} onValueChange={([v]) => setBtcCagr(v)} min={-20} max={100} step={1} />
+              <Slider 
+                value={[btcCagr]} 
+                onValueChange={([v]) => { setBtcCagr(v); setBtcReturnModel('custom'); }} 
+                min={-20} max={100} step={1} 
+                disabled={btcReturnModel !== 'custom'}
+              />
             </div>
             <div className="space-y-3">
               <div className="flex justify-between">
@@ -631,17 +681,17 @@ export default function FinancialPlan() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
                 <p className="text-sm text-zinc-400">Taxable (Accessible Now)</p>
-                <p className="text-2xl font-bold text-emerald-400">${(taxableValue / 1000).toFixed(0)}k</p>
+                <p className="text-2xl font-bold text-emerald-400">{formatNumber(taxableValue)}</p>
                 <p className="text-xs text-zinc-500">Brokerage, self-custody crypto</p>
               </div>
               <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20">
                 <p className="text-sm text-zinc-400">Tax-Deferred (59½+)</p>
-                <p className="text-2xl font-bold text-amber-400">${(taxDeferredValue / 1000).toFixed(0)}k</p>
+                <p className="text-2xl font-bold text-amber-400">{formatNumber(taxDeferredValue)}</p>
                 <p className="text-xs text-zinc-500">401(k), Traditional IRA • 10% penalty if early</p>
               </div>
               <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-500/20">
                 <p className="text-sm text-zinc-400">Tax-Free (Roth/HSA)</p>
-                <p className="text-2xl font-bold text-purple-400">${(taxFreeValue / 1000).toFixed(0)}k</p>
+                <p className="text-2xl font-bold text-purple-400">{formatNumber(taxFreeValue)}</p>
                 <p className="text-xs text-zinc-500">Roth IRA/401k, HSA • Contributions accessible</p>
               </div>
             </div>
@@ -649,7 +699,7 @@ export default function FinancialPlan() {
               <div className="mt-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
                 <p className="text-sm text-amber-400">
                   ⚠️ Retiring at {retirementAge} means {Math.ceil(59.5 - retirementAge)} years before penalty-free access to retirement accounts.
-                  You'll need <span className="font-bold">${((taxableValue + taxFreeValue * 0.5) / 1000).toFixed(0)}k</span> in taxable/Roth to bridge the gap.
+                  You'll need <span className="font-bold">{formatNumber(taxableValue + taxFreeValue * 0.5)}</span> in taxable/Roth to bridge the gap.
                 </p>
               </div>
             )}
@@ -683,71 +733,86 @@ export default function FinancialPlan() {
 
             {/* Withdrawal Strategy */}
             <div className="mt-6 p-4 rounded-xl bg-zinc-800/30">
-              <div className="flex flex-col lg:flex-row lg:items-center gap-4">
-                <div className="flex-1">
-                  <Label className="text-zinc-400 text-sm">Withdrawal Strategy</Label>
-                  <Select value={withdrawalStrategy} onValueChange={setWithdrawalStrategy}>
-                    <SelectTrigger className="bg-zinc-900 border-zinc-800 mt-1">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-zinc-900 border-zinc-800">
-                      <SelectItem value="4percent">Traditional 4% Rule (Fixed)</SelectItem>
-                      <SelectItem value="dynamic">Dynamic % of Portfolio</SelectItem>
-                      <SelectItem value="saylor24">Saylor Bitcoin24 Model (~29% declining)</SelectItem>
-                      <SelectItem value="powerlaw">Power Law Model (~40% declining)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                {withdrawalStrategy === 'dynamic' && (
-                  <div className="flex-1">
-                    <div className="flex justify-between">
-                      <Label className="text-zinc-400 text-sm">Withdrawal Rate</Label>
-                      <span className="text-orange-400 font-semibold">{dynamicWithdrawalRate}%</span>
-                    </div>
-                    <Slider 
-                      value={[dynamicWithdrawalRate]} 
-                      onValueChange={([v]) => setDynamicWithdrawalRate(v)} 
-                      min={2} max={10} step={0.5} 
-                      className="mt-2"
-                    />
-                  </div>
-                )}
-                
-                <div className="lg:w-80 p-3 rounded-lg bg-zinc-900/50 text-xs text-zinc-500">
-                  {withdrawalStrategy === '4percent' && "Classic rule: withdraw 4% of initial portfolio, adjust for inflation yearly"}
-                  {withdrawalStrategy === 'dynamic' && "Withdraw a fixed % of current portfolio each year - more when it grows, less when it shrinks"}
-                  {withdrawalStrategy === 'saylor24' && "Michael Saylor's model: BTC starts ~45% CAGR declining to ~15% over 20 years"}
-                  {withdrawalStrategy === 'powerlaw' && "Bitcoin Power Law: follows logarithmic regression, ~60% early declining to ~20%"}
-                </div>
+              <Label className="text-zinc-300 font-medium mb-3 block">Withdrawal Strategy</Label>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                <button
+                  onClick={() => setWithdrawalStrategy('4percent')}
+                  className={cn(
+                    "p-4 rounded-lg border text-left transition-all",
+                    withdrawalStrategy === '4percent' 
+                      ? "bg-emerald-500/20 border-emerald-500/50" 
+                      : "bg-zinc-800/50 border-zinc-700 hover:border-zinc-600"
+                  )}
+                >
+                  <p className="font-medium text-sm">4% Rule (Traditional)</p>
+                  <p className="text-xs text-zinc-500 mt-1">Withdraw 4% of initial portfolio, adjust for inflation</p>
+                </button>
+                <button
+                  onClick={() => setWithdrawalStrategy('dynamic')}
+                  className={cn(
+                    "p-4 rounded-lg border text-left transition-all",
+                    withdrawalStrategy === 'dynamic' 
+                      ? "bg-emerald-500/20 border-emerald-500/50" 
+                      : "bg-zinc-800/50 border-zinc-700 hover:border-zinc-600"
+                  )}
+                >
+                  <p className="font-medium text-sm">Dynamic % of Portfolio</p>
+                  <p className="text-xs text-zinc-500 mt-1">Withdraw {dynamicWithdrawalRate}% of current value each year</p>
+                </button>
+                <button
+                  onClick={() => setWithdrawalStrategy('variable')}
+                  className={cn(
+                    "p-4 rounded-lg border text-left transition-all",
+                    withdrawalStrategy === 'variable' 
+                      ? "bg-emerald-500/20 border-emerald-500/50" 
+                      : "bg-zinc-800/50 border-zinc-700 hover:border-zinc-600"
+                  )}
+                >
+                  <p className="font-medium text-sm">Income-Based</p>
+                  <p className="text-xs text-zinc-500 mt-1">Withdraw exactly what you need ({formatNumber(retirementAnnualSpending)}/yr)</p>
+                </button>
               </div>
+              
+              {withdrawalStrategy === 'dynamic' && (
+                <div className="mt-4 p-3 rounded-lg bg-zinc-900/50">
+                  <div className="flex justify-between mb-2">
+                    <Label className="text-zinc-400 text-sm">Annual Withdrawal Rate</Label>
+                    <span className="text-orange-400 font-semibold">{dynamicWithdrawalRate}%</span>
+                  </div>
+                  <Slider 
+                    value={[dynamicWithdrawalRate]} 
+                    onValueChange={([v]) => setDynamicWithdrawalRate(v)} 
+                    min={2} max={10} step={0.5} 
+                  />
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6 p-4 rounded-xl bg-zinc-800/30">
               <div>
                 <p className="text-sm text-zinc-500">At Retirement (Age {retirementAge})</p>
-                <p className="text-2xl font-bold text-orange-400">${(retirementValue / 1000000).toFixed(2)}M</p>
+                <p className="text-2xl font-bold text-orange-400">{formatNumber(retirementValue, 2)}</p>
               </div>
               <div>
                 <p className="text-sm text-zinc-500">At Life Expectancy (Age {lifeExpectancy})</p>
-                <p className="text-2xl font-bold text-zinc-300">${(endOfLifeValue / 1000000).toFixed(2)}M</p>
+                <p className="text-2xl font-bold text-zinc-300">{formatNumber(endOfLifeValue, 2)}</p>
               </div>
               <div>
                 <p className="text-sm text-zinc-500">Year 1 Withdrawal</p>
-                <p className="text-2xl font-bold text-emerald-400">${(firstRetirementWithdrawal / 1000).toFixed(0)}k</p>
+                <p className="text-2xl font-bold text-emerald-400">{formatNumber(firstRetirementWithdrawal)}</p>
               </div>
               <div>
                 <p className="text-sm text-zinc-500">Avg Annual Withdrawal</p>
-                <p className="text-2xl font-bold text-cyan-400">${(avgRetirementWithdrawal / 1000).toFixed(0)}k</p>
+                <p className="text-2xl font-bold text-cyan-400">{formatNumber(avgRetirementWithdrawal)}</p>
               </div>
               <div>
                 <p className="text-sm text-zinc-500">Needed at Retirement</p>
-                <p className="text-xl font-bold text-amber-400">${(inflationAdjustedRetirementSpending / 1000).toFixed(0)}k/yr</p>
+                <p className="text-xl font-bold text-amber-400">{formatNumber(inflationAdjustedRetirementSpending)}/yr</p>
                 <p className="text-xs text-zinc-600">({inflationRate}% inflation adjusted)</p>
               </div>
               <div>
                 <p className="text-sm text-zinc-500">Total Lifetime Withdrawals</p>
-                <p className="text-xl font-bold text-purple-400">${(totalLifetimeWithdrawals / 1000000).toFixed(1)}M</p>
+                <p className="text-xl font-bold text-purple-400">{formatNumber(totalLifetimeWithdrawals, 1)}</p>
               </div>
               <div>
                 <p className="text-sm text-zinc-500">Retirement Status</p>
@@ -817,9 +882,12 @@ export default function FinancialPlan() {
                 <p className="text-xs text-zinc-500 mt-1">
                   Strategy: <span className="text-orange-400 font-semibold">
                     {withdrawalStrategy === '4percent' ? '4% Rule' : 
-                     withdrawalStrategy === 'dynamic' ? `${dynamicWithdrawalRate}% Dynamic` :
-                     withdrawalStrategy === 'saylor24' ? 'Saylor Bitcoin24' : 'Power Law'}
-                  </span> • Required nest egg: <span className="text-orange-400 font-semibold">${(requiredNestEgg / 1000000).toFixed(2)}M</span>
+                     withdrawalStrategy === 'dynamic' ? `${dynamicWithdrawalRate}% Dynamic` : 'Income-Based'}
+                  </span> • BTC Model: <span className="text-orange-400 font-semibold">
+                    {btcReturnModel === 'custom' ? `${btcCagr}% Custom` : 
+                     btcReturnModel === 'saylor24' ? 'Saylor Bitcoin24' : 
+                     btcReturnModel === 'powerlaw' ? 'Power Law' : 'Conservative'}
+                  </span> • Required: <span className="text-orange-400 font-semibold">{formatNumber(requiredNestEgg, 2)}</span>
                 </p>
               </div>
               <Button onClick={handleRunSimulation} className="brand-gradient text-white font-semibold">
@@ -861,9 +929,8 @@ export default function FinancialPlan() {
                     {successProbability?.toFixed(0)}%
                   </p>
                   <p className="text-xs text-zinc-600 mt-1">
-                  Using {withdrawalStrategy === '4percent' ? '4% Rule' : 
-                         withdrawalStrategy === 'dynamic' ? `${dynamicWithdrawalRate}% Dynamic` :
-                         withdrawalStrategy === 'saylor24' ? 'Saylor Bitcoin24' : 'Power Law'} strategy
+                  {withdrawalStrategy === '4percent' ? '4% Rule' : 
+                   withdrawalStrategy === 'dynamic' ? `${dynamicWithdrawalRate}% Dynamic` : 'Income-Based'} withdrawal • {btcReturnModel === 'custom' ? `${btcCagr}%` : btcReturnModel} BTC returns
                 </p>
                   <p className="text-sm text-zinc-500 mt-2">
                     {successProbability >= 80 ? "Excellent! You're on track for your desired retirement lifestyle." :
@@ -900,17 +967,17 @@ export default function FinancialPlan() {
                 <div className="grid grid-cols-3 gap-4 mt-6">
                   <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20">
                     <p className="text-sm text-zinc-500">Worst Case (10%)</p>
-                    <p className="text-2xl font-bold text-rose-400">${(simulationResults[simulationResults.length - 1]?.p10 / 1000000).toFixed(2)}M</p>
+                    <p className="text-2xl font-bold text-rose-400">{formatNumber(simulationResults[simulationResults.length - 1]?.p10 || 0, 2)}</p>
                     <p className="text-xs text-zinc-600 mt-1">90% chance to beat this</p>
                   </div>
                   <div className="p-4 rounded-xl bg-orange-500/10 border border-orange-500/20">
                     <p className="text-sm text-zinc-500">Most Likely (Median)</p>
-                    <p className="text-2xl font-bold text-orange-400">${(simulationResults[simulationResults.length - 1]?.p50 / 1000000).toFixed(2)}M</p>
+                    <p className="text-2xl font-bold text-orange-400">{formatNumber(simulationResults[simulationResults.length - 1]?.p50 || 0, 2)}</p>
                     <p className="text-xs text-zinc-600 mt-1">50% chance to beat this</p>
                   </div>
                   <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
                     <p className="text-sm text-zinc-500">Best Case (90%)</p>
-                    <p className="text-2xl font-bold text-emerald-400">${(simulationResults[simulationResults.length - 1]?.p90 / 1000000).toFixed(2)}M</p>
+                    <p className="text-2xl font-bold text-emerald-400">{formatNumber(simulationResults[simulationResults.length - 1]?.p90 || 0, 2)}</p>
                     <p className="text-xs text-zinc-600 mt-1">10% chance to beat this</p>
                   </div>
                 </div>
