@@ -534,7 +534,7 @@ export default function FinancialPlan() {
 
   // Run Monte Carlo when button clicked
   const handleRunSimulation = () => {
-    const simulations = runMonteCarloSimulation({
+    const { paths: simulations, successResults } = runMonteCarloSimulation({
       btcValue,
       stocksValue,
       realEstateValue,
@@ -559,8 +559,8 @@ export default function FinancialPlan() {
     
     const percentiles = calculatePercentiles(simulations);
     
-    // Calculate success probability against inflation-adjusted retirement income need
-    const probability = calculateSuccessProbability(simulations, requiredNestEgg);
+    // Calculate success probability - did you NOT run out of money through life expectancy?
+    const probability = calculateSuccessProbability(successResults);
     setSuccessProbability(probability);
     
     const chartData = percentiles.map((p, i) => ({
