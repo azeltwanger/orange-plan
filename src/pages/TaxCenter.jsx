@@ -552,7 +552,7 @@ export default function TaxCenter() {
             <Calculator className="w-4 h-4 mr-2" />
             Record Sale
           </Button>
-          <Button onClick={() => { setEditingTx(null); resetForm(); setFormOpen(true); }} variant="outline" className="border-zinc-700">
+          <Button onClick={() => { setEditingTx(null); resetForm(); setFormOpen(true); }} variant="outline" className="border-zinc-600 bg-zinc-800 text-zinc-200 hover:bg-zinc-700">
             <Plus className="w-4 h-4 mr-2" />
             Add Buy
           </Button>
