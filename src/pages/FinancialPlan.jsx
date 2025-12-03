@@ -108,6 +108,10 @@ export default function FinancialPlan() {
     name: '', scenario_type: 'custom', btc_cagr_override: '', stocks_cagr_override: '', inflation_override: '', market_crash_year: '', crash_severity_percent: '', description: '',
   });
 
+  const [accountForm, setAccountForm] = useState({
+    name: '', account_type: 'taxable', institution: '', annual_contribution: '', employer_match_percent: '', employer_match_limit: '', notes: '',
+  });
+
   // Fetch BTC price
   useEffect(() => {
     const fetchPrice = async () => {
