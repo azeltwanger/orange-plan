@@ -1234,10 +1234,15 @@ export default function FinancialPlan() {
                         return [`$${value.toLocaleString()}`, name];
                       }}
                       labelFormatter={(age) => {
-                        const yearEvents = lifeEvents.filter(e => e.year === new Date().getFullYear() + (age - currentAge));
+                        const year = new Date().getFullYear() + (age - currentAge);
+                        const yearEvents = lifeEvents.filter(e => e.year === year);
+                        const yearGoals = goals.filter(g => g.will_be_spent && g.target_date && new Date(g.target_date).getFullYear() === year);
                         let label = `Age ${age}`;
                         if (yearEvents.length > 0) {
                           label += ` • ${yearEvents.map(e => e.name).join(', ')}`;
+                        }
+                        if (yearGoals.length > 0) {
+                          label += ` • ${yearGoals.map(g => `${g.name} (-$${(g.target_amount/1000).toFixed(0)}k)`).join(', ')}`;
                         }
                         return label;
                       }}
