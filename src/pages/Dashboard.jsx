@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import NetWorthCard from '@/components/dashboard/NetWorthCard';
 import AssetCard from '@/components/dashboard/AssetCard';
 import QuickStats from '@/components/dashboard/QuickStats';
-import HoldingForm from '@/components/forms/HoldingForm';
+import AddAssetWithTransaction from '@/components/forms/AddAssetWithTransaction';
 
 export default function Dashboard() {
   const [btcPrice, setBtcPrice] = useState(null);
@@ -59,15 +59,31 @@ export default function Dashboard() {
   });
 
   const createHolding = useMutation({
-    mutationFn: (data) => base44.entities.Holding.create(data),
+    mutationFn: async ({ holding, transaction }) => {
+      const newHolding = await base44.entities.Holding.create(holding);
+      if (transaction) {
+        await base44.entities.Transaction.create({
+          ...transaction,
+          holding_id: newHolding.id,
+        });
+      }
+      return newHolding;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['holdings'] });
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
       setFormOpen(false);
     },
   });
 
   const updateHolding = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.Holding.update(id, data),
+    mutationFn: async ({ id, data }) => {
+      // If data has holding/transaction structure, handle it
+      if (data.holding) {
+        return base44.entities.Holding.update(id, data.holding);
+      }
+      return base44.entities.Holding.update(id, data);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['holdings'] });
       setFormOpen(false);
@@ -115,7 +131,7 @@ export default function Dashboard() {
 
   const handleSubmit = (data) => {
     if (editingHolding) {
-      updateHolding.mutate({ id: editingHolding.id, data });
+      updateHolding.mutate({ id: editingHolding.id, data: data.holding || data });
     } else {
       createHolding.mutate(data);
     }
@@ -277,11 +293,12 @@ export default function Dashboard() {
         </div>
       )}
 
-      <HoldingForm
+      <AddAssetWithTransaction
         open={formOpen}
         onClose={() => { setFormOpen(false); setEditingHolding(null); }}
         onSubmit={handleSubmit}
         initialData={editingHolding}
+        btcPrice={currentPrice}
       />
     </div>
   );
