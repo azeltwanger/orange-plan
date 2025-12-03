@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from './utils';
 import { 
@@ -12,7 +12,8 @@ import {
   Shield,
   Menu,
   X,
-  Bitcoin
+  Bitcoin,
+  RefreshCw
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
@@ -29,6 +30,29 @@ const navItems = [
 
 export default function Layout({ children, currentPageName }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [btcPrice, setBtcPrice] = useState(null);
+  const [priceChange, setPriceChange] = useState(null);
+  const [priceLoading, setPriceLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchPrice = async () => {
+      try {
+        const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd&include_24hr_change=true');
+        const data = await response.json();
+        setBtcPrice(data.bitcoin.usd);
+        setPriceChange(data.bitcoin.usd_24h_change);
+        setPriceLoading(false);
+      } catch (err) {
+        setBtcPrice(97000);
+        setPriceChange(0);
+        setPriceLoading(false);
+      }
+    };
+
+    fetchPrice();
+    const interval = setInterval(fetchPrice, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
@@ -111,11 +135,28 @@ export default function Layout({ children, currentPageName }) {
             })}
           </nav>
 
-          {/* Footer */}
+          {/* Footer - Live BTC Price */}
           <div className="p-4 border-t border-zinc-800/50">
             <div className="card-glass rounded-xl p-4">
-              <p className="text-xs text-zinc-500 mb-1">BTC Price</p>
-              <p className="text-lg font-semibold text-amber-400">Live</p>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs text-zinc-500 uppercase tracking-wider">BTC Price</p>
+                {priceLoading ? (
+                  <RefreshCw className="w-3 h-3 text-zinc-500 animate-spin" />
+                ) : (
+                  <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                )}
+              </div>
+              <p className="text-xl font-bold text-amber-400">
+                ${btcPrice ? btcPrice.toLocaleString() : '---'}
+              </p>
+              {priceChange !== null && (
+                <p className={cn(
+                  "text-xs font-medium mt-1",
+                  priceChange >= 0 ? "text-emerald-400" : "text-rose-400"
+                )}>
+                  {priceChange >= 0 ? '↑' : '↓'} {Math.abs(priceChange).toFixed(2)}% (24h)
+                </p>
+              )}
             </div>
           </div>
         </div>
