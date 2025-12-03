@@ -1,15 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
-import { Shield, Target, TrendingUp, Plus, Pencil, Trash2, Calendar, Home, Car, Baby, Briefcase, Heart, DollarSign, PiggyBank, Wallet, Building, ChevronRight, AlertTriangle, CheckCircle2, Clock } from 'lucide-react';
+import { Shield, Target, TrendingUp, Plus, Pencil, Trash2, Calendar, Home, Car, Briefcase, Heart, DollarSign, Building, Clock } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
