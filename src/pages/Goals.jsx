@@ -65,7 +65,7 @@ export default function Goals() {
 
   // Form states
   const [goalForm, setGoalForm] = useState({
-    name: '', target_amount: '', current_amount: '', target_date: '', goal_type: 'major_purchase', priority: 'medium', notes: '', bucket: 'goals',
+    name: '', target_amount: '', current_amount: '', target_date: '', goal_type: 'major_purchase', priority: 'medium', notes: '', bucket: 'goals', will_be_spent: false, fund_from: 'auto',
   });
 
   const [eventForm, setEventForm] = useState({
@@ -165,7 +165,7 @@ export default function Goals() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['lifeEvents'] }),
   });
 
-  const resetGoalForm = () => setGoalForm({ name: '', target_amount: '', current_amount: '', target_date: '', goal_type: 'major_purchase', priority: 'medium', notes: '', bucket: 'goals' });
+  const resetGoalForm = () => setGoalForm({ name: '', target_amount: '', current_amount: '', target_date: '', goal_type: 'major_purchase', priority: 'medium', notes: '', bucket: 'goals', will_be_spent: false, fund_from: 'auto' });
   const resetEventForm = () => setEventForm({ name: '', event_type: 'major_expense', year: new Date().getFullYear() + 1, amount: '', is_recurring: false, recurring_years: '', affects: 'assets', notes: '', monthly_expense_impact: '', liability_amount: '', down_payment: '', interest_rate: '', loan_term_years: '' });
 
   useEffect(() => {
