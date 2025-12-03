@@ -983,8 +983,6 @@ export default function FinancialPlan() {
         <TabsList className="bg-zinc-800/50 p-1 flex-wrap">
           <TabsTrigger value="projections" className="data-[state=active]:bg-zinc-700">Projections</TabsTrigger>
           <TabsTrigger value="montecarlo" className="data-[state=active]:bg-zinc-700">Monte Carlo</TabsTrigger>
-          <TabsTrigger value="lifeevents" className="data-[state=active]:bg-zinc-700">Life Events</TabsTrigger>
-          <TabsTrigger value="goals" className="data-[state=active]:bg-zinc-700">Goals</TabsTrigger>
         </TabsList>
 
         {/* Projections Tab */}
