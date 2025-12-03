@@ -1415,7 +1415,11 @@ export default function EstateSecurity() {
             </div>
 
             <div className="flex items-center gap-4 p-3 rounded-xl bg-zinc-800/30">
-              <Switch checked={protocolForm.requires_passphrase} onCheckedChange={(checked) => setProtocolForm({ ...protocolForm, requires_passphrase: checked })} />
+              <Switch 
+                checked={protocolForm.requires_passphrase} 
+                onCheckedChange={(checked) => setProtocolForm({ ...protocolForm, requires_passphrase: checked })}
+                className="data-[state=checked]:bg-orange-500 data-[state=unchecked]:bg-zinc-700"
+              />
               <div className="flex-1">
                 <Label className="text-zinc-300">Requires Passphrase</Label>
                 {protocolForm.requires_passphrase && (
