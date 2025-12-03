@@ -16,22 +16,65 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
-// Monte Carlo simulation
-const runMonteCarloSimulation = (initialValue, years, meanReturn, volatility, numSimulations = 500) => {
+// Monte Carlo simulation with full projection logic
+const runMonteCarloSimulation = (params, numSimulations = 1000) => {
+  const {
+    btcValue, stocksValue, realEstateValue, bondsValue, otherValue,
+    currentAge, retirementAge, lifeExpectancy,
+    getBtcGrowthRate, stocksCagr, realEstateCagr, bondsCagr, inflationRate,
+    annualSavings, incomeGrowth, retirementAnnualSpending,
+    withdrawalStrategy, dynamicWithdrawalRate,
+    btcVolatility = 60, stocksVolatility = 15
+  } = params;
+  
   const results = [];
+  const years = retirementAge - currentAge; // Project to retirement
   
   for (let sim = 0; sim < numSimulations; sim++) {
-    let value = initialValue;
-    const path = [value];
+    let runningBtc = btcValue;
+    let runningStocks = stocksValue;
+    let runningRealEstate = realEstateValue;
+    let runningBonds = bondsValue;
+    let runningOther = otherValue;
+    let runningSavings = 0;
+    
+    const path = [runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther];
     
     for (let year = 1; year <= years; year++) {
-      // Generate random return using Box-Muller transform
+      // Get expected BTC return based on model
+      const expectedBtcReturn = getBtcGrowthRate(year);
+      
+      // Generate random returns with volatility (Box-Muller)
       const u1 = Math.random();
       const u2 = Math.random();
-      const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
-      const yearReturn = meanReturn + volatility * z;
-      value = value * (1 + yearReturn / 100);
-      path.push(Math.max(0, value));
+      const z1 = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+      const z2 = Math.sqrt(-2 * Math.log(u1)) * Math.sin(2 * Math.PI * u2);
+      
+      // BTC return with high volatility
+      const btcReturn = expectedBtcReturn + btcVolatility * z1;
+      // Stocks return with moderate volatility
+      const stocksReturn = stocksCagr + stocksVolatility * z2;
+      // Real estate and bonds with low volatility
+      const realEstateReturn = realEstateCagr + 5 * Math.random() - 2.5;
+      const bondsReturn = bondsCagr + 3 * Math.random() - 1.5;
+      
+      // Grow assets
+      runningBtc = Math.max(0, runningBtc * (1 + btcReturn / 100));
+      runningStocks = Math.max(0, runningStocks * (1 + stocksReturn / 100));
+      runningRealEstate = Math.max(0, runningRealEstate * (1 + realEstateReturn / 100));
+      runningBonds = Math.max(0, runningBonds * (1 + bondsReturn / 100));
+      runningOther = Math.max(0, runningOther * (1 + stocksReturn / 100));
+      
+      // Grow savings at blended rate
+      const blendedGrowthRate = (btcReturn * 0.3 + stocksReturn * 0.7) / 100;
+      runningSavings = runningSavings * (1 + blendedGrowthRate);
+      
+      // Add annual savings (pre-retirement only)
+      const yearSavings = annualSavings * Math.pow(1 + incomeGrowth / 100, year);
+      runningSavings += yearSavings;
+      
+      const total = runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther + runningSavings;
+      path.push(Math.max(0, total));
     }
     results.push(path);
   }
