@@ -624,7 +624,7 @@ export default function FinancialPlan() {
   const totalLifetimeWithdrawals = retirementYears.reduce((sum, p) => sum + p.yearWithdrawal, 0);
   
   // Calculate inflation-adjusted retirement spending need at retirement
-  const yearsToRetirement = retirementAge - currentAge;
+  const yearsToRetirement = Math.max(0, retirementAge - currentAge);
   const inflationAdjustedRetirementSpending = retirementAnnualSpending * Math.pow(1 + inflationRate / 100, yearsToRetirement);
   
   // Required nest egg based on withdrawal strategy
