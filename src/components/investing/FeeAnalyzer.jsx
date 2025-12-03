@@ -5,20 +5,26 @@ import { cn } from "@/lib/utils";
 
 const COLORS = ['#F7931A', '#60a5fa', '#a78bfa', '#f472b6', '#34d399', '#fbbf24'];
 
+// Total effective cost = explicit fee + estimated spread
+// Spread estimates based on typical market conditions
 const EXCHANGE_INFO = {
-  coinbase: { name: 'Coinbase', avgFee: 1.49, color: '#0052FF' },
-  coinbase_pro: { name: 'Coinbase Pro', avgFee: 0.5, color: '#1652F0' },
-  kraken: { name: 'Kraken', avgFee: 0.26, color: '#7B61FF' },
-  gemini: { name: 'Gemini', avgFee: 1.49, color: '#00DCFA' },
-  binance_us: { name: 'Binance US', avgFee: 0.1, color: '#F0B90B' },
-  strike: { name: 'Strike', avgFee: 0, color: '#000000' },
-  cash_app: { name: 'Cash App', avgFee: 2.2, color: '#00D632' },
-  swan: { name: 'Swan Bitcoin', avgFee: 0.99, color: '#F7931A' },
-  river: { name: 'River', avgFee: 0, color: '#0066FF' },
-  robinhood: { name: 'Robinhood', avgFee: 0, color: '#00C805' },
-  other: { name: 'Other', avgFee: 0, color: '#71717a' },
-  unknown: { name: 'Unknown', avgFee: 0, color: '#52525b' },
+  coinbase: { name: 'Coinbase', explicitFee: 1.49, spread: 0.5, color: '#0052FF' },
+  coinbase_pro: { name: 'Coinbase Advanced', explicitFee: 0.6, spread: 0.1, color: '#1652F0' },
+  kraken: { name: 'Kraken', explicitFee: 0.26, spread: 0.1, color: '#7B61FF' },
+  gemini: { name: 'Gemini', explicitFee: 1.49, spread: 0.5, color: '#00DCFA' },
+  binance_us: { name: 'Binance US', explicitFee: 0.1, spread: 0.1, color: '#F0B90B' },
+  strike: { name: 'Strike', explicitFee: 0, spread: 0.3, color: '#9333ea' },
+  cash_app: { name: 'Cash App', explicitFee: 0, spread: 2.2, color: '#00D632' },
+  swan: { name: 'Swan Bitcoin', explicitFee: 0.99, spread: 0.2, color: '#F7931A' },
+  river: { name: 'River', explicitFee: 0, spread: 0.75, color: '#0066FF' },
+  robinhood: { name: 'Robinhood', explicitFee: 0, spread: 0.5, color: '#00C805' },
+  other: { name: 'Other', explicitFee: 0.5, spread: 0.5, color: '#71717a' },
+  unknown: { name: 'Unknown', explicitFee: 0.5, spread: 0.5, color: '#52525b' },
 };
+
+// Best-in-class total cost (Kraken Pro: 0.26% fee + ~0.1% spread = ~0.36%)
+const BEST_TOTAL_COST_PERCENT = 0.36;
+const INDUSTRY_AVG_COST_PERCENT = 1.5;
 
 export default function FeeAnalyzer({ transactions = [], btcPrice = 97000 }) {
   const analysis = useMemo(() => {
@@ -101,9 +107,11 @@ export default function FeeAnalyzer({ transactions = [], btcPrice = 97000 }) {
       feeBreakdown.push({ name: 'Spread Cost', value: totalSpreadCost, color: '#f472b6' });
     }
 
-    // Potential savings calculation
-    const lowestFeeExchange = 'strike'; // Strike has 0% fees
-    const potentialSavings = totalTradingFees; // Could save all trading fees with Strike
+    // Calculate what user would have paid at best exchange vs what they paid
+    const bestCaseCost = totalVolume * (BEST_TOTAL_COST_PERCENT / 100);
+    const industryAvgCost = totalVolume * (INDUSTRY_AVG_COST_PERCENT / 100);
+    const potentialSavings = Math.max(0, totalFriction - bestCaseCost);
+    const vsIndustryAvg = industryAvgCost - totalFriction;
 
     return {
       totalTradingFees,
@@ -118,6 +126,9 @@ export default function FeeAnalyzer({ transactions = [], btcPrice = 97000 }) {
       exchangeData,
       feeBreakdown,
       potentialSavings,
+      bestCaseCost,
+      industryAvgCost,
+      vsIndustryAvg,
       transactionCount: btcTransactions.length,
     };
   }, [transactions]);
@@ -180,16 +191,16 @@ export default function FeeAnalyzer({ transactions = [], btcPrice = 97000 }) {
 
         <div className="card-premium rounded-xl p-5 border border-emerald-500/10">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs text-zinc-500 uppercase tracking-wider">Potential Savings</span>
+            <span className="text-xs text-zinc-500 uppercase tracking-wider">vs Industry Avg</span>
             <div className="p-2 rounded-lg bg-emerald-500/10">
               <ArrowRight className="w-4 h-4 text-emerald-400" />
             </div>
           </div>
-          <p className="text-2xl font-bold text-emerald-400">
-            ${analysis.potentialSavings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          <p className={cn("text-2xl font-bold", analysis.vsIndustryAvg >= 0 ? "text-emerald-400" : "text-rose-400")}>
+            {analysis.vsIndustryAvg >= 0 ? '-' : '+'}${Math.abs(analysis.vsIndustryAvg).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
           <p className="text-xs text-zinc-500 mt-1">
-            With zero-fee exchange
+            vs {INDUSTRY_AVG_COST_PERCENT}% avg
           </p>
         </div>
 
@@ -216,15 +227,39 @@ export default function FeeAnalyzer({ transactions = [], btcPrice = 97000 }) {
             <AlertTriangle className="w-5 h-5 text-emerald-400" />
           </div>
           <div>
-            <h4 className="font-semibold text-emerald-400 mb-1">Save on Future Purchases</h4>
+            <h4 className="font-semibold text-emerald-400 mb-1">Optimize Your Costs</h4>
             <p className="text-sm text-zinc-400">
-              Consider using Strike or River for zero trading fees. Based on your purchase history, 
-              you could save <span className="text-emerald-400 font-semibold">${analysis.potentialSavings.toFixed(2)}</span> on 
-              similar future purchases.
+              Using a low-cost exchange like Kraken Pro (~0.36% total) could save you 
+              <span className="text-emerald-400 font-semibold"> ${analysis.potentialSavings.toFixed(2)}</span> on 
+              similar future purchases. Note: "Zero fee" exchanges often recoup costs through wider spreads.
             </p>
           </div>
         </div>
       )}
+
+      {/* Cost Benchmark */}
+      <div className="card-premium rounded-xl p-4 border border-zinc-800/50">
+        <div className="flex items-center justify-between text-sm">
+          <div className="flex items-center gap-4">
+            <div>
+              <span className="text-zinc-500">Your avg cost:</span>
+              <span className={cn("ml-2 font-semibold", analysis.effectiveFeeRate <= BEST_TOTAL_COST_PERCENT ? "text-emerald-400" : analysis.effectiveFeeRate <= INDUSTRY_AVG_COST_PERCENT ? "text-amber-400" : "text-rose-400")}>
+                {analysis.effectiveFeeRate.toFixed(2)}%
+              </span>
+            </div>
+            <div className="text-zinc-600">|</div>
+            <div>
+              <span className="text-zinc-500">Industry avg:</span>
+              <span className="ml-2 text-zinc-400">{INDUSTRY_AVG_COST_PERCENT}%</span>
+            </div>
+            <div className="text-zinc-600">|</div>
+            <div>
+              <span className="text-zinc-500">Best-in-class:</span>
+              <span className="ml-2 text-emerald-400">{BEST_TOTAL_COST_PERCENT}%</span>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Fee Breakdown Pie Chart */}
