@@ -323,7 +323,7 @@ export default function TaxCenter() {
     name: bracket.label,
     max: bracket.max === Infinity ? 500000 : bracket.max,
     rate: bracket.rate * 100,
-    fill: annualIncome >= bracket.min && annualIncome < bracket.max ? '#F7931A' : '#27272a',
+    fill: annualIncome >= bracket.min && (bracket.max === Infinity || annualIncome < bracket.max) ? '#F7931A' : '#27272a',
   }));
 
   // Generate Form 8949 style report
