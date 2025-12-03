@@ -549,10 +549,17 @@ export default function FinancialPlan() {
   // Calculate inflation-adjusted retirement spending need at retirement
   const yearsToRetirement = retirementAge - currentAge;
   const inflationAdjustedRetirementSpending = retirementAnnualSpending * Math.pow(1 + inflationRate / 100, yearsToRetirement);
-  const canRetire = firstRetirementWithdrawal >= inflationAdjustedRetirementSpending * 0.8; // Within 80% of need
+  
   // Required nest egg based on withdrawal strategy
-  const effectiveWithdrawalRate = withdrawalStrategy === '4percent' ? 0.04 : dynamicWithdrawalRate / 100;
-  const requiredNestEgg = inflationAdjustedRetirementSpending / effectiveWithdrawalRate;
+  const effectiveWithdrawalRate = withdrawalStrategy === '4percent' ? 0.04 : 
+    withdrawalStrategy === 'dynamic' ? dynamicWithdrawalRate / 100 : 
+    inflationAdjustedRetirementSpending / Math.max(1, retirementValue); // Income-based: need enough to cover spending
+  const requiredNestEgg = withdrawalStrategy === 'variable' 
+    ? inflationAdjustedRetirementSpending * 25 // ~4% safe withdrawal for income-based
+    : inflationAdjustedRetirementSpending / effectiveWithdrawalRate;
+  
+  // Check if retirement is feasible: portfolio at retirement meets required nest egg
+  const canRetire = retirementValue >= requiredNestEgg * 0.8; // Within 80% of required
 
   const eventIcons = {
     income_change: Briefcase,
