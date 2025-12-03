@@ -16,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
-// Monte Carlo simulation with full projection logic
+// Monte Carlo simulation with full projection logic through retirement
 const runMonteCarloSimulation = (params, numSimulations = 1000) => {
   const {
     btcValue, stocksValue, realEstateValue, bondsValue, otherValue,
@@ -28,7 +28,9 @@ const runMonteCarloSimulation = (params, numSimulations = 1000) => {
   } = params;
   
   const results = [];
-  const years = retirementAge - currentAge; // Project to retirement
+  const successResults = []; // Track if simulation succeeded (didn't run out of money)
+  const years = lifeExpectancy - currentAge; // Project through entire life
+  const yearsToRetirement = retirementAge - currentAge;
   
   for (let sim = 0; sim < numSimulations; sim++) {
     let runningBtc = btcValue;
@@ -37,10 +39,15 @@ const runMonteCarloSimulation = (params, numSimulations = 1000) => {
     let runningBonds = bondsValue;
     let runningOther = otherValue;
     let runningSavings = 0;
+    let ranOutOfMoney = false;
+    let initialRetirementWithdrawal = 0;
     
     const path = [runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther];
     
     for (let year = 1; year <= years; year++) {
+      const isRetired = year > yearsToRetirement;
+      const yearsIntoRetirement = isRetired ? year - yearsToRetirement : 0;
+      
       // Get expected BTC return based on model
       const expectedBtcReturn = getBtcGrowthRate(year);
       
@@ -67,19 +74,58 @@ const runMonteCarloSimulation = (params, numSimulations = 1000) => {
       
       // Grow savings at blended rate
       const blendedGrowthRate = (btcReturn * 0.3 + stocksReturn * 0.7) / 100;
-      runningSavings = runningSavings * (1 + blendedGrowthRate);
+      runningSavings = Math.max(0, runningSavings * (1 + blendedGrowthRate));
       
-      // Add annual savings (pre-retirement only)
-      const yearSavings = annualSavings * Math.pow(1 + incomeGrowth / 100, year);
-      runningSavings += yearSavings;
+      let total = runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther + runningSavings;
       
-      const total = runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther + runningSavings;
+      if (!isRetired) {
+        // Add annual savings (pre-retirement only)
+        const yearSavings = annualSavings * Math.pow(1 + incomeGrowth / 100, year);
+        runningSavings += yearSavings;
+        total += yearSavings;
+      } else {
+        // Retirement: withdraw money
+        let yearWithdrawal = 0;
+        
+        if (withdrawalStrategy === '4percent') {
+          // 4% rule: fixed amount based on initial retirement portfolio, inflation-adjusted
+          if (yearsIntoRetirement === 1) {
+            initialRetirementWithdrawal = total * 0.04;
+          }
+          yearWithdrawal = initialRetirementWithdrawal * Math.pow(1 + inflationRate / 100, yearsIntoRetirement - 1);
+        } else if (withdrawalStrategy === 'dynamic') {
+          // Dynamic: % of current portfolio
+          yearWithdrawal = total * (dynamicWithdrawalRate / 100);
+        } else {
+          // Income-based (variable): withdraw exactly what you need, inflation-adjusted
+          yearWithdrawal = retirementAnnualSpending * Math.pow(1 + inflationRate / 100, yearsToRetirement + yearsIntoRetirement);
+        }
+        
+        // Withdraw proportionally from all assets
+        if (total > 0 && yearWithdrawal > 0) {
+          const withdrawRatio = Math.min(1, yearWithdrawal / total);
+          runningBtc -= runningBtc * withdrawRatio;
+          runningStocks -= runningStocks * withdrawRatio;
+          runningRealEstate -= runningRealEstate * withdrawRatio;
+          runningBonds -= runningBonds * withdrawRatio;
+          runningOther -= runningOther * withdrawRatio;
+          runningSavings -= runningSavings * withdrawRatio;
+          total = total - yearWithdrawal;
+        }
+        
+        if (total <= 0) {
+          ranOutOfMoney = true;
+        }
+      }
+      
       path.push(Math.max(0, total));
     }
+    
     results.push(path);
+    successResults.push(!ranOutOfMoney);
   }
   
-  return results;
+  return { paths: results, successResults };
 };
 
 // Calculate success probability (percentage of simulations meeting target)
