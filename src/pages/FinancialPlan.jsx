@@ -479,6 +479,16 @@ export default function FinancialPlan() {
           }
         }
       });
+      
+      // Include goals marked as "will_be_spent" at their target date
+      goals.forEach(goal => {
+        if (goal.will_be_spent && goal.target_date) {
+          const goalYear = new Date(goal.target_date).getFullYear();
+          if (goalYear === year) {
+            eventImpact -= (goal.target_amount || 0);
+          }
+        }
+      });
 
       const isRetired = currentAge + i >= retirementAge;
       const yearsIntoRetirement = isRetired ? currentAge + i - retirementAge : 0;
