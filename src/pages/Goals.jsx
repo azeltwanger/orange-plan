@@ -452,6 +452,40 @@ export default function Goals() {
               <Label className="text-zinc-400">Target Date (optional)</Label>
               <Input type="date" value={goalForm.target_date} onChange={(e) => setGoalForm({ ...goalForm, target_date: e.target.value })} className="bg-zinc-900 border-zinc-700 text-zinc-100" />
             </div>
+
+            {/* Will be spent toggle */}
+            <div className="p-4 rounded-xl bg-zinc-800/50 border border-zinc-700 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="text-zinc-300">I plan to spend this</Label>
+                  <p className="text-xs text-zinc-500 mt-0.5">Deduct from portfolio in projections at target date</p>
+                </div>
+                <Switch 
+                  checked={goalForm.will_be_spent} 
+                  onCheckedChange={(checked) => setGoalForm({ ...goalForm, will_be_spent: checked })} 
+                />
+              </div>
+              
+              {goalForm.will_be_spent && (
+                <div className="pt-2 border-t border-zinc-700">
+                  <Label className="text-zinc-400 text-sm">Fund from</Label>
+                  <Select value={goalForm.fund_from} onValueChange={(value) => setGoalForm({ ...goalForm, fund_from: value })}>
+                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-zinc-100 mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-zinc-900 border-zinc-700">
+                      <SelectItem value="auto">Auto (savings first, then assets)</SelectItem>
+                      <SelectItem value="savings">Savings/Cash only</SelectItem>
+                      <SelectItem value="assets">Sell assets</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-zinc-500 mt-2">
+                    This will appear in your Projections chart as a future expense.
+                  </p>
+                </div>
+              )}
+            </div>
+
             <div className="flex gap-3 pt-4">
               <Button type="button" variant="outline" onClick={() => { setGoalFormOpen(false); setEditingGoal(null); resetGoalForm(); }} className="flex-1 bg-zinc-800 border-zinc-700 text-zinc-100 hover:bg-zinc-700">Cancel</Button>
               <Button type="submit" className="flex-1 brand-gradient text-white font-semibold">{editingGoal ? 'Update' : 'Add'} Goal</Button>
