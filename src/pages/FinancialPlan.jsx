@@ -1360,8 +1360,8 @@ export default function FinancialPlan() {
                         </div>
                       </div>
                       <div className="flex items-center gap-4">
-                        <p className={cn("font-semibold", event.amount >= 0 ? "text-emerald-400" : "text-rose-400")}>
-                          {event.amount >= 0 ? '+' : ''}${Math.abs(event.amount).toLocaleString()}
+                        <p className={cn("font-semibold", (event.amount || 0) >= 0 ? "text-emerald-400" : "text-rose-400")}>
+                          {(event.amount || 0) >= 0 ? '+' : ''}${Math.abs(event.amount || 0).toLocaleString()}
                         </p>
                         <div className="flex gap-1">
                           <button onClick={() => { setEditingEvent(event); setEventFormOpen(true); }} className="p-1.5 rounded-lg hover:bg-zinc-700"><Pencil className="w-3.5 h-3.5 text-zinc-400" /></button>
