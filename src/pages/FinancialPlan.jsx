@@ -825,12 +825,12 @@ export default function FinancialPlan() {
                   className={cn(
                     "p-3 rounded-lg border text-left transition-all",
                     btcReturnModel === model.value 
-                      ? "bg-orange-500/20 border-orange-500/50 text-orange-400" 
-                      : "bg-zinc-800/50 border-zinc-700 text-zinc-400 hover:border-zinc-600"
+                      ? "bg-orange-500/20 border-orange-500/50 text-orange-300" 
+                      : "bg-zinc-800/50 border-zinc-700 text-zinc-300 hover:border-zinc-600"
                   )}
                 >
                   <p className="font-medium text-sm">{model.label}</p>
-                  <p className="text-xs opacity-70">{model.desc}</p>
+                  <p className="text-xs text-zinc-400">{model.desc}</p>
                 </button>
               ))}
             </div>
@@ -1034,43 +1034,43 @@ export default function FinancialPlan() {
                   className={cn(
                     "p-4 rounded-lg border text-left transition-all",
                     withdrawalStrategy === '4percent' 
-                      ? "bg-emerald-500/20 border-emerald-500/50" 
-                      : "bg-zinc-800/50 border-zinc-700 hover:border-zinc-600"
+                      ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-300" 
+                      : "bg-zinc-800/50 border-zinc-700 hover:border-zinc-600 text-zinc-200"
                   )}
                 >
                   <p className="font-medium text-sm">4% Rule (Traditional)</p>
-                  <p className="text-xs text-zinc-500 mt-1">Withdraw 4% of initial portfolio, adjust for inflation</p>
+                  <p className="text-xs text-zinc-400 mt-1">Withdraw 4% of initial portfolio, adjust for inflation</p>
                 </button>
                 <button
                   onClick={() => setWithdrawalStrategy('dynamic')}
                   className={cn(
                     "p-4 rounded-lg border text-left transition-all",
                     withdrawalStrategy === 'dynamic' 
-                      ? "bg-emerald-500/20 border-emerald-500/50" 
-                      : "bg-zinc-800/50 border-zinc-700 hover:border-zinc-600"
+                      ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-300" 
+                      : "bg-zinc-800/50 border-zinc-700 hover:border-zinc-600 text-zinc-200"
                   )}
                 >
                   <p className="font-medium text-sm">Dynamic % of Portfolio</p>
-                  <p className="text-xs text-zinc-500 mt-1">Withdraw {dynamicWithdrawalRate}% of current value each year</p>
+                  <p className="text-xs text-zinc-400 mt-1">Withdraw {dynamicWithdrawalRate}% of current value each year</p>
                 </button>
                 <button
                   onClick={() => setWithdrawalStrategy('variable')}
                   className={cn(
                     "p-4 rounded-lg border text-left transition-all",
                     withdrawalStrategy === 'variable' 
-                      ? "bg-emerald-500/20 border-emerald-500/50" 
-                      : "bg-zinc-800/50 border-zinc-700 hover:border-zinc-600"
+                      ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-300" 
+                      : "bg-zinc-800/50 border-zinc-700 hover:border-zinc-600 text-zinc-200"
                   )}
                 >
                   <p className="font-medium text-sm">Income-Based</p>
-                  <p className="text-xs text-zinc-500 mt-1">Withdraw exactly what you need ({formatNumber(retirementAnnualSpending)}/yr)</p>
+                  <p className="text-xs text-zinc-400 mt-1">Withdraw exactly what you need ({formatNumber(retirementAnnualSpending)}/yr)</p>
                 </button>
               </div>
               
               {withdrawalStrategy === 'dynamic' && (
                 <div className="mt-4 p-3 rounded-lg bg-zinc-900/50">
                   <div className="flex justify-between mb-2">
-                    <Label className="text-zinc-400 text-sm">Annual Withdrawal Rate</Label>
+                    <Label className="text-zinc-300 text-sm">Annual Withdrawal Rate</Label>
                     <span className="text-orange-400 font-semibold">{dynamicWithdrawalRate}%</span>
                   </div>
                   <Slider 
@@ -1084,43 +1084,43 @@ export default function FinancialPlan() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6 p-4 rounded-xl bg-zinc-800/30">
               <div>
-                <p className="text-sm text-zinc-500">At Retirement (Age {retirementAge})</p>
+                <p className="text-sm text-zinc-400">At Retirement (Age {retirementAge})</p>
                 <p className="text-2xl font-bold text-orange-400">{formatNumber(retirementValue, 2)}</p>
-                <p className="text-xs text-zinc-600">Need: {formatNumber(requiredNestEgg)}</p>
+                <p className="text-xs text-zinc-500">Need: {formatNumber(requiredNestEgg)}</p>
               </div>
               <div>
-                <p className="text-sm text-zinc-500">At Life Expectancy (Age {lifeExpectancy})</p>
-                <p className="text-2xl font-bold text-zinc-300">{formatNumber(endOfLifeValue, 2)}</p>
+                <p className="text-sm text-zinc-400">At Life Expectancy (Age {lifeExpectancy})</p>
+                <p className="text-2xl font-bold text-zinc-200">{formatNumber(endOfLifeValue, 2)}</p>
               </div>
               <div>
-                <p className="text-sm text-zinc-500">Year 1 Withdrawal</p>
+                <p className="text-sm text-zinc-400">Year 1 Withdrawal</p>
                 <p className="text-2xl font-bold text-emerald-400">{formatNumber(firstRetirementWithdrawal)}</p>
               </div>
               <div>
-                <p className="text-sm text-zinc-500">Avg Annual Withdrawal</p>
+                <p className="text-sm text-zinc-400">Avg Annual Withdrawal</p>
                 <p className="text-2xl font-bold text-cyan-400">{formatNumber(avgRetirementWithdrawal)}</p>
               </div>
               <div>
-                <p className="text-sm text-zinc-500">Needed at Retirement</p>
+                <p className="text-sm text-zinc-400">Needed at Retirement</p>
                 <p className="text-xl font-bold text-amber-400">{formatNumber(inflationAdjustedRetirementSpending)}/yr</p>
-                <p className="text-xs text-zinc-600">({inflationRate}% inflation adjusted)</p>
+                <p className="text-xs text-zinc-500">({inflationRate}% inflation adjusted)</p>
               </div>
               <div>
-                <p className="text-sm text-zinc-500">Total Lifetime Withdrawals</p>
+                <p className="text-sm text-zinc-400">Total Lifetime Withdrawals</p>
                 <p className="text-xl font-bold text-purple-400">{formatNumber(totalLifetimeWithdrawals, 1)}</p>
               </div>
               <div>
-                <p className="text-sm text-zinc-500">Retirement Status</p>
+                <p className="text-sm text-zinc-400">Retirement Status</p>
                 <p className={cn("text-xl font-bold", canRetire && !willRunOutOfMoney ? "text-emerald-400" : "text-amber-400")}>
                   {willRunOutOfMoney ? `Runs out at ${currentAge + runOutOfMoneyAge}` : canRetire ? 'On Track ✓' : 'Optimistic*'}
                 </p>
                 {!canRetire && !willRunOutOfMoney && (
-                  <p className="text-xs text-zinc-500">*Based on avg returns. Run Monte Carlo for realistic odds.</p>
+                  <p className="text-xs text-zinc-400">*Based on avg returns. Run Monte Carlo for realistic odds.</p>
                 )}
               </div>
               <div>
-                <p className="text-sm text-zinc-500">Retirement Duration</p>
-                <p className="text-xl font-bold text-zinc-300">{lifeExpectancy - retirementAge} years</p>
+                <p className="text-sm text-zinc-400">Retirement Duration</p>
+                <p className="text-xl font-bold text-zinc-200">{lifeExpectancy - retirementAge} years</p>
               </div>
             </div>
           </div>
@@ -1173,20 +1173,20 @@ export default function FinancialPlan() {
           <div className="card-premium rounded-xl p-4 border border-zinc-800/50">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <Label className="text-zinc-400 text-sm">Success = Not Running Out of Money Through Age {lifeExpectancy}</Label>
-                <p className="text-xs text-zinc-600">
-                  ${(retirementAnnualSpending || 0).toLocaleString()}/yr today → ${Math.round(inflationAdjustedRetirementSpending || 0).toLocaleString()}/yr at retirement ({inflationRate || 0}% inflation) for {yearsInRetirement} years
-                </p>
-                <p className="text-xs text-zinc-500 mt-1">
-                  Strategy: <span className="text-orange-400 font-semibold">
-                    {withdrawalStrategy === '4percent' ? '4% Rule' : 
-                     withdrawalStrategy === 'dynamic' ? `${dynamicWithdrawalRate}% Dynamic` : 'Income-Based'}
-                  </span> • BTC Model: <span className="text-orange-400 font-semibold">
-                    {btcReturnModel === 'custom' ? `${btcCagr}%` : 
-                     btcReturnModel === 'saylor24' ? 'Saylor Bitcoin24' : 
-                     btcReturnModel === 'powerlaw' ? 'Power Law' : 'Conservative'}
-                  </span>
-                </p>
+              <Label className="text-zinc-300 text-sm">Success = Not Running Out of Money Through Age {lifeExpectancy}</Label>
+              <p className="text-xs text-zinc-400">
+                ${(retirementAnnualSpending || 0).toLocaleString()}/yr today → ${Math.round(inflationAdjustedRetirementSpending || 0).toLocaleString()}/yr at retirement ({inflationRate || 0}% inflation) for {yearsInRetirement} years
+              </p>
+              <p className="text-xs text-zinc-400 mt-1">
+                Strategy: <span className="text-orange-400 font-semibold">
+                  {withdrawalStrategy === '4percent' ? '4% Rule' : 
+                   withdrawalStrategy === 'dynamic' ? `${dynamicWithdrawalRate}% Dynamic` : 'Income-Based'}
+                </span> • BTC Model: <span className="text-orange-400 font-semibold">
+                  {btcReturnModel === 'custom' ? `${btcCagr}%` : 
+                   btcReturnModel === 'saylor24' ? 'Saylor Bitcoin24' : 
+                   btcReturnModel === 'powerlaw' ? 'Power Law' : 'Conservative'}
+                </span>
+              </p>
               </div>
               <Button onClick={handleRunSimulation} className="brand-gradient text-white font-semibold">
                 <RefreshCw className="w-4 h-4 mr-2" />
@@ -1215,7 +1215,7 @@ export default function FinancialPlan() {
                   successProbability >= 50 ? "bg-amber-500/10 border border-amber-500/30" :
                   "bg-rose-500/10 border border-rose-500/30"
                 )}>
-                  <p className="text-sm text-zinc-400 mb-2">
+                  <p className="text-sm text-zinc-300 mb-2">
                     Probability of Not Running Out of Money Through Age {lifeExpectancy}
                   </p>
                   <p className={cn(
@@ -1226,11 +1226,11 @@ export default function FinancialPlan() {
                   )}>
                     {successProbability?.toFixed(0)}%
                   </p>
-                  <p className="text-xs text-zinc-600 mt-1">
+                  <p className="text-xs text-zinc-400 mt-1">
                       {withdrawalStrategy === '4percent' ? '4% Rule' : 
                        withdrawalStrategy === 'dynamic' ? `${dynamicWithdrawalRate || 5}% Dynamic` : `Income-Based ($${Math.round(inflationAdjustedRetirementSpending || 0).toLocaleString()}/yr)`} • {btcReturnModel === 'custom' ? `${btcCagr || 25}%` : btcReturnModel} BTC
                     </p>
-                  <p className="text-sm text-zinc-500 mt-2">
+                  <p className="text-sm text-zinc-300 mt-2">
                     {successProbability >= 80 ? "Excellent! You're on track for your desired retirement lifestyle." :
                      successProbability >= 50 ? "Good progress, but consider increasing savings or adjusting expectations." :
                      "You may need to save more or adjust your retirement income goal."}
@@ -1311,9 +1311,9 @@ export default function FinancialPlan() {
               </>
             ) : (
               <div className="text-center py-16">
-                <Play className="w-16 h-16 text-zinc-700 mx-auto mb-4" />
-                <p className="text-zinc-500">Click "Run" to generate Monte Carlo projections</p>
-                <p className="text-xs text-zinc-600 mt-2">Set your retirement target above to see your success probability</p>
+                <Play className="w-16 h-16 text-zinc-600 mx-auto mb-4" />
+                <p className="text-zinc-400">Click "Run" to generate Monte Carlo projections</p>
+                <p className="text-xs text-zinc-500 mt-2">Set your retirement target above to see your success probability</p>
               </div>
             )}
           </div>
@@ -1337,28 +1337,28 @@ export default function FinancialPlan() {
 
             {lifeEvents.length === 0 ? (
               <div className="text-center py-12">
-                <Calendar className="w-12 h-12 text-zinc-700 mx-auto mb-4" />
-                <p className="text-zinc-500">No life events added yet</p>
-                <p className="text-sm text-zinc-600 mt-1">Add events like buying a house, having kids, or changing jobs</p>
+                <Calendar className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
+                <p className="text-zinc-400">No life events added yet</p>
+                <p className="text-sm text-zinc-500 mt-1">Add events like buying a house, having kids, or changing jobs</p>
               </div>
             ) : (
               <div className="space-y-3">
                 {lifeEvents.sort((a, b) => a.year - b.year).map(event => {
-                  const Icon = eventIcons[event.event_type] || Calendar;
-                  return (
-                    <div key={event.id} className="flex items-center justify-between p-4 rounded-xl bg-zinc-800/30 hover:bg-zinc-800/50 transition-colors">
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-xl bg-orange-400/10 flex items-center justify-center">
-                          <Icon className="w-5 h-5 text-orange-400" />
-                        </div>
-                        <div>
-                          <p className="font-medium">{event.name}</p>
-                          <div className="flex items-center gap-2 text-sm text-zinc-500">
-                            <span>{event.year}</span>
-                            {event.is_recurring && <Badge variant="outline" className="text-xs">Recurring {event.recurring_years}yrs</Badge>}
-                          </div>
-                        </div>
+                const Icon = eventIcons[event.event_type] || Calendar;
+                return (
+                <div key={event.id} className="flex items-center justify-between p-4 rounded-xl bg-zinc-800/30 hover:bg-zinc-800/50 transition-colors">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-orange-400/10 flex items-center justify-center">
+                      <Icon className="w-5 h-5 text-orange-400" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-zinc-100">{event.name}</p>
+                      <div className="flex items-center gap-2 text-sm text-zinc-400">
+                        <span>{event.year}</span>
+                        {event.is_recurring && <Badge variant="outline" className="text-xs border-zinc-600 text-zinc-300">Recurring {event.recurring_years}yrs</Badge>}
                       </div>
+                    </div>
+                  </div>
                       <div className="flex items-center gap-4">
                         <p className={cn("font-semibold", (event.amount || 0) >= 0 ? "text-emerald-400" : "text-rose-400")}>
                           {(event.amount || 0) >= 0 ? '+' : ''}${Math.abs(event.amount || 0).toLocaleString()}
@@ -1389,8 +1389,8 @@ export default function FinancialPlan() {
             
             {goals.length === 0 ? (
               <div className="text-center py-12">
-                <Target className="w-12 h-12 text-zinc-700 mx-auto mb-4" />
-                <p className="text-zinc-500">No goals set yet. Add your first financial goal.</p>
+                <Target className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
+                <p className="text-zinc-400">No goals set yet. Add your first financial goal.</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -1401,7 +1401,7 @@ export default function FinancialPlan() {
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex items-center gap-3">
                           <span className={cn("px-2 py-1 rounded-lg text-xs font-medium border", goalTypeColors[goal.goal_type])}>{goal.goal_type?.replace('_', ' ')}</span>
-                          <h4 className="font-medium">{goal.name}</h4>
+                          <h4 className="font-medium text-zinc-100">{goal.name}</h4>
                         </div>
                         <div className="flex gap-1">
                           <button onClick={() => { setEditingGoal(goal); setGoalFormOpen(true); }} className="p-1.5 rounded-lg hover:bg-zinc-700"><Pencil className="w-3.5 h-3.5 text-zinc-400" /></button>
@@ -1409,11 +1409,11 @@ export default function FinancialPlan() {
                         </div>
                       </div>
                       <div className="flex items-center justify-between mb-2 text-sm">
-                        <span className="text-zinc-400">${(goal.current_amount || 0).toLocaleString()} / ${(goal.target_amount || 0).toLocaleString()}</span>
+                        <span className="text-zinc-300">${(goal.current_amount || 0).toLocaleString()} / ${(goal.target_amount || 0).toLocaleString()}</span>
                         <span className="font-medium text-orange-400">{(progress || 0).toFixed(0)}%</span>
                       </div>
                       <Progress value={progress} className="h-2 bg-zinc-700" />
-                      {goal.target_date && <p className="text-xs text-zinc-500 mt-2 flex items-center gap-1"><Calendar className="w-3 h-3" />Target: {new Date(goal.target_date).toLocaleDateString()}</p>}
+                      {goal.target_date && <p className="text-xs text-zinc-400 mt-2 flex items-center gap-1"><Calendar className="w-3 h-3" />Target: {new Date(goal.target_date).toLocaleDateString()}</p>}
                     </div>
                   );
                 })}
