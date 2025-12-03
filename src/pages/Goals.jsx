@@ -260,411 +260,147 @@ export default function Goals() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">Goals & Life Events</h1>
-          <p className="text-zinc-500 mt-1">Plan your financial future with the 3-bucket strategy</p>
+          <p className="text-zinc-500 mt-1">Track savings goals and plan for life changes</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => { resetEventForm(); setEventFormOpen(true); }} className="bg-zinc-800 border-zinc-700 text-zinc-100 hover:bg-zinc-700">
             <Calendar className="w-4 h-4 mr-2" />
-            Add Life Event
+            Life Event
           </Button>
           <Button onClick={() => { resetGoalForm(); setGoalFormOpen(true); }} className="brand-gradient text-white font-semibold">
             <Plus className="w-4 h-4 mr-2" />
-            Add Goal
+            Goal
           </Button>
         </div>
       </div>
 
-      {/* 3 Bucket Overview */}
+      {/* 3 Bucket Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {Object.entries(BUCKET_CONFIG).map(([key, config]) => {
           const Icon = config.icon;
           const total = bucketTotals[key];
           const progress = total.target > 0 ? (total.current / total.target) * 100 : 0;
           const bucketGoals = goalsByBucket[key] || [];
+          const isExpanded = expandedBucket === key;
           
           return (
-            <div 
-              key={key} 
-              className={cn("card-premium rounded-2xl p-5 border cursor-pointer transition-all hover:scale-[1.02]", config.bgClass)}
-              onClick={() => setActiveTab(key)}
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className={cn("p-2.5 rounded-xl", config.iconBg)}>
-                  <Icon className={cn("w-5 h-5", config.textClass)} />
+            <div key={key} className={cn("card-premium rounded-2xl border transition-all", config.bgClass)}>
+              {/* Bucket Header - Always Visible */}
+              <div 
+                className="p-5 cursor-pointer"
+                onClick={() => setExpandedBucket(isExpanded ? null : key)}
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div className={cn("p-2 rounded-xl", config.iconBg)}>
+                    <Icon className={cn("w-5 h-5", config.textClass)} />
+                  </div>
+                  <Badge variant="outline" className={cn("border-current text-xs", config.textClass)}>
+                    {bucketGoals.length} goal{bucketGoals.length !== 1 ? 's' : ''}
+                  </Badge>
                 </div>
-                <Badge variant="outline" className={cn("border-current", config.textClass)}>
-                  {bucketGoals.length} goal{bucketGoals.length !== 1 ? 's' : ''}
-                </Badge>
-              </div>
-              <h3 className="font-semibold text-zinc-200 mb-1">{config.name}</h3>
-              <p className="text-xs text-zinc-500 mb-3">{config.description}</p>
-              
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
+                <h3 className="font-semibold text-zinc-200">{config.name}</h3>
+                <p className="text-xs text-zinc-500 mb-3">{config.description}</p>
+                
+                <div className="flex justify-between text-sm mb-2">
                   <span className="text-zinc-400">{formatNumber(total.current)}</span>
                   <span className={config.textClass}>{formatNumber(total.target)}</span>
                 </div>
                 <Progress value={Math.min(100, progress)} className="h-2 bg-zinc-800" />
-                <p className={cn("text-xs font-medium", progress >= 100 ? "text-emerald-400" : config.textClass)}>
-                  {progress >= 100 ? '✓ Fully funded' : `${progress.toFixed(0)}% complete`}
-                </p>
               </div>
+
+              {/* Expanded Goals List */}
+              {isExpanded && (
+                <div className="px-5 pb-5 border-t border-zinc-800/50 pt-4 space-y-3">
+                  {bucketGoals.length === 0 ? (
+                    <p className="text-sm text-zinc-500 text-center py-2">No goals yet</p>
+                  ) : (
+                    bucketGoals.map(goal => {
+                      const goalProgress = (goal.current_amount || 0) / (goal.target_amount || 1) * 100;
+                      return (
+                        <div key={goal.id} className="p-3 rounded-lg bg-zinc-800/50">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-sm font-medium text-zinc-200">{goal.name}</span>
+                            <div className="flex gap-1">
+                              <button onClick={(e) => { e.stopPropagation(); setEditingGoal(goal); setGoalFormOpen(true); }} className="p-1 rounded hover:bg-zinc-700">
+                                <Pencil className="w-3 h-3 text-zinc-500" />
+                              </button>
+                              <button onClick={(e) => { e.stopPropagation(); deleteGoal.mutate(goal.id); }} className="p-1 rounded hover:bg-rose-600/50">
+                                <Trash2 className="w-3 h-3 text-zinc-500" />
+                              </button>
+                            </div>
+                          </div>
+                          <div className="flex justify-between text-xs text-zinc-400 mb-1">
+                            <span>{formatNumber(goal.current_amount || 0)}</span>
+                            <span>{goalProgress.toFixed(0)}%</span>
+                          </div>
+                          <Progress value={Math.min(100, goalProgress)} className="h-1.5 bg-zinc-700" />
+                        </div>
+                      );
+                    })
+                  )}
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    onClick={(e) => { e.stopPropagation(); openGoalForm(key); }}
+                    className="w-full bg-transparent border-zinc-700 text-zinc-300 hover:bg-zinc-700 mt-2"
+                  >
+                    <Plus className="w-3 h-3 mr-1" />
+                    Add Goal
+                  </Button>
+                </div>
+              )}
             </div>
           );
         })}
       </div>
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="bg-zinc-800/50 p-1 flex-wrap">
-          <TabsTrigger value="overview" className="data-[state=active]:bg-zinc-700">Overview</TabsTrigger>
-          <TabsTrigger value="emergency" className="data-[state=active]:bg-zinc-700">
-            <Shield className="w-4 h-4 mr-1.5" />Emergency
-          </TabsTrigger>
-          <TabsTrigger value="goals" className="data-[state=active]:bg-zinc-700">
-            <Target className="w-4 h-4 mr-1.5" />Goals
-          </TabsTrigger>
-          <TabsTrigger value="longterm" className="data-[state=active]:bg-zinc-700">
-            <TrendingUp className="w-4 h-4 mr-1.5" />Long-Term
-          </TabsTrigger>
-          <TabsTrigger value="events" className="data-[state=active]:bg-zinc-700">
-            <Calendar className="w-4 h-4 mr-1.5" />Life Events
-          </TabsTrigger>
-        </TabsList>
+      {/* Life Events Section */}
+      <div className="card-premium rounded-2xl p-5 border border-zinc-800/50">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold flex items-center gap-2">
+            <Calendar className="w-5 h-5 text-orange-400" />
+            Life Events
+          </h3>
+          <span className="text-sm text-zinc-500">{sortedEvents.length} planned</span>
+        </div>
 
-        {/* Overview Tab */}
-        <TabsContent value="overview" className="space-y-6">
-          {/* Financial Health Summary */}
-          <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
-            <h3 className="font-semibold mb-4">Financial Health Summary</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <div className="p-4 rounded-xl bg-zinc-800/30">
-                <p className="text-sm text-zinc-400">Total Assets</p>
-                <p className="text-2xl font-bold text-zinc-100">{formatNumber(totalAssets)}</p>
-              </div>
-              <div className="p-4 rounded-xl bg-zinc-800/30">
-                <p className="text-sm text-zinc-400">Monthly Surplus</p>
-                <p className={cn("text-2xl font-bold", monthlySurplus >= 0 ? "text-emerald-400" : "text-rose-400")}>
-                  {formatNumber(monthlySurplus)}
-                </p>
-              </div>
-              <div className="p-4 rounded-xl bg-zinc-800/30">
-                <p className="text-sm text-zinc-400">Total Goal Progress</p>
-                <p className="text-2xl font-bold text-blue-400">
-                  {goals.length > 0 ? `${Math.round(goals.reduce((sum, g) => sum + ((g.current_amount || 0) / (g.target_amount || 1)) * 100, 0) / goals.length)}%` : '0%'}
-                </p>
-              </div>
-              <div className="p-4 rounded-xl bg-zinc-800/30">
-                <p className="text-sm text-zinc-400">Upcoming Events</p>
-                <p className="text-2xl font-bold text-orange-400">
-                  {sortedEvents.filter(e => e.year >= currentYear && e.year <= currentYear + 5).length}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Quick Actions / Recommendations */}
-          {monthlySurplus > 0 && (
-            <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
-              <h3 className="font-semibold mb-4 flex items-center gap-2">
-                <PiggyBank className="w-5 h-5 text-orange-400" />
-                Suggested Allocation
-              </h3>
-              <p className="text-sm text-zinc-400 mb-4">
-                Based on your ${formatNumber(monthlySurplus)}/mo surplus, here's a recommended split:
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {bucketTotals.emergency.current < bucketTotals.emergency.target && (
-                  <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Shield className="w-4 h-4 text-emerald-400" />
-                      <span className="font-medium text-emerald-400">Emergency First</span>
-                    </div>
-                    <p className="text-sm text-zinc-300">
-                      Save {formatNumber(Math.min(monthlySurplus * 0.5, (bucketTotals.emergency.target - bucketTotals.emergency.current) / 6))}/mo
-                    </p>
-                    <p className="text-xs text-zinc-500 mt-1">Until 6 months expenses saved</p>
+        {sortedEvents.length === 0 ? (
+          <p className="text-sm text-zinc-500 text-center py-4">No life events planned. Add events to see them in your projections.</p>
+        ) : (
+          <div className="space-y-2">
+            {sortedEvents.slice(0, 5).map(event => {
+              const Icon = eventIcons[event.event_type] || Calendar;
+              const yearsFromNow = event.year - currentYear;
+              
+              return (
+                <div key={event.id} className="flex items-center gap-3 p-3 rounded-lg bg-zinc-800/30">
+                  <div className="w-8 h-8 rounded-lg bg-orange-400/10 flex items-center justify-center">
+                    <Icon className="w-4 h-4 text-orange-400" />
                   </div>
-                )}
-                <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Target className="w-4 h-4 text-blue-400" />
-                    <span className="font-medium text-blue-400">Goal Savings</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-zinc-200 truncate">{event.name}</p>
+                    <p className="text-xs text-zinc-500">{event.year} • {yearsFromNow > 0 ? `${yearsFromNow}yr` : 'Now'}</p>
                   </div>
-                  <p className="text-sm text-zinc-300">
-                    {formatNumber(monthlySurplus * 0.3)}/mo
+                  <p className={cn("text-sm font-semibold", (event.amount || 0) >= 0 ? "text-emerald-400" : "text-rose-400")}>
+                    {(event.amount || 0) >= 0 ? '+' : ''}{formatNumber(event.amount || 0)}
                   </p>
-                  <p className="text-xs text-zinc-500 mt-1">For medium-term goals</p>
-                </div>
-                <div className="p-4 rounded-xl bg-orange-500/10 border border-orange-500/20">
-                  <div className="flex items-center gap-2 mb-2">
-                    <TrendingUp className="w-4 h-4 text-orange-400" />
-                    <span className="font-medium text-orange-400">Long-Term</span>
+                  <div className="flex gap-1">
+                    <button onClick={() => { setEditingEvent(event); setEventFormOpen(true); }} className="p-1 rounded hover:bg-zinc-700">
+                      <Pencil className="w-3 h-3 text-zinc-500" />
+                    </button>
+                    <button onClick={() => deleteEvent.mutate(event.id)} className="p-1 rounded hover:bg-rose-600/50">
+                      <Trash2 className="w-3 h-3 text-zinc-500" />
+                    </button>
                   </div>
-                  <p className="text-sm text-zinc-300">
-                    {formatNumber(monthlySurplus * 0.2)}/mo
-                  </p>
-                  <p className="text-xs text-zinc-500 mt-1">BTC, retirement, wealth building</p>
                 </div>
-              </div>
-            </div>
-          )}
-
-          {/* Timeline View */}
-          <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
-            <h3 className="font-semibold mb-4">Upcoming Timeline</h3>
-            {sortedEvents.length === 0 && goals.filter(g => g.target_date).length === 0 ? (
-              <div className="text-center py-8">
-                <Calendar className="w-12 h-12 text-zinc-600 mx-auto mb-3" />
-                <p className="text-zinc-400">No upcoming events or goal deadlines</p>
-                <p className="text-sm text-zinc-500">Add life events and goal target dates to see your timeline</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {/* Combine and sort events and goal deadlines */}
-                {[
-                  ...sortedEvents.filter(e => e.year >= currentYear).map(e => ({ type: 'event', year: e.year, data: e })),
-                  ...goals.filter(g => g.target_date).map(g => ({ type: 'goal', year: new Date(g.target_date).getFullYear(), data: g })),
-                ].sort((a, b) => a.year - b.year).slice(0, 8).map((item, i) => {
-                  if (item.type === 'event') {
-                    const event = item.data;
-                    const Icon = eventIcons[event.event_type] || Calendar;
-                    return (
-                      <div key={`event-${event.id}`} className="flex items-center gap-4 p-3 rounded-xl bg-zinc-800/30">
-                        <div className="w-10 h-10 rounded-lg bg-orange-500/20 flex items-center justify-center">
-                          <Icon className="w-5 h-5 text-orange-400" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-medium text-zinc-200">{event.name}</p>
-                          <p className="text-sm text-zinc-500">{event.year} • Life Event</p>
-                        </div>
-                        <div className="text-right">
-                          <p className={cn("font-semibold", event.amount >= 0 ? "text-emerald-400" : "text-rose-400")}>
-                            {event.amount >= 0 ? '+' : ''}{formatNumber(event.amount)}
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  } else {
-                    const goal = item.data;
-                    const progress = (goal.current_amount || 0) / (goal.target_amount || 1) * 100;
-                    return (
-                      <div key={`goal-${goal.id}`} className="flex items-center gap-4 p-3 rounded-xl bg-zinc-800/30">
-                        <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
-                          <Target className="w-5 h-5 text-blue-400" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-medium text-zinc-200">{goal.name}</p>
-                          <p className="text-sm text-zinc-500">{new Date(goal.target_date).toLocaleDateString()} • Goal Target</p>
-                        </div>
-                        <div className="text-right">
-                          <p className={cn("font-semibold", progress >= 100 ? "text-emerald-400" : "text-blue-400")}>
-                            {progress >= 100 ? '✓ Done' : `${progress.toFixed(0)}%`}
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  }
-                })}
-              </div>
+              );
+            })}
+            {sortedEvents.length > 5 && (
+              <p className="text-xs text-zinc-500 text-center pt-2">+{sortedEvents.length - 5} more events</p>
             )}
           </div>
-        </TabsContent>
-
-        {/* Bucket Tabs */}
-        {['emergency', 'goals', 'longterm'].map(bucketKey => {
-          const config = BUCKET_CONFIG[bucketKey];
-          const Icon = config.icon;
-          const bucketGoals = goalsByBucket[bucketKey] || [];
-          const total = bucketTotals[bucketKey];
-
-          return (
-            <TabsContent key={bucketKey} value={bucketKey} className="space-y-6">
-              {/* Bucket Header */}
-              <div className={cn("card-premium rounded-2xl p-6 border", config.bgClass)}>
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className={cn("p-3 rounded-xl", config.iconBg)}>
-                      <Icon className={cn("w-6 h-6", config.textClass)} />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-lg">{config.name}</h3>
-                      <p className="text-sm text-zinc-400">{config.description}</p>
-                    </div>
-                  </div>
-                  <Button onClick={() => openGoalForm(bucketKey)} className="brand-gradient text-white font-semibold">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Goal
-                  </Button>
-                </div>
-
-                <div className="grid grid-cols-3 gap-4 mt-4">
-                  <div>
-                    <p className="text-sm text-zinc-400">Current</p>
-                    <p className={cn("text-2xl font-bold", config.textClass)}>{formatNumber(total.current)}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-zinc-400">Target</p>
-                    <p className="text-2xl font-bold text-zinc-200">{formatNumber(total.target)}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-zinc-400">Remaining</p>
-                    <p className="text-2xl font-bold text-zinc-400">{formatNumber(Math.max(0, total.target - total.current))}</p>
-                  </div>
-                </div>
-
-                <div className="mt-4">
-                  <Progress value={Math.min(100, total.target > 0 ? (total.current / total.target) * 100 : 0)} className="h-3 bg-zinc-800" />
-                </div>
-
-                {bucketKey === 'emergency' && (
-                  <div className="mt-4 p-3 rounded-lg bg-zinc-800/50">
-                    <p className="text-sm text-zinc-300">
-                      <span className="text-emerald-400 font-medium">Recommendation:</span> Keep 3-6 months of expenses ({formatNumber(monthlyExpenses * 3)} - {formatNumber(monthlyExpenses * 6)}) in a high-yield savings account for emergencies.
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Goals List */}
-              {bucketGoals.length === 0 ? (
-                <div className="card-premium rounded-2xl p-12 border border-zinc-800/50 text-center">
-                  <Icon className={cn("w-12 h-12 mx-auto mb-4", config.textClass)} style={{ opacity: 0.5 }} />
-                  <p className="text-zinc-400">No goals in this bucket yet</p>
-                  <Button onClick={() => openGoalForm(bucketKey)} className="mt-4 brand-gradient text-white">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Your First Goal
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {bucketGoals.map(goal => {
-                    const progress = (goal.current_amount || 0) / (goal.target_amount || 1) * 100;
-                    const monthsTo = getMonthsToGoal(goal);
-                    const monthlyNeeded = getMonthlyNeeded(goal);
-                    const canAfford = monthlyNeeded <= monthlySurplus;
-
-                    return (
-                      <div key={goal.id} className="card-premium rounded-xl p-5 border border-zinc-800/50">
-                        <div className="flex items-start justify-between mb-3">
-                          <div>
-                            <h4 className="font-semibold text-zinc-100">{goal.name}</h4>
-                            {goal.target_date && (
-                              <p className="text-sm text-zinc-500 flex items-center gap-1 mt-1">
-                                <Clock className="w-3.5 h-3.5" />
-                                {monthsTo !== null ? `${monthsTo} months remaining` : 'No deadline'}
-                              </p>
-                            )}
-                          </div>
-                          <div className="flex gap-1">
-                            <button onClick={() => { setEditingGoal(goal); setGoalFormOpen(true); }} className="p-1.5 rounded-lg hover:bg-zinc-700">
-                              <Pencil className="w-4 h-4 text-zinc-400" />
-                            </button>
-                            <button onClick={() => deleteGoal.mutate(goal.id)} className="p-1.5 rounded-lg hover:bg-rose-600/50">
-                              <Trash2 className="w-4 h-4 text-zinc-400" />
-                            </button>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-zinc-300">{formatNumber(goal.current_amount || 0)} / {formatNumber(goal.target_amount || 0)}</span>
-                          <span className={cn("font-semibold", progress >= 100 ? "text-emerald-400" : config.textClass)}>{progress.toFixed(0)}%</span>
-                        </div>
-                        <Progress value={Math.min(100, progress)} className="h-2 bg-zinc-800" />
-
-                        {monthlyNeeded > 0 && (
-                          <div className={cn("mt-3 p-2 rounded-lg text-sm", canAfford ? "bg-emerald-500/10" : "bg-amber-500/10")}>
-                            <p className={canAfford ? "text-emerald-400" : "text-amber-400"}>
-                              {canAfford ? '✓' : '⚠️'} Need {formatNumber(monthlyNeeded)}/mo to reach goal on time
-                              {!canAfford && ` (surplus is ${formatNumber(monthlySurplus)}/mo)`}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </TabsContent>
-          );
-        })}
-
-        {/* Life Events Tab */}
-        <TabsContent value="events" className="space-y-6">
-          <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className="font-semibold">Life Events Timeline</h3>
-                <p className="text-sm text-zinc-400">Plan for major life changes and see their financial impact</p>
-              </div>
-              <Button onClick={() => { resetEventForm(); setEventFormOpen(true); }} className="brand-gradient text-white font-semibold">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Event
-              </Button>
-            </div>
-
-            {sortedEvents.length === 0 ? (
-              <div className="text-center py-12">
-                <Calendar className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
-                <p className="text-zinc-400">No life events planned yet</p>
-                <p className="text-sm text-zinc-500 mt-1">Add events like buying a house, having kids, or changing jobs</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {sortedEvents.map(event => {
-                  const Icon = eventIcons[event.event_type] || Calendar;
-                  const yearsFromNow = event.year - currentYear;
-                  
-                  return (
-                    <div key={event.id} className="p-4 rounded-xl bg-zinc-800/30 hover:bg-zinc-800/50 transition-colors">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-start gap-4">
-                          <div className="w-10 h-10 rounded-xl bg-orange-400/10 flex items-center justify-center">
-                            <Icon className="w-5 h-5 text-orange-400" />
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <p className="font-medium text-zinc-100">{event.name}</p>
-                              {event.is_recurring && (
-                                <Badge variant="outline" className="text-xs border-zinc-600 text-zinc-300">
-                                  Recurring {event.recurring_years}yrs
-                                </Badge>
-                              )}
-                            </div>
-                            <p className="text-sm text-zinc-400 mt-1">
-                              {event.year} • {yearsFromNow > 0 ? `In ${yearsFromNow} year${yearsFromNow !== 1 ? 's' : ''}` : yearsFromNow === 0 ? 'This year' : 'Past'}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <div className="text-right">
-                            <p className={cn("font-semibold", (event.amount || 0) >= 0 ? "text-emerald-400" : "text-rose-400")}>
-                              {event.event_type === 'home_purchase' 
-                                ? `-${formatNumber(event.down_payment || 0)}` 
-                                : `${(event.amount || 0) >= 0 ? '+' : ''}${formatNumber(Math.abs(event.amount || 0))}`}
-                            </p>
-                            {event.event_type === 'home_purchase' && (
-                              <p className="text-xs text-zinc-500">down payment</p>
-                            )}
-                          </div>
-                          <div className="flex gap-1">
-                            <button onClick={() => { setEditingEvent(event); setEventFormOpen(true); }} className="p-1.5 rounded-lg hover:bg-zinc-700">
-                              <Pencil className="w-3.5 h-3.5 text-zinc-400" />
-                            </button>
-                            <button onClick={() => deleteEvent.mutate(event.id)} className="p-1.5 rounded-lg hover:bg-rose-600/50">
-                              <Trash2 className="w-3.5 h-3.5 text-zinc-400" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </TabsContent>
-      </Tabs>
+        )}
+      </div>
 
       {/* Goal Form Dialog */}
       <Dialog open={goalFormOpen} onOpenChange={setGoalFormOpen}>
