@@ -128,6 +128,13 @@ export default function ManageLotsDialog({ open, onClose, holding, btcPrice }) {
             </div>
           )}
 
+          {unallocated < -0.00000001 && (
+            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-sm text-rose-400">
+              Warning: Lots total ({totalFromLots.toFixed(holding.ticker === 'BTC' ? 8 : 2)}) exceeds holding quantity ({holdingQty.toFixed(holding.ticker === 'BTC' ? 8 : 2)}). 
+              Remove some lots or update your holding.
+            </div>
+          )}
+
           {/* Existing Lots */}
           <div>
             <div className="flex items-center justify-between mb-3">
@@ -190,16 +197,20 @@ export default function ManageLotsDialog({ open, onClose, holding, btcPrice }) {
               
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-zinc-400">Quantity</Label>
+                  <Label className="text-zinc-400">Quantity {unallocated > 0 && <span className="text-zinc-500">(max: {unallocated.toFixed(holding.ticker === 'BTC' ? 8 : 4)})</span>}</Label>
                   <Input
                     type="number"
                     step="any"
                     value={newLot.quantity}
                     onChange={(e) => setNewLot({ ...newLot, quantity: e.target.value })}
                     placeholder={unallocated > 0 ? unallocated.toFixed(8) : "0.1"}
+                    max={unallocated > 0 ? unallocated : undefined}
                     className="bg-zinc-900 border-zinc-800"
                     required
                   />
+                  {parseFloat(newLot.quantity) > unallocated && unallocated > 0 && (
+                    <p className="text-xs text-rose-400">Exceeds unallocated amount</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label className="text-zinc-400">Price per {holding.ticker}</Label>
@@ -250,7 +261,11 @@ export default function ManageLotsDialog({ open, onClose, holding, btcPrice }) {
                 <Button type="button" variant="outline" onClick={() => setAddingLot(false)} className="flex-1 bg-transparent border-zinc-700">
                   Cancel
                 </Button>
-                <Button type="submit" className="flex-1 brand-gradient text-white">
+                <Button 
+                  type="submit" 
+                  className="flex-1 brand-gradient text-white"
+                  disabled={unallocated > 0 && parseFloat(newLot.quantity) > unallocated}
+                >
                   Add Lot
                 </Button>
               </div>
