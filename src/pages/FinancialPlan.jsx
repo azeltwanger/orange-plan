@@ -90,6 +90,10 @@ export default function FinancialPlan() {
   const [currentAnnualSpending, setCurrentAnnualSpending] = useState(80000);
   const [retirementAnnualSpending, setRetirementAnnualSpending] = useState(100000);
   
+  // Withdrawal strategy
+  const [withdrawalStrategy, setWithdrawalStrategy] = useState('dynamic'); // '4percent', 'dynamic', 'saylor24', 'powerlaw'
+  const [dynamicWithdrawalRate, setDynamicWithdrawalRate] = useState(5); // For dynamic: withdraw % of portfolio each year
+  
   // Monte Carlo
   const [runSimulation, setRunSimulation] = useState(false);
   const [simulationResults, setSimulationResults] = useState(null);
@@ -195,79 +199,137 @@ export default function FinancialPlan() {
   const effectiveStocksCagr = stocksCagr;
   const effectiveInflation = inflationRate;
 
-  // Generate projection data with cumulative savings factored in - now extends to life expectancy
+  // BTC growth models
+  const getBtcGrowthRate = (strategy, yearFromNow) => {
+    switch (strategy) {
+      case 'saylor24':
+        // Saylor's Bitcoin24 model: ~29% CAGR declining over time
+        // Starts at ~45% and declines to ~15% over 20 years
+        const baseRate = 45;
+        const declinePerYear = 1.5;
+        return Math.max(15, baseRate - (yearFromNow * declinePerYear));
+      case 'powerlaw':
+        // Power Law model: follows log regression, higher early returns declining
+        // Approximation: starts ~60% declining to ~20% 
+        const plBase = 60;
+        const plDecline = 2;
+        return Math.max(20, plBase - (yearFromNow * plDecline));
+      default:
+        return effectiveBtcCagr;
+    }
+  };
+
+  // Generate projection data with dynamic withdrawal based on portfolio growth
   const projections = useMemo(() => {
     const years = lifeExpectancy - currentAge;
     const data = [];
     const currentYear = new Date().getFullYear();
 
     let cumulativeSavings = 0;
-    let cumulativeWithdrawals = 0;
+    let runningBtc = btcValue;
+    let runningStocks = stocksValue;
+    let runningRealEstate = realEstateValue;
+    let runningBonds = bondsValue;
+    let runningOther = otherValue;
+    let runningSavings = 0;
 
     for (let i = 0; i <= years; i++) {
       const year = currentYear + i;
       
       // Calculate life event impacts for this year
       let eventImpact = 0;
-      let liabilityImpact = 0;
       lifeEvents.forEach(event => {
         if (event.year === year || (event.is_recurring && event.year <= year && year < event.year + (event.recurring_years || 1))) {
           if (event.affects === 'assets') eventImpact += event.amount;
-          if (event.affects === 'liabilities') liabilityImpact += event.amount;
-          // Handle home purchase specially
           if (event.event_type === 'home_purchase' && event.year === year) {
-            eventImpact -= (event.down_payment || 0); // Down payment reduces assets
-            liabilityImpact += (event.liability_amount || 0); // Mortgage adds liability
+            eventImpact -= (event.down_payment || 0);
           }
         }
       });
 
       const isRetired = currentAge + i >= retirementAge;
+      const yearsIntoRetirement = isRetired ? currentAge + i - retirementAge : 0;
 
-      // Pre-retirement: save. Post-retirement: withdraw
+      // Get BTC growth rate based on strategy
+      const yearBtcGrowth = getBtcGrowthRate(withdrawalStrategy, i);
+      
+      // Pre-retirement: save and grow. Post-retirement: grow then withdraw
       let yearSavings = 0;
       let yearWithdrawal = 0;
+      
+      if (i > 0) {
+        // Grow assets
+        runningBtc = runningBtc * (1 + yearBtcGrowth / 100);
+        runningStocks = runningStocks * (1 + effectiveStocksCagr / 100);
+        runningRealEstate = runningRealEstate * (1 + realEstateCagr / 100);
+        runningBonds = runningBonds * (1 + bondsCagr / 100);
+        runningOther = runningOther * (1 + effectiveStocksCagr / 100);
+        
+        const blendedGrowthRate = (yearBtcGrowth * 0.3 + effectiveStocksCagr * 0.7) / 100;
+        runningSavings = runningSavings * (1 + blendedGrowthRate);
+      }
+
       if (!isRetired) {
-        yearSavings = i > 0 ? annualSavings * Math.pow(1 + incomeGrowth / 100, i) : 0;
+        yearSavings = annualSavings * Math.pow(1 + incomeGrowth / 100, i);
+        runningSavings += yearSavings;
         cumulativeSavings += yearSavings;
       } else {
-        // Inflation-adjusted retirement spending
-        const yearsIntoRetirement = currentAge + i - retirementAge;
-        yearWithdrawal = retirementAnnualSpending * Math.pow(1 + effectiveInflation / 100, retirementAge - currentAge + yearsIntoRetirement);
-        cumulativeWithdrawals += yearWithdrawal;
+        // Calculate withdrawal based on strategy
+        const totalBeforeWithdrawal = runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther + runningSavings;
+        
+        if (withdrawalStrategy === '4percent') {
+          // Traditional 4% rule: fixed amount based on initial retirement portfolio
+          if (yearsIntoRetirement === 0) {
+            yearWithdrawal = totalBeforeWithdrawal * 0.04;
+          } else {
+            // Inflation-adjusted from initial withdrawal
+            const initialWithdrawal = data[retirementAge - currentAge]?.yearWithdrawal || totalBeforeWithdrawal * 0.04;
+            yearWithdrawal = initialWithdrawal * Math.pow(1 + effectiveInflation / 100, yearsIntoRetirement);
+          }
+        } else {
+          // Dynamic withdrawal: withdraw % of current portfolio (allows more when portfolio grows)
+          const withdrawRate = dynamicWithdrawalRate / 100;
+          yearWithdrawal = totalBeforeWithdrawal * withdrawRate;
+          
+          // Floor: at least inflation-adjusted base spending
+          const minWithdrawal = retirementAnnualSpending * Math.pow(1 + effectiveInflation / 100, retirementAge - currentAge + yearsIntoRetirement);
+          yearWithdrawal = Math.max(yearWithdrawal, Math.min(minWithdrawal, totalBeforeWithdrawal * 0.1));
+        }
+        
+        // Withdraw proportionally from all assets
+        const totalForWithdrawal = runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther + runningSavings;
+        if (totalForWithdrawal > 0 && yearWithdrawal > 0) {
+          const withdrawRatio = Math.min(1, yearWithdrawal / totalForWithdrawal);
+          runningBtc -= runningBtc * withdrawRatio;
+          runningStocks -= runningStocks * withdrawRatio;
+          runningRealEstate -= runningRealEstate * withdrawRatio;
+          runningBonds -= runningBonds * withdrawRatio;
+          runningOther -= runningOther * withdrawRatio;
+          runningSavings -= runningSavings * withdrawRatio;
+        }
       }
-      
-      // Assume new savings are invested in a mix (simplified: grows at blended rate)
-      const blendedGrowthRate = (effectiveBtcCagr * 0.3 + effectiveStocksCagr * 0.7) / 100;
-      const savingsGrown = cumulativeSavings * Math.pow(1 + blendedGrowthRate, Math.max(0, i - 1));
 
-      const btcProjected = btcValue * Math.pow(1 + effectiveBtcCagr / 100, i);
-      const stocksProjected = stocksValue * Math.pow(1 + effectiveStocksCagr / 100, i);
-      const realEstateProjected = realEstateValue * Math.pow(1 + realEstateCagr / 100, i);
-      const bondsProjected = bondsValue * Math.pow(1 + bondsCagr / 100, i);
-      const otherProjected = otherValue * Math.pow(1 + stocksCagr / 100, i);
-
-      // Subtract cumulative withdrawals in retirement
-      const total = Math.max(0, btcProjected + stocksProjected + realEstateProjected + bondsProjected + otherProjected + savingsGrown + eventImpact - cumulativeWithdrawals);
-      const realTotal = total / Math.pow(1 + effectiveInflation / 100, i); // Inflation adjusted
+      const total = Math.max(0, runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther + runningSavings + eventImpact);
+      const realTotal = total / Math.pow(1 + effectiveInflation / 100, i);
 
       data.push({
         age: currentAge + i,
         year,
-        btc: Math.round(btcProjected),
-        stocks: Math.round(stocksProjected),
-        realEstate: Math.round(realEstateProjected),
-        bonds: Math.round(bondsProjected),
-        savings: Math.round(savingsGrown),
+        btc: Math.round(runningBtc),
+        stocks: Math.round(runningStocks),
+        realEstate: Math.round(runningRealEstate),
+        bonds: Math.round(runningBonds),
+        savings: Math.round(runningSavings),
         total: Math.round(total),
         realTotal: Math.round(realTotal),
         hasEvent: lifeEvents.some(e => e.year === year),
         isRetired: isRetired,
         yearWithdrawal: Math.round(yearWithdrawal),
+        btcGrowthRate: yearBtcGrowth,
       });
-      }
-      return data;
-      }, [btcValue, stocksValue, realEstateValue, bondsValue, otherValue, currentAge, retirementAge, lifeExpectancy, effectiveBtcCagr, effectiveStocksCagr, realEstateCagr, bondsCagr, effectiveInflation, lifeEvents, annualSavings, incomeGrowth, retirementAnnualSpending]);
+    }
+    return data;
+  }, [btcValue, stocksValue, realEstateValue, bondsValue, otherValue, currentAge, retirementAge, lifeExpectancy, effectiveBtcCagr, effectiveStocksCagr, realEstateCagr, bondsCagr, effectiveInflation, lifeEvents, annualSavings, incomeGrowth, retirementAnnualSpending, withdrawalStrategy, dynamicWithdrawalRate]);
 
   // Run Monte Carlo when button clicked
   const handleRunSimulation = () => {
@@ -302,14 +364,22 @@ export default function FinancialPlan() {
   const endOfLifeValue = projections[projections.length - 1]?.total || 0;
   const runOutOfMoneyAge = projections.findIndex(p => p.total <= 0 && p.isRetired);
   const willRunOutOfMoney = runOutOfMoneyAge !== -1;
-  const withdrawalRate = 0.04;
-  const sustainableWithdrawal = realRetirementValue * withdrawalRate;
+  
+  // Calculate first year withdrawal and average withdrawal in retirement
+  const firstRetirementWithdrawal = projections[retirementYearIndex]?.yearWithdrawal || 0;
+  const retirementYears = projections.filter(p => p.isRetired);
+  const avgRetirementWithdrawal = retirementYears.length > 0 
+    ? retirementYears.reduce((sum, p) => sum + p.yearWithdrawal, 0) / retirementYears.length 
+    : 0;
+  const totalLifetimeWithdrawals = retirementYears.reduce((sum, p) => sum + p.yearWithdrawal, 0);
+  
   // Calculate inflation-adjusted retirement spending need at retirement
   const yearsToRetirement = retirementAge - currentAge;
   const inflationAdjustedRetirementSpending = retirementAnnualSpending * Math.pow(1 + inflationRate / 100, yearsToRetirement);
-  const canRetire = sustainableWithdrawal >= inflationAdjustedRetirementSpending;
-  // Calculate required nest egg for retirement income
-  const requiredNestEgg = inflationAdjustedRetirementSpending / withdrawalRate;
+  const canRetire = firstRetirementWithdrawal >= inflationAdjustedRetirementSpending * 0.8; // Within 80% of need
+  // Required nest egg based on withdrawal strategy
+  const effectiveWithdrawalRate = withdrawalStrategy === '4percent' ? 0.04 : dynamicWithdrawalRate / 100;
+  const requiredNestEgg = inflationAdjustedRetirementSpending / effectiveWithdrawalRate;
 
   const eventIcons = {
     income_change: Briefcase,
@@ -479,7 +549,7 @@ export default function FinancialPlan() {
           {/* Retirement Settings */}
           <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
             <h3 className="font-semibold mb-6">Retirement Planning</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                 <div className="space-y-2">
                   <Label className="text-zinc-400">Current Age</Label>
                   <Input type="number" value={currentAge} onChange={(e) => setCurrentAge(parseInt(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
@@ -493,7 +563,7 @@ export default function FinancialPlan() {
                   <Input type="number" value={lifeExpectancy} onChange={(e) => setLifeExpectancy(parseInt(e.target.value) || 90)} className="bg-zinc-900 border-zinc-800" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-zinc-400">Current Annual Spending</Label>
+                  <Label className="text-zinc-400">Current Spending</Label>
                   <Input type="number" value={currentAnnualSpending} onChange={(e) => setCurrentAnnualSpending(parseInt(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
                 </div>
                 <div className="space-y-2">
@@ -502,7 +572,49 @@ export default function FinancialPlan() {
                 </div>
               </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-6 p-4 rounded-xl bg-zinc-800/30">
+            {/* Withdrawal Strategy */}
+            <div className="mt-6 p-4 rounded-xl bg-zinc-800/30">
+              <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+                <div className="flex-1">
+                  <Label className="text-zinc-400 text-sm">Withdrawal Strategy</Label>
+                  <Select value={withdrawalStrategy} onValueChange={setWithdrawalStrategy}>
+                    <SelectTrigger className="bg-zinc-900 border-zinc-800 mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-zinc-900 border-zinc-800">
+                      <SelectItem value="4percent">Traditional 4% Rule (Fixed)</SelectItem>
+                      <SelectItem value="dynamic">Dynamic % of Portfolio</SelectItem>
+                      <SelectItem value="saylor24">Saylor Bitcoin24 Model (~29% declining)</SelectItem>
+                      <SelectItem value="powerlaw">Power Law Model (~40% declining)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {withdrawalStrategy === 'dynamic' && (
+                  <div className="flex-1">
+                    <div className="flex justify-between">
+                      <Label className="text-zinc-400 text-sm">Withdrawal Rate</Label>
+                      <span className="text-orange-400 font-semibold">{dynamicWithdrawalRate}%</span>
+                    </div>
+                    <Slider 
+                      value={[dynamicWithdrawalRate]} 
+                      onValueChange={([v]) => setDynamicWithdrawalRate(v)} 
+                      min={2} max={10} step={0.5} 
+                      className="mt-2"
+                    />
+                  </div>
+                )}
+                
+                <div className="lg:w-80 p-3 rounded-lg bg-zinc-900/50 text-xs text-zinc-500">
+                  {withdrawalStrategy === '4percent' && "Classic rule: withdraw 4% of initial portfolio, adjust for inflation yearly"}
+                  {withdrawalStrategy === 'dynamic' && "Withdraw a fixed % of current portfolio each year - more when it grows, less when it shrinks"}
+                  {withdrawalStrategy === 'saylor24' && "Michael Saylor's model: BTC starts ~45% CAGR declining to ~15% over 20 years"}
+                  {withdrawalStrategy === 'powerlaw' && "Bitcoin Power Law: follows logarithmic regression, ~60% early declining to ~20%"}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6 p-4 rounded-xl bg-zinc-800/30">
               <div>
                 <p className="text-sm text-zinc-500">At Retirement (Age {retirementAge})</p>
                 <p className="text-2xl font-bold text-orange-400">${(retirementValue / 1000000).toFixed(2)}M</p>
@@ -512,8 +624,12 @@ export default function FinancialPlan() {
                 <p className="text-2xl font-bold text-zinc-300">${(endOfLifeValue / 1000000).toFixed(2)}M</p>
               </div>
               <div>
-                <p className="text-sm text-zinc-500">Safe Withdrawal (4%)</p>
-                <p className="text-2xl font-bold text-emerald-400">${(sustainableWithdrawal / 1000).toFixed(0)}k/yr</p>
+                <p className="text-sm text-zinc-500">Year 1 Withdrawal</p>
+                <p className="text-2xl font-bold text-emerald-400">${(firstRetirementWithdrawal / 1000).toFixed(0)}k</p>
+              </div>
+              <div>
+                <p className="text-sm text-zinc-500">Avg Annual Withdrawal</p>
+                <p className="text-2xl font-bold text-cyan-400">${(avgRetirementWithdrawal / 1000).toFixed(0)}k</p>
               </div>
               <div>
                 <p className="text-sm text-zinc-500">Needed at Retirement</p>
@@ -521,14 +637,18 @@ export default function FinancialPlan() {
                 <p className="text-xs text-zinc-600">({inflationRate}% inflation adjusted)</p>
               </div>
               <div>
+                <p className="text-sm text-zinc-500">Total Lifetime Withdrawals</p>
+                <p className="text-xl font-bold text-purple-400">${(totalLifetimeWithdrawals / 1000000).toFixed(1)}M</p>
+              </div>
+              <div>
                 <p className="text-sm text-zinc-500">Retirement Status</p>
-                <p className={cn("text-2xl font-bold", canRetire && !willRunOutOfMoney ? "text-emerald-400" : "text-rose-400")}>
+                <p className={cn("text-xl font-bold", canRetire && !willRunOutOfMoney ? "text-emerald-400" : "text-rose-400")}>
                   {willRunOutOfMoney ? `Runs out at ${currentAge + runOutOfMoneyAge}` : canRetire ? 'On Track ✓' : 'Needs Work'}
                 </p>
               </div>
               <div>
-                <p className="text-sm text-zinc-500">Retirement Years</p>
-                <p className="text-xl font-bold text-purple-400">{lifeExpectancy - retirementAge} years</p>
+                <p className="text-sm text-zinc-500">Retirement Duration</p>
+                <p className="text-xl font-bold text-zinc-300">{lifeExpectancy - retirementAge} years</p>
               </div>
             </div>
           </div>
@@ -586,7 +706,11 @@ export default function FinancialPlan() {
                   ${retirementAnnualSpending.toLocaleString()}/yr today → ${Math.round(inflationAdjustedRetirementSpending).toLocaleString()}/yr at retirement ({inflationRate}% inflation)
                 </p>
                 <p className="text-xs text-zinc-500 mt-1">
-                  Required nest egg (4% rule): <span className="text-orange-400 font-semibold">${(requiredNestEgg / 1000000).toFixed(2)}M</span>
+                  Strategy: <span className="text-orange-400 font-semibold">
+                    {withdrawalStrategy === '4percent' ? '4% Rule' : 
+                     withdrawalStrategy === 'dynamic' ? `${dynamicWithdrawalRate}% Dynamic` :
+                     withdrawalStrategy === 'saylor24' ? 'Saylor Bitcoin24' : 'Power Law'}
+                  </span> • Required nest egg: <span className="text-orange-400 font-semibold">${(requiredNestEgg / 1000000).toFixed(2)}M</span>
                 </p>
               </div>
               <Button onClick={handleRunSimulation} className="brand-gradient text-white font-semibold">
@@ -627,7 +751,11 @@ export default function FinancialPlan() {
                   )}>
                     {successProbability?.toFixed(0)}%
                   </p>
-                  <p className="text-xs text-zinc-600 mt-1">Requires ${(requiredNestEgg / 1000000).toFixed(2)}M nest egg (4% safe withdrawal)</p>
+                  <p className="text-xs text-zinc-600 mt-1">
+                  Using {withdrawalStrategy === '4percent' ? '4% Rule' : 
+                         withdrawalStrategy === 'dynamic' ? `${dynamicWithdrawalRate}% Dynamic` :
+                         withdrawalStrategy === 'saylor24' ? 'Saylor Bitcoin24' : 'Power Law'} strategy
+                </p>
                   <p className="text-sm text-zinc-500 mt-2">
                     {successProbability >= 80 ? "Excellent! You're on track for your desired retirement lifestyle." :
                      successProbability >= 50 ? "Good progress, but consider increasing savings or adjusting expectations." :
