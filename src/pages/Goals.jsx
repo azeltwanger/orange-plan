@@ -56,13 +56,11 @@ const eventIcons = {
 };
 
 export default function Goals() {
-  const [activeTab, setActiveTab] = useState('overview');
   const [goalFormOpen, setGoalFormOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState(null);
   const [eventFormOpen, setEventFormOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null);
-  const [selectedBucket, setSelectedBucket] = useState(null);
-  const [btcPrice, setBtcPrice] = useState(null);
+  const [expandedBucket, setExpandedBucket] = useState(null);
   const queryClient = useQueryClient();
 
   // Fetch BTC price
