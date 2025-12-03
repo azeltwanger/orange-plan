@@ -962,9 +962,12 @@ export default function FinancialPlan() {
               </div>
               <div>
                 <p className="text-sm text-zinc-500">Retirement Status</p>
-                <p className={cn("text-xl font-bold", canRetire && !willRunOutOfMoney ? "text-emerald-400" : "text-rose-400")}>
-                  {willRunOutOfMoney ? `Runs out at ${currentAge + runOutOfMoneyAge}` : canRetire ? 'On Track ✓' : 'Needs Work'}
+                <p className={cn("text-xl font-bold", canRetire && !willRunOutOfMoney ? "text-emerald-400" : "text-amber-400")}>
+                  {willRunOutOfMoney ? `Runs out at ${currentAge + runOutOfMoneyAge}` : canRetire ? 'On Track ✓' : 'Optimistic*'}
                 </p>
+                {!canRetire && !willRunOutOfMoney && (
+                  <p className="text-xs text-zinc-500">*Based on avg returns. Run Monte Carlo for realistic odds.</p>
+                )}
               </div>
               <div>
                 <p className="text-sm text-zinc-500">Retirement Duration</p>
