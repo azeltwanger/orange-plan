@@ -29,8 +29,8 @@ const runMonteCarloSimulation = (params, numSimulations = 1000) => {
   
   const results = [];
   const successResults = [];
-  const years = lifeExpectancy - currentAge;
-  const yearsToRetirement = retirementAge - currentAge;
+  const years = Math.max(1, lifeExpectancy - currentAge);
+  const yearsToRetirement = Math.max(0, retirementAge - currentAge);
   const totalStartingAssets = btcValue + stocksValue + realEstateValue + bondsValue + otherValue;
   
   // Calculate portfolio allocation percentages
