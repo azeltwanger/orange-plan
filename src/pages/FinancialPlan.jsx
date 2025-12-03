@@ -489,12 +489,29 @@ export default function FinancialPlan() {
 
   // Run Monte Carlo when button clicked
   const handleRunSimulation = () => {
-    const years = retirementAge - currentAge;
-    // Use a blended volatility based on portfolio composition
-    const btcWeight = totalValue > 0 ? btcValue / totalValue : 0.5;
-    const blendedVolatility = 60 * btcWeight + stocksVolatility * (1 - btcWeight); // BTC ~60% vol, stocks ~15%
-    const blendedReturn = effectiveBtcCagr * btcWeight + effectiveStocksCagr * (1 - btcWeight);
-    const simulations = runMonteCarloSimulation(totalValue, years, blendedReturn, blendedVolatility, 1000);
+    const simulations = runMonteCarloSimulation({
+      btcValue,
+      stocksValue,
+      realEstateValue,
+      bondsValue,
+      otherValue,
+      currentAge,
+      retirementAge,
+      lifeExpectancy,
+      getBtcGrowthRate,
+      stocksCagr: effectiveStocksCagr,
+      realEstateCagr,
+      bondsCagr,
+      inflationRate: effectiveInflation,
+      annualSavings,
+      incomeGrowth,
+      retirementAnnualSpending,
+      withdrawalStrategy,
+      dynamicWithdrawalRate,
+      btcVolatility: 60,
+      stocksVolatility,
+    }, 1000);
+    
     const percentiles = calculatePercentiles(simulations);
     
     // Calculate success probability against inflation-adjusted retirement income need
