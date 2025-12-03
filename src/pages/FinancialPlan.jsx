@@ -202,6 +202,21 @@ export default function FinancialPlan() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['scenarios'] }),
   });
 
+  const createAccount = useMutation({
+    mutationFn: (data) => base44.entities.Account.create(data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['accounts'] }); setAccountFormOpen(false); },
+  });
+
+  const updateAccount = useMutation({
+    mutationFn: ({ id, data }) => base44.entities.Account.update(id, data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['accounts'] }); setAccountFormOpen(false); setEditingAccount(null); },
+  });
+
+  const deleteAccount = useMutation({
+    mutationFn: (id) => base44.entities.Account.delete(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['accounts'] }),
+  });
+
   // Calculate portfolio values
   const btcValue = holdings.filter(h => h.ticker === 'BTC').reduce((sum, h) => sum + h.quantity * currentPrice, 0);
   const stocksValue = holdings.filter(h => h.asset_type === 'stocks').reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
