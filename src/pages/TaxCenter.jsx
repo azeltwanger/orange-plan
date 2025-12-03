@@ -295,10 +295,15 @@ export default function TaxCenter() {
     });
   };
 
-  // Tax calculations
-  const sellTxs = transactions.filter(t => t.type === 'sell');
-  const shortTermGains = sellTxs.filter(t => t.holding_period === 'short_term').reduce((sum, t) => sum + (t.realized_gain_loss || 0), 0);
-  const longTermGains = sellTxs.filter(t => t.holding_period === 'long_term').reduce((sum, t) => sum + (t.realized_gain_loss || 0), 0);
+  // Tax calculations - YTD only
+  const currentYear = new Date().getFullYear();
+  const ytdSellTxs = transactions.filter(t => t.type === 'sell' && new Date(t.date).getFullYear() === currentYear);
+  const allSellTxs = transactions.filter(t => t.type === 'sell');
+  const shortTermGains = ytdSellTxs.filter(t => t.holding_period === 'short_term').reduce((sum, t) => sum + (t.realized_gain_loss || 0), 0);
+  const longTermGains = ytdSellTxs.filter(t => t.holding_period === 'long_term').reduce((sum, t) => sum + (t.realized_gain_loss || 0), 0);
+  
+  // Total BTC from holdings
+  const totalBtcHeld = taxLots.reduce((sum, lot) => sum + lot.remainingQuantity, 0);
 
   const getLTCGRate = (income) => {
     for (const bracket of TAX_BRACKETS_2024.ltcg) {
@@ -553,6 +558,40 @@ export default function TaxCenter() {
 
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-6">
+          {/* YTD Tax Liability Summary */}
+          <div className="card-premium rounded-2xl p-6 border border-orange-500/20">
+            <h3 className="font-semibold mb-4 flex items-center gap-2">
+              <Receipt className="w-5 h-5 text-orange-400" />
+              {currentYear} Tax Liability Summary
+            </h3>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="p-4 rounded-xl bg-zinc-800/30">
+                <p className="text-sm text-zinc-500">YTD Short-Term Gains</p>
+                <p className={cn("text-xl font-bold", shortTermGains >= 0 ? "text-emerald-400" : "text-rose-400")}>
+                  {shortTermGains >= 0 ? '+' : ''}${Math.abs(shortTermGains).toLocaleString()}
+                </p>
+                <p className="text-xs text-zinc-500">Tax: ${((shortTermGains > 0 ? shortTermGains * effectiveSTCGRate : 0)).toLocaleString()}</p>
+              </div>
+              <div className="p-4 rounded-xl bg-zinc-800/30">
+                <p className="text-sm text-zinc-500">YTD Long-Term Gains</p>
+                <p className={cn("text-xl font-bold", longTermGains >= 0 ? "text-emerald-400" : "text-rose-400")}>
+                  {longTermGains >= 0 ? '+' : ''}${Math.abs(longTermGains).toLocaleString()}
+                </p>
+                <p className="text-xs text-zinc-500">Tax: ${((longTermGains > 0 ? longTermGains * effectiveLTCGRate : 0)).toLocaleString()}</p>
+              </div>
+              <div className="p-4 rounded-xl bg-orange-500/10 border border-orange-500/20">
+                <p className="text-sm text-zinc-500">Est. Total Tax</p>
+                <p className="text-xl font-bold text-orange-400">${estimatedTax.toLocaleString()}</p>
+                <p className="text-xs text-zinc-500">On {ytdSellTxs.length} sales</p>
+              </div>
+              <div className="p-4 rounded-xl bg-zinc-800/30">
+                <p className="text-sm text-zinc-500">BTC Holdings</p>
+                <p className="text-xl font-bold text-orange-400">{totalBtcHeld.toFixed(4)} BTC</p>
+                <p className="text-xs text-zinc-500">{taxLots.length} lots</p>
+              </div>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Tax Bracket Chart */}
             <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
@@ -625,7 +664,12 @@ export default function TaxCenter() {
         {/* Tax Lots Tab */}
         <TabsContent value="lots">
           <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
-            <h3 className="font-semibold mb-6">Tax Lots (Unrealized)</h3>
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="font-semibold">Tax Lots (Unrealized)</h3>
+                <p className="text-sm text-zinc-500">Total: {totalBtcHeld.toFixed(8)} BTC remaining</p>
+              </div>
+            </div>
             {taxLots.length === 0 ? (
               <p className="text-center text-zinc-500 py-12">No tax lots. Add buy transactions to create lots.</p>
             ) : (
@@ -635,7 +679,10 @@ export default function TaxCenter() {
                     <div className="flex items-start justify-between mb-3">
                       <div>
                         <div className="flex items-center gap-2">
-                          <p className="font-medium">{lot.quantity} BTC</p>
+                          <p className="font-medium">{lot.remainingQuantity.toFixed(8)} BTC</p>
+                          {lot.originalQuantity !== lot.remainingQuantity && (
+                            <span className="text-xs text-zinc-500">(of {lot.originalQuantity} original)</span>
+                          )}
                           <Badge variant="outline" className={cn("text-xs", lot.isLongTerm ? 'border-emerald-400/50 text-emerald-400' : 'border-amber-400/50 text-amber-400')}>
                             {lot.isLongTerm ? 'Long-term' : `${lot.daysSincePurchase}d`}
                           </Badge>
@@ -649,19 +696,19 @@ export default function TaxCenter() {
                       </div>
                       <div className="text-right">
                         <p className={cn("text-lg font-bold", lot.unrealizedGain >= 0 ? "text-emerald-400" : "text-rose-400")}>
-                          {lot.unrealizedGain >= 0 ? '+' : ''}{lot.unrealizedGainPercent.toFixed(1)}%
+                          {lot.unrealizedGain >= 0 ? '+' : ''}{(lot.unrealizedGainPercent || 0).toFixed(1)}%
                         </p>
-                        <p className="text-sm text-zinc-500">{lot.unrealizedGain >= 0 ? '+' : ''}${lot.unrealizedGain.toLocaleString()}</p>
+                        <p className="text-sm text-zinc-500">{lot.unrealizedGain >= 0 ? '+' : ''}${(lot.unrealizedGain || 0).toLocaleString()}</p>
                       </div>
                     </div>
                     <div className="grid grid-cols-3 gap-4 text-sm">
                       <div>
                         <p className="text-zinc-500">Cost Basis</p>
-                        <p className="font-medium">${lot.costBasis.toLocaleString()}</p>
+                        <p className="font-medium">${(lot.costBasis || 0).toLocaleString()}</p>
                       </div>
                       <div>
                         <p className="text-zinc-500">Current Value</p>
-                        <p className="font-medium">${lot.currentValue.toLocaleString()}</p>
+                        <p className="font-medium">${(lot.currentValue || 0).toLocaleString()}</p>
                       </div>
                       <div>
                         <p className="text-zinc-500">Per BTC Cost</p>
