@@ -188,10 +188,10 @@ export default function Dashboard() {
         {holdingsLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="card-glass rounded-xl p-5 animate-pulse">
-                <div className="w-10 h-10 bg-zinc-800 rounded-xl mb-4" />
-                <div className="h-4 bg-zinc-800 rounded w-24 mb-2" />
-                <div className="h-6 bg-zinc-800 rounded w-32" />
+              <div key={i} className="card-premium rounded-xl p-5 animate-pulse border border-zinc-800/50">
+                <div className="w-10 h-10 bg-zinc-800/50 rounded-xl mb-4" />
+                <div className="h-4 bg-zinc-800/50 rounded w-24 mb-2" />
+                <div className="h-6 bg-zinc-800/50 rounded w-32" />
               </div>
             ))}
           </div>
