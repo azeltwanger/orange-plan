@@ -180,9 +180,9 @@ export default function Dashboard() {
 
       {/* Holdings Grid */}
       <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">Your Holdings</h2>
-          <span className="text-sm text-zinc-500">{holdings.length} assets</span>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-semibold">Asset Allocation</h2>
+          <span className="text-sm text-zinc-500">{holdings.length} position{holdings.length !== 1 ? 's' : ''}</span>
         </div>
 
         {holdingsLoading ? (
@@ -196,12 +196,12 @@ export default function Dashboard() {
             ))}
           </div>
         ) : holdings.length === 0 ? (
-          <div className="card-glass rounded-xl p-12 text-center">
-            <div className="w-16 h-16 rounded-2xl accent-gradient mx-auto flex items-center justify-center mb-4 opacity-50">
-              <Bitcoin className="w-8 h-8 text-zinc-950" />
+          <div className="card-premium rounded-2xl p-16 text-center border border-zinc-800/50">
+            <div className="w-20 h-20 rounded-2xl bg-orange-500/10 mx-auto flex items-center justify-center mb-6">
+              <Bitcoin className="w-10 h-10 text-orange-400" />
             </div>
-            <h3 className="text-lg font-semibold mb-2">No holdings yet</h3>
-            <p className="text-zinc-500 mb-4">Add your first asset to start tracking your portfolio</p>
+            <h3 className="text-xl font-semibold mb-3 text-zinc-200">Begin Your Journey</h3>
+            <p className="text-zinc-500 mb-6 max-w-sm mx-auto">Add your first asset to start tracking your sovereign wealth</p>
             <Button
               onClick={() => setFormOpen(true)}
               className="brand-gradient text-white font-semibold shadow-lg shadow-orange-500/20"

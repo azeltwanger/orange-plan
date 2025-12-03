@@ -54,7 +54,7 @@ export default function HoldingForm({ open, onClose, onSubmit, initialData }) {
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="bg-zinc-900 border-zinc-800 text-zinc-100 max-w-md">
+      <DialogContent className="bg-[#0f0f10] border-zinc-800 text-zinc-100 max-w-md">
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold">
             {initialData ? 'Edit Holding' : 'Add Holding'}
