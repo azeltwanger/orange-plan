@@ -153,8 +153,8 @@ const calculatePercentiles = (simulations, percentiles = [10, 25, 50, 75, 90]) =
 // Calculate withdrawal amounts by year for Monte Carlo
 const calculateWithdrawals = (params) => {
   const { currentAge, retirementAge, lifeExpectancy, inflationRate, retirementAnnualSpending, withdrawalStrategy, dynamicWithdrawalRate } = params;
-  const years = lifeExpectancy - currentAge;
-  const yearsToRetirement = retirementAge - currentAge;
+  const years = Math.max(1, lifeExpectancy - currentAge);
+  const yearsToRetirement = Math.max(0, retirementAge - currentAge);
   const withdrawals = [];
   
   for (let i = 0; i <= years; i++) {
@@ -164,7 +164,8 @@ const calculateWithdrawals = (params) => {
     } else {
       const yearsIntoRetirement = i - yearsToRetirement;
       // For display purposes, show income-based withdrawal (inflation-adjusted)
-      const withdrawal = retirementAnnualSpending * Math.pow(1 + inflationRate / 100, yearsToRetirement + yearsIntoRetirement);
+      const yearsOfInflation = yearsToRetirement + yearsIntoRetirement;
+      const withdrawal = retirementAnnualSpending * Math.pow(1 + inflationRate / 100, yearsOfInflation);
       withdrawals.push(Math.round(withdrawal));
     }
   }
