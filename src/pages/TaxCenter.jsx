@@ -78,6 +78,13 @@ export default function TaxCenter() {
   const [annualIncome, setAnnualIncome] = useState(0);
   const [targetTaxableIncome, setTargetTaxableIncome] = useState(47025);
   const [filingStatus, setFilingStatus] = useState('single');
+  const [incomeIsGross, setIncomeIsGross] = useState(true); // true = before standard deduction
+
+  // 2024 Standard Deductions
+  const STANDARD_DEDUCTION = {
+    single: 14600,
+    married: 29200,
+  };
 
   // Sale form state
   const [saleForm, setSaleForm] = useState({
@@ -378,6 +385,11 @@ export default function TaxCenter() {
 
   // Get brackets based on filing status
   const currentBrackets = TAX_BRACKETS_2024[filingStatus];
+  
+  // Calculate taxable income (after standard deduction if applicable)
+  const taxableIncome = incomeIsGross 
+    ? Math.max(0, annualIncome - STANDARD_DEDUCTION[filingStatus])
+    : annualIncome;
 
   const getLTCGRate = (income) => {
     for (const bracket of currentBrackets.ltcg) {
@@ -393,9 +405,9 @@ export default function TaxCenter() {
     return 0.37;
   };
 
-  const effectiveLTCGRate = getLTCGRate(annualIncome);
-  const effectiveSTCGRate = getSTCGRate(annualIncome);
-  const ltcgBracketRoom = Math.max(0, currentBrackets.ltcg[0].max - annualIncome);
+  const effectiveLTCGRate = getLTCGRate(taxableIncome);
+  const effectiveSTCGRate = getSTCGRate(taxableIncome);
+  const ltcgBracketRoom = Math.max(0, currentBrackets.ltcg[0].max - taxableIncome);
   const canHarvestGainsTaxFree = effectiveLTCGRate === 0;
 
   const estimatedTax = (shortTermGains > 0 ? shortTermGains * effectiveSTCGRate : 0) + (longTermGains > 0 ? longTermGains * effectiveLTCGRate : 0);
@@ -424,8 +436,42 @@ export default function TaxCenter() {
     name: bracket.label,
     max: bracket.max === Infinity ? (filingStatus === 'married' ? 900000 : 800000) : bracket.max,
     rate: bracket.rate * 100,
-    fill: annualIncome >= bracket.min && (bracket.max === Infinity || annualIncome < bracket.max) ? '#F7931A' : '#27272a',
+    fill: taxableIncome >= bracket.min && (bracket.max === Infinity || taxableIncome < bracket.max) ? '#F7931A' : '#27272a',
   }));
+
+  // Stress test scenarios
+  const stressTestScenarios = useMemo(() => {
+    const totalBtcValue = taxLots.reduce((sum, lot) => sum + lot.currentValue, 0);
+    const totalCostBasis = taxLots.reduce((sum, lot) => sum + lot.costBasis, 0);
+    
+    const scenarios = [
+      { name: 'Minor Correction', drawdown: 20, description: 'Typical market pullback' },
+      { name: 'Bear Market', drawdown: 50, description: '2022-style bear market' },
+      { name: 'Severe Crash', drawdown: 70, description: '2018/2022 peak-to-trough' },
+      { name: 'Black Swan', drawdown: 85, description: 'Extreme tail risk event' },
+    ];
+
+    return scenarios.map(scenario => {
+      const crashedValue = totalBtcValue * (1 - scenario.drawdown / 100);
+      const unrealizedLoss = crashedValue - totalCostBasis;
+      const percentFromCostBasis = totalCostBasis > 0 ? ((crashedValue - totalCostBasis) / totalCostBasis) * 100 : 0;
+      const stillAboveCostBasis = crashedValue >= totalCostBasis;
+      
+      // Calculate if you'd be forced to sell at a loss
+      const monthlyExpenses = 5000; // Assume $5k/mo for now - could make this configurable
+      const monthsOfRunway = crashedValue / monthlyExpenses;
+      
+      return {
+        ...scenario,
+        crashedValue,
+        unrealizedLoss,
+        percentFromCostBasis,
+        stillAboveCostBasis,
+        monthsOfRunway: Math.floor(monthsOfRunway),
+        priceAtDrawdown: currentPrice * (1 - scenario.drawdown / 100),
+      };
+    });
+  }, [taxLots, currentPrice]);
 
   // Calculate wash trade net benefit (tax savings minus trading fees)
   const calculateWashTradeAnalysis = (lots, feePercent = DEFAULT_ROUND_TRIP_FEE_PERCENT) => {
@@ -558,42 +604,70 @@ export default function TaxCenter() {
             </TooltipProvider>
           </div>
           {/* Filing Status Toggle */}
-          <div className="flex items-center gap-2 p-1 rounded-lg bg-zinc-800/50">
-            <button
-              onClick={() => setFilingStatus('single')}
-              className={cn(
-                "px-3 py-1.5 rounded-md text-sm font-medium transition-all",
-                filingStatus === 'single' 
-                  ? "bg-orange-500/20 text-orange-400" 
-                  : "text-zinc-400 hover:text-zinc-300"
-              )}
-            >
-              Single
-            </button>
-            <button
-              onClick={() => setFilingStatus('married')}
-              className={cn(
-                "px-3 py-1.5 rounded-md text-sm font-medium transition-all",
-                filingStatus === 'married' 
-                  ? "bg-orange-500/20 text-orange-400" 
-                  : "text-zinc-400 hover:text-zinc-300"
-              )}
-            >
-              Married Filing Jointly
-            </button>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 p-1 rounded-lg bg-zinc-800/50">
+              <button
+                onClick={() => setFilingStatus('single')}
+                className={cn(
+                  "px-3 py-1.5 rounded-md text-sm font-medium transition-all",
+                  filingStatus === 'single' 
+                    ? "bg-orange-500/20 text-orange-400" 
+                    : "text-zinc-400 hover:text-zinc-300"
+                )}
+              >
+                Single
+              </button>
+              <button
+                onClick={() => setFilingStatus('married')}
+                className={cn(
+                  "px-3 py-1.5 rounded-md text-sm font-medium transition-all",
+                  filingStatus === 'married' 
+                    ? "bg-orange-500/20 text-orange-400" 
+                    : "text-zinc-400 hover:text-zinc-300"
+                )}
+              >
+                Married Filing Jointly
+              </button>
+            </div>
+            <div className="flex items-center gap-2 p-1 rounded-lg bg-zinc-800/50">
+              <button
+                onClick={() => setIncomeIsGross(true)}
+                className={cn(
+                  "px-3 py-1.5 rounded-md text-sm font-medium transition-all",
+                  incomeIsGross 
+                    ? "bg-orange-500/20 text-orange-400" 
+                    : "text-zinc-400 hover:text-zinc-300"
+                )}
+              >
+                Gross
+              </button>
+              <button
+                onClick={() => setIncomeIsGross(false)}
+                className={cn(
+                  "px-3 py-1.5 rounded-md text-sm font-medium transition-all",
+                  !incomeIsGross 
+                    ? "bg-orange-500/20 text-orange-400" 
+                    : "text-zinc-400 hover:text-zinc-300"
+                )}
+              >
+                Taxable
+              </button>
+            </div>
           </div>
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="space-y-3">
             <div className="flex justify-between">
-              <Label className="text-zinc-300">Household Taxable Income</Label>
+              <Label className="text-zinc-300">{incomeIsGross ? 'Gross Income' : 'Taxable Income'}</Label>
               <span className="text-orange-400 font-semibold">${annualIncome.toLocaleString()}</span>
             </div>
             <Slider value={[annualIncome]} onValueChange={([v]) => setAnnualIncome(v)} min={0} max={1000000} step={5000} />
-            <p className="text-xs text-zinc-500">
-              {filingStatus === 'married' ? 'Combined household income' : 'Your individual income'}
-            </p>
+            {incomeIsGross && (
+              <p className="text-xs text-zinc-400">
+                After ${STANDARD_DEDUCTION[filingStatus].toLocaleString()} std deduction → <span className="text-emerald-400">${taxableIncome.toLocaleString()} taxable</span>
+              </p>
+            )}
           </div>
 
           <div className="p-4 rounded-xl bg-zinc-800/30">
@@ -728,6 +802,9 @@ export default function TaxCenter() {
           <TabsTrigger value="harvest-gain" className="data-[state=active]:bg-zinc-700">
             Gain Harvest
             {canHarvestGainsTaxFree && gainHarvestOpportunities.length > 0 && <span className="ml-2 w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />}
+          </TabsTrigger>
+          <TabsTrigger value="stress-test" className="data-[state=active]:bg-zinc-700">
+            Stress Test
           </TabsTrigger>
         </TabsList>
 
@@ -1035,6 +1112,168 @@ export default function TaxCenter() {
                   );
                 })}
               </div>
+            )}
+          </div>
+        </TabsContent>
+
+        {/* Stress Test Tab */}
+        <TabsContent value="stress-test">
+          <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
+            <h3 className="font-semibold mb-2">Portfolio Stress Test</h3>
+            <p className="text-sm text-zinc-400 mb-6">How would your BTC holdings fare in different market scenarios?</p>
+
+            {taxLots.length === 0 ? (
+              <div className="text-center py-12">
+                <AlertTriangle className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
+                <p className="text-zinc-400">Add BTC holdings to run stress tests</p>
+              </div>
+            ) : (
+              <>
+                {/* Current Position Summary */}
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 p-4 rounded-xl bg-zinc-800/30 mb-6">
+                  <div>
+                    <p className="text-sm text-zinc-400">Current BTC Value</p>
+                    <p className="text-xl font-bold text-orange-400">
+                      ${taxLots.reduce((sum, lot) => sum + lot.currentValue, 0).toLocaleString()}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-zinc-400">Total Cost Basis</p>
+                    <p className="text-xl font-bold text-zinc-200">
+                      ${taxLots.reduce((sum, lot) => sum + lot.costBasis, 0).toLocaleString()}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-zinc-400">Current BTC Price</p>
+                    <p className="text-xl font-bold text-zinc-200">${currentPrice.toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-zinc-400">Unrealized P&L</p>
+                    <p className={cn("text-xl font-bold", 
+                      taxLots.reduce((sum, lot) => sum + lot.unrealizedGain, 0) >= 0 ? "text-emerald-400" : "text-rose-400"
+                    )}>
+                      {taxLots.reduce((sum, lot) => sum + lot.unrealizedGain, 0) >= 0 ? '+' : ''}
+                      ${taxLots.reduce((sum, lot) => sum + lot.unrealizedGain, 0).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Stress Scenarios */}
+                <div className="space-y-4">
+                  {stressTestScenarios.map((scenario, idx) => (
+                    <div 
+                      key={scenario.name}
+                      className={cn(
+                        "p-4 rounded-xl border transition-all",
+                        scenario.stillAboveCostBasis 
+                          ? "bg-emerald-500/5 border-emerald-500/20" 
+                          : "bg-rose-500/5 border-rose-500/20"
+                      )}
+                    >
+                      <div className="flex items-start justify-between mb-4">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-semibold text-zinc-100">{scenario.name}</h4>
+                            <Badge className={cn(
+                              "text-xs",
+                              scenario.drawdown <= 30 ? "bg-amber-500/20 text-amber-400" :
+                              scenario.drawdown <= 60 ? "bg-orange-500/20 text-orange-400" :
+                              "bg-rose-500/20 text-rose-400"
+                            )}>
+                              -{scenario.drawdown}%
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-zinc-400">{scenario.description}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm text-zinc-400">BTC Price</p>
+                          <p className="text-lg font-bold text-zinc-200">${scenario.priceAtDrawdown.toLocaleString()}</p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <div className="p-3 rounded-lg bg-zinc-800/50">
+                          <p className="text-xs text-zinc-500">Portfolio Value</p>
+                          <p className="text-lg font-bold text-zinc-200">${scenario.crashedValue.toLocaleString()}</p>
+                        </div>
+                        <div className="p-3 rounded-lg bg-zinc-800/50">
+                          <p className="text-xs text-zinc-500">vs Cost Basis</p>
+                          <p className={cn("text-lg font-bold", scenario.stillAboveCostBasis ? "text-emerald-400" : "text-rose-400")}>
+                            {scenario.percentFromCostBasis >= 0 ? '+' : ''}{scenario.percentFromCostBasis.toFixed(1)}%
+                          </p>
+                        </div>
+                        <div className="p-3 rounded-lg bg-zinc-800/50">
+                          <p className="text-xs text-zinc-500">Unrealized P&L</p>
+                          <p className={cn("text-lg font-bold", scenario.unrealizedLoss >= 0 ? "text-emerald-400" : "text-rose-400")}>
+                            {scenario.unrealizedLoss >= 0 ? '+' : ''}${scenario.unrealizedLoss.toLocaleString()}
+                          </p>
+                        </div>
+                        <div className="p-3 rounded-lg bg-zinc-800/50">
+                          <p className="text-xs text-zinc-500">Status</p>
+                          <p className={cn("text-lg font-bold", scenario.stillAboveCostBasis ? "text-emerald-400" : "text-rose-400")}>
+                            {scenario.stillAboveCostBasis ? '✓ Above Basis' : '✗ Underwater'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {!scenario.stillAboveCostBasis && (
+                        <div className="mt-3 p-3 rounded-lg bg-rose-500/10 border border-rose-500/20">
+                          <p className="text-sm text-rose-400">
+                            ⚠️ In this scenario, selling would realize a <strong>${Math.abs(scenario.unrealizedLoss).toLocaleString()}</strong> loss. 
+                            {effectiveSTCGRate > 0 && ` This could offset gains and save ~$${(Math.abs(scenario.unrealizedLoss) * effectiveSTCGRate).toLocaleString()} in taxes.`}
+                          </p>
+                        </div>
+                      )}
+
+                      {scenario.stillAboveCostBasis && (
+                        <div className="mt-3 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                          <p className="text-sm text-emerald-400">
+                            ✓ Even at -{scenario.drawdown}%, you'd still be in profit vs your cost basis.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Risk Summary */}
+                <div className="mt-6 p-4 rounded-xl bg-zinc-800/30 border border-zinc-700/50">
+                  <h4 className="font-semibold text-zinc-200 mb-3">Risk Assessment</h4>
+                  <div className="space-y-2 text-sm">
+                    {(() => {
+                      const avgCostBasis = taxLots.reduce((sum, lot) => sum + lot.costBasis, 0) / taxLots.reduce((sum, lot) => sum + lot.remainingQuantity, 0);
+                      const breakEvenDrawdown = ((currentPrice - avgCostBasis) / currentPrice) * 100;
+                      return (
+                        <>
+                          <div className="flex justify-between">
+                            <span className="text-zinc-400">Average Cost Basis per BTC</span>
+                            <span className="text-zinc-200">${avgCostBasis.toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-zinc-400">Break-Even Drawdown</span>
+                            <span className={cn("font-semibold", breakEvenDrawdown > 50 ? "text-emerald-400" : breakEvenDrawdown > 20 ? "text-amber-400" : "text-rose-400")}>
+                              -{breakEvenDrawdown.toFixed(1)}%
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-zinc-400">Break-Even Price</span>
+                            <span className="text-zinc-200">${avgCostBasis.toLocaleString()}</span>
+                          </div>
+                          <p className="text-xs text-zinc-500 mt-2 pt-2 border-t border-zinc-700">
+                            {breakEvenDrawdown > 70 
+                              ? "Strong position - you can weather extreme market conditions" 
+                              : breakEvenDrawdown > 40 
+                              ? "Good position - resilient to typical bear markets"
+                              : breakEvenDrawdown > 20
+                              ? "Moderate risk - a significant correction could put you underwater"
+                              : "High risk - even minor corrections could result in losses"}
+                          </p>
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+              </>
             )}
           </div>
         </TabsContent>
