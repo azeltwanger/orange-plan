@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
-import { Plus, Pencil, Trash2, ArrowUpRight, Bitcoin, TrendingUp, Calendar, Play, Pause, Info, PieChart } from 'lucide-react';
+import { Plus, Pencil, Trash2, ArrowUpRight, Bitcoin, TrendingUp, Calendar, Play, Pause, Info, PieChart, DollarSign, Calculator } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,10 +11,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
 import { Slider } from "@/components/ui/slider";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
+import FeeAnalyzer from '@/components/investing/FeeAnalyzer';
+import DCAvsLumpSum from '@/components/investing/DCAvsLumpSum';
 
 export default function DCAStrategy() {
   const [btcPrice, setBtcPrice] = useState(null);
@@ -193,23 +196,42 @@ export default function DCAStrategy() {
 
   const projectionData = generateDCAProjection();
 
+  const [activeTab, setActiveTab] = useState('allocation');
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">DCA Strategy</h1>
-          <p className="text-zinc-500 mt-1">Manage accumulation and withdrawal plans</p>
+          <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">Investing</h1>
+          <p className="text-zinc-500 mt-1">DCA strategy, fee analysis, and investment planning</p>
         </div>
         <Button
           onClick={() => { setEditingPlan(null); resetForm(); setFormOpen(true); }}
-          className="accent-gradient text-zinc-950 font-semibold hover:opacity-90"
+          className="brand-gradient text-white font-semibold hover:opacity-90"
         >
           <Plus className="w-4 h-4 mr-2" />
           New Plan
         </Button>
       </div>
 
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="bg-zinc-800/50 p-1">
+          <TabsTrigger value="allocation" className="data-[state=active]:bg-zinc-700">
+            <PieChart className="w-4 h-4 mr-2" />
+            Allocation
+          </TabsTrigger>
+          <TabsTrigger value="fees" className="data-[state=active]:bg-zinc-700">
+            <DollarSign className="w-4 h-4 mr-2" />
+            Fee Tracker
+          </TabsTrigger>
+          <TabsTrigger value="simulator" className="data-[state=active]:bg-zinc-700">
+            <Calculator className="w-4 h-4 mr-2" />
+            DCA vs Lump Sum
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="allocation" className="space-y-6 mt-6">
       {/* Savings Source Card */}
       <div className="card-glass rounded-xl p-6 border border-zinc-800/50">
         <div className="flex items-center justify-between mb-4">
@@ -502,6 +524,17 @@ export default function DCAStrategy() {
           </div>
         )}
       </div>
+
+        </TabsContent>
+
+        <TabsContent value="fees" className="mt-6">
+          <FeeAnalyzer transactions={transactions} btcPrice={currentPrice} />
+        </TabsContent>
+
+        <TabsContent value="simulator" className="mt-6">
+          <DCAvsLumpSum btcPrice={currentPrice} />
+        </TabsContent>
+      </Tabs>
 
       {/* Form Dialog */}
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
