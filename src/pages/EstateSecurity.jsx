@@ -584,7 +584,7 @@ export default function EstateSecurity() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="card-premium rounded-xl p-5 border border-zinc-800/50">
+        <div className="card-premium rounded-xl p-5 border border-zinc-800/50 dark:border-zinc-800/50 bg-white dark:bg-transparent">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs text-zinc-500 uppercase tracking-wider">Security Score</span>
             <div className={cn(

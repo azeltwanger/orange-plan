@@ -143,11 +143,35 @@ export default function Layout({ children, currentPageName }) {
         
         /* Light mode overrides */
         .light-mode .card-premium {
-          background: linear-gradient(145deg, rgba(255, 255, 255, 0.95) 0%, rgba(249, 250, 251, 0.98) 100%);
-          border: 1px solid rgba(0, 0, 0, 0.08);
+          background: linear-gradient(145deg, rgba(255, 255, 255, 0.98) 0%, rgba(249, 250, 251, 0.99) 100%);
+          border: 1px solid rgba(0, 0, 0, 0.1);
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
         }
         .light-mode .card-premium:hover {
           border-color: rgba(247, 147, 26, 0.3);
+        }
+
+        /* Light mode text fixes */
+        .light-mode .text-zinc-100,
+        .light-mode .text-zinc-200,
+        .light-mode .text-zinc-300 {
+          color: rgb(24 24 27) !important;
+        }
+        .light-mode .text-zinc-400,
+        .light-mode .text-zinc-500 {
+          color: rgb(113 113 122) !important;
+        }
+        .light-mode .bg-zinc-800\/30,
+        .light-mode .bg-zinc-800\/50 {
+          background-color: rgba(244, 244, 245, 0.8) !important;
+        }
+        .light-mode .bg-zinc-900 {
+          background-color: rgb(250 250 250) !important;
+        }
+        .light-mode .border-zinc-800,
+        .light-mode .border-zinc-800\/50,
+        .light-mode .border-zinc-700 {
+          border-color: rgba(0, 0, 0, 0.1) !important;
         }
 
       `}</style>
