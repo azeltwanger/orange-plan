@@ -1409,8 +1409,8 @@ export default function FinancialPlan() {
                         </div>
                       </div>
                       <div className="flex items-center justify-between mb-2 text-sm">
-                        <span className="text-zinc-400">${(goal.current_amount || 0).toLocaleString()} / ${goal.target_amount.toLocaleString()}</span>
-                        <span className="font-medium text-orange-400">{progress.toFixed(0)}%</span>
+                        <span className="text-zinc-400">${(goal.current_amount || 0).toLocaleString()} / ${(goal.target_amount || 0).toLocaleString()}</span>
+                        <span className="font-medium text-orange-400">{(progress || 0).toFixed(0)}%</span>
                       </div>
                       <Progress value={progress} className="h-2 bg-zinc-700" />
                       {goal.target_date && <p className="text-xs text-zinc-500 mt-2 flex items-center gap-1"><Calendar className="w-3 h-3" />Target: {new Date(goal.target_date).toLocaleDateString()}</p>}
