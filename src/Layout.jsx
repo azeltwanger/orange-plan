@@ -18,14 +18,14 @@ import {
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { name: 'Command Center', icon: LayoutDashboard, page: 'Dashboard', description: 'Your wealth at a glance' },
-  { name: 'Performance', icon: TrendingUp, page: 'Performance', description: 'Stack growth & returns' },
+  { name: 'Summary', icon: LayoutDashboard, page: 'Dashboard', description: 'Your wealth at a glance' },
+  { name: 'Performance', icon: TrendingUp, page: 'Performance', description: 'Growth & returns' },
   { name: 'Projections', icon: Target, page: 'FinancialPlan', description: 'Future wealth modeling' },
-  { name: 'Cash Flow', icon: Wallet, page: 'Budget', description: 'Income & runway' },
-  { name: 'Stack Strategy', icon: ArrowLeftRight, page: 'DCAStrategy', description: 'DCA & accumulation' },
-  { name: 'Tax Alpha', icon: Receipt, page: 'TaxCenter', description: 'Optimize your liability' },
-  { name: 'Leverage', icon: Scale, page: 'Liabilities', description: 'Debt & collateral health' },
-  { name: 'Sovereignty', icon: Shield, page: 'EstateSecurity', description: 'Custody & inheritance' },
+  { name: 'Income & Expenses', icon: Wallet, page: 'Budget', description: 'Cash flow management' },
+  { name: 'Investing', icon: ArrowLeftRight, page: 'DCAStrategy', description: 'DCA & accumulation' },
+  { name: 'Tax Strategy', icon: Receipt, page: 'TaxCenter', description: 'Optimize your taxes' },
+  { name: 'Liabilities', icon: Scale, page: 'Liabilities', description: 'Debt management' },
+  { name: 'Estate Planning', icon: Shield, page: 'EstateSecurity', description: 'Inheritance & security' },
 ];
 
 export default function Layout({ children, currentPageName }) {
