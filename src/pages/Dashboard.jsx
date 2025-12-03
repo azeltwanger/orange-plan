@@ -74,13 +74,15 @@ export default function Dashboard() {
     }, {});
 
   const createHolding = useMutation({
-    mutationFn: async ({ holding, transaction }) => {
+    mutationFn: async ({ holding, transactions }) => {
       const newHolding = await base44.entities.Holding.create(holding);
-      if (transaction) {
-        await base44.entities.Transaction.create({
-          ...transaction,
-          holding_id: newHolding.id,
-        });
+      if (transactions && transactions.length > 0) {
+        for (const tx of transactions) {
+          await base44.entities.Transaction.create({
+            ...tx,
+            holding_id: newHolding.id,
+          });
+        }
       }
       return newHolding;
     },
