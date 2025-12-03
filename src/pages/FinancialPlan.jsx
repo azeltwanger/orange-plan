@@ -179,7 +179,7 @@ export default function FinancialPlan() {
   const [showMonteCarloSettings, setShowMonteCarloSettings] = useState(false);
   const queryClient = useQueryClient();
 
-  // Assumption states
+  // Assumption states - will be loaded from UserSettings
   const [btcCagr, setBtcCagr] = useState(25);
   const [stocksCagr, setStocksCagr] = useState(7);
   const [stocksVolatility, setStocksVolatility] = useState(15);
@@ -188,7 +188,7 @@ export default function FinancialPlan() {
   const [inflationRate, setInflationRate] = useState(3);
   const [incomeGrowth, setIncomeGrowth] = useState(3);
   
-  // Retirement settings
+  // Retirement settings - will be loaded from UserSettings
   const [retirementAge, setRetirementAge] = useState(65);
   const [currentAge, setCurrentAge] = useState(35);
   const [lifeExpectancy, setLifeExpectancy] = useState(90);
@@ -196,11 +196,14 @@ export default function FinancialPlan() {
   const [retirementAnnualSpending, setRetirementAnnualSpending] = useState(100000);
   
   // Withdrawal strategy - separate from return model
-  const [withdrawalStrategy, setWithdrawalStrategy] = useState('dynamic'); // '4percent', 'dynamic', 'variable'
-  const [dynamicWithdrawalRate, setDynamicWithdrawalRate] = useState(5); // For dynamic: withdraw % of portfolio each year
+  const [withdrawalStrategy, setWithdrawalStrategy] = useState('dynamic');
+  const [dynamicWithdrawalRate, setDynamicWithdrawalRate] = useState(5);
   
   // BTC return model (separate from withdrawal)
-  const [btcReturnModel, setBtcReturnModel] = useState('custom'); // 'custom', 'saylor24', 'powerlaw', 'conservative'
+  const [btcReturnModel, setBtcReturnModel] = useState('custom');
+  
+  // Settings loaded flag
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
   
   // Monte Carlo
   const [runSimulation, setRunSimulation] = useState(false);
