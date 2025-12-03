@@ -19,18 +19,17 @@ import { cn } from "@/lib/utils";
 // Auto-calculated security scores based on custody type
 const SECURITY_SCORES = {
   multisig: 10,
-  cold_storage: 9,
+  passphrase: 9,
   hardware_wallet: 8,
   custodian: 6,
   exchange: 4,
   hot_wallet: 2,
-  other: 5,
 };
 
 const SECURITY_FEATURES = {
   multisig: ['Multi-signature protection', '2-of-3 or 3-of-5 keys', 'Distributed custody', 'No single point of failure'],
-  cold_storage: ['Air-gapped device', 'Never connected to internet', 'Maximum security'],
-  hardware_wallet: ['Dedicated secure chip', 'PIN protected', 'Physical device'],
+  passphrase: ['25th word protection', 'Hidden wallet', 'Plausible deniability', 'Air-gapped recommended'],
+  hardware_wallet: ['Dedicated secure chip', 'PIN protected', 'Physical device', 'Cold storage'],
   custodian: ['Insured holdings', 'Regulated entity', 'Third-party risk'],
   exchange: ['Hot wallet exposure', 'Counterparty risk', 'Convenient but risky'],
   hot_wallet: ['Always online', 'Highest attack surface', 'Only for small amounts'],
@@ -199,13 +198,13 @@ export default function EstateSecurity() {
   const handleSubmit = (e) => {
     e.preventDefault();
     const securityScore = formData.item_type === 'custody_location' 
-      ? SECURITY_SCORES[formData.custody_type] + (formData.has_passphrase ? 1 : 0)
+      ? SECURITY_SCORES[formData.custody_type] || 5
       : 0;
     
     const data = {
       ...formData,
       btc_amount: parseFloat(formData.btc_amount) || 0,
-      security_score: Math.min(10, securityScore),
+      security_score: securityScore,
       beneficiary_allocation_percent: parseFloat(formData.beneficiary_allocation_percent) || 0,
     };
     
@@ -358,20 +357,18 @@ export default function EstateSecurity() {
     hardware_wallet: HardDrive,
     exchange: Building2,
     multisig: Key,
-    cold_storage: Lock,
+    passphrase: Lock,
     custodian: Building2,
     hot_wallet: Zap,
-    other: Wallet,
   };
 
   const custodyColors = {
     hardware_wallet: 'bg-emerald-400/10 text-emerald-400 border-emerald-400/20',
     exchange: 'bg-amber-400/10 text-amber-400 border-amber-400/20',
     multisig: 'bg-purple-400/10 text-purple-400 border-purple-400/20',
-    cold_storage: 'bg-blue-400/10 text-blue-400 border-blue-400/20',
+    passphrase: 'bg-blue-400/10 text-blue-400 border-blue-400/20',
     custodian: 'bg-rose-400/10 text-rose-400 border-rose-400/20',
     hot_wallet: 'bg-red-400/10 text-red-400 border-red-400/20',
-    other: 'bg-zinc-400/10 text-zinc-400 border-zinc-400/20',
   };
 
   const openAddForm = (type) => {
@@ -584,9 +581,7 @@ export default function EstateSecurity() {
                             <h4 className="font-semibold text-lg">{location.title}</h4>
                             <div className="flex items-center gap-2 mt-1">
                               <span className="text-sm text-zinc-500 capitalize">{location.custody_type?.replace('_', ' ')}</span>
-                              {location.has_passphrase && (
-                                <Badge variant="outline" className="text-xs border-purple-400/50 text-purple-400">+Passphrase</Badge>
-                              )}
+  
                             </div>
                           </div>
                         </div>
@@ -617,7 +612,7 @@ export default function EstateSecurity() {
                             "text-lg font-semibold",
                             autoScore >= 8 ? "text-emerald-400" : autoScore >= 5 ? "text-amber-400" : "text-rose-400"
                           )}>
-                            {autoScore}{location.has_passphrase ? '+1' : ''}/10
+                            {autoScore}/10
                           </p>
                         </div>
                         <div>
@@ -947,12 +942,11 @@ export default function EstateSecurity() {
                       <SelectTrigger className="bg-zinc-900 border-zinc-800"><SelectValue /></SelectTrigger>
                       <SelectContent className="bg-zinc-900 border-zinc-800">
                         <SelectItem value="multisig">Multisig (10/10)</SelectItem>
-                        <SelectItem value="cold_storage">Cold Storage (9/10)</SelectItem>
+                        <SelectItem value="passphrase">Passphrase/25th Word (9/10)</SelectItem>
                         <SelectItem value="hardware_wallet">Hardware Wallet (8/10)</SelectItem>
                         <SelectItem value="custodian">Custodian (6/10)</SelectItem>
                         <SelectItem value="exchange">Exchange (4/10)</SelectItem>
                         <SelectItem value="hot_wallet">Hot Wallet (2/10)</SelectItem>
-                        <SelectItem value="other">Other (5/10)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -961,13 +955,7 @@ export default function EstateSecurity() {
                     <Input type="number" step="any" value={formData.btc_amount} onChange={(e) => setFormData({ ...formData, btc_amount: e.target.value })} className="bg-zinc-900 border-zinc-800" />
                   </div>
                 </div>
-                <div className="flex items-center gap-4 p-3 rounded-xl bg-zinc-800/30">
-                  <Switch checked={formData.has_passphrase} onCheckedChange={(checked) => setFormData({ ...formData, has_passphrase: checked })} />
-                  <div>
-                    <Label className="text-zinc-300">Uses Passphrase</Label>
-                    <p className="text-xs text-zinc-500">Adds +1 to security score</p>
-                  </div>
-                </div>
+
                 <div className="space-y-2">
                   <Label className="text-zinc-400">Last Verified</Label>
                   <Input type="date" value={formData.last_verified} onChange={(e) => setFormData({ ...formData, last_verified: e.target.value })} className="bg-zinc-900 border-zinc-800" />
