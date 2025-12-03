@@ -1259,6 +1259,23 @@ export default function FinancialPlan() {
                       }
                       return null;
                     })}
+                    {/* Goals marked as "will be spent" */}
+                    {goals.filter(g => g.will_be_spent && g.target_date).slice(0, 5).map((goal) => {
+                      const goalYear = new Date(goal.target_date).getFullYear();
+                      const goalAge = currentAge + (goalYear - new Date().getFullYear());
+                      if (goalAge > currentAge && goalAge < lifeExpectancy) {
+                        return (
+                          <ReferenceLine 
+                            key={`goal-${goal.id}`} 
+                            x={goalAge} 
+                            stroke="#f87171"
+                            strokeDasharray="3 3"
+                            strokeOpacity={0.5}
+                          />
+                        );
+                      }
+                      return null;
+                    })}
                     {/* Goal target lines */}
                     {goalsWithProjections.filter(g => g.target_amount > 0).slice(0, 3).map((goal, i) => (
                       <ReferenceLine 
