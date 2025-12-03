@@ -115,9 +115,7 @@ export default function Layout({ children, currentPageName }) {
           0%, 100% { opacity: 1; box-shadow: 0 0 8px rgba(16, 185, 129, 0.6); }
           50% { opacity: 0.7; box-shadow: 0 0 16px rgba(16, 185, 129, 0.8); }
         }
-        .stat-glow {
-          text-shadow: 0 0 30px currentColor;
-        }
+
       `}</style>
 
       {/* Mobile Header */}
@@ -204,7 +202,7 @@ export default function Layout({ children, currentPageName }) {
                   <span className="text-[10px] text-zinc-600">LIVE</span>
                 </div>
               </div>
-              <p className="text-2xl font-bold brand-gradient-text stat-glow">
+              <p className="text-2xl font-bold brand-gradient-text">
                 ${btcPrice ? btcPrice.toLocaleString() : '---'}
               </p>
               {priceChange !== null && (

@@ -20,7 +20,7 @@ export default function NetWorthCard({ totalAssets, totalLiabilities, btcHolding
               <div className="w-2 h-2 rounded-full bg-emerald-500 pulse-dot" />
               <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">Total Net Worth</p>
             </div>
-            <h1 className="text-5xl lg:text-6xl font-bold tracking-tight brand-gradient-text stat-glow">
+            <h1 className="text-5xl lg:text-6xl font-bold tracking-tight brand-gradient-text">
               ${netWorth.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
             </h1>
             <div className="flex items-center gap-6 mt-6">
