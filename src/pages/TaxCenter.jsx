@@ -224,7 +224,7 @@ export default function TaxCenter() {
     switch (method) {
       case 'FIFO': return [...lots].sort((a, b) => new Date(a.date) - new Date(b.date));
       case 'LIFO': return [...lots].sort((a, b) => new Date(b.date) - new Date(a.date));
-      case 'HIFO': return [...lots].sort((a, b) => b.price_per_unit - a.price_per_unit);
+      case 'HIFO': return [...lots].sort((a, b) => (b.price_per_unit || 0) - (a.price_per_unit || 0));
       default: return lots;
     }
   };
@@ -235,6 +235,7 @@ export default function TaxCenter() {
     let remainingQty = saleQty;
     let totalCostBasis = 0;
     let hasLongTerm = false;
+    let hasShortTerm = false;
     const lotsUsed = [];
 
     const lotsToUse = method === 'SPECIFIC' && selectedLots.length > 0
@@ -244,18 +245,22 @@ export default function TaxCenter() {
     for (const lot of lotsToUse) {
       if (remainingQty <= 0) break;
       const qtyFromLot = Math.min(remainingQty, lot.remainingQuantity);
-      totalCostBasis += qtyFromLot * lot.price_per_unit;
+      totalCostBasis += qtyFromLot * (lot.price_per_unit || 0);
       if (lot.isLongTerm) hasLongTerm = true;
+      else hasShortTerm = true;
       lotsUsed.push({ ...lot, qtyUsed: qtyFromLot });
       remainingQty -= qtyFromLot;
     }
 
     const realizedGain = saleProceeds - totalCostBasis;
+    // If mixed, use short-term (more conservative)
+    const holdingPeriod = hasShortTerm ? 'short_term' : (hasLongTerm ? 'long_term' : 'short_term');
+    
     return {
       saleProceeds,
       totalCostBasis,
       realizedGain,
-      holdingPeriod: hasLongTerm ? 'long_term' : 'short_term',
+      holdingPeriod,
       lotsUsed,
       isComplete: remainingQty <= 0,
     };
