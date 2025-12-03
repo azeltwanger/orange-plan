@@ -607,7 +607,7 @@ export default function FinancialPlan() {
     setSimulationResults(chartData);
   };
 
-  const retirementYearIndex = retirementAge - currentAge;
+  const retirementYearIndex = Math.max(0, retirementAge - currentAge);
   const retirementValue = projections[retirementYearIndex]?.total || 0;
   const realRetirementValue = projections[retirementYearIndex]?.realTotal || 0;
   const endOfLifeValue = projections[projections.length - 1]?.total || 0;
