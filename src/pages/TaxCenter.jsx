@@ -339,7 +339,7 @@ export default function TaxCenter() {
   const optimalGainHarvest = Math.min(totalHarvestableGain, ltcgBracketRoom);
 
   // Wash sale detection
-  const potentialWashSales = sellTxs.filter(sellTx => {
+  const potentialWashSales = allSellTxs.filter(sellTx => {
     if ((sellTx.realized_gain_loss || 0) >= 0) return false;
     const sellDate = new Date(sellTx.date);
     return transactions.some(buyTx => {
