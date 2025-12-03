@@ -235,6 +235,48 @@ export default function Dashboard() {
         )}
       </div>
 
+      {/* Liabilities Summary */}
+      {liabilities.length > 0 && (
+        <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold">Liabilities</h3>
+            <span className="text-sm text-zinc-500">{liabilities.length} position{liabilities.length !== 1 ? 's' : ''}</span>
+          </div>
+          <div className="space-y-3">
+            {liabilities.slice(0, 5).map((liability) => (
+              <div key={liability.id} className="flex items-center justify-between p-3 rounded-xl bg-zinc-800/30">
+                <div className="flex items-center gap-3">
+                  <div className={`w-2 h-2 rounded-full ${
+                    liability.type === 'btc_collateralized' ? 'bg-orange-400' : 
+                    liability.type === 'secured' ? 'bg-blue-400' : 'bg-zinc-400'
+                  }`} />
+                  <div>
+                    <p className="font-medium text-sm">{liability.name}</p>
+                    <p className="text-xs text-zinc-500">
+                      {liability.interest_rate ? `${liability.interest_rate}% APR` : 'No interest'}
+                      {liability.type === 'btc_collateralized' && ' • BTC Collateral'}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="font-semibold text-rose-400">${(liability.current_balance || 0).toLocaleString()}</p>
+                  {liability.monthly_payment > 0 && (
+                    <p className="text-xs text-zinc-500">${liability.monthly_payment}/mo</p>
+                  )}
+                </div>
+              </div>
+            ))}
+            {liabilities.length > 5 && (
+              <p className="text-sm text-zinc-500 text-center pt-2">+{liabilities.length - 5} more</p>
+            )}
+          </div>
+          <div className="mt-4 pt-4 border-t border-zinc-800 flex justify-between items-center">
+            <span className="text-sm text-zinc-400">Total Debt</span>
+            <span className="text-lg font-bold text-rose-400">${totalLiabilities.toLocaleString()}</span>
+          </div>
+        </div>
+      )}
+
       <HoldingForm
         open={formOpen}
         onClose={() => { setFormOpen(false); setEditingHolding(null); }}
