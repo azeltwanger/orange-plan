@@ -1200,7 +1200,7 @@ export default function FinancialPlan() {
                 </div>
 
                 {/* Summary Stats */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20">
                     <p className="text-xs text-zinc-500">Worst Case (10%)</p>
                     <p className="text-xl font-bold text-rose-400">{formatNumber(simulationResults[simulationResults.length - 1]?.p10 || 0, 1)}</p>
@@ -1215,11 +1215,6 @@ export default function FinancialPlan() {
                     <p className="text-xs text-zinc-500">Best Case (90%)</p>
                     <p className="text-xl font-bold text-emerald-400">{formatNumber(simulationResults[simulationResults.length - 1]?.p90 || 0, 1)}</p>
                     <p className="text-xs text-zinc-600">at age {lifeExpectancy}</p>
-                  </div>
-                  <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-500/20">
-                    <p className="text-xs text-zinc-500">Final Year Withdrawal</p>
-                    <p className="text-xl font-bold text-purple-400">{formatNumber(simulationResults[simulationResults.length - 1]?.withdrawal || 0)}</p>
-                    <p className="text-xs text-zinc-600">inflation adjusted</p>
                   </div>
                 </div>
 
