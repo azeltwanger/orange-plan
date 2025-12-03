@@ -1228,7 +1228,7 @@ export default function FinancialPlan() {
                   </p>
                   <p className="text-xs text-zinc-600 mt-1">
                       {withdrawalStrategy === '4percent' ? '4% Rule' : 
-                       withdrawalStrategy === 'dynamic' ? `${dynamicWithdrawalRate}% Dynamic` : `Income-Based ($${Math.round(inflationAdjustedRetirementSpending).toLocaleString()}/yr)`} • {btcReturnModel === 'custom' ? `${btcCagr}%` : btcReturnModel} BTC
+                       withdrawalStrategy === 'dynamic' ? `${dynamicWithdrawalRate || 5}% Dynamic` : `Income-Based ($${Math.round(inflationAdjustedRetirementSpending || 0).toLocaleString()}/yr)`} • {btcReturnModel === 'custom' ? `${btcCagr || 25}%` : btcReturnModel} BTC
                     </p>
                   <p className="text-sm text-zinc-500 mt-2">
                     {successProbability >= 80 ? "Excellent! You're on track for your desired retirement lifestyle." :
