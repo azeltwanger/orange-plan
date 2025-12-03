@@ -267,6 +267,71 @@ export default function FinancialPlan() {
     queryFn: () => base44.entities.BudgetItem.list(),
   });
 
+  const { data: userSettings = [] } = useQuery({
+    queryKey: ['userSettings'],
+    queryFn: () => base44.entities.UserSettings.list(),
+  });
+
+  // Load settings from UserSettings entity
+  useEffect(() => {
+    if (userSettings.length > 0 && !settingsLoaded) {
+      const settings = userSettings[0];
+      if (settings.btc_cagr_assumption !== undefined) setBtcCagr(settings.btc_cagr_assumption);
+      if (settings.stocks_cagr !== undefined) setStocksCagr(settings.stocks_cagr);
+      if (settings.stocks_volatility !== undefined) setStocksVolatility(settings.stocks_volatility);
+      if (settings.real_estate_cagr !== undefined) setRealEstateCagr(settings.real_estate_cagr);
+      if (settings.bonds_cagr !== undefined) setBondsCagr(settings.bonds_cagr);
+      if (settings.inflation_rate !== undefined) setInflationRate(settings.inflation_rate);
+      if (settings.income_growth_rate !== undefined) setIncomeGrowth(settings.income_growth_rate);
+      if (settings.retirement_age !== undefined) setRetirementAge(settings.retirement_age);
+      if (settings.current_age !== undefined) setCurrentAge(settings.current_age);
+      if (settings.life_expectancy !== undefined) setLifeExpectancy(settings.life_expectancy);
+      if (settings.current_annual_spending !== undefined) setCurrentAnnualSpending(settings.current_annual_spending);
+      if (settings.annual_retirement_spending !== undefined) setRetirementAnnualSpending(settings.annual_retirement_spending);
+      if (settings.withdrawal_strategy !== undefined) setWithdrawalStrategy(settings.withdrawal_strategy);
+      if (settings.dynamic_withdrawal_rate !== undefined) setDynamicWithdrawalRate(settings.dynamic_withdrawal_rate);
+      if (settings.btc_return_model !== undefined) setBtcReturnModel(settings.btc_return_model);
+      setSettingsLoaded(true);
+    }
+  }, [userSettings, settingsLoaded]);
+
+  // Save settings mutation
+  const saveSettings = useMutation({
+    mutationFn: async (data) => {
+      if (userSettings.length > 0) {
+        return base44.entities.UserSettings.update(userSettings[0].id, data);
+      } else {
+        return base44.entities.UserSettings.create(data);
+      }
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['userSettings'] }),
+  });
+
+  // Auto-save settings when they change
+  useEffect(() => {
+    if (!settingsLoaded) return;
+    const timeoutId = setTimeout(() => {
+      saveSettings.mutate({
+        btc_cagr_assumption: btcCagr,
+        stocks_cagr: stocksCagr,
+        stocks_volatility: stocksVolatility,
+        real_estate_cagr: realEstateCagr,
+        bonds_cagr: bondsCagr,
+        inflation_rate: inflationRate,
+        income_growth_rate: incomeGrowth,
+        retirement_age: retirementAge,
+        current_age: currentAge,
+        life_expectancy: lifeExpectancy,
+        current_annual_spending: currentAnnualSpending,
+        annual_retirement_spending: retirementAnnualSpending,
+        withdrawal_strategy: withdrawalStrategy,
+        dynamic_withdrawal_rate: dynamicWithdrawalRate,
+        btc_return_model: btcReturnModel,
+      });
+    }, 1000); // Debounce 1 second
+    return () => clearTimeout(timeoutId);
+  }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, withdrawalStrategy, dynamicWithdrawalRate, btcReturnModel]);
+
   // Calculate annual savings from Income & Expenses (single source of truth)
   const freqMultiplier = { monthly: 12, weekly: 52, biweekly: 26, quarterly: 4, annual: 1, one_time: 0 };
   const monthlyIncome = budgetItems
