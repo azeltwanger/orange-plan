@@ -598,7 +598,6 @@ export default function FinancialPlan() {
   
   // Required nest egg based on withdrawal strategy
   // For income-based, calculate based on years in retirement and expected returns
-  const yearsInRetirement = lifeExpectancy - retirementAge;
   const effectiveWithdrawalRate = withdrawalStrategy === '4percent' ? 0.04 : 
     withdrawalStrategy === 'dynamic' ? dynamicWithdrawalRate / 100 : 
     // Income-based: estimate safe rate based on retirement duration (roughly 1/years for conservative)
