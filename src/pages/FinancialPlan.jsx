@@ -206,9 +206,11 @@ export default function FinancialPlan() {
   // Calculate portfolio values by tax treatment
   const getHoldingValue = (h) => h.ticker === 'BTC' ? h.quantity * currentPrice : h.quantity * (h.current_price || 0);
   
-  // Taxable accounts (accessible anytime)
+  // Taxable accounts (accessible anytime) - exclude real estate for liquidity
   const taxableHoldings = holdings.filter(h => !h.account_type || h.account_type === 'taxable');
   const taxableValue = taxableHoldings.reduce((sum, h) => sum + getHoldingValue(h), 0);
+  const taxableLiquidHoldings = taxableHoldings.filter(h => h.asset_type !== 'real_estate');
+  const taxableLiquidValue = taxableLiquidHoldings.reduce((sum, h) => sum + getHoldingValue(h), 0);
   
   // Tax-deferred accounts (401k, Traditional IRA) - 10% penalty before 59½
   const taxDeferredHoldings = holdings.filter(h => ['traditional_401k', 'traditional_ira'].includes(h.account_type));
