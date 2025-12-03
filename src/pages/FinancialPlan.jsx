@@ -726,12 +726,11 @@ export default function FinancialPlan() {
                 const yearsUntilPenaltyFree = Math.ceil(59.5 - retirementAge);
                 const annualNeedAtRetirement = retirementAnnualSpending * Math.pow(1 + inflationRate / 100, retirementAge - currentAge);
 
-                // Calculate blended growth rate based on actual taxable portfolio composition
-                const taxableBtc = taxableHoldings.filter(h => h.ticker === 'BTC').reduce((sum, h) => sum + h.quantity * currentPrice, 0);
-                const taxableStocks = taxableHoldings.filter(h => h.asset_type === 'stocks').reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
-                const taxableRealEstate = taxableHoldings.filter(h => h.asset_type === 'real_estate').reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
-                const taxableBonds = taxableHoldings.filter(h => h.asset_type === 'bonds').reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
-                const taxableOther = taxableValue - taxableBtc - taxableStocks - taxableRealEstate - taxableBonds;
+                // Calculate blended growth rate based on actual LIQUID taxable portfolio composition
+                const taxableBtc = taxableLiquidHoldings.filter(h => h.ticker === 'BTC').reduce((sum, h) => sum + h.quantity * currentPrice, 0);
+                const taxableStocks = taxableLiquidHoldings.filter(h => h.asset_type === 'stocks').reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
+                const taxableBonds = taxableLiquidHoldings.filter(h => h.asset_type === 'bonds').reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
+                const taxableOther = taxableLiquidValue - taxableBtc - taxableStocks - taxableBonds;
 
                 // Weighted average growth rate based on taxable portfolio allocation
                 // Use average BTC growth rate over the bridge period based on selected model
@@ -747,13 +746,12 @@ export default function FinancialPlan() {
                 })();
 
                 let bridgeGrowthRate = 0.05; // default 5%
-                if (taxableValue > 0) {
+                if (taxableLiquidValue > 0) {
                   bridgeGrowthRate = (
-                    (taxableBtc / taxableValue) * (avgBtcGrowthForBridge / 100) +
-                    (taxableStocks / taxableValue) * (effectiveStocksCagr / 100) +
-                    (taxableRealEstate / taxableValue) * (realEstateCagr / 100) +
-                    (taxableBonds / taxableValue) * (bondsCagr / 100) +
-                    (taxableOther / taxableValue) * (effectiveStocksCagr / 100)
+                    (taxableBtc / taxableLiquidValue) * (avgBtcGrowthForBridge / 100) +
+                    (taxableStocks / taxableLiquidValue) * (effectiveStocksCagr / 100) +
+                    (taxableBonds / taxableLiquidValue) * (bondsCagr / 100) +
+                    (taxableOther / taxableLiquidValue) * (effectiveStocksCagr / 100)
                   );
                 }
 
@@ -767,18 +765,18 @@ export default function FinancialPlan() {
                   bridgeFundsNeeded = annualNeedAtRetirement * (1 - Math.pow(1 + realReturnRate, -yearsUntilPenaltyFree)) / realReturnRate;
                 }
 
-                const currentBridgeFunds = taxableValue;
+                const currentBridgeFunds = taxableLiquidValue;
                 const shortfall = Math.max(0, bridgeFundsNeeded - currentBridgeFunds);
 
                 return (
                   <div className="mt-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
                     <p className="text-sm text-amber-400">
                       ⚠️ Retiring at {retirementAge} means {yearsUntilPenaltyFree} years before penalty-free access to retirement accounts.
-                      You'll need <span className="font-bold">{formatNumber(bridgeFundsNeeded)}</span> in taxable accounts to cover {formatNumber(annualNeedAtRetirement)}/yr for {yearsUntilPenaltyFree} years (assuming {((bridgeGrowthRate)*100).toFixed(1)}% blended growth, {inflationRate}% inflation).
+                      You'll need <span className="font-bold">{formatNumber(bridgeFundsNeeded)}</span> in liquid taxable accounts to cover {formatNumber(annualNeedAtRetirement)}/yr for {yearsUntilPenaltyFree} years (assuming {((bridgeGrowthRate)*100).toFixed(1)}% blended growth, {inflationRate}% inflation).
                       {shortfall > 0 ? (
                         <span className="text-rose-400"> Current shortfall: <span className="font-bold">{formatNumber(shortfall)}</span></span>
                       ) : (
-                        <span className="text-emerald-400"> ✓ You have {formatNumber(currentBridgeFunds)} — sufficient!</span>
+                        <span className="text-emerald-400"> ✓ You have {formatNumber(currentBridgeFunds)} liquid — sufficient!</span>
                       )}
                     </p>
                   </div>
