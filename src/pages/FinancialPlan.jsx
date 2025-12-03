@@ -1111,7 +1111,7 @@ export default function FinancialPlan() {
                   "bg-rose-500/10 border border-rose-500/30"
                 )}>
                   <p className="text-sm text-zinc-400 mb-2">
-                    Probability of Funding ${Math.round(inflationAdjustedRetirementSpending).toLocaleString()}/yr Retirement Income
+                    Probability of Not Running Out of Money Through Age {lifeExpectancy}
                   </p>
                   <p className={cn(
                     "text-5xl font-bold",
