@@ -101,6 +101,11 @@ export default function TaxCenter() {
     queryFn: () => base44.entities.Transaction.list('-date'),
   });
 
+  const { data: holdings = [] } = useQuery({
+    queryKey: ['holdings'],
+    queryFn: () => base44.entities.Holding.list(),
+  });
+
   const createTx = useMutation({
     mutationFn: async (data) => {
       const total = data.quantity * data.price_per_unit;
@@ -115,10 +120,49 @@ export default function TaxCenter() {
         realized_gain_loss: data.realized_gain_loss,
       };
 
-      return base44.entities.Transaction.create(txData);
+      const tx = await base44.entities.Transaction.create(txData);
+
+      // Sync to Holdings
+      const existingHolding = holdings.find(h => h.ticker === data.asset_ticker);
+      if (data.type === 'buy') {
+        if (existingHolding) {
+          // Update existing holding
+          const newQty = (existingHolding.quantity || 0) + data.quantity;
+          const newCostBasis = (existingHolding.cost_basis_total || 0) + total;
+          await base44.entities.Holding.update(existingHolding.id, {
+            quantity: newQty,
+            cost_basis_total: newCostBasis,
+          });
+        } else {
+          // Create new holding
+          await base44.entities.Holding.create({
+            asset_name: data.asset_ticker,
+            asset_type: data.asset_ticker === 'BTC' ? 'crypto' : 'other',
+            ticker: data.asset_ticker,
+            quantity: data.quantity,
+            current_price: data.price_per_unit,
+            cost_basis_total: total,
+            account_type: 'taxable',
+          });
+        }
+      } else if (data.type === 'sell' && existingHolding) {
+        // Reduce holding quantity on sell
+        const newQty = Math.max(0, (existingHolding.quantity || 0) - data.quantity);
+        const costBasisPerUnit = existingHolding.quantity > 0 
+          ? (existingHolding.cost_basis_total || 0) / existingHolding.quantity 
+          : 0;
+        const newCostBasis = newQty * costBasisPerUnit;
+        await base44.entities.Holding.update(existingHolding.id, {
+          quantity: newQty,
+          cost_basis_total: newCostBasis,
+        });
+      }
+
+      return tx;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['holdings'] });
       setFormOpen(false);
       setSaleFormOpen(false);
       resetForm();
