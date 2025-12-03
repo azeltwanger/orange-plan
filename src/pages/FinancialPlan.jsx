@@ -454,7 +454,7 @@ export default function FinancialPlan() {
             const initialWithdrawal = data[retirementAge - currentAge]?.yearWithdrawal || totalBeforeWithdrawal * 0.04;
             yearWithdrawal = initialWithdrawal * Math.pow(1 + effectiveInflation / 100, yearsIntoRetirement);
           }
-        } else {
+        } else if (withdrawalStrategy === 'dynamic') {
           // Dynamic withdrawal: withdraw % of current portfolio (allows more when portfolio grows)
           const withdrawRate = dynamicWithdrawalRate / 100;
           yearWithdrawal = totalBeforeWithdrawal * withdrawRate;
@@ -462,6 +462,9 @@ export default function FinancialPlan() {
           // Floor: at least inflation-adjusted base spending
           const minWithdrawal = retirementAnnualSpending * Math.pow(1 + effectiveInflation / 100, retirementAge - currentAge + yearsIntoRetirement);
           yearWithdrawal = Math.max(yearWithdrawal, Math.min(minWithdrawal, totalBeforeWithdrawal * 0.1));
+        } else {
+          // Income-based (variable): withdraw exactly what you need, inflation-adjusted
+          yearWithdrawal = retirementAnnualSpending * Math.pow(1 + effectiveInflation / 100, retirementAge - currentAge + yearsIntoRetirement);
         }
         
         // Smart withdrawal order based on age and account types
