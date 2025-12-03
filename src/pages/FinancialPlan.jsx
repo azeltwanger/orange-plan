@@ -1169,46 +1169,100 @@ export default function FinancialPlan() {
                   </p>
                 </div>
 
-                <div className="h-72">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={simulationResults}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-                      <XAxis dataKey="age" stroke="#71717a" fontSize={12} />
-                      <YAxis stroke="#71717a" fontSize={12} tickFormatter={(v) => `$${(v/1000000).toFixed(1)}M`} />
-                      <Tooltip
-                        contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '12px' }}
-                        formatter={(value, name) => {
-                          const labels = { p10: 'Worst Case (10%)', p25: 'Pessimistic (25%)', p50: 'Most Likely', p75: 'Optimistic (75%)', p90: 'Best Case (90%)' };
-                          return [`$${value.toLocaleString()}`, labels[name] || name];
-                        }}
-                      />
-                      <ReferenceLine y={requiredNestEgg} stroke="#F7931A" strokeDasharray="5 5" label={{ value: 'Target', fill: '#F7931A', fontSize: 12 }} />
-                      <Area type="monotone" dataKey="p10" stackId="1" stroke="none" fill="#ef4444" fillOpacity={0.1} name="p10" />
-                      <Area type="monotone" dataKey="p25" stackId="2" stroke="none" fill="#f59e0b" fillOpacity={0.15} name="p25" />
-                      <Area type="monotone" dataKey="p75" stackId="3" stroke="none" fill="#10b981" fillOpacity={0.15} name="p75" />
-                      <Area type="monotone" dataKey="p90" stackId="4" stroke="none" fill="#10b981" fillOpacity={0.1} name="p90" />
-                      <Line type="monotone" dataKey="p50" stroke="#F7931A" strokeWidth={3} dot={false} name="p50" />
-                      <Line type="monotone" dataKey="p10" stroke="#ef4444" strokeWidth={1} strokeDasharray="3 3" dot={false} name="p10" />
-                      <Line type="monotone" dataKey="p90" stroke="#10b981" strokeWidth={1} strokeDasharray="3 3" dot={false} name="p90" />
-                    </AreaChart>
-                  </ResponsiveContainer>
+                {/* Portfolio Value Chart */}
+                <div className="mb-6">
+                  <h4 className="text-sm font-medium text-zinc-400 mb-3">Portfolio Value Over Time</h4>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={simulationResults}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+                        <XAxis dataKey="age" stroke="#71717a" fontSize={12} />
+                        <YAxis stroke="#71717a" fontSize={12} tickFormatter={(v) => `$${(v/1000000).toFixed(1)}M`} />
+                        <Tooltip
+                          contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '12px' }}
+                          formatter={(value, name, props) => {
+                            const labels = { p10: 'Worst Case (10%)', p25: 'Pessimistic (25%)', p50: 'Most Likely', p75: 'Optimistic (75%)', p90: 'Best Case (90%)', withdrawal: 'Annual Withdrawal' };
+                            if (name === 'withdrawal') return [`$${value.toLocaleString()}/yr`, labels[name]];
+                            return [`$${value.toLocaleString()}`, labels[name] || name];
+                          }}
+                          labelFormatter={(age) => {
+                            const dataPoint = simulationResults?.find(d => d.age === age);
+                            return `Age ${age}${dataPoint?.isRetired ? ' (Retired)' : ''}`;
+                          }}
+                        />
+                        <ReferenceLine x={retirementAge} stroke="#F7931A" strokeDasharray="5 5" label={{ value: 'Retire', fill: '#F7931A', fontSize: 10 }} />
+                        <Area type="monotone" dataKey="p90" stroke="none" fill="#10b981" fillOpacity={0.15} name="p90" />
+                        <Area type="monotone" dataKey="p75" stroke="none" fill="#10b981" fillOpacity={0.2} name="p75" />
+                        <Area type="monotone" dataKey="p25" stroke="none" fill="#f59e0b" fillOpacity={0.2} name="p25" />
+                        <Area type="monotone" dataKey="p10" stroke="none" fill="#ef4444" fillOpacity={0.15} name="p10" />
+                        <Line type="monotone" dataKey="p50" stroke="#F7931A" strokeWidth={3} dot={false} name="p50" />
+                        <Line type="monotone" dataKey="p10" stroke="#ef4444" strokeWidth={1} strokeDasharray="3 3" dot={false} name="p10" />
+                        <Line type="monotone" dataKey="p90" stroke="#10b981" strokeWidth={1} strokeDasharray="3 3" dot={false} name="p90" />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-4 mt-6">
+                {/* Withdrawal Schedule Chart */}
+                <div className="mb-6">
+                  <h4 className="text-sm font-medium text-zinc-400 mb-3">Annual Withdrawals in Retirement</h4>
+                  <div className="h-48">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={simulationResults.filter(d => d.isRetired)}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+                        <XAxis dataKey="age" stroke="#71717a" fontSize={12} />
+                        <YAxis stroke="#71717a" fontSize={12} tickFormatter={(v) => `$${(v/1000).toFixed(0)}k`} />
+                        <Tooltip
+                          contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '12px' }}
+                          formatter={(value) => [`$${value.toLocaleString()}/yr`, 'Withdrawal']}
+                          labelFormatter={(age) => `Age ${age}`}
+                        />
+                        <Area type="monotone" dataKey="withdrawal" stroke="#a78bfa" fill="#a78bfa" fillOpacity={0.3} name="withdrawal" />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                {/* Summary Stats */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20">
-                    <p className="text-sm text-zinc-500">Worst Case (10%)</p>
-                    <p className="text-2xl font-bold text-rose-400">{formatNumber(simulationResults[simulationResults.length - 1]?.p10 || 0, 2)}</p>
-                    <p className="text-xs text-zinc-600 mt-1">90% chance to beat this</p>
+                    <p className="text-xs text-zinc-500">Worst Case (10%)</p>
+                    <p className="text-xl font-bold text-rose-400">{formatNumber(simulationResults[simulationResults.length - 1]?.p10 || 0, 1)}</p>
+                    <p className="text-xs text-zinc-600">at age {lifeExpectancy}</p>
                   </div>
                   <div className="p-4 rounded-xl bg-orange-500/10 border border-orange-500/20">
-                    <p className="text-sm text-zinc-500">Most Likely (Median)</p>
-                    <p className="text-2xl font-bold text-orange-400">{formatNumber(simulationResults[simulationResults.length - 1]?.p50 || 0, 2)}</p>
-                    <p className="text-xs text-zinc-600 mt-1">50% chance to beat this</p>
+                    <p className="text-xs text-zinc-500">Most Likely</p>
+                    <p className="text-xl font-bold text-orange-400">{formatNumber(simulationResults[simulationResults.length - 1]?.p50 || 0, 1)}</p>
+                    <p className="text-xs text-zinc-600">at age {lifeExpectancy}</p>
                   </div>
                   <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-                    <p className="text-sm text-zinc-500">Best Case (90%)</p>
-                    <p className="text-2xl font-bold text-emerald-400">{formatNumber(simulationResults[simulationResults.length - 1]?.p90 || 0, 2)}</p>
-                    <p className="text-xs text-zinc-600 mt-1">10% chance to beat this</p>
+                    <p className="text-xs text-zinc-500">Best Case (90%)</p>
+                    <p className="text-xl font-bold text-emerald-400">{formatNumber(simulationResults[simulationResults.length - 1]?.p90 || 0, 1)}</p>
+                    <p className="text-xs text-zinc-600">at age {lifeExpectancy}</p>
+                  </div>
+                  <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-500/20">
+                    <p className="text-xs text-zinc-500">Final Year Withdrawal</p>
+                    <p className="text-xl font-bold text-purple-400">{formatNumber(simulationResults[simulationResults.length - 1]?.withdrawal || 0)}</p>
+                    <p className="text-xs text-zinc-600">inflation adjusted</p>
+                  </div>
+                </div>
+
+                {/* At Retirement Stats */}
+                <div className="mt-4 p-4 rounded-xl bg-zinc-800/30">
+                  <h4 className="text-sm font-medium text-zinc-400 mb-3">At Retirement (Age {retirementAge})</h4>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <p className="text-xs text-zinc-500">Worst Case</p>
+                      <p className="text-lg font-bold text-rose-400">{formatNumber(simulationResults[retirementAge - currentAge]?.p10 || 0, 1)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-zinc-500">Most Likely</p>
+                      <p className="text-lg font-bold text-orange-400">{formatNumber(simulationResults[retirementAge - currentAge]?.p50 || 0, 1)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-zinc-500">Best Case</p>
+                      <p className="text-lg font-bold text-emerald-400">{formatNumber(simulationResults[retirementAge - currentAge]?.p90 || 0, 1)}</p>
+                    </div>
                   </div>
                 </div>
               </>
