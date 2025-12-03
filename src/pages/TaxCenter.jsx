@@ -344,7 +344,7 @@ export default function TaxCenter() {
     report += `Date\t\tType\tQty\t\tProceeds\tCost Basis\tGain/Loss\tTerm\n`;
     
     sellTxs.forEach(tx => {
-      report += `${tx.date}\tSELL\t${tx.quantity}\t\t$${tx.total_value?.toLocaleString()}\t$${tx.cost_basis?.toLocaleString()}\t$${tx.realized_gain_loss?.toLocaleString()}\t${tx.holding_period === 'long_term' ? 'LT' : 'ST'}\n`;
+      report += `${tx.date}\tSELL\t${tx.quantity}\t\t$${(tx.total_value || 0).toLocaleString()}\t$${(tx.cost_basis || 0).toLocaleString()}\t$${(tx.realized_gain_loss || 0).toLocaleString()}\t${tx.holding_period === 'long_term' ? 'LT' : 'ST'}\n`;
     });
 
     return report;
@@ -622,7 +622,7 @@ export default function TaxCenter() {
                           )}
                         </div>
                         <p className="text-sm text-zinc-500">
-                          Bought {lot.date && format(new Date(lot.date), 'MMM d, yyyy')} @ ${lot.price_per_unit?.toLocaleString()}
+                          Bought {lot.date && format(new Date(lot.date), 'MMM d, yyyy')} @ ${(lot.price_per_unit || 0).toLocaleString()}
                         </p>
                       </div>
                       <div className="text-right">
@@ -643,7 +643,7 @@ export default function TaxCenter() {
                       </div>
                       <div>
                         <p className="text-zinc-500">Per BTC Cost</p>
-                        <p className="font-medium">${lot.price_per_unit?.toLocaleString()}</p>
+                        <p className="font-medium">${(lot.price_per_unit || 0).toLocaleString()}</p>
                       </div>
                     </div>
                   </div>
@@ -677,16 +677,16 @@ export default function TaxCenter() {
                           )}
                         </div>
                         <p className="text-sm text-zinc-500">
-                          @ ${tx.price_per_unit?.toLocaleString()} • {tx.date && format(new Date(tx.date), 'MMM d, yyyy')}
+                          @ ${(tx.price_per_unit || 0).toLocaleString()} • {tx.date && format(new Date(tx.date), 'MMM d, yyyy')}
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-4">
                       <div className="text-right">
-                        <p className="font-semibold">${tx.total_value?.toLocaleString()}</p>
+                        <p className="font-semibold">${(tx.total_value || 0).toLocaleString()}</p>
                         {tx.type === 'sell' && tx.realized_gain_loss !== undefined && (
-                          <p className={cn("text-sm font-medium", tx.realized_gain_loss >= 0 ? "text-emerald-400" : "text-rose-400")}>
-                            {tx.realized_gain_loss >= 0 ? '+' : ''}{tx.realized_gain_loss.toLocaleString()}
+                          <p className={cn("text-sm font-medium", (tx.realized_gain_loss || 0) >= 0 ? "text-emerald-400" : "text-rose-400")}>
+                            {(tx.realized_gain_loss || 0) >= 0 ? '+' : ''}{(tx.realized_gain_loss || 0).toLocaleString()}
                           </p>
                         )}
                       </div>
@@ -730,7 +730,7 @@ export default function TaxCenter() {
                     <div className="flex items-start justify-between">
                       <div>
                         <p className="font-medium">{lot.quantity} BTC</p>
-                        <p className="text-sm text-zinc-500">Bought @ ${lot.price_per_unit?.toLocaleString()} • Now ${currentPrice.toLocaleString()}</p>
+                        <p className="text-sm text-zinc-500">Bought @ ${(lot.price_per_unit || 0).toLocaleString()} • Now ${currentPrice.toLocaleString()}</p>
                       </div>
                       <div className="text-right">
                         <p className="text-lg font-bold text-rose-400">-${Math.abs(lot.unrealizedGain).toLocaleString()}</p>
