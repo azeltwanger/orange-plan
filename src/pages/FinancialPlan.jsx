@@ -186,13 +186,31 @@ export default function FinancialPlan() {
 
 
 
-  // Calculate portfolio values
+  // Calculate portfolio values by tax treatment
+  const getHoldingValue = (h) => h.ticker === 'BTC' ? h.quantity * currentPrice : h.quantity * (h.current_price || 0);
+  
+  // Taxable accounts (accessible anytime)
+  const taxableHoldings = holdings.filter(h => !h.account_type || h.account_type === 'taxable');
+  const taxableValue = taxableHoldings.reduce((sum, h) => sum + getHoldingValue(h), 0);
+  
+  // Tax-deferred accounts (401k, Traditional IRA) - 10% penalty before 59½
+  const taxDeferredHoldings = holdings.filter(h => ['traditional_401k', 'traditional_ira'].includes(h.account_type));
+  const taxDeferredValue = taxDeferredHoldings.reduce((sum, h) => sum + getHoldingValue(h), 0);
+  
+  // Tax-free accounts (Roth, HSA) - contributions accessible, gains after 59½
+  const taxFreeHoldings = holdings.filter(h => ['roth_401k', 'roth_ira', 'hsa', '529'].includes(h.account_type));
+  const taxFreeValue = taxFreeHoldings.reduce((sum, h) => sum + getHoldingValue(h), 0);
+  
+  // By asset type for projections
   const btcValue = holdings.filter(h => h.ticker === 'BTC').reduce((sum, h) => sum + h.quantity * currentPrice, 0);
   const stocksValue = holdings.filter(h => h.asset_type === 'stocks').reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
   const realEstateValue = holdings.filter(h => h.asset_type === 'real_estate').reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
   const bondsValue = holdings.filter(h => h.asset_type === 'bonds').reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
   const otherValue = holdings.filter(h => !['BTC'].includes(h.ticker) && !['stocks', 'real_estate', 'bonds'].includes(h.asset_type)).reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
   const totalValue = btcValue + stocksValue + realEstateValue + bondsValue + otherValue;
+  
+  // Penalty-free age for retirement accounts
+  const PENALTY_FREE_AGE = 59.5;
 
   // Use slider values directly (scenarios removed)
   const effectiveBtcCagr = btcCagr;
@@ -219,7 +237,7 @@ export default function FinancialPlan() {
     }
   };
 
-  // Generate projection data with dynamic withdrawal based on portfolio growth
+  // Generate projection data with dynamic withdrawal based on portfolio growth and account types
   const projections = useMemo(() => {
     const years = lifeExpectancy - currentAge;
     const data = [];
@@ -232,6 +250,11 @@ export default function FinancialPlan() {
     let runningBonds = bondsValue;
     let runningOther = otherValue;
     let runningSavings = 0;
+    
+    // Track by account type
+    let runningTaxable = taxableValue;
+    let runningTaxDeferred = taxDeferredValue;
+    let runningTaxFree = taxFreeValue;
 
     for (let i = 0; i <= years; i++) {
       const year = currentYear + i;
@@ -267,6 +290,11 @@ export default function FinancialPlan() {
         
         const blendedGrowthRate = (yearBtcGrowth * 0.3 + effectiveStocksCagr * 0.7) / 100;
         runningSavings = runningSavings * (1 + blendedGrowthRate);
+        
+        // Grow account type buckets at blended rate
+        runningTaxable = runningTaxable * (1 + blendedGrowthRate);
+        runningTaxDeferred = runningTaxDeferred * (1 + blendedGrowthRate);
+        runningTaxFree = runningTaxFree * (1 + blendedGrowthRate);
       }
 
       if (!isRetired) {
@@ -296,10 +324,54 @@ export default function FinancialPlan() {
           yearWithdrawal = Math.max(yearWithdrawal, Math.min(minWithdrawal, totalBeforeWithdrawal * 0.1));
         }
         
-        // Withdraw proportionally from all assets
+        // Smart withdrawal order based on age and account types
+        const currentAgeInYear = currentAge + i;
+        const canAccessRetirementPenaltyFree = currentAgeInYear >= PENALTY_FREE_AGE;
+        
+        let remainingWithdrawal = yearWithdrawal;
+        let withdrawFromTaxable = 0;
+        let withdrawFromTaxDeferred = 0;
+        let withdrawFromTaxFree = 0;
+        let penaltyPaid = 0;
+        
+        if (canAccessRetirementPenaltyFree) {
+          // After 59½: Withdraw from tax-deferred first (pay income tax), then taxable, then tax-free last
+          withdrawFromTaxDeferred = Math.min(remainingWithdrawal, runningTaxDeferred);
+          remainingWithdrawal -= withdrawFromTaxDeferred;
+          
+          withdrawFromTaxable = Math.min(remainingWithdrawal, runningTaxable);
+          remainingWithdrawal -= withdrawFromTaxable;
+          
+          withdrawFromTaxFree = Math.min(remainingWithdrawal, runningTaxFree);
+          remainingWithdrawal -= withdrawFromTaxFree;
+        } else {
+          // Before 59½: Withdraw from taxable first, then Roth contributions (penalty-free), avoid tax-deferred
+          withdrawFromTaxable = Math.min(remainingWithdrawal, runningTaxable);
+          remainingWithdrawal -= withdrawFromTaxable;
+          
+          // If still need more, tap tax-free (Roth contributions accessible)
+          const taxFreeAvailable = runningTaxFree * 0.5; // Assume 50% is contributions
+          withdrawFromTaxFree = Math.min(remainingWithdrawal, taxFreeAvailable);
+          remainingWithdrawal -= withdrawFromTaxFree;
+          
+          // Last resort: tax-deferred with 10% penalty
+          if (remainingWithdrawal > 0) {
+            withdrawFromTaxDeferred = Math.min(remainingWithdrawal, runningTaxDeferred);
+            penaltyPaid = withdrawFromTaxDeferred * 0.10;
+            remainingWithdrawal -= withdrawFromTaxDeferred;
+          }
+        }
+        
+        // Update running balances
+        runningTaxable -= withdrawFromTaxable;
+        runningTaxDeferred -= withdrawFromTaxDeferred;
+        runningTaxFree -= withdrawFromTaxFree;
+        
+        // Withdraw proportionally from asset types
         const totalForWithdrawal = runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther + runningSavings;
-        if (totalForWithdrawal > 0 && yearWithdrawal > 0) {
-          const withdrawRatio = Math.min(1, yearWithdrawal / totalForWithdrawal);
+        const actualWithdrawal = withdrawFromTaxable + withdrawFromTaxDeferred + withdrawFromTaxFree;
+        if (totalForWithdrawal > 0 && actualWithdrawal > 0) {
+          const withdrawRatio = Math.min(1, actualWithdrawal / totalForWithdrawal);
           runningBtc -= runningBtc * withdrawRatio;
           runningStocks -= runningStocks * withdrawRatio;
           runningRealEstate -= runningRealEstate * withdrawRatio;
@@ -326,10 +398,16 @@ export default function FinancialPlan() {
         isRetired: isRetired,
         yearWithdrawal: Math.round(yearWithdrawal),
         btcGrowthRate: yearBtcGrowth,
+        // Account type balances
+        taxable: Math.round(runningTaxable),
+        taxDeferred: Math.round(runningTaxDeferred),
+        taxFree: Math.round(runningTaxFree),
+        canAccessPenaltyFree: currentAge + i >= PENALTY_FREE_AGE,
+        penaltyPaid: Math.round(penaltyPaid || 0),
       });
     }
     return data;
-  }, [btcValue, stocksValue, realEstateValue, bondsValue, otherValue, currentAge, retirementAge, lifeExpectancy, effectiveBtcCagr, effectiveStocksCagr, realEstateCagr, bondsCagr, effectiveInflation, lifeEvents, annualSavings, incomeGrowth, retirementAnnualSpending, withdrawalStrategy, dynamicWithdrawalRate]);
+  }, [btcValue, stocksValue, realEstateValue, bondsValue, otherValue, taxableValue, taxDeferredValue, taxFreeValue, currentAge, retirementAge, lifeExpectancy, effectiveBtcCagr, effectiveStocksCagr, realEstateCagr, bondsCagr, effectiveInflation, lifeEvents, annualSavings, incomeGrowth, retirementAnnualSpending, withdrawalStrategy, dynamicWithdrawalRate]);
 
   // Run Monte Carlo when button clicked
   const handleRunSimulation = () => {
@@ -546,6 +624,36 @@ export default function FinancialPlan() {
 
         {/* Projections Tab */}
         <TabsContent value="projections" className="space-y-6">
+          {/* Account Type Summary */}
+          <div className="card-premium rounded-2xl p-6 border border-zinc-800/50 mb-6">
+            <h3 className="font-semibold mb-4">Portfolio by Tax Treatment</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                <p className="text-sm text-zinc-400">Taxable (Accessible Now)</p>
+                <p className="text-2xl font-bold text-emerald-400">${(taxableValue / 1000).toFixed(0)}k</p>
+                <p className="text-xs text-zinc-500">Brokerage, self-custody crypto</p>
+              </div>
+              <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                <p className="text-sm text-zinc-400">Tax-Deferred (59½+)</p>
+                <p className="text-2xl font-bold text-amber-400">${(taxDeferredValue / 1000).toFixed(0)}k</p>
+                <p className="text-xs text-zinc-500">401(k), Traditional IRA • 10% penalty if early</p>
+              </div>
+              <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-500/20">
+                <p className="text-sm text-zinc-400">Tax-Free (Roth/HSA)</p>
+                <p className="text-2xl font-bold text-purple-400">${(taxFreeValue / 1000).toFixed(0)}k</p>
+                <p className="text-xs text-zinc-500">Roth IRA/401k, HSA • Contributions accessible</p>
+              </div>
+            </div>
+            {retirementAge < 59.5 && (
+              <div className="mt-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                <p className="text-sm text-amber-400">
+                  ⚠️ Retiring at {retirementAge} means {Math.ceil(59.5 - retirementAge)} years before penalty-free access to retirement accounts.
+                  You'll need <span className="font-bold">${((taxableValue + taxFreeValue * 0.5) / 1000).toFixed(0)}k</span> in taxable/Roth to bridge the gap.
+                </p>
+              </div>
+            )}
+          </div>
+
           {/* Retirement Settings */}
           <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
             <h3 className="font-semibold mb-6">Retirement Planning</h3>
