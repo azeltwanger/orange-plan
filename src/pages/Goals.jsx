@@ -84,19 +84,9 @@ export default function Goals() {
     queryFn: () => base44.entities.LifeEvent.list(),
   });
 
-  const { data: holdings = [] } = useQuery({
-    queryKey: ['holdings'],
-    queryFn: () => base44.entities.Holding.list(),
-  });
-
   const { data: budgetItems = [] } = useQuery({
     queryKey: ['budgetItems'],
     queryFn: () => base44.entities.BudgetItem.list(),
-  });
-
-  const { data: userSettings = [] } = useQuery({
-    queryKey: ['userSettings'],
-    queryFn: () => base44.entities.UserSettings.list(),
   });
 
   // Calculate monthly expenses for emergency fund target
@@ -104,16 +94,6 @@ export default function Goals() {
   const monthlyExpenses = budgetItems
     .filter(b => b.type === 'expense' && b.is_active !== false)
     .reduce((sum, b) => sum + (b.amount * (freqMultiplier[b.frequency] || 12) / 12), 0);
-  const monthlyIncome = budgetItems
-    .filter(b => b.type === 'income' && b.is_active !== false)
-    .reduce((sum, b) => sum + (b.amount * (freqMultiplier[b.frequency] || 12) / 12), 0);
-  const monthlySurplus = monthlyIncome - monthlyExpenses;
-
-  // Calculate total assets
-  const totalAssets = holdings.reduce((sum, h) => {
-    if (h.ticker === 'BTC') return sum + (h.quantity * currentPrice);
-    return sum + (h.quantity * (h.current_price || 0));
-  }, 0);
 
   // Categorize goals by bucket
   const categorizeGoal = (goal) => {
