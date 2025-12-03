@@ -685,6 +685,84 @@ export default function FinancialPlan() {
   const runOutOfMoneyAge = projections.findIndex(p => p.total <= 0 && p.isRetired);
   const willRunOutOfMoney = runOutOfMoneyAge !== -1;
   const yearsInRetirement = lifeExpectancy - retirementAge;
+
+  // Calculate when goals will be met based on projections
+  const goalsWithProjections = useMemo(() => {
+    return goals.map(goal => {
+      const targetAmount = goal.target_amount || 0;
+      const currentAmount = goal.current_amount || 0;
+      
+      // Find when portfolio reaches goal amount
+      const meetYearIndex = projections.findIndex(p => p.total >= targetAmount);
+      const meetYear = meetYearIndex >= 0 ? projections[meetYearIndex]?.year : null;
+      const meetAge = meetYearIndex >= 0 ? projections[meetYearIndex]?.age : null;
+      
+      // Calculate if on track for target date
+      let onTrackForDate = true;
+      let projectedAtTargetDate = null;
+      if (goal.target_date) {
+        const targetYear = new Date(goal.target_date).getFullYear();
+        const targetYearIndex = projections.findIndex(p => p.year >= targetYear);
+        if (targetYearIndex >= 0) {
+          projectedAtTargetDate = projections[targetYearIndex]?.total || 0;
+          onTrackForDate = projectedAtTargetDate >= targetAmount;
+        }
+      }
+      
+      // For savings goals, calculate monthly contribution needed
+      const yearsToTarget = goal.target_date 
+        ? Math.max(0, (new Date(goal.target_date).getFullYear() - new Date().getFullYear()))
+        : 5;
+      const remainingNeeded = Math.max(0, targetAmount - currentAmount);
+      const monthlyNeeded = yearsToTarget > 0 ? remainingNeeded / (yearsToTarget * 12) : remainingNeeded;
+      
+      return {
+        ...goal,
+        meetYear,
+        meetAge,
+        onTrackForDate,
+        projectedAtTargetDate,
+        monthlyNeeded,
+        yearsToTarget,
+        remainingNeeded,
+      };
+    });
+  }, [goals, projections]);
+
+  // Calculate life events impact on cash flow
+  const lifeEventsWithImpact = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    return lifeEvents.map(event => {
+      const yearsFromNow = event.year - currentYear;
+      const projectionAtEvent = projections.find(p => p.year === event.year);
+      const portfolioAtEvent = projectionAtEvent?.total || 0;
+      
+      // Calculate if event is affordable
+      let isAffordable = true;
+      let impactPercent = 0;
+      if (event.affects === 'assets' && event.amount < 0) {
+        isAffordable = portfolioAtEvent >= Math.abs(event.amount);
+        impactPercent = portfolioAtEvent > 0 ? (Math.abs(event.amount) / portfolioAtEvent) * 100 : 100;
+      }
+      
+      // For home purchases, calculate total impact
+      let totalCashNeeded = 0;
+      if (event.event_type === 'home_purchase') {
+        totalCashNeeded = (event.down_payment || 0);
+        isAffordable = portfolioAtEvent >= totalCashNeeded;
+        impactPercent = portfolioAtEvent > 0 ? (totalCashNeeded / portfolioAtEvent) * 100 : 100;
+      }
+      
+      return {
+        ...event,
+        yearsFromNow,
+        portfolioAtEvent,
+        isAffordable,
+        impactPercent,
+        totalCashNeeded,
+      };
+    }).sort((a, b) => a.year - b.year);
+  }, [lifeEvents, projections]);
   
   // Calculate first year withdrawal and average withdrawal in retirement
   const firstRetirementWithdrawal = projections[retirementYearIndex]?.yearWithdrawal || 0;
@@ -1323,11 +1401,39 @@ export default function FinancialPlan() {
 
         {/* Life Events Tab */}
         <TabsContent value="lifeevents" className="space-y-6">
+          {/* Events Impact Summary */}
+          {lifeEventsWithImpact.length > 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="card-premium rounded-xl p-4 border border-zinc-800/50">
+                <p className="text-sm text-zinc-400">Total Planned Expenses</p>
+                <p className="text-2xl font-bold text-rose-400">
+                  {formatNumber(lifeEventsWithImpact
+                    .filter(e => e.amount < 0 || e.event_type === 'home_purchase')
+                    .reduce((sum, e) => sum + Math.abs(e.amount || 0) + (e.down_payment || 0), 0))}
+                </p>
+              </div>
+              <div className="card-premium rounded-xl p-4 border border-zinc-800/50">
+                <p className="text-sm text-zinc-400">Total Planned Income</p>
+                <p className="text-2xl font-bold text-emerald-400">
+                  {formatNumber(lifeEventsWithImpact
+                    .filter(e => e.amount > 0 && e.event_type !== 'home_purchase')
+                    .reduce((sum, e) => sum + (e.amount || 0), 0))}
+                </p>
+              </div>
+              <div className="card-premium rounded-xl p-4 border border-zinc-800/50">
+                <p className="text-sm text-zinc-400">Events Not Affordable</p>
+                <p className={cn("text-2xl font-bold", lifeEventsWithImpact.filter(e => !e.isAffordable).length > 0 ? "text-amber-400" : "text-emerald-400")}>
+                  {lifeEventsWithImpact.filter(e => !e.isAffordable).length}
+                </p>
+              </div>
+            </div>
+          )}
+
           <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h3 className="font-semibold">Life Events</h3>
-                <p className="text-sm text-zinc-500">Model major financial events in your future</p>
+                <h3 className="font-semibold">Life Events Timeline</h3>
+                <p className="text-sm text-zinc-400">Events are integrated into your wealth projections</p>
               </div>
               <Button size="sm" onClick={() => { setEditingEvent(null); resetEventForm(); setEventFormOpen(true); }} className="brand-gradient text-white">
                 <Plus className="w-4 h-4 mr-2" />
@@ -1335,7 +1441,7 @@ export default function FinancialPlan() {
               </Button>
             </div>
 
-            {lifeEvents.length === 0 ? (
+            {lifeEventsWithImpact.length === 0 ? (
               <div className="text-center py-12">
                 <Calendar className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
                 <p className="text-zinc-400">No life events added yet</p>
@@ -1343,29 +1449,71 @@ export default function FinancialPlan() {
               </div>
             ) : (
               <div className="space-y-3">
-                {lifeEvents.sort((a, b) => a.year - b.year).map(event => {
-                const Icon = eventIcons[event.event_type] || Calendar;
-                return (
-                <div key={event.id} className="flex items-center justify-between p-4 rounded-xl bg-zinc-800/30 hover:bg-zinc-800/50 transition-colors">
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-xl bg-orange-400/10 flex items-center justify-center">
-                      <Icon className="w-5 h-5 text-orange-400" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-zinc-100">{event.name}</p>
-                      <div className="flex items-center gap-2 text-sm text-zinc-400">
-                        <span>{event.year}</span>
-                        {event.is_recurring && <Badge variant="outline" className="text-xs border-zinc-600 text-zinc-300">Recurring {event.recurring_years}yrs</Badge>}
-                      </div>
-                    </div>
-                  </div>
-                      <div className="flex items-center gap-4">
-                        <p className={cn("font-semibold", (event.amount || 0) >= 0 ? "text-emerald-400" : "text-rose-400")}>
-                          {(event.amount || 0) >= 0 ? '+' : ''}${Math.abs(event.amount || 0).toLocaleString()}
-                        </p>
-                        <div className="flex gap-1">
-                          <button onClick={() => { setEditingEvent(event); setEventFormOpen(true); }} className="p-1.5 rounded-lg hover:bg-zinc-700"><Pencil className="w-3.5 h-3.5 text-zinc-400" /></button>
-                          <button onClick={() => deleteEvent.mutate(event.id)} className="p-1.5 rounded-lg hover:bg-rose-600/50"><Trash2 className="w-3.5 h-3.5 text-zinc-400" /></button>
+                {lifeEventsWithImpact.map(event => {
+                  const Icon = eventIcons[event.event_type] || Calendar;
+                  const cashNeeded = event.event_type === 'home_purchase' ? event.totalCashNeeded : (event.amount < 0 ? Math.abs(event.amount) : 0);
+                  
+                  return (
+                    <div key={event.id} className={cn(
+                      "p-4 rounded-xl transition-colors",
+                      !event.isAffordable && cashNeeded > 0 ? "bg-amber-500/10 border border-amber-500/20" : "bg-zinc-800/30 hover:bg-zinc-800/50"
+                    )}>
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-start gap-4">
+                          <div className={cn(
+                            "w-10 h-10 rounded-xl flex items-center justify-center",
+                            !event.isAffordable && cashNeeded > 0 ? "bg-amber-400/20" : "bg-orange-400/10"
+                          )}>
+                            <Icon className={cn("w-5 h-5", !event.isAffordable && cashNeeded > 0 ? "text-amber-400" : "text-orange-400")} />
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium text-zinc-100">{event.name}</p>
+                              {event.is_recurring && (
+                                <Badge variant="outline" className="text-xs border-zinc-600 text-zinc-300">
+                                  Recurring {event.recurring_years}yrs
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-3 text-sm text-zinc-400 mt-1">
+                              <span>{event.year} (Age {currentAge + event.yearsFromNow})</span>
+                              <span>•</span>
+                              <span>{event.yearsFromNow > 0 ? `In ${event.yearsFromNow} years` : 'This year'}</span>
+                            </div>
+                            {/* Impact Analysis */}
+                            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                              <span className="text-zinc-500">Portfolio at event:</span>
+                              <span className="font-medium text-zinc-300">{formatNumber(event.portfolioAtEvent)}</span>
+                              {cashNeeded > 0 && (
+                                <>
+                                  <span className="text-zinc-600">|</span>
+                                  <span className={cn("font-medium", event.isAffordable ? "text-emerald-400" : "text-amber-400")}>
+                                    {event.isAffordable ? '✓ Affordable' : `⚠️ ${event.impactPercent.toFixed(0)}% of portfolio`}
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <div className="text-right">
+                            <p className={cn("font-semibold", (event.amount || 0) >= 0 && event.event_type !== 'home_purchase' ? "text-emerald-400" : "text-rose-400")}>
+                              {event.event_type === 'home_purchase' 
+                                ? `-${formatNumber(event.totalCashNeeded)}` 
+                                : `${(event.amount || 0) >= 0 ? '+' : ''}${formatNumber(Math.abs(event.amount || 0))}`}
+                            </p>
+                            {event.event_type === 'home_purchase' && (
+                              <p className="text-xs text-zinc-500">down payment</p>
+                            )}
+                          </div>
+                          <div className="flex gap-1">
+                            <button onClick={() => { setEditingEvent(event); setEventFormOpen(true); }} className="p-1.5 rounded-lg hover:bg-zinc-700">
+                              <Pencil className="w-3.5 h-3.5 text-zinc-400" />
+                            </button>
+                            <button onClick={() => deleteEvent.mutate(event.id)} className="p-1.5 rounded-lg hover:bg-rose-600/50">
+                              <Trash2 className="w-3.5 h-3.5 text-zinc-400" />
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1378,42 +1526,132 @@ export default function FinancialPlan() {
 
         {/* Goals Tab */}
         <TabsContent value="goals" className="space-y-6">
+          {/* Goals Summary */}
+          {goalsWithProjections.length > 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="card-premium rounded-xl p-4 border border-zinc-800/50">
+                <p className="text-sm text-zinc-400">Total Goal Value</p>
+                <p className="text-2xl font-bold text-orange-400">
+                  {formatNumber(goalsWithProjections.reduce((sum, g) => sum + (g.target_amount || 0), 0))}
+                </p>
+              </div>
+              <div className="card-premium rounded-xl p-4 border border-zinc-800/50">
+                <p className="text-sm text-zinc-400">Goals On Track</p>
+                <p className={cn("text-2xl font-bold", 
+                  goalsWithProjections.filter(g => g.onTrackForDate || !g.target_date).length === goalsWithProjections.length 
+                    ? "text-emerald-400" : "text-amber-400"
+                )}>
+                  {goalsWithProjections.filter(g => g.onTrackForDate || !g.target_date).length} / {goalsWithProjections.length}
+                </p>
+              </div>
+              <div className="card-premium rounded-xl p-4 border border-zinc-800/50">
+                <p className="text-sm text-zinc-400">Monthly Savings Needed</p>
+                <p className="text-2xl font-bold text-cyan-400">
+                  {formatNumber(goalsWithProjections.reduce((sum, g) => sum + (g.monthlyNeeded || 0), 0))}
+                </p>
+              </div>
+            </div>
+          )}
+
           <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="font-semibold">Financial Goals</h3>
+              <div>
+                <h3 className="font-semibold">Financial Goals</h3>
+                <p className="text-sm text-zinc-400">Track progress toward your financial milestones</p>
+              </div>
               <Button size="sm" onClick={() => { setEditingGoal(null); resetGoalForm(); setGoalFormOpen(true); }} className="brand-gradient text-white">
                 <Plus className="w-4 h-4 mr-2" />
                 Add Goal
               </Button>
             </div>
             
-            {goals.length === 0 ? (
+            {goalsWithProjections.length === 0 ? (
               <div className="text-center py-12">
                 <Target className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
                 <p className="text-zinc-400">No goals set yet. Add your first financial goal.</p>
               </div>
             ) : (
               <div className="space-y-4">
-                {goals.map((goal) => {
+                {goalsWithProjections.map((goal) => {
                   const progress = goal.target_amount > 0 ? (goal.current_amount / goal.target_amount) * 100 : 0;
+                  
                   return (
-                    <div key={goal.id} className="p-4 rounded-xl bg-zinc-800/30 hover:bg-zinc-800/50 transition-colors">
+                    <div key={goal.id} className={cn(
+                      "p-4 rounded-xl transition-colors",
+                      goal.target_date && !goal.onTrackForDate ? "bg-amber-500/10 border border-amber-500/20" : "bg-zinc-800/30 hover:bg-zinc-800/50"
+                    )}>
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex items-center gap-3">
-                          <span className={cn("px-2 py-1 rounded-lg text-xs font-medium border", goalTypeColors[goal.goal_type])}>{goal.goal_type?.replace('_', ' ')}</span>
+                          <span className={cn("px-2 py-1 rounded-lg text-xs font-medium border", goalTypeColors[goal.goal_type])}>
+                            {goal.goal_type?.replace('_', ' ')}
+                          </span>
                           <h4 className="font-medium text-zinc-100">{goal.name}</h4>
+                          {goal.target_date && (
+                            <Badge variant="outline" className={cn(
+                              "text-xs",
+                              goal.onTrackForDate ? "border-emerald-500/50 text-emerald-400" : "border-amber-500/50 text-amber-400"
+                            )}>
+                              {goal.onTrackForDate ? '✓ On Track' : '⚠️ Behind'}
+                            </Badge>
+                          )}
                         </div>
                         <div className="flex gap-1">
-                          <button onClick={() => { setEditingGoal(goal); setGoalFormOpen(true); }} className="p-1.5 rounded-lg hover:bg-zinc-700"><Pencil className="w-3.5 h-3.5 text-zinc-400" /></button>
-                          <button onClick={() => deleteGoal.mutate(goal.id)} className="p-1.5 rounded-lg hover:bg-rose-600/50"><Trash2 className="w-3.5 h-3.5 text-zinc-400" /></button>
+                          <button onClick={() => { setEditingGoal(goal); setGoalFormOpen(true); }} className="p-1.5 rounded-lg hover:bg-zinc-700">
+                            <Pencil className="w-3.5 h-3.5 text-zinc-400" />
+                          </button>
+                          <button onClick={() => deleteGoal.mutate(goal.id)} className="p-1.5 rounded-lg hover:bg-rose-600/50">
+                            <Trash2 className="w-3.5 h-3.5 text-zinc-400" />
+                          </button>
                         </div>
                       </div>
+                      
                       <div className="flex items-center justify-between mb-2 text-sm">
-                        <span className="text-zinc-300">${(goal.current_amount || 0).toLocaleString()} / ${(goal.target_amount || 0).toLocaleString()}</span>
+                        <span className="text-zinc-300">
+                          {formatNumber(goal.current_amount || 0)} / {formatNumber(goal.target_amount || 0)}
+                        </span>
                         <span className="font-medium text-orange-400">{(progress || 0).toFixed(0)}%</span>
                       </div>
-                      <Progress value={progress} className="h-2 bg-zinc-700" />
-                      {goal.target_date && <p className="text-xs text-zinc-400 mt-2 flex items-center gap-1"><Calendar className="w-3 h-3" />Target: {new Date(goal.target_date).toLocaleDateString()}</p>}
+                      <Progress value={Math.min(100, progress)} className="h-2 bg-zinc-700" />
+                      
+                      {/* Goal Projection Info */}
+                      <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                        {goal.target_date && (
+                          <div className="p-2 rounded-lg bg-zinc-800/50">
+                            <p className="text-zinc-500">Target Date</p>
+                            <p className="font-medium text-zinc-300">{new Date(goal.target_date).toLocaleDateString()}</p>
+                          </div>
+                        )}
+                        {goal.meetYear && (
+                          <div className="p-2 rounded-lg bg-zinc-800/50">
+                            <p className="text-zinc-500">Portfolio Reaches Goal</p>
+                            <p className="font-medium text-emerald-400">{goal.meetYear} (Age {goal.meetAge})</p>
+                          </div>
+                        )}
+                        {goal.remainingNeeded > 0 && (
+                          <div className="p-2 rounded-lg bg-zinc-800/50">
+                            <p className="text-zinc-500">Remaining</p>
+                            <p className="font-medium text-zinc-300">{formatNumber(goal.remainingNeeded)}</p>
+                          </div>
+                        )}
+                        {goal.monthlyNeeded > 0 && goal.yearsToTarget > 0 && (
+                          <div className="p-2 rounded-lg bg-zinc-800/50">
+                            <p className="text-zinc-500">Monthly Needed</p>
+                            <p className={cn("font-medium", goal.monthlyNeeded <= (monthlyIncome - monthlyExpenses) ? "text-emerald-400" : "text-amber-400")}>
+                              {formatNumber(goal.monthlyNeeded)}/mo
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Warning if not on track */}
+                      {goal.target_date && !goal.onTrackForDate && goal.projectedAtTargetDate !== null && (
+                        <div className="mt-3 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                          <p className="text-xs text-amber-400">
+                            At target date, projected portfolio: {formatNumber(goal.projectedAtTargetDate)} 
+                            (shortfall of {formatNumber(goal.target_amount - goal.projectedAtTargetDate)})
+                          </p>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
