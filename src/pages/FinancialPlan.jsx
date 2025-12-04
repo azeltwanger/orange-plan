@@ -1279,6 +1279,13 @@ export default function FinancialPlan() {
                   />
                   <p className="text-xs text-zinc-500">Social Security, pension, rental income, etc.</p>
                 </div>
+
+                <div className="p-3 rounded-lg bg-zinc-800/30 border border-zinc-700/50">
+                  <p className="text-xs text-zinc-400">
+                    <span className="text-amber-400 font-medium">Note:</span> Capital gains are calculated from cost basis data in your holdings. 
+                    If cost basis is missing, it defaults to $0 (most conservative estimate, highest potential tax).
+                  </p>
+                </div>
               </div>
 
               {/* Tax Summary */}
