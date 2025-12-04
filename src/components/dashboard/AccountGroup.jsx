@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronRight, Building2, Bitcoin, TrendingUp, TrendingDown } from 'lucide-react';
+import { ChevronDown, ChevronRight, Building2, Bitcoin, TrendingUp, TrendingDown, Pencil, Trash2, Package, ArrowRightLeft } from 'lucide-react';
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { base44 } from '@/api/base44Client';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 const ACCOUNT_TYPE_LABELS = {
   taxable_brokerage: 'Taxable Brokerage',
@@ -22,6 +26,25 @@ const TAX_COLORS = {
 
 export default function AccountGroup({ account, holdings, getPrice, onEditHolding, onDeleteHolding, onManageLots }) {
   const [expanded, setExpanded] = useState(false);
+  const [reassigningHoldingId, setReassigningHoldingId] = useState(null);
+  const queryClient = useQueryClient();
+
+  const { data: allAccounts = [] } = useQuery({
+    queryKey: ['accounts'],
+    queryFn: () => base44.entities.Account.list(),
+  });
+
+  const reassignHolding = useMutation({
+    mutationFn: async ({ holdingId, newAccountId }) => {
+      await base44.entities.Holding.update(holdingId, { 
+        account_id: newAccountId === '_none_' ? null : newAccountId 
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['holdings'] });
+      setReassigningHoldingId(null);
+    },
+  });
 
   const totalValue = holdings.reduce((sum, h) => sum + (h.quantity * getPrice(h.ticker)), 0);
   const totalCostBasis = holdings.reduce((sum, h) => sum + (h.cost_basis_total || 0), 0);
@@ -100,7 +123,7 @@ export default function AccountGroup({ account, holdings, getPrice, onEditHoldin
             return (
               <div
                 key={holding.id}
-                className="flex items-center justify-between p-3 px-4 hover:bg-zinc-800/20 transition-colors border-b border-zinc-800/30 last:border-b-0"
+                className="flex items-center justify-between p-3 px-4 hover:bg-zinc-800/20 transition-colors border-b border-zinc-800/30 last:border-b-0 group"
               >
                 <div className="flex items-center gap-3">
                   <div className={cn(
@@ -121,16 +144,73 @@ export default function AccountGroup({ account, holdings, getPrice, onEditHoldin
                     </p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="font-semibold text-sm">${value.toLocaleString()}</p>
-                  {holding.cost_basis_total > 0 && (
-                    <p className={cn(
-                      "text-xs",
-                      gain >= 0 ? "text-emerald-400" : "text-rose-400"
-                    )}>
-                      {gain >= 0 ? '+' : ''}{gainPct.toFixed(1)}%
-                    </p>
+                <div className="flex items-center gap-3">
+                  {/* Reassign dropdown */}
+                  {reassigningHoldingId === holding.id ? (
+                    <Select
+                      value={holding.account_id || '_none_'}
+                      onValueChange={(newAccountId) => {
+                        reassignHolding.mutate({ holdingId: holding.id, newAccountId });
+                      }}
+                    >
+                      <SelectTrigger className="w-40 h-8 text-xs bg-zinc-900 border-zinc-700">
+                        <SelectValue placeholder="Move to..." />
+                      </SelectTrigger>
+                      <SelectContent className="bg-zinc-900 border-zinc-700">
+                        <SelectItem value="_none_">Unassigned</SelectItem>
+                        {allAccounts.filter(a => a.id !== account?.id).map(acc => (
+                          <SelectItem key={acc.id} value={acc.id}>{acc.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setReassigningHoldingId(holding.id); }}
+                        className="p-1.5 rounded-lg bg-zinc-800/90 hover:bg-zinc-700 transition-colors"
+                        title="Move to another account"
+                      >
+                        <ArrowRightLeft className="w-3.5 h-3.5 text-zinc-400" />
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onManageLots?.(holding); }}
+                        className="p-1.5 rounded-lg bg-zinc-800/90 hover:bg-orange-600/50 transition-colors"
+                        title="Manage Tax Lots"
+                      >
+                        <Package className="w-3.5 h-3.5 text-zinc-400" />
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onEditHolding?.(holding); }}
+                        className="p-1.5 rounded-lg bg-zinc-800/90 hover:bg-zinc-700 transition-colors"
+                        title="Edit"
+                      >
+                        <Pencil className="w-3.5 h-3.5 text-zinc-400" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (window.confirm(`Delete ${holding.asset_name}?`)) {
+                            onDeleteHolding?.(holding);
+                          }
+                        }}
+                        className="p-1.5 rounded-lg bg-zinc-800/90 hover:bg-rose-600/50 transition-colors"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 text-zinc-400" />
+                      </button>
+                    </div>
                   )}
+                  <div className="text-right min-w-[80px]">
+                    <p className="font-semibold text-sm">${value.toLocaleString()}</p>
+                    {holding.cost_basis_total > 0 && (
+                      <p className={cn(
+                        "text-xs",
+                        gain >= 0 ? "text-emerald-400" : "text-rose-400"
+                      )}>
+                        {gain >= 0 ? '+' : ''}{gainPct.toFixed(1)}%
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
             );
