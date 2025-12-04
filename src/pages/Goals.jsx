@@ -416,6 +416,7 @@ export default function Goals() {
               <div className="grid grid-cols-3 gap-2">
                 {Object.entries(BUCKET_CONFIG).map(([key, config]) => {
                   const Icon = config.icon;
+                  const isSelected = goalForm.bucket === key;
                   return (
                     <button
                       key={key}
@@ -423,11 +424,11 @@ export default function Goals() {
                       onClick={() => setGoalForm({ ...goalForm, bucket: key })}
                       className={cn(
                         "p-3 rounded-lg border text-center transition-all",
-                        goalForm.bucket === key ? config.bgClass : "bg-zinc-800/50 border-zinc-700 hover:border-zinc-600"
+                        isSelected ? "bg-orange-500/20 border-orange-500/50" : "bg-zinc-800/50 border-zinc-700 hover:border-zinc-600"
                       )}
                     >
-                      <Icon className={cn("w-5 h-5 mx-auto mb-1", goalForm.bucket === key ? config.textClass : "text-zinc-400")} />
-                      <p className={cn("text-xs font-medium", goalForm.bucket === key ? config.textClass : "text-zinc-400")}>{config.name.split(' ')[0]}</p>
+                      <Icon className={cn("w-5 h-5 mx-auto mb-1", isSelected ? "text-orange-400" : "text-zinc-400")} />
+                      <p className={cn("text-xs font-medium", isSelected ? "text-orange-400" : "text-zinc-400")}>{config.name.split(' ')[0]}</p>
                     </button>
                   );
                 })}
@@ -462,7 +463,8 @@ export default function Goals() {
                 </div>
                 <Switch 
                   checked={goalForm.will_be_spent} 
-                  onCheckedChange={(checked) => setGoalForm({ ...goalForm, will_be_spent: checked })} 
+                  onCheckedChange={(checked) => setGoalForm({ ...goalForm, will_be_spent: checked })}
+                  className="data-[state=checked]:bg-orange-500"
                 />
               </div>
               
@@ -549,7 +551,7 @@ export default function Goals() {
             )}
 
             <div className="flex items-center gap-4 p-3 rounded-xl bg-zinc-800/50 border border-zinc-700">
-              <Switch checked={eventForm.is_recurring} onCheckedChange={(checked) => setEventForm({ ...eventForm, is_recurring: checked })} />
+              <Switch checked={eventForm.is_recurring} onCheckedChange={(checked) => setEventForm({ ...eventForm, is_recurring: checked })} className="data-[state=checked]:bg-orange-500" />
               <div className="flex-1">
                 <Label className="text-zinc-300">Recurring for multiple years</Label>
                 {eventForm.is_recurring && (
