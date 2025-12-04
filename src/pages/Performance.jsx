@@ -85,10 +85,30 @@ export default function Performance() {
       return 0;
     }
   }, [transactionStats.firstTxDate]);
+  
   const holdingYears = holdingDays / 365;
-  const annualizedReturn = holdingYears > 0 && totalCostBasis > 0
-    ? (Math.pow((currentValue + transactionStats.realizedGains) / totalCostBasis, 1 / holdingYears) - 1) * 100
-    : 0;
+  
+  // Calculate annualized return using CAGR formula
+  const annualizedReturn = useMemo(() => {
+    if (holdingDays < 1 || totalCostBasis <= 0) return 0;
+    
+    const endValue = currentValue + transactionStats.realizedGains;
+    const startValue = totalCostBasis;
+    
+    if (endValue <= 0 || startValue <= 0) return 0;
+    
+    // For periods less than a year, show simple return annualized
+    if (holdingYears < 1) {
+      const simpleReturn = (endValue - startValue) / startValue;
+      // Annualize: (1 + r)^(365/days) - 1
+      const annualized = (Math.pow(1 + simpleReturn, 365 / holdingDays) - 1) * 100;
+      return annualized;
+    }
+    
+    // CAGR for periods >= 1 year
+    const cagr = (Math.pow(endValue / startValue, 1 / holdingYears) - 1) * 100;
+    return cagr;
+  }, [currentValue, totalCostBasis, transactionStats.realizedGains, holdingDays, holdingYears]);
 
   // Generate chart data from actual transactions
   const chartData = useMemo(() => {

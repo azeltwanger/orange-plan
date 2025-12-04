@@ -19,6 +19,7 @@ const TRANSACTION_FIELDS = [
   { key: 'quantity', label: 'Quantity', required: true, description: 'Amount traded' },
   { key: 'price_per_unit', label: 'Price per Unit', required: true, description: 'Price at time of trade' },
   { key: 'date', label: 'Date', required: true, description: 'YYYY-MM-DD format' },
+  { key: 'transaction_id', label: 'Transaction ID', required: false, description: 'Unique ID to prevent duplicates' },
   { key: 'exchange_or_wallet', label: 'Exchange/Wallet', required: false, description: 'Where trade occurred' },
   { key: 'trading_fee', label: 'Trading Fee', required: false, description: 'Fee paid' },
   { key: 'notes', label: 'Notes', required: false, description: 'Optional notes' },
@@ -324,7 +325,10 @@ export default function CsvImportDialog({ open, onClose }) {
         return tx;
       }).filter(tx => tx.quantity > 0 && tx.price_per_unit > 0);
 
-      // Duplicate detection - check against existing transactions
+      // Duplicate detection - check against existing transactions by transaction_id first, then by key
+      const existingTxIds = new Set(
+        existingTransactions.filter(t => t.transaction_id).map(t => t.transaction_id)
+      );
       const existingTxKeys = new Set(
         existingTransactions.map(t => 
           `${t.type}-${t.asset_ticker}-${t.quantity}-${t.price_per_unit}-${t.date}`
@@ -332,6 +336,10 @@ export default function CsvImportDialog({ open, onClose }) {
       );
 
       const uniqueTransactions = rawTransactions.filter(tx => {
+        // Check by transaction_id first if present
+        if (tx.transaction_id && existingTxIds.has(tx.transaction_id)) {
+          return false;
+        }
         const key = `${tx.type}-${tx.asset_ticker}-${tx.quantity}-${tx.price_per_unit}-${tx.date}`;
         return !existingTxKeys.has(key);
       });

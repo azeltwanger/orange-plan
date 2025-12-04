@@ -84,6 +84,7 @@ export default function TaxCenter() {
   const [activeTab, setActiveTab] = useState('overview');
   const [csvImportOpen, setCsvImportOpen] = useState(false);
   const [syncingHoldings, setSyncingHoldings] = useState(false);
+  const [syncComplete, setSyncComplete] = useState(false);
   const queryClient = useQueryClient();
 
   // Sync Holdings from Transactions - recalculates all holdings based on transaction history
@@ -140,6 +141,7 @@ export default function TaxCenter() {
       
       queryClient.invalidateQueries({ queryKey: ['holdings'] });
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      setSyncComplete(true);
     } catch (err) {
       console.error('Sync failed:', err);
     } finally {
@@ -697,10 +699,12 @@ export default function TaxCenter() {
           <p className="text-zinc-500 mt-1">Cost basis optimization and tax planning</p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <Button variant="outline" onClick={syncHoldingsFromTransactions} disabled={syncingHoldings} className="bg-transparent border-zinc-700">
-            <RefreshCw className={cn("w-4 h-4 mr-2", syncingHoldings && "animate-spin")} />
-            {syncingHoldings ? 'Syncing...' : 'Sync Holdings'}
-          </Button>
+          {!syncComplete && (
+            <Button variant="outline" onClick={syncHoldingsFromTransactions} disabled={syncingHoldings} className="bg-transparent border-zinc-700">
+              <RefreshCw className={cn("w-4 h-4 mr-2", syncingHoldings && "animate-spin")} />
+              {syncingHoldings ? 'Syncing...' : 'Sync Holdings'}
+            </Button>
+          )}
           <Button variant="outline" onClick={() => setCsvImportOpen(true)} className="bg-transparent border-zinc-700">
             <Upload className="w-4 h-4 mr-2" />
             Import CSV
