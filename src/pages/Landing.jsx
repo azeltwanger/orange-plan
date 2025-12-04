@@ -110,9 +110,9 @@ export default function Landing() {
           </div>
           
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight leading-[1.1] mb-6">
-            Financial planning for
+            Financial Planning for
             <br />
-            <span className="brand-gradient-text">the Bitcoin standard</span>
+            <span className="brand-gradient-text">the Bitcoin Standard</span>
           </h1>
           
           <p className="text-lg text-zinc-400 max-w-xl mx-auto mb-10 leading-relaxed">
