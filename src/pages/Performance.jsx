@@ -75,9 +75,16 @@ export default function Performance() {
   const totalReturn = totalCostBasis > 0 ? (unrealizedGain / totalCostBasis) * 100 : 0;
 
   // Calculate holding period and annualized return
-  const holdingDays = transactionStats.firstTxDate 
-    ? differenceInDays(new Date(), parseISO(transactionStats.firstTxDate))
-    : 0;
+  const holdingDays = useMemo(() => {
+    if (!transactionStats.firstTxDate) return 0;
+    try {
+      const firstDate = parseISO(transactionStats.firstTxDate);
+      if (isNaN(firstDate.getTime())) return 0;
+      return differenceInDays(new Date(), firstDate);
+    } catch {
+      return 0;
+    }
+  }, [transactionStats.firstTxDate]);
   const holdingYears = holdingDays / 365;
   const annualizedReturn = holdingYears > 0 && totalCostBasis > 0
     ? (Math.pow((currentValue + transactionStats.realizedGains) / totalCostBasis, 1 / holdingYears) - 1) * 100
@@ -99,15 +106,30 @@ export default function Performance() {
       case '5Y': startDate = subYears(now, 5); break;
       case '10Y': startDate = subYears(now, 10); break;
       case 'ALL': 
-        const sortedTxs = [...transactions].sort((a, b) => new Date(a.date) - new Date(b.date));
-        startDate = sortedTxs.length > 0 ? parseISO(sortedTxs[0].date) : subYears(now, 1);
+        const sortedTxsAll = [...transactions]
+          .filter(t => t.date)
+          .sort((a, b) => new Date(a.date) - new Date(b.date));
+        if (sortedTxsAll.length > 0) {
+          try {
+            const parsed = parseISO(sortedTxsAll[0].date);
+            startDate = isNaN(parsed.getTime()) ? subYears(now, 1) : parsed;
+          } catch {
+            startDate = subYears(now, 1);
+          }
+        } else {
+          startDate = subYears(now, 1);
+        }
         break;
       default: startDate = subYears(now, 1);
     }
 
-    // Sort transactions chronologically
+    // Sort transactions chronologically - filter out invalid dates
     const sortedTxs = [...transactions]
-      .filter(t => new Date(t.date) >= startDate)
+      .filter(t => {
+        if (!t.date) return false;
+        const d = new Date(t.date);
+        return !isNaN(d.getTime()) && d >= startDate;
+      })
       .sort((a, b) => new Date(a.date) - new Date(b.date));
 
     if (sortedTxs.length === 0) return [];
@@ -118,7 +140,11 @@ export default function Performance() {
     const dataPoints = [];
 
     // Start with holdings before the timeframe
-    const preTxs = transactions.filter(t => new Date(t.date) < startDate);
+    const preTxs = transactions.filter(t => {
+      if (!t.date) return false;
+      const d = new Date(t.date);
+      return !isNaN(d.getTime()) && d < startDate;
+    });
     for (const tx of preTxs) {
       const ticker = tx.asset_ticker;
       if (!cumulativeQty[ticker]) cumulativeQty[ticker] = 0;
@@ -159,12 +185,19 @@ export default function Performance() {
         }
       }
 
-      dataPoints.push({
-        date: tx.date,
-        name: format(parseISO(tx.date), 'MMM d'),
-        portfolio: Math.round(portfolioValue),
-        costBasis: Math.round(Object.values(cumulativeCost).reduce((a, b) => a + b, 0)),
-      });
+      try {
+        const parsedDate = parseISO(tx.date);
+        if (!isNaN(parsedDate.getTime())) {
+          dataPoints.push({
+            date: tx.date,
+            name: format(parsedDate, 'MMM d'),
+            portfolio: Math.round(portfolioValue),
+            costBasis: Math.round(Object.values(cumulativeCost).reduce((a, b) => a + b, 0)),
+          });
+        }
+      } catch {
+        // Skip invalid dates
+      }
     }
 
     // Add current point
@@ -319,9 +352,19 @@ export default function Performance() {
 
             // Get first purchase date for this ticker
             const firstBuy = tickerTxs
-              .filter(t => t.type === 'buy')
+              .filter(t => t.type === 'buy' && t.date)
               .sort((a, b) => new Date(a.date) - new Date(b.date))[0];
-            const daysHeld = firstBuy ? differenceInDays(new Date(), parseISO(firstBuy.date)) : 0;
+            let daysHeld = 0;
+            if (firstBuy?.date) {
+              try {
+                const parsed = parseISO(firstBuy.date);
+                if (!isNaN(parsed.getTime())) {
+                  daysHeld = differenceInDays(new Date(), parsed);
+                }
+              } catch {
+                daysHeld = 0;
+              }
+            }
 
             return (
               <div key={holding.id} className="flex items-center justify-between p-4 rounded-xl bg-zinc-800/30 hover:bg-zinc-800/50 transition-colors">
