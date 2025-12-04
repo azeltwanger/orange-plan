@@ -32,6 +32,16 @@ const LOT_METHODS = {
   AVG: { name: 'Average Cost', description: 'Use average cost basis across all lots' },
 };
 
+const ACCOUNT_TYPES = [
+  { value: 'taxable', label: 'Taxable (Brokerage/Self-Custody)' },
+  { value: 'traditional_401k', label: 'Traditional 401(k)' },
+  { value: 'roth_401k', label: 'Roth 401(k)' },
+  { value: 'traditional_ira', label: 'Traditional IRA' },
+  { value: 'roth_ira', label: 'Roth IRA' },
+  { value: 'hsa', label: 'HSA' },
+  { value: '529', label: '529 Plan' },
+];
+
 export default function CsvImportDialog({ open, onClose }) {
   const [file, setFile] = useState(null);
   const [csvHeaders, setCsvHeaders] = useState([]);
@@ -41,6 +51,7 @@ export default function CsvImportDialog({ open, onClose }) {
   const [step, setStep] = useState(1);
   const [parsingError, setParsingError] = useState(null);
   const [lotMethod, setLotMethod] = useState('HIFO');
+  const [accountType, setAccountType] = useState('taxable');
   const [importStats, setImportStats] = useState(null);
   const queryClient = useQueryClient();
 
@@ -60,6 +71,7 @@ export default function CsvImportDialog({ open, onClose }) {
     setStep(1);
     setParsingError(null);
     setImportStats(null);
+    setAccountType('taxable');
   }, []);
 
   const handleClose = () => {
@@ -371,11 +383,22 @@ export default function CsvImportDialog({ open, onClose }) {
         holdingUpdates[ticker].lastPrice = tx.price_per_unit;
       }
 
-      // Update or create holdings
+      // Determine tax treatment based on account type
+      const taxTreatmentMap = {
+        taxable: 'taxable',
+        traditional_401k: 'tax_deferred',
+        roth_401k: 'tax_free',
+        traditional_ira: 'tax_deferred',
+        roth_ira: 'tax_free',
+        hsa: 'tax_free',
+        '529': 'tax_free',
+      };
+
+      // Update or create holdings - match by ticker AND account type
       for (const [ticker, data] of Object.entries(holdingUpdates)) {
-        const existingHolding = existingHoldings.find(h => h.ticker === ticker);
+        const existingHolding = existingHoldings.find(h => h.ticker === ticker && h.account_type === accountType);
         if (existingHolding) {
-          // Update existing holding
+          // Update existing holding for this account type
           const newQty = Math.max(0, (existingHolding.quantity || 0) + data.quantity);
           const newCostBasis = (existingHolding.cost_basis_total || 0) + data.costBasis;
           await base44.entities.Holding.update(existingHolding.id, {
@@ -384,15 +407,17 @@ export default function CsvImportDialog({ open, onClose }) {
             current_price: data.lastPrice,
           });
         } else if (data.quantity > 0) {
-          // Create new holding
+          // Create new holding for this account type
+          const accountLabel = ACCOUNT_TYPES.find(t => t.value === accountType)?.label || accountType;
           await base44.entities.Holding.create({
-            asset_name: ticker,
+            asset_name: accountType === 'taxable' ? ticker : `${ticker} (${accountLabel})`,
             asset_type: ['BTC', 'ETH', 'SOL', 'XRP', 'ADA', 'DOGE', 'DOT', 'AVAX', 'MATIC', 'LINK', 'LTC'].includes(ticker) ? 'crypto' : 'stocks',
             ticker: ticker,
             quantity: data.quantity,
             current_price: data.lastPrice,
             cost_basis_total: data.costBasis,
-            account_type: 'taxable',
+            account_type: accountType,
+            tax_treatment: taxTreatmentMap[accountType] || 'taxable',
           });
         }
       }
@@ -522,6 +547,22 @@ export default function CsvImportDialog({ open, onClose }) {
           {/* Step 3: Preview & Import */}
           {step === 3 && (
             <div className="space-y-4">
+              {/* Account Type Selection */}
+              <div className="p-4 rounded-xl bg-zinc-800/30 border border-zinc-700">
+                <Label className="text-zinc-200 font-medium mb-3 block">Account Type</Label>
+                <p className="text-xs text-zinc-500 mb-3">Select the account type for these transactions. This keeps holdings separate by account.</p>
+                <Select value={accountType} onValueChange={setAccountType}>
+                  <SelectTrigger className="bg-zinc-900 border-zinc-700">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-zinc-900 border-zinc-700">
+                    {ACCOUNT_TYPES.map(type => (
+                      <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
               {/* Lot Method Selection */}
               <div className="p-4 rounded-xl bg-zinc-800/30 border border-zinc-700">
                 <Label className="text-zinc-200 font-medium mb-3 block">Tax Lot Matching Method for Sells</Label>
