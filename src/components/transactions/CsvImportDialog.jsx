@@ -324,8 +324,23 @@ export default function CsvImportDialog({ open, onClose }) {
         return tx;
       }).filter(tx => tx.quantity > 0 && tx.price_per_unit > 0);
 
-      // Process with lot matching
-      const { transactions, stats } = processTransactionsWithLots(rawTransactions, lotMethod);
+      // Duplicate detection - check against existing transactions
+      const existingTxKeys = new Set(
+        existingTransactions.map(t => 
+          `${t.type}-${t.asset_ticker}-${t.quantity}-${t.price_per_unit}-${t.date}`
+        )
+      );
+
+      const uniqueTransactions = rawTransactions.filter(tx => {
+        const key = `${tx.type}-${tx.asset_ticker}-${tx.quantity}-${tx.price_per_unit}-${tx.date}`;
+        return !existingTxKeys.has(key);
+      });
+
+      const duplicatesSkipped = rawTransactions.length - uniqueTransactions.length;
+
+      // Process with lot matching (only unique transactions)
+      const { transactions, stats } = processTransactionsWithLots(uniqueTransactions, lotMethod);
+      stats.duplicatesSkipped = duplicatesSkipped;
       setImportStats(stats);
 
       // Bulk create transactions
@@ -610,6 +625,15 @@ export default function CsvImportDialog({ open, onClose }) {
                   <p className="text-xs text-zinc-400">Total Losses</p>
                 </div>
               </div>
+
+              {importStats.duplicatesSkipped > 0 && (
+                <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                  <p className="text-sm text-amber-400">
+                    <AlertTriangle className="w-4 h-4 inline mr-1" />
+                    {importStats.duplicatesSkipped} duplicate transaction{importStats.duplicatesSkipped !== 1 ? 's' : ''} skipped
+                  </p>
+                </div>
+              )}
 
               <div className="flex gap-3 text-sm text-zinc-400">
                 <span className="px-2 py-1 rounded bg-amber-500/10 text-amber-400">{importStats.shortTerm} Short-term</span>

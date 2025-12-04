@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import { TrendingUp, TrendingDown, Calendar, Bitcoin, DollarSign } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { format, subMonths, subYears, differenceInDays, parseISO } from 'date-fns';
 import { cn } from "@/lib/utils";
 
 export default function Performance() {
@@ -38,58 +39,174 @@ export default function Performance() {
 
   const { data: transactions = [] } = useQuery({
     queryKey: ['transactions'],
-    queryFn: () => base44.entities.Transaction.list(),
+    queryFn: () => base44.entities.Transaction.list('-date'),
   });
 
-  // Calculate totals
-  const btcHoldings = holdings.filter(h => h.ticker === 'BTC').reduce((sum, h) => sum + h.quantity, 0);
-  const totalCostBasis = holdings.reduce((sum, h) => sum + (h.cost_basis_total || 0), 0);
+  // Calculate cost basis from transactions (more accurate than holdings)
+  const transactionStats = useMemo(() => {
+    const buyTxs = transactions.filter(t => t.type === 'buy');
+    const sellTxs = transactions.filter(t => t.type === 'sell');
+    
+    // Calculate actual cost basis from buys
+    const totalInvested = buyTxs.reduce((sum, t) => sum + (t.cost_basis || t.quantity * t.price_per_unit), 0);
+    
+    // Calculate realized gains from sells
+    const realizedGains = sellTxs.reduce((sum, t) => sum + (t.realized_gain_loss || 0), 0);
+    
+    // Get first transaction date
+    const sortedTxs = [...transactions].sort((a, b) => new Date(a.date) - new Date(b.date));
+    const firstTxDate = sortedTxs.length > 0 ? sortedTxs[0].date : null;
+    
+    return { totalInvested, realizedGains, firstTxDate };
+  }, [transactions]);
+
+  // Calculate current holdings value
   const currentValue = holdings.reduce((sum, h) => {
     if (h.ticker === 'BTC') return sum + (h.quantity * currentPrice);
     return sum + (h.quantity * (h.current_price || 0));
   }, 0);
+
+  // Use transaction-based cost basis if available, otherwise holdings
+  const totalCostBasis = transactionStats.totalInvested > 0 
+    ? transactionStats.totalInvested 
+    : holdings.reduce((sum, h) => sum + (h.cost_basis_total || 0), 0);
   
-  const totalGainLoss = currentValue - totalCostBasis;
-  const totalGainLossPercent = totalCostBasis > 0 ? (totalGainLoss / totalCostBasis) * 100 : 0;
+  const unrealizedGain = currentValue - totalCostBasis + transactionStats.realizedGains;
+  const totalReturn = totalCostBasis > 0 ? (unrealizedGain / totalCostBasis) * 100 : 0;
 
-  // Generate mock chart data
-  const generateChartData = () => {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return months.map((month, i) => ({
-      name: month,
-      portfolio: Math.round(currentValue * (0.5 + (i / 12) * 0.6 + Math.random() * 0.1)),
-      btc: Math.round(currentPrice * (0.6 + (i / 12) * 0.5 + Math.random() * 0.1)),
-    }));
-  };
+  // Calculate holding period and annualized return
+  const holdingDays = transactionStats.firstTxDate 
+    ? differenceInDays(new Date(), parseISO(transactionStats.firstTxDate))
+    : 0;
+  const holdingYears = holdingDays / 365;
+  const annualizedReturn = holdingYears > 0 && totalCostBasis > 0
+    ? (Math.pow((currentValue + transactionStats.realizedGains) / totalCostBasis, 1 / holdingYears) - 1) * 100
+    : 0;
 
-  const chartData = generateChartData();
+  // Generate chart data from actual transactions
+  const chartData = useMemo(() => {
+    if (transactions.length === 0) return [];
+
+    const now = new Date();
+    let startDate;
+    
+    switch (timeframe) {
+      case '1M': startDate = subMonths(now, 1); break;
+      case '3M': startDate = subMonths(now, 3); break;
+      case '6M': startDate = subMonths(now, 6); break;
+      case '1Y': startDate = subYears(now, 1); break;
+      case '3Y': startDate = subYears(now, 3); break;
+      case '5Y': startDate = subYears(now, 5); break;
+      case '10Y': startDate = subYears(now, 10); break;
+      case 'ALL': 
+        const sortedTxs = [...transactions].sort((a, b) => new Date(a.date) - new Date(b.date));
+        startDate = sortedTxs.length > 0 ? parseISO(sortedTxs[0].date) : subYears(now, 1);
+        break;
+      default: startDate = subYears(now, 1);
+    }
+
+    // Sort transactions chronologically
+    const sortedTxs = [...transactions]
+      .filter(t => new Date(t.date) >= startDate)
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    if (sortedTxs.length === 0) return [];
+
+    // Build cumulative portfolio value over time
+    let cumulativeQty = {};
+    let cumulativeCost = {};
+    const dataPoints = [];
+
+    // Start with holdings before the timeframe
+    const preTxs = transactions.filter(t => new Date(t.date) < startDate);
+    for (const tx of preTxs) {
+      const ticker = tx.asset_ticker;
+      if (!cumulativeQty[ticker]) cumulativeQty[ticker] = 0;
+      if (!cumulativeCost[ticker]) cumulativeCost[ticker] = 0;
+      
+      if (tx.type === 'buy') {
+        cumulativeQty[ticker] += tx.quantity;
+        cumulativeCost[ticker] += tx.cost_basis || (tx.quantity * tx.price_per_unit);
+      } else {
+        cumulativeQty[ticker] -= tx.quantity;
+      }
+    }
+
+    // Process transactions in timeframe
+    for (const tx of sortedTxs) {
+      const ticker = tx.asset_ticker;
+      if (!cumulativeQty[ticker]) cumulativeQty[ticker] = 0;
+      if (!cumulativeCost[ticker]) cumulativeCost[ticker] = 0;
+
+      if (tx.type === 'buy') {
+        cumulativeQty[ticker] += tx.quantity;
+        cumulativeCost[ticker] += tx.cost_basis || (tx.quantity * tx.price_per_unit);
+      } else {
+        cumulativeQty[ticker] -= tx.quantity;
+      }
+
+      // Calculate value at this point (use tx price as estimate)
+      let portfolioValue = 0;
+      for (const [t, qty] of Object.entries(cumulativeQty)) {
+        if (t === ticker) {
+          portfolioValue += qty * tx.price_per_unit;
+        } else if (t === 'BTC') {
+          portfolioValue += qty * tx.price_per_unit; // Approximate
+        } else {
+          // For other assets, use their stored price
+          const holding = holdings.find(h => h.ticker === t);
+          portfolioValue += qty * (holding?.current_price || tx.price_per_unit);
+        }
+      }
+
+      dataPoints.push({
+        date: tx.date,
+        name: format(parseISO(tx.date), 'MMM d'),
+        portfolio: Math.round(portfolioValue),
+        costBasis: Math.round(Object.values(cumulativeCost).reduce((a, b) => a + b, 0)),
+      });
+    }
+
+    // Add current point
+    dataPoints.push({
+      date: format(now, 'yyyy-MM-dd'),
+      name: 'Now',
+      portfolio: Math.round(currentValue),
+      costBasis: Math.round(totalCostBasis),
+    });
+
+    return dataPoints;
+  }, [transactions, holdings, timeframe, currentValue, totalCostBasis]);
 
   const stats = [
     {
-      label: 'Total Portfolio Value',
+      label: 'Portfolio Value',
       value: `$${currentValue.toLocaleString()}`,
       icon: DollarSign,
       color: 'text-emerald-400',
     },
     {
-      label: 'Total Cost Basis',
+      label: 'Total Invested',
       value: `$${totalCostBasis.toLocaleString()}`,
+      subtext: holdingDays > 0 ? `${Math.round(holdingDays / 30)} months` : '',
       icon: DollarSign,
       color: 'text-zinc-400',
     },
     {
-      label: 'Total Gain/Loss',
-      value: `$${Math.abs(totalGainLoss).toLocaleString()}`,
-      prefix: totalGainLoss >= 0 ? '+' : '-',
-      icon: totalGainLoss >= 0 ? TrendingUp : TrendingDown,
-      color: totalGainLoss >= 0 ? 'text-emerald-400' : 'text-rose-400',
+      label: 'Total Return',
+      value: `$${Math.abs(unrealizedGain).toLocaleString()}`,
+      prefix: unrealizedGain >= 0 ? '+' : '-',
+      subtext: `${unrealizedGain >= 0 ? '+' : ''}${totalReturn.toFixed(1)}%`,
+      icon: unrealizedGain >= 0 ? TrendingUp : TrendingDown,
+      color: unrealizedGain >= 0 ? 'text-emerald-400' : 'text-rose-400',
     },
     {
-      label: 'Return %',
-      value: `${Math.abs(totalGainLossPercent).toFixed(2)}%`,
-      prefix: totalGainLossPercent >= 0 ? '+' : '-',
-      icon: totalGainLossPercent >= 0 ? TrendingUp : TrendingDown,
-      color: totalGainLossPercent >= 0 ? 'text-emerald-400' : 'text-rose-400',
+      label: 'Annualized Return',
+      value: `${Math.abs(annualizedReturn).toFixed(1)}%`,
+      prefix: annualizedReturn >= 0 ? '+' : '-',
+      subtext: holdingYears >= 1 ? `${holdingYears.toFixed(1)} years` : `${holdingDays} days`,
+      icon: annualizedReturn >= 0 ? TrendingUp : TrendingDown,
+      color: annualizedReturn >= 0 ? 'text-emerald-400' : 'text-rose-400',
     },
   ];
 
@@ -131,6 +248,9 @@ export default function Performance() {
             <p className={cn("text-xl lg:text-2xl font-bold", stat.color)}>
               {stat.prefix}{stat.value}
             </p>
+            {stat.subtext && (
+              <p className="text-xs text-zinc-500 mt-1">{stat.subtext}</p>
+            )}
           </div>
         ))}
       </div>
@@ -177,11 +297,31 @@ export default function Performance() {
         <h3 className="font-semibold mb-6">Asset Performance</h3>
         <div className="space-y-4">
           {holdings.map((holding) => {
-          const value = holding.ticker === 'BTC' 
-            ? holding.quantity * currentPrice 
-            : holding.quantity * (holding.current_price || 0);
-            const gain = value - (holding.cost_basis_total || 0);
-            const gainPercent = holding.cost_basis_total ? (gain / holding.cost_basis_total) * 100 : 0;
+            const value = holding.ticker === 'BTC' 
+              ? holding.quantity * currentPrice 
+              : holding.quantity * (holding.current_price || 0);
+            
+            // Get cost basis from transactions for this ticker
+            const tickerTxs = transactions.filter(t => t.asset_ticker === holding.ticker);
+            const tickerCostBasis = tickerTxs
+              .filter(t => t.type === 'buy')
+              .reduce((sum, t) => sum + (t.cost_basis || t.quantity * t.price_per_unit), 0);
+            const tickerSellCostBasis = tickerTxs
+              .filter(t => t.type === 'sell')
+              .reduce((sum, t) => sum + (t.cost_basis || 0), 0);
+            
+            const adjustedCostBasis = tickerCostBasis > 0 
+              ? tickerCostBasis - tickerSellCostBasis 
+              : (holding.cost_basis_total || 0);
+            
+            const gain = value - adjustedCostBasis;
+            const gainPercent = adjustedCostBasis > 0 ? (gain / adjustedCostBasis) * 100 : 0;
+
+            // Get first purchase date for this ticker
+            const firstBuy = tickerTxs
+              .filter(t => t.type === 'buy')
+              .sort((a, b) => new Date(a.date) - new Date(b.date))[0];
+            const daysHeld = firstBuy ? differenceInDays(new Date(), parseISO(firstBuy.date)) : 0;
 
             return (
               <div key={holding.id} className="flex items-center justify-between p-4 rounded-xl bg-zinc-800/30 hover:bg-zinc-800/50 transition-colors">
@@ -198,19 +338,27 @@ export default function Performance() {
                   </div>
                   <div>
                     <p className="font-medium">{holding.asset_name}</p>
-                    <p className="text-sm text-zinc-500">{holding.quantity} {holding.ticker}</p>
+                    <p className="text-sm text-zinc-500">
+                      {holding.ticker === 'BTC' ? holding.quantity.toFixed(8) : holding.quantity.toLocaleString()} {holding.ticker}
+                      {daysHeld > 0 && <span className="ml-2 text-zinc-600">• {daysHeld}d</span>}
+                    </p>
                   </div>
                 </div>
                 <div className="text-right">
                   <p className="font-semibold">${value.toLocaleString()}</p>
-                  {holding.cost_basis_total > 0 && (
-                    <p className={cn(
-                      "text-sm font-medium",
-                      gain >= 0 ? "text-emerald-400" : "text-rose-400"
-                    )}>
-                      {gain >= 0 ? '+' : ''}{gainPercent.toFixed(1)}%
-                    </p>
-                  )}
+                  <div className="flex items-center gap-2 justify-end">
+                    {adjustedCostBasis > 0 && (
+                      <>
+                        <span className="text-xs text-zinc-500">${adjustedCostBasis.toLocaleString()}</span>
+                        <span className={cn(
+                          "text-sm font-medium",
+                          gain >= 0 ? "text-emerald-400" : "text-rose-400"
+                        )}>
+                          {gain >= 0 ? '+' : ''}{gainPercent.toFixed(1)}%
+                        </span>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
             );
@@ -220,6 +368,22 @@ export default function Performance() {
           )}
         </div>
       </div>
+
+      {/* Realized Gains Section */}
+      {transactionStats.realizedGains !== 0 && (
+        <div className="card-glass rounded-2xl p-6">
+          <h3 className="font-semibold mb-4">Realized Gains/Losses</h3>
+          <div className="flex items-center justify-between p-4 rounded-xl bg-zinc-800/30">
+            <span className="text-zinc-400">Total Realized</span>
+            <span className={cn(
+              "text-xl font-bold",
+              transactionStats.realizedGains >= 0 ? "text-emerald-400" : "text-rose-400"
+            )}>
+              {transactionStats.realizedGains >= 0 ? '+' : ''}${transactionStats.realizedGains.toLocaleString()}
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
