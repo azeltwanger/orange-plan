@@ -177,9 +177,28 @@ export default function Performance() {
     return rate * 100;
   }, [transactions, currentValue]);
 
-  // Generate chart data from actual transactions
+  // Helper to get BTC price at a specific date from historical data
+  const getBtcPriceAtDate = (date) => {
+    if (!historicalPrices.length) return currentPrice;
+    const targetTime = date.getTime();
+    
+    // Find closest price point
+    let closest = historicalPrices[0];
+    let minDiff = Math.abs(closest.date.getTime() - targetTime);
+    
+    for (const point of historicalPrices) {
+      const diff = Math.abs(point.date.getTime() - targetTime);
+      if (diff < minDiff) {
+        minDiff = diff;
+        closest = point;
+      }
+    }
+    return closest.price;
+  };
+
+  // Generate chart data with historical prices
   const chartData = useMemo(() => {
-    if (transactions.length === 0) return [];
+    if (transactions.length === 0 && historicalPrices.length === 0) return [];
 
     const now = new Date();
     let startDate;
@@ -210,23 +229,10 @@ export default function Performance() {
       default: startDate = subYears(now, 1);
     }
 
-    // Sort transactions chronologically - filter out invalid dates
-    const sortedTxs = [...transactions]
-      .filter(t => {
-        if (!t.date) return false;
-        const d = new Date(t.date);
-        return !isNaN(d.getTime()) && d >= startDate;
-      })
-      .sort((a, b) => new Date(a.date) - new Date(b.date));
-
-    if (sortedTxs.length === 0) return [];
-
-    // Build cumulative portfolio value over time
+    // Build cumulative holdings from ALL transactions before start date
     let cumulativeQty = {};
     let cumulativeCost = {};
-    const dataPoints = [];
-
-    // Start with holdings before the timeframe
+    
     const preTxs = transactions.filter(t => {
       if (!t.date) return false;
       const d = new Date(t.date);
@@ -245,58 +251,88 @@ export default function Performance() {
       }
     }
 
-    // Process transactions in timeframe
-    for (const tx of sortedTxs) {
-      const ticker = tx.asset_ticker;
-      if (!cumulativeQty[ticker]) cumulativeQty[ticker] = 0;
-      if (!cumulativeCost[ticker]) cumulativeCost[ticker] = 0;
+    // Sort transactions in timeframe
+    const txsInRange = [...transactions]
+      .filter(t => {
+        if (!t.date) return false;
+        const d = new Date(t.date);
+        return !isNaN(d.getTime()) && d >= startDate;
+      })
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
 
-      if (tx.type === 'buy') {
-        cumulativeQty[ticker] += tx.quantity;
-        cumulativeCost[ticker] += tx.cost_basis || (tx.quantity * tx.price_per_unit);
-      } else {
-        cumulativeQty[ticker] -= tx.quantity;
-      }
-
-      // Calculate value at this point (use tx price as estimate)
-      let portfolioValue = 0;
-      for (const [t, qty] of Object.entries(cumulativeQty)) {
-        if (t === ticker) {
-          portfolioValue += qty * tx.price_per_unit;
-        } else if (t === 'BTC') {
-          portfolioValue += qty * tx.price_per_unit; // Approximate
-        } else {
-          // For other assets, use their stored price
-          const holding = holdings.find(h => h.ticker === t);
-          portfolioValue += qty * (holding?.current_price || tx.price_per_unit);
-        }
-      }
-
-      try {
-        const parsedDate = parseISO(tx.date);
-        if (!isNaN(parsedDate.getTime())) {
-          dataPoints.push({
-            date: tx.date,
-            name: format(parsedDate, 'MMM d'),
-            portfolio: Math.round(portfolioValue),
-            costBasis: Math.round(Object.values(cumulativeCost).reduce((a, b) => a + b, 0)),
-          });
-        }
-      } catch {
-        // Skip invalid dates
-      }
+    // Generate data points using historical prices (one point per day/week based on timeframe)
+    const dataPoints = [];
+    const intervalDays = timeframe === '1M' ? 1 : timeframe === '3M' ? 2 : timeframe === '6M' ? 3 : 7;
+    
+    // Create a map of transaction dates for quick lookup
+    const txByDate = {};
+    for (const tx of txsInRange) {
+      const dateKey = tx.date.split('T')[0];
+      if (!txByDate[dateKey]) txByDate[dateKey] = [];
+      txByDate[dateKey].push(tx);
     }
 
-    // Add current point
-    dataPoints.push({
-      date: format(now, 'yyyy-MM-dd'),
-      name: 'Now',
-      portfolio: Math.round(currentValue),
-      costBasis: Math.round(totalCostBasis),
-    });
+    // Iterate through the timeframe
+    let currentDate = new Date(startDate);
+    while (currentDate <= now) {
+      const dateKey = format(currentDate, 'yyyy-MM-dd');
+      
+      // Apply any transactions up to this date
+      if (txByDate[dateKey]) {
+        for (const tx of txByDate[dateKey]) {
+          const ticker = tx.asset_ticker;
+          if (!cumulativeQty[ticker]) cumulativeQty[ticker] = 0;
+          if (!cumulativeCost[ticker]) cumulativeCost[ticker] = 0;
+          
+          if (tx.type === 'buy') {
+            cumulativeQty[ticker] += tx.quantity;
+            cumulativeCost[ticker] += tx.cost_basis || (tx.quantity * tx.price_per_unit);
+          } else {
+            cumulativeQty[ticker] -= tx.quantity;
+          }
+        }
+      }
+
+      // Calculate portfolio value using historical BTC price
+      let portfolioValue = 0;
+      const btcPriceAtDate = getBtcPriceAtDate(currentDate);
+      
+      for (const [ticker, qty] of Object.entries(cumulativeQty)) {
+        if (qty <= 0) continue;
+        if (ticker === 'BTC') {
+          portfolioValue += qty * btcPriceAtDate;
+        } else {
+          // For other assets, use current price (could enhance later)
+          const holding = holdings.find(h => h.ticker === ticker);
+          portfolioValue += qty * (holding?.current_price || 0);
+        }
+      }
+
+      dataPoints.push({
+        date: dateKey,
+        name: format(currentDate, 'MMM d'),
+        portfolio: Math.round(portfolioValue),
+        costBasis: Math.round(Object.values(cumulativeCost).reduce((a, b) => a + b, 0)),
+        btcPrice: Math.round(btcPriceAtDate),
+      });
+
+      // Move to next interval
+      currentDate = new Date(currentDate.getTime() + intervalDays * 24 * 60 * 60 * 1000);
+    }
+
+    // Ensure we have the current point
+    if (dataPoints.length > 0 && dataPoints[dataPoints.length - 1].date !== format(now, 'yyyy-MM-dd')) {
+      dataPoints.push({
+        date: format(now, 'yyyy-MM-dd'),
+        name: 'Now',
+        portfolio: Math.round(currentValue),
+        costBasis: Math.round(totalCostBasis),
+        btcPrice: Math.round(currentPrice),
+      });
+    }
 
     return dataPoints;
-  }, [transactions, holdings, timeframe, currentValue, totalCostBasis]);
+  }, [transactions, holdings, timeframe, currentValue, totalCostBasis, historicalPrices, currentPrice]);
 
   const stats = [
     {
