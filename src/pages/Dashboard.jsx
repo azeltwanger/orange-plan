@@ -127,11 +127,15 @@ export default function Dashboard() {
 
   const deleteHolding = useMutation({
     mutationFn: async (id) => {
-      // Find holding to get ticker
+      // Find holding to get ticker and account type
       const holdingToDelete = holdings.find(h => h.id === id);
       if (holdingToDelete) {
-        // Delete all transactions for this ticker
-        const relatedTxs = transactions.filter(t => t.asset_ticker === holdingToDelete.ticker);
+        // Delete transactions matching ticker AND account type
+        const holdingAccountType = holdingToDelete.account_type || 'taxable';
+        const relatedTxs = transactions.filter(t => {
+          const txAccountType = t.account_type || 'taxable';
+          return t.asset_ticker === holdingToDelete.ticker && txAccountType === holdingAccountType;
+        });
         for (const tx of relatedTxs) {
           await base44.entities.Transaction.delete(tx.id);
         }
@@ -141,6 +145,9 @@ export default function Dashboard() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['holdings'] });
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
+    },
+    onError: (error) => {
+      console.error('Delete failed:', error);
     },
   });
 
