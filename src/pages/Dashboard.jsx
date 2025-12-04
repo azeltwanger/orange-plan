@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, RefreshCw, Pencil, Trash2, Bitcoin, Package } from 'lucide-react';
+import useAssetPrices from '@/components/shared/useAssetPrices';
 import { Button } from "@/components/ui/button";
 import NetWorthCard from '@/components/dashboard/NetWorthCard';
 import AssetCard from '@/components/dashboard/AssetCard';
@@ -44,6 +45,13 @@ export default function Dashboard() {
     queryKey: ['holdings'],
     queryFn: () => base44.entities.Holding.list(),
   });
+
+  // Get unique tickers for price fetching
+  const stockTickers = useMemo(() => {
+    return [...new Set(holdings.filter(h => h.asset_type === 'stocks' && h.ticker && h.ticker !== 'BTC').map(h => h.ticker))];
+  }, [holdings]);
+
+  const { prices: assetPrices, loading: pricesLoading } = useAssetPrices(stockTickers);
 
   const { data: budgetItems = [] } = useQuery({
     queryKey: ['budgetItems'],
@@ -127,11 +135,17 @@ export default function Dashboard() {
     },
   });
 
-  // Calculate totals
-  const totalAssets = holdings.reduce((sum, h) => {
-    if (h.ticker === 'BTC') return sum + (h.quantity * currentPrice);
-    return sum + (h.quantity * (h.current_price || 0));
-  }, 0);
+  // Get live price for a holding (BTC, stocks, or manual)
+      const getHoldingPrice = (holding) => {
+        if (holding.ticker === 'BTC') return currentPrice;
+        if (assetPrices[holding.ticker]?.price) return assetPrices[holding.ticker].price;
+        return holding.current_price || 0;
+      };
+
+      // Calculate totals
+      const totalAssets = holdings.reduce((sum, h) => {
+        return sum + (h.quantity * getHoldingPrice(h));
+      }, 0);
 
   const totalLiabilities = liabilities.reduce((sum, l) => sum + (l.current_balance || 0), 0);
   
