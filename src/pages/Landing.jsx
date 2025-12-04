@@ -95,10 +95,12 @@ export default function Landing() {
             <Link to={createPageUrl('Pricing')} className="text-sm text-zinc-400 hover:text-white transition-colors hidden sm:block">
               Pricing
             </Link>
+            <Link to={createPageUrl('Dashboard')} className="text-sm text-zinc-400 hover:text-white transition-colors hidden sm:block">
+              Sign in
+            </Link>
             <Link to={createPageUrl('Dashboard')}>
               <Button size="sm" className="brand-gradient text-white font-medium hover:opacity-90 shadow-lg shadow-orange-500/25">
-                Open App
-                <ArrowRight className="w-4 h-4 ml-1.5" />
+                Try for free
               </Button>
             </Link>
           </div>
@@ -137,47 +139,119 @@ export default function Landing() {
           <div className="relative">
             {/* Glow effect */}
             <div className="absolute -inset-px rounded-2xl bg-gradient-to-b from-orange-500/20 via-orange-500/5 to-transparent blur-sm" />
-            
+
             <div className="relative rounded-2xl border border-white/10 bg-zinc-900/80 backdrop-blur-xl overflow-hidden">
               {/* Window controls */}
               <div className="flex items-center gap-2 px-4 py-3 border-b border-white/5 bg-black/20">
-                <div className="w-3 h-3 rounded-full bg-zinc-700" />
-                <div className="w-3 h-3 rounded-full bg-zinc-700" />
-                <div className="w-3 h-3 rounded-full bg-zinc-700" />
-                <span className="ml-4 text-xs text-zinc-600">Net Worth Dashboard</span>
+                <div className="w-3 h-3 rounded-full bg-red-500/80" />
+                <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
+                <div className="w-3 h-3 rounded-full bg-green-500/80" />
+                <span className="ml-4 text-xs text-zinc-600">Financial Projections</span>
               </div>
-              
+
               <div className="p-6 md:p-8">
-                {/* Stats row */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                  <div className="p-4 rounded-xl bg-white/[0.03] border border-white/5">
-                    <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">Net Worth</p>
-                    <p className="text-2xl font-bold brand-gradient-text">$847,290</p>
+                {/* Top section with chart and side panel */}
+                <div className="flex gap-6 mb-6">
+                  {/* Main Chart Area */}
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <p className="text-xs text-zinc-500 uppercase tracking-wider">Net Worth Projection</p>
+                        <p className="text-2xl font-bold brand-gradient-text">$2.4M by 2045</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <span className="px-2 py-1 rounded text-[10px] bg-orange-500/20 text-orange-400">BTC</span>
+                        <span className="px-2 py-1 rounded text-[10px] bg-blue-500/20 text-blue-400">Stocks</span>
+                        <span className="px-2 py-1 rounded text-[10px] bg-emerald-500/20 text-emerald-400">401k</span>
+                      </div>
+                    </div>
+
+                    {/* Realistic area chart */}
+                    <div className="h-40 rounded-xl bg-gradient-to-br from-white/[0.02] to-transparent border border-white/5 p-4 relative overflow-hidden">
+                      <svg viewBox="0 0 400 120" className="w-full h-full" preserveAspectRatio="none">
+                        {/* Grid lines */}
+                        <line x1="0" y1="30" x2="400" y2="30" stroke="rgba(255,255,255,0.05)" />
+                        <line x1="0" y1="60" x2="400" y2="60" stroke="rgba(255,255,255,0.05)" />
+                        <line x1="0" y1="90" x2="400" y2="90" stroke="rgba(255,255,255,0.05)" />
+
+                        {/* BTC area */}
+                        <path d="M0,100 Q50,95 100,85 T200,60 T300,35 T400,15 L400,120 L0,120 Z" fill="url(#orangeGradient)" />
+                        <path d="M0,100 Q50,95 100,85 T200,60 T300,35 T400,15" stroke="#F7931A" strokeWidth="2" fill="none" />
+
+                        {/* Stocks area */}
+                        <path d="M0,105 Q50,102 100,95 T200,80 T300,65 T400,50 L400,120 L0,120 Z" fill="url(#blueGradient)" />
+
+                        {/* 401k area */}
+                        <path d="M0,110 Q50,108 100,102 T200,92 T300,82 T400,72 L400,120 L0,120 Z" fill="url(#greenGradient)" />
+
+                        <defs>
+                          <linearGradient id="orangeGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stopColor="#F7931A" stopOpacity="0.4" />
+                            <stop offset="100%" stopColor="#F7931A" stopOpacity="0.05" />
+                          </linearGradient>
+                          <linearGradient id="blueGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stopColor="#3B82F6" stopOpacity="0.3" />
+                            <stop offset="100%" stopColor="#3B82F6" stopOpacity="0.05" />
+                          </linearGradient>
+                          <linearGradient id="greenGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stopColor="#10B981" stopOpacity="0.25" />
+                            <stop offset="100%" stopColor="#10B981" stopOpacity="0.05" />
+                          </linearGradient>
+                        </defs>
+                      </svg>
+                      {/* Year labels */}
+                      <div className="absolute bottom-1 left-4 right-4 flex justify-between text-[10px] text-zinc-600">
+                        <span>2025</span>
+                        <span>2030</span>
+                        <span>2035</span>
+                        <span>2040</span>
+                        <span>2045</span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="p-4 rounded-xl bg-white/[0.03] border border-white/5">
-                    <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">Bitcoin</p>
-                    <p className="text-2xl font-bold text-orange-400">1.847 BTC</p>
-                  </div>
-                  <div className="p-4 rounded-xl bg-white/[0.03] border border-white/5">
-                    <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">Monthly Savings</p>
-                    <p className="text-2xl font-bold text-emerald-400">$3,200</p>
-                  </div>
-                  <div className="p-4 rounded-xl bg-white/[0.03] border border-white/5">
-                    <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">Retirement</p>
-                    <p className="text-2xl font-bold text-purple-400">92%</p>
+
+                  {/* Side Stats Panel */}
+                  <div className="w-48 hidden md:block space-y-3">
+                    <div className="p-3 rounded-lg bg-white/[0.03] border border-white/5">
+                      <p className="text-[10px] text-zinc-500">Net Worth</p>
+                      <p className="text-lg font-bold text-white">$847,290</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-white/[0.03] border border-white/5">
+                      <p className="text-[10px] text-zinc-500">Retirement Ready</p>
+                      <p className="text-lg font-bold text-emerald-400">92%</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-white/[0.03] border border-white/5">
+                      <p className="text-[10px] text-zinc-500">Monthly Savings</p>
+                      <p className="text-lg font-bold text-blue-400">$3,200</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-white/[0.03] border border-white/5">
+                      <p className="text-[10px] text-zinc-500">Tax Saved YTD</p>
+                      <p className="text-lg font-bold text-purple-400">$4,280</p>
+                    </div>
                   </div>
                 </div>
-                
-                {/* Chart placeholder */}
-                <div className="h-48 rounded-xl bg-gradient-to-br from-white/[0.02] to-transparent border border-white/5 flex items-end justify-center p-4">
-                  <div className="flex items-end gap-1 h-full">
-                    {[40, 55, 45, 60, 75, 65, 80, 70, 85, 90, 82, 95].map((h, i) =>
-                    <div
-                      key={i}
-                      className="w-6 md:w-8 rounded-t bg-gradient-to-t from-orange-500/60 to-orange-400/30"
-                      style={{ height: `${h}%` }} />
 
-                    )}
+                {/* Bottom stats row */}
+                <div className="grid grid-cols-3 md:grid-cols-5 gap-3">
+                  <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5 text-center">
+                    <p className="text-lg font-bold text-orange-400">1.847</p>
+                    <p className="text-[10px] text-zinc-500">BTC Stack</p>
+                  </div>
+                  <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5 text-center">
+                    <p className="text-lg font-bold text-blue-400">$342K</p>
+                    <p className="text-[10px] text-zinc-500">Stocks</p>
+                  </div>
+                  <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5 text-center">
+                    <p className="text-lg font-bold text-emerald-400">$285K</p>
+                    <p className="text-[10px] text-zinc-500">401k</p>
+                  </div>
+                  <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5 text-center hidden md:block">
+                    <p className="text-lg font-bold text-purple-400">$45K</p>
+                    <p className="text-[10px] text-zinc-500">Roth IRA</p>
+                  </div>
+                  <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5 text-center hidden md:block">
+                    <p className="text-lg font-bold text-rose-400">-$82K</p>
+                    <p className="text-[10px] text-zinc-500">Liabilities</p>
                   </div>
                 </div>
               </div>
