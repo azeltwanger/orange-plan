@@ -381,7 +381,11 @@ export default function CsvImportDialog({ open, onClose }) {
       let successfulTransactions = [];
       for (const tx of transactions) {
         try {
-          await base44.entities.Transaction.create(tx);
+          // Add account_type to each transaction
+          await base44.entities.Transaction.create({
+            ...tx,
+            account_type: accountType,
+          });
           successfulTransactions.push(tx);
         } catch (err) {
           // Skip failed transactions (likely duplicates)
