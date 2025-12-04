@@ -80,6 +80,19 @@ export default function NetWorthCard({ totalAssets, totalLiabilities, btcHolding
                 <p className="text-[10px] text-zinc-500 uppercase tracking-wider">Bitcoin Stack</p>
               </div>
             </div>
+            {returnData && (
+              <div className="flex items-center gap-3 px-4 py-2 rounded-lg bg-zinc-800/50 border border-zinc-700/50">
+                <TrendingUp className={cn("w-4 h-4", returnData.annualizedReturn >= 0 ? "text-emerald-400" : "text-rose-400")} />
+                <div className="text-right">
+                  <p className={cn("text-lg font-bold", returnData.annualizedReturn >= 0 ? "text-emerald-400" : "text-rose-400")}>
+                    {returnData.annualizedReturn >= 0 ? '+' : ''}{returnData.annualizedReturn.toFixed(1)}%
+                  </p>
+                  <p className="text-[10px] text-zinc-500 uppercase tracking-wider">
+                    {returnData.years >= 1 ? 'Annualized' : 'Return'} ({returnData.years.toFixed(1)}y)
+                  </p>
+                </div>
+              </div>
+            )}
             <p className="text-sm text-zinc-500">
               <span className="text-orange-400 font-semibold">{btcPercentage.toFixed(1)}%</span> allocation to Bitcoin
             </p>
