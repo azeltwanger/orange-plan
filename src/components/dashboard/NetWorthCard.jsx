@@ -2,10 +2,45 @@ import React from 'react';
 import { TrendingUp, Zap } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
-export default function NetWorthCard({ totalAssets, totalLiabilities, btcHoldings, btcPrice }) {
+export default function NetWorthCard({ totalAssets, totalLiabilities, btcHoldings, btcPrice, transactions = [] }) {
   const netWorth = totalAssets - totalLiabilities;
   const btcValue = btcHoldings * btcPrice;
   const btcPercentage = totalAssets > 0 ? (btcValue / totalAssets) * 100 : 0;
+
+  // Calculate annualized return using Modified Dietz method (time-weighted)
+  const calculateAnnualizedReturn = () => {
+    const buyTxs = transactions.filter(t => t.type === 'buy' && t.asset_ticker === 'BTC');
+    if (buyTxs.length === 0) return null;
+
+    // Sort by date
+    const sortedTxs = [...buyTxs].sort((a, b) => new Date(a.date) - new Date(b.date));
+    const firstDate = new Date(sortedTxs[0].date);
+    const today = new Date();
+    const totalDays = (today - firstDate) / (1000 * 60 * 60 * 24);
+    
+    if (totalDays < 1) return null;
+
+    // Total invested (cost basis)
+    const totalInvested = buyTxs.reduce((sum, t) => sum + (t.quantity * t.price_per_unit), 0);
+    
+    // Current value
+    const currentValue = btcHoldings * btcPrice;
+    
+    if (totalInvested <= 0) return null;
+
+    // Simple return
+    const totalReturn = (currentValue - totalInvested) / totalInvested;
+    
+    // Annualize: (1 + total_return) ^ (365 / days) - 1
+    const years = totalDays / 365;
+    const annualizedReturn = years >= 1 
+      ? (Math.pow(1 + totalReturn, 1 / years) - 1) * 100
+      : totalReturn * 100; // For < 1 year, just show actual return
+
+    return { annualizedReturn, years, totalReturn: totalReturn * 100 };
+  };
+
+  const returnData = calculateAnnualizedReturn();
 
   return (
     <div className="relative overflow-hidden">
