@@ -19,16 +19,16 @@ export default function Pricing() {
   const yearlySavings = (monthlyPrice * 12) - yearlyPrice;
 
   const features = [
-    'Unlimited asset tracking',
+    'Everything in one place',
     'Real-time BTC price updates',
-    'Tax lot optimization (FIFO, LIFO, HIFO, AVG)',
+    'Save on taxes with cost basis tracking (FIFO, LIFO, HIFO, AVG)',
+    'Reduce fees with exchange comparison',
+    'Custody & asset organization',
     'Monte Carlo retirement simulations',
     'DCA planning & allocation tools',
-    'Fee analysis & comparison',
     'Estate planning & recovery protocols',
     'Multi-account support (401k, IRA, taxable)',
     'Export tax reports (Form 8949)',
-    'Priority support',
   ];
 
   return (
