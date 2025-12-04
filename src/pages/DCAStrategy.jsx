@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
-import { Plus, Pencil, Trash2, ArrowUpRight, Bitcoin, TrendingUp, Calendar, Play, Pause, Info, PieChart, DollarSign, Calculator } from 'lucide-react';
+import { Plus, Pencil, Trash2, ArrowUpRight, Bitcoin, TrendingUp, Calendar, Play, Pause, Info, PieChart, Calculator } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,7 +16,7 @@ import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger }
 import { cn } from "@/lib/utils";
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
-import FeeAnalyzer from '@/components/investing/FeeAnalyzer';
+
 import DCAvsLumpSum from '@/components/investing/DCAvsLumpSum';
 
 export default function DCAStrategy() {
