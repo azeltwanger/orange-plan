@@ -1107,7 +1107,7 @@ export default function TaxCenter() {
               <div className="space-y-3">
                 {harvestLossOpportunities.map((lot) => {
                   const lotValue = lot.currentValue;
-                  const lotFees = lotValue * 2 * (DEFAULT_ROUND_TRIP_FEE_PERCENT / 100);
+                  const lotFees = lotValue * (avgFeePercent / 100);
                   const lotTaxSavings = Math.abs(lot.unrealizedGain) * effectiveSTCGRate;
                   const lotNetBenefit = lotTaxSavings - lotFees;
                   
@@ -1176,7 +1176,7 @@ export default function TaxCenter() {
                 <div>
                   <p className="text-sm text-zinc-300">Est. Trading Fees</p>
                   <p className="text-xl font-bold text-amber-400">-${washTradeAnalysis.gain.tradingFees.toLocaleString()}</p>
-                  <p className="text-xs text-zinc-400">{DEFAULT_ROUND_TRIP_FEE_PERCENT}% round trip</p>
+                  <p className="text-xs text-zinc-400">{avgFeePercent.toFixed(1)}% round trip</p>
                 </div>
                 <div>
                   <p className="text-sm text-zinc-300">Net Benefit (vs 15% future)</p>
@@ -1190,7 +1190,7 @@ export default function TaxCenter() {
             {canHarvestGainsTaxFree && !washTradeAnalysis.gain.isWorthwhile && washTradeAnalysis.gain.optimalHarvest > 0 && (
               <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 mb-6">
                 <p className="text-sm text-amber-400">
-                  ⚠️ Trading fees may exceed future tax savings at {DEFAULT_ROUND_TRIP_FEE_PERCENT}% round-trip cost. 
+                  ⚠️ Trading fees may exceed future tax savings at {avgFeePercent.toFixed(1)}% round-trip cost. 
                   Consider a lower-fee exchange to make harvesting worthwhile.
                 </p>
               </div>
