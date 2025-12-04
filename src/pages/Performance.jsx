@@ -105,12 +105,20 @@ export default function Performance() {
     }
   }, [cryptoTickers]);
 
+  // Calculate days since first transaction for ALL timeframe
+  const daysSinceFirstTx = useMemo(() => {
+    if (!transactionStats.firstTxDate) return 365;
+    const firstDate = parseDate(transactionStats.firstTxDate);
+    if (!firstDate) return 365;
+    return Math.max(differenceInDays(new Date(), firstDate), 30);
+  }, [transactionStats.firstTxDate]);
+
   // Fetch historical prices for all crypto assets based on timeframe
   useEffect(() => {
     const fetchHistoricalPrices = async () => {
       try {
-        const daysMap = { '1M': 30, '3M': 90, '6M': 180, '1Y': 365, '3Y': 1095, '5Y': 1825, '10Y': 3650, 'ALL': 'max' };
-        const days = daysMap[timeframe] || 365;
+        const daysMap = { '1M': 30, '3M': 90, '6M': 180, '1Y': 365, '3Y': 1095, '5Y': 1825, '10Y': 3650 };
+        const days = timeframe === 'ALL' ? daysSinceFirstTx : (daysMap[timeframe] || 365);
         
         const priceData = {};
         
@@ -148,8 +156,8 @@ export default function Performance() {
       if (stockTickers.length === 0) return;
       
       try {
-        const daysMap = { '1M': 30, '3M': 90, '6M': 180, '1Y': 365, '3Y': 1095, '5Y': 1825, '10Y': 3650, 'ALL': 'max' };
-        const days = daysMap[timeframe] || 365;
+        const daysMap = { '1M': 30, '3M': 90, '6M': 180, '1Y': 365, '3Y': 1095, '5Y': 1825, '10Y': 3650 };
+        const days = timeframe === 'ALL' ? daysSinceFirstTx : (daysMap[timeframe] || 365);
         
         const response = await base44.functions.invoke('getStockPrices', {
           tickers: stockTickers,
