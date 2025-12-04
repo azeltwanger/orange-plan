@@ -209,13 +209,13 @@ export default function AddAssetWithTransaction({
                   <SelectTrigger className="bg-zinc-900 border-zinc-800">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-zinc-900 border-zinc-800">
-                    <SelectItem value="crypto">Crypto</SelectItem>
-                    <SelectItem value="cash">Cash</SelectItem>
-                    <SelectItem value="stocks">Stocks</SelectItem>
-                    <SelectItem value="real_estate">Real Estate</SelectItem>
-                    <SelectItem value="bonds">Bonds</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
+                  <SelectContent className="bg-zinc-900 border-zinc-800 text-zinc-100">
+                    <SelectItem value="crypto" className="text-zinc-100">Crypto</SelectItem>
+                    <SelectItem value="cash" className="text-zinc-100">Cash</SelectItem>
+                    <SelectItem value="stocks" className="text-zinc-100">Stocks</SelectItem>
+                    <SelectItem value="real_estate" className="text-zinc-100">Real Estate</SelectItem>
+                    <SelectItem value="bonds" className="text-zinc-100">Bonds</SelectItem>
+                    <SelectItem value="other" className="text-zinc-100">Other</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -413,7 +413,12 @@ export default function AddAssetWithTransaction({
                       </div>
 
                       <div className="space-y-1">
-                        <Label className="text-xs text-zinc-500">Exchange</Label>
+                        <Label className="text-xs text-zinc-500">
+                          {assetData.asset_type === 'crypto' ? 'Exchange' : 
+                           assetData.asset_type === 'stocks' ? 'Brokerage' : 
+                           assetData.asset_type === 'real_estate' ? 'Platform/Agent' :
+                           assetData.asset_type === 'bonds' ? 'Brokerage' : 'Source'}
+                        </Label>
                         <Select
                           value={lot.exchange_or_wallet}
                           onValueChange={(value) => updateLot(lot.id, 'exchange_or_wallet', value)}
@@ -421,14 +426,42 @@ export default function AddAssetWithTransaction({
                           <SelectTrigger className="bg-zinc-900 border-zinc-800 h-9 text-sm">
                             <SelectValue placeholder="Select..." />
                           </SelectTrigger>
-                          <SelectContent className="bg-zinc-900 border-zinc-800">
-                            <SelectItem value="coinbase">Coinbase</SelectItem>
-                            <SelectItem value="kraken">Kraken</SelectItem>
-                            <SelectItem value="strike">Strike</SelectItem>
-                            <SelectItem value="cash_app">Cash App</SelectItem>
-                            <SelectItem value="swan">Swan Bitcoin</SelectItem>
-                            <SelectItem value="river">River</SelectItem>
-                            <SelectItem value="other">Other</SelectItem>
+                          <SelectContent className="bg-zinc-900 border-zinc-800 text-zinc-100">
+                            {assetData.asset_type === 'crypto' ? (
+                              <>
+                                <SelectItem value="coinbase" className="text-zinc-100">Coinbase</SelectItem>
+                                <SelectItem value="kraken" className="text-zinc-100">Kraken</SelectItem>
+                                <SelectItem value="strike" className="text-zinc-100">Strike</SelectItem>
+                                <SelectItem value="cash_app" className="text-zinc-100">Cash App</SelectItem>
+                                <SelectItem value="swan" className="text-zinc-100">Swan Bitcoin</SelectItem>
+                                <SelectItem value="river" className="text-zinc-100">River</SelectItem>
+                                <SelectItem value="other" className="text-zinc-100">Other</SelectItem>
+                              </>
+                            ) : assetData.asset_type === 'stocks' || assetData.asset_type === 'bonds' ? (
+                              <>
+                                <SelectItem value="fidelity" className="text-zinc-100">Fidelity</SelectItem>
+                                <SelectItem value="schwab" className="text-zinc-100">Charles Schwab</SelectItem>
+                                <SelectItem value="vanguard" className="text-zinc-100">Vanguard</SelectItem>
+                                <SelectItem value="etrade" className="text-zinc-100">E*TRADE</SelectItem>
+                                <SelectItem value="robinhood" className="text-zinc-100">Robinhood</SelectItem>
+                                <SelectItem value="td_ameritrade" className="text-zinc-100">TD Ameritrade</SelectItem>
+                                <SelectItem value="interactive_brokers" className="text-zinc-100">Interactive Brokers</SelectItem>
+                                <SelectItem value="other" className="text-zinc-100">Other</SelectItem>
+                              </>
+                            ) : assetData.asset_type === 'real_estate' ? (
+                              <>
+                                <SelectItem value="direct" className="text-zinc-100">Direct Purchase</SelectItem>
+                                <SelectItem value="fundrise" className="text-zinc-100">Fundrise</SelectItem>
+                                <SelectItem value="realty_mogul" className="text-zinc-100">RealtyMogul</SelectItem>
+                                <SelectItem value="other" className="text-zinc-100">Other</SelectItem>
+                              </>
+                            ) : (
+                              <>
+                                <SelectItem value="bank" className="text-zinc-100">Bank</SelectItem>
+                                <SelectItem value="brokerage" className="text-zinc-100">Brokerage</SelectItem>
+                                <SelectItem value="other" className="text-zinc-100">Other</SelectItem>
+                              </>
+                            )}
                           </SelectContent>
                         </Select>
                       </div>
