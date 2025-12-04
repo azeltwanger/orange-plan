@@ -360,21 +360,27 @@ export default function CsvImportDialog({ open, onClose }) {
       stats.duplicatesSkipped = duplicatesSkipped;
       setImportStats(stats);
 
-      // Create transactions one by one to skip any that fail (duplicates, etc.)
-      let successfulTransactions = [];
-      for (const tx of transactions) {
-        try {
-          // Add account_type to each transaction
-          await base44.entities.Transaction.create({
-            ...tx,
-            account_type: accountType,
-          });
-          successfulTransactions.push(tx);
-        } catch (err) {
-          // Skip failed transactions (likely duplicates)
-          stats.duplicatesSkipped = (stats.duplicatesSkipped || 0) + 1;
+      // Use bulk create for efficiency
+      const transactionsToCreate = transactions.map(tx => ({
+        ...tx,
+        account_type: accountType,
+      }));
+      
+      try {
+        await base44.entities.Transaction.bulkCreate(transactionsToCreate);
+      } catch (err) {
+        console.error('Bulk create failed, trying individually:', err);
+        // Fallback to individual creates if bulk fails
+        for (const tx of transactionsToCreate) {
+          try {
+            await base44.entities.Transaction.create(tx);
+          } catch (innerErr) {
+            stats.duplicatesSkipped = (stats.duplicatesSkipped || 0) + 1;
+          }
         }
       }
+      
+      const successfulTransactions = transactions;
 
       // Sync Holdings - aggregate by ticker (only for successful transactions)
       const holdingUpdates = {};
