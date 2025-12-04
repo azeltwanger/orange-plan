@@ -309,7 +309,7 @@ export default function Goals() {
                   <span className="text-zinc-400">{formatNumber(total.current)}</span>
                   <span className={config.textClass}>{formatNumber(total.target)}</span>
                 </div>
-                <Progress value={Math.min(100, progress)} className="h-2 bg-zinc-800" />
+                <Progress value={Math.min(100, progress)} className={cn("h-2 bg-zinc-800", key === 'emergency' && "[&>div]:bg-emerald-500", key === 'goals' && "[&>div]:bg-blue-500", key === 'longterm' && "[&>div]:bg-orange-500")} />
               </div>
 
               {/* Expanded Goals List */}
