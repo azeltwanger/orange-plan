@@ -69,6 +69,8 @@ const LOT_METHODS = {
   FIFO: { name: 'FIFO', description: 'First In, First Out - Sell oldest lots first' },
   LIFO: { name: 'LIFO', description: 'Last In, First Out - Sell newest lots first' },
   HIFO: { name: 'HIFO', description: 'Highest In, First Out - Minimize gains by selling highest cost basis first' },
+  LOFO: { name: 'LOFO', description: 'Lowest In, First Out - Maximize gains (useful for loss harvesting)' },
+  AVG: { name: 'Average Cost', description: 'Use average cost basis across all lots' },
   SPECIFIC: { name: 'Specific ID', description: 'Manually select which lots to sell' },
 };
 
@@ -218,6 +220,7 @@ export default function TaxCenter() {
   const resetForm = () => {
     setFormData({ type: 'buy', asset_ticker: 'BTC', quantity: '', price_per_unit: '', date: format(new Date(), 'yyyy-MM-dd'), exchange_or_wallet: '', notes: '' });
     setSaleForm({ quantity: '', price_per_unit: '', date: format(new Date(), 'yyyy-MM-dd'), fee: '', lot_method: 'HIFO', selected_lots: [], exchange_or_wallet: '' });
+    setSpecificLotQuantities({});
   };
 
   useEffect(() => {
@@ -297,12 +300,20 @@ export default function TaxCenter() {
       case 'FIFO': return [...lots].sort((a, b) => new Date(a.date) - new Date(b.date));
       case 'LIFO': return [...lots].sort((a, b) => new Date(b.date) - new Date(a.date));
       case 'HIFO': return [...lots].sort((a, b) => (b.price_per_unit || 0) - (a.price_per_unit || 0));
+      case 'LOFO': return [...lots].sort((a, b) => (a.price_per_unit || 0) - (b.price_per_unit || 0));
       default: return lots;
     }
   };
 
+  // Calculate average cost basis across all lots
+  const calculateAverageCostBasis = (lots) => {
+    const totalQuantity = lots.reduce((sum, lot) => sum + lot.remainingQuantity, 0);
+    const totalCost = lots.reduce((sum, lot) => sum + (lot.remainingQuantity * (lot.price_per_unit || 0)), 0);
+    return totalQuantity > 0 ? totalCost / totalQuantity : 0;
+  };
+
   // Calculate sale outcome for different methods
-  const calculateSaleOutcome = (saleQty, salePricePerUnit, fee, method, selectedLots = []) => {
+  const calculateSaleOutcome = (saleQty, salePricePerUnit, fee, method, selectedLots = [], specificLotQuantities = {}) => {
     const saleProceeds = (saleQty * salePricePerUnit) - (parseFloat(fee) || 0);
     let remainingQty = saleQty;
     let totalCostBasis = 0;
@@ -310,18 +321,73 @@ export default function TaxCenter() {
     let hasShortTerm = false;
     const lotsUsed = [];
 
-    const lotsToUse = method === 'SPECIFIC' && selectedLots.length > 0
-      ? taxLots.filter(l => selectedLots.includes(l.id))
-      : sortLotsByMethod(taxLots, method);
+    // Handle Average Cost method
+    if (method === 'AVG') {
+      const avgCost = calculateAverageCostBasis(taxLots);
+      const totalAvailable = taxLots.reduce((sum, lot) => sum + lot.remainingQuantity, 0);
+      
+      if (saleQty <= totalAvailable) {
+        totalCostBasis = saleQty * avgCost;
+        // For avg cost, determine holding period based on weighted average of lots
+        let longTermQty = 0;
+        let shortTermQty = 0;
+        taxLots.forEach(lot => {
+          if (lot.isLongTerm) longTermQty += lot.remainingQuantity;
+          else shortTermQty += lot.remainingQuantity;
+        });
+        // Proportionally allocate the sale
+        const longTermRatio = longTermQty / totalAvailable;
+        hasLongTerm = longTermRatio > 0.5;
+        hasShortTerm = longTermRatio <= 0.5;
+        remainingQty = 0;
+        
+        // For avg cost, we don't track specific lots used, just the total
+        lotsUsed.push({
+          id: 'avg-cost',
+          date: 'Various',
+          price_per_unit: avgCost,
+          remainingQuantity: saleQty,
+          qtyUsed: saleQty,
+          isLongTerm: hasLongTerm,
+          isAvgCost: true,
+        });
+      }
+    }
+    // Handle Specific ID method with custom quantities per lot
+    else if (method === 'SPECIFIC' && selectedLots.length > 0) {
+      const lotsToUse = taxLots.filter(l => selectedLots.includes(l.id));
+      
+      for (const lot of lotsToUse) {
+        if (remainingQty <= 0) break;
+        
+        // Use specific quantity if provided, otherwise use as much as needed/available
+        const specifiedQty = specificLotQuantities[lot.id];
+        const qtyFromLot = specifiedQty !== undefined 
+          ? Math.min(specifiedQty, lot.remainingQuantity, remainingQty)
+          : Math.min(remainingQty, lot.remainingQuantity);
+        
+        if (qtyFromLot > 0) {
+          totalCostBasis += qtyFromLot * (lot.price_per_unit || 0);
+          if (lot.isLongTerm) hasLongTerm = true;
+          else hasShortTerm = true;
+          lotsUsed.push({ ...lot, qtyUsed: qtyFromLot });
+          remainingQty -= qtyFromLot;
+        }
+      }
+    }
+    // Handle FIFO, LIFO, HIFO, LOFO
+    else {
+      const lotsToUse = sortLotsByMethod(taxLots, method);
 
-    for (const lot of lotsToUse) {
-      if (remainingQty <= 0) break;
-      const qtyFromLot = Math.min(remainingQty, lot.remainingQuantity);
-      totalCostBasis += qtyFromLot * (lot.price_per_unit || 0);
-      if (lot.isLongTerm) hasLongTerm = true;
-      else hasShortTerm = true;
-      lotsUsed.push({ ...lot, qtyUsed: qtyFromLot });
-      remainingQty -= qtyFromLot;
+      for (const lot of lotsToUse) {
+        if (remainingQty <= 0) break;
+        const qtyFromLot = Math.min(remainingQty, lot.remainingQuantity);
+        totalCostBasis += qtyFromLot * (lot.price_per_unit || 0);
+        if (lot.isLongTerm) hasLongTerm = true;
+        else hasShortTerm = true;
+        lotsUsed.push({ ...lot, qtyUsed: qtyFromLot });
+        remainingQty -= qtyFromLot;
+      }
     }
 
     const realizedGain = saleProceeds - totalCostBasis;
@@ -335,8 +401,12 @@ export default function TaxCenter() {
       holdingPeriod,
       lotsUsed,
       isComplete: remainingQty <= 0,
+      avgCostBasis: method === 'AVG' ? calculateAverageCostBasis(taxLots) : null,
     };
   };
+
+  // State for specific lot quantities
+  const [specificLotQuantities, setSpecificLotQuantities] = useState({});
 
   // Calculate outcomes for all methods
   const saleOutcomes = useMemo(() => {
@@ -349,9 +419,11 @@ export default function TaxCenter() {
       FIFO: calculateSaleOutcome(qty, price, fee, 'FIFO'),
       LIFO: calculateSaleOutcome(qty, price, fee, 'LIFO'),
       HIFO: calculateSaleOutcome(qty, price, fee, 'HIFO'),
-      SPECIFIC: calculateSaleOutcome(qty, price, fee, 'SPECIFIC', saleForm.selected_lots),
+      LOFO: calculateSaleOutcome(qty, price, fee, 'LOFO'),
+      AVG: calculateSaleOutcome(qty, price, fee, 'AVG'),
+      SPECIFIC: calculateSaleOutcome(qty, price, fee, 'SPECIFIC', saleForm.selected_lots, specificLotQuantities),
     };
-  }, [saleForm.quantity, saleForm.price_per_unit, saleForm.fee, saleForm.selected_lots, taxLots]);
+  }, [saleForm.quantity, saleForm.price_per_unit, saleForm.fee, saleForm.selected_lots, specificLotQuantities, taxLots]);
 
   const handleSaleSubmit = (e) => {
     e.preventDefault();
@@ -1245,7 +1317,10 @@ export default function TaxCenter() {
             {/* Lot Selection Method */}
             <div className="space-y-4">
               <Label className="text-zinc-400">Cost Basis Method</Label>
-              <RadioGroup value={saleForm.lot_method} onValueChange={(value) => setSaleForm({ ...saleForm, lot_method: value })} className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <RadioGroup value={saleForm.lot_method} onValueChange={(value) => {
+                setSaleForm({ ...saleForm, lot_method: value, selected_lots: [] });
+                setSpecificLotQuantities({});
+              }} className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {Object.entries(LOT_METHODS).map(([key, method]) => (
                   <div key={key} className={cn(
                     "flex items-center space-x-2 p-3 rounded-xl border cursor-pointer transition-all",
@@ -1253,7 +1328,10 @@ export default function TaxCenter() {
                   )}>
                     <RadioGroupItem value={key} id={key} />
                     <Label htmlFor={key} className="cursor-pointer">
-                      <span className="font-medium">{method.name}</span>
+                      <div>
+                        <span className="font-medium text-sm">{method.name}</span>
+                        <p className="text-[10px] text-zinc-500 mt-0.5">{method.description}</p>
+                      </div>
                     </Label>
                   </div>
                 ))}
@@ -1264,39 +1342,39 @@ export default function TaxCenter() {
             {saleOutcomes && (
               <div className="space-y-4">
                 <Label className="text-zinc-400">Tax Impact Comparison</Label>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  {['FIFO', 'LIFO', 'HIFO'].map(method => {
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                  {['FIFO', 'LIFO', 'HIFO', 'LOFO', 'AVG'].map(method => {
                     const outcome = saleOutcomes[method];
                     const isSelected = saleForm.lot_method === method;
-                    const isBest = method === 'HIFO'; // Simplified - HIFO usually minimizes gains
+                    
+                    // Find lowest gain method
+                    const allGains = ['FIFO', 'LIFO', 'HIFO', 'LOFO', 'AVG'].map(m => saleOutcomes[m]?.realizedGain ?? Infinity);
+                    const lowestGain = Math.min(...allGains);
+                    const isBest = outcome.realizedGain === lowestGain && outcome.isComplete;
                     
                     return (
                       <div key={method} className={cn(
-                        "p-4 rounded-xl border transition-all cursor-pointer",
+                        "p-3 rounded-xl border transition-all cursor-pointer",
                         isSelected ? "border-orange-400/50 bg-orange-500/10" : "border-zinc-800 hover:border-zinc-700"
                       )} onClick={() => setSaleForm({ ...saleForm, lot_method: method })}>
                         <div className="flex items-center justify-between mb-2">
-                          <span className="font-semibold">{method}</span>
-                          {isBest && <Badge className="bg-emerald-500/20 text-emerald-400 text-xs">Lowest Tax</Badge>}
+                          <span className="font-semibold text-sm">{LOT_METHODS[method].name}</span>
+                          {isBest && <Badge className="bg-emerald-500/20 text-emerald-400 text-[10px]">Best</Badge>}
                         </div>
-                        <div className="space-y-1 text-sm">
+                        <div className="space-y-1 text-xs">
                           <div className="flex justify-between">
-                            <span className="text-zinc-500">Proceeds</span>
-                            <span>${outcome.saleProceeds.toLocaleString()}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-zinc-500">Cost Basis</span>
+                            <span className="text-zinc-500">Basis</span>
                             <span>${outcome.totalCostBasis.toLocaleString()}</span>
                           </div>
                           <div className="flex justify-between pt-1 border-t border-zinc-800">
-                            <span className="text-zinc-400">Gain/Loss</span>
+                            <span className="text-zinc-400">Gain</span>
                             <span className={cn("font-semibold", outcome.realizedGain >= 0 ? "text-emerald-400" : "text-rose-400")}>
                               {outcome.realizedGain >= 0 ? '+' : ''}${outcome.realizedGain.toLocaleString()}
                             </span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-zinc-500">Term</span>
-                            <span className={outcome.holdingPeriod === 'long_term' ? "text-emerald-400" : "text-amber-400"}>
+                            <span className={cn("text-[10px]", outcome.holdingPeriod === 'long_term' ? "text-emerald-400" : "text-amber-400")}>
                               {outcome.holdingPeriod === 'long_term' ? 'Long' : 'Short'}
                             </span>
                           </div>
@@ -1308,17 +1386,119 @@ export default function TaxCenter() {
               </div>
             )}
 
+            {/* Specific Lot Selection */}
+            {saleForm.lot_method === 'SPECIFIC' && (
+              <div className="space-y-4">
+                <Label className="text-zinc-400">Select Lots to Sell</Label>
+                <div className="max-h-64 overflow-y-auto space-y-2 p-2 rounded-xl bg-zinc-900/50 border border-zinc-800">
+                  {taxLots.length === 0 ? (
+                    <p className="text-sm text-zinc-500 text-center py-4">No lots available</p>
+                  ) : (
+                    taxLots.map(lot => {
+                      const isSelected = saleForm.selected_lots.includes(lot.id);
+                      const specifiedQty = specificLotQuantities[lot.id] || '';
+                      
+                      return (
+                        <div key={lot.id} className={cn(
+                          "p-3 rounded-lg border transition-all",
+                          isSelected ? "border-orange-400/50 bg-orange-500/5" : "border-zinc-800 hover:border-zinc-700"
+                        )}>
+                          <div className="flex items-start gap-3">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSaleForm({ ...saleForm, selected_lots: [...saleForm.selected_lots, lot.id] });
+                                } else {
+                                  setSaleForm({ ...saleForm, selected_lots: saleForm.selected_lots.filter(id => id !== lot.id) });
+                                  setSpecificLotQuantities(prev => {
+                                    const updated = { ...prev };
+                                    delete updated[lot.id];
+                                    return updated;
+                                  });
+                                }
+                              }}
+                              className="mt-1 rounded border-zinc-600"
+                            />
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <p className="text-sm font-medium">{lot.remainingQuantity.toFixed(8)} BTC available</p>
+                                  <p className="text-xs text-zinc-500">
+                                    Bought {lot.date && format(new Date(lot.date), 'MMM d, yyyy')} @ ${(lot.price_per_unit || 0).toLocaleString()}
+                                  </p>
+                                </div>
+                                <div className="text-right">
+                                  <Badge variant="outline" className={cn("text-[10px]", lot.isLongTerm ? 'border-emerald-400/50 text-emerald-400' : 'border-amber-400/50 text-amber-400')}>
+                                    {lot.isLongTerm ? 'Long-term' : `${lot.daysSincePurchase}d`}
+                                  </Badge>
+                                  <p className={cn("text-xs mt-1", lot.unrealizedGain >= 0 ? "text-emerald-400" : "text-rose-400")}>
+                                    {lot.unrealizedGain >= 0 ? '+' : ''}{lot.unrealizedGainPercent.toFixed(1)}%
+                                  </p>
+                                </div>
+                              </div>
+                              {isSelected && (
+                                <div className="mt-2 flex items-center gap-2">
+                                  <Label className="text-xs text-zinc-500">Qty to sell:</Label>
+                                  <Input
+                                    type="number"
+                                    step="any"
+                                    placeholder={`Max ${lot.remainingQuantity.toFixed(8)}`}
+                                    value={specifiedQty}
+                                    onChange={(e) => setSpecificLotQuantities(prev => ({
+                                      ...prev,
+                                      [lot.id]: parseFloat(e.target.value) || 0
+                                    }))}
+                                    className="h-7 text-xs bg-zinc-900 border-zinc-700 w-40"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => setSpecificLotQuantities(prev => ({
+                                      ...prev,
+                                      [lot.id]: lot.remainingQuantity
+                                    }))}
+                                    className="text-xs text-orange-400 hover:underline"
+                                  >
+                                    Use all
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+                {saleForm.selected_lots.length > 0 && (
+                  <div className="p-3 rounded-lg bg-zinc-800/30 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-zinc-400">Selected lots:</span>
+                      <span>{saleForm.selected_lots.length}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-zinc-400">Total from selected:</span>
+                      <span>
+                        {Object.values(specificLotQuantities).reduce((sum, qty) => sum + (qty || 0), 0).toFixed(8)} BTC
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Selected Method Summary */}
             {saleOutcomes && saleOutcomes[saleForm.lot_method] && (
               <div className="p-4 rounded-xl bg-zinc-800/50 border border-zinc-700">
-                <h4 className="font-semibold mb-3">Sale Summary ({saleForm.lot_method})</h4>
+                <h4 className="font-semibold mb-3">Sale Summary ({LOT_METHODS[saleForm.lot_method].name})</h4>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div>
                     <p className="text-sm text-zinc-500">Sale Proceeds</p>
                     <p className="text-lg font-semibold">${saleOutcomes[saleForm.lot_method].saleProceeds.toLocaleString()}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-zinc-500">Cost Basis</p>
+                    <p className="text-sm text-zinc-500">Cost Basis {saleForm.lot_method === 'AVG' && `(Avg: $${saleOutcomes[saleForm.lot_method].avgCostBasis?.toLocaleString()})`}</p>
                     <p className="text-lg font-semibold">${saleOutcomes[saleForm.lot_method].totalCostBasis.toLocaleString()}</p>
                   </div>
                   <div>
@@ -1337,6 +1517,27 @@ export default function TaxCenter() {
                     </p>
                   </div>
                 </div>
+                {/* Show lots being used */}
+                {saleOutcomes[saleForm.lot_method].lotsUsed.length > 0 && !saleOutcomes[saleForm.lot_method].lotsUsed[0]?.isAvgCost && (
+                  <div className="mt-4 pt-4 border-t border-zinc-700">
+                    <p className="text-sm text-zinc-400 mb-2">Lots to be used:</p>
+                    <div className="space-y-1 text-xs max-h-32 overflow-y-auto">
+                      {saleOutcomes[saleForm.lot_method].lotsUsed.map((lot, i) => (
+                        <div key={i} className="flex justify-between p-2 rounded bg-zinc-900/50">
+                          <span>{lot.qtyUsed.toFixed(8)} BTC @ ${(lot.price_per_unit || 0).toLocaleString()}</span>
+                          <span className={lot.isLongTerm ? "text-emerald-400" : "text-amber-400"}>
+                            {lot.isLongTerm ? 'LT' : 'ST'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {!saleOutcomes[saleForm.lot_method].isComplete && (
+                  <div className="mt-3 p-2 rounded bg-rose-500/10 border border-rose-500/20">
+                    <p className="text-sm text-rose-400">⚠️ Insufficient lots to complete this sale</p>
+                  </div>
+                )}
               </div>
             )}
 
