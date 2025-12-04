@@ -292,6 +292,13 @@ export default function CsvImportDialog({ open, onClose }) {
     );
   }, [mapping, csvHeaders]);
 
+  // Fetch existing holdings
+  const { data: existingHoldings = [] } = useQuery({
+    queryKey: ['holdings'],
+    queryFn: () => base44.entities.Holding.list(),
+    enabled: open,
+  });
+
   const importTransactions = useMutation({
     mutationFn: async () => {
       // Parse all data
@@ -321,13 +328,58 @@ export default function CsvImportDialog({ open, onClose }) {
       const { transactions, stats } = processTransactionsWithLots(rawTransactions, lotMethod);
       setImportStats(stats);
 
-      // Bulk create
+      // Bulk create transactions
       await base44.entities.Transaction.bulkCreate(transactions);
+
+      // Sync Holdings - aggregate by ticker
+      const holdingUpdates = {};
+      for (const tx of transactions) {
+        const ticker = tx.asset_ticker;
+        if (!holdingUpdates[ticker]) {
+          holdingUpdates[ticker] = { quantity: 0, costBasis: 0, lastPrice: tx.price_per_unit };
+        }
+        if (tx.type === 'buy') {
+          holdingUpdates[ticker].quantity += tx.quantity;
+          holdingUpdates[ticker].costBasis += tx.cost_basis || (tx.quantity * tx.price_per_unit);
+        } else if (tx.type === 'sell') {
+          holdingUpdates[ticker].quantity -= tx.quantity;
+          // Cost basis reduces proportionally on sell (simplified)
+        }
+        holdingUpdates[ticker].lastPrice = tx.price_per_unit;
+      }
+
+      // Update or create holdings
+      for (const [ticker, data] of Object.entries(holdingUpdates)) {
+        const existingHolding = existingHoldings.find(h => h.ticker === ticker);
+        if (existingHolding) {
+          // Update existing holding
+          const newQty = Math.max(0, (existingHolding.quantity || 0) + data.quantity);
+          const newCostBasis = (existingHolding.cost_basis_total || 0) + data.costBasis;
+          await base44.entities.Holding.update(existingHolding.id, {
+            quantity: newQty,
+            cost_basis_total: newCostBasis,
+            current_price: data.lastPrice,
+          });
+        } else if (data.quantity > 0) {
+          // Create new holding
+          await base44.entities.Holding.create({
+            asset_name: ticker,
+            asset_type: ['BTC', 'ETH', 'SOL', 'XRP', 'ADA', 'DOGE', 'DOT', 'AVAX', 'MATIC', 'LINK', 'LTC'].includes(ticker) ? 'crypto' : 'stocks',
+            ticker: ticker,
+            quantity: data.quantity,
+            current_price: data.lastPrice,
+            cost_basis_total: data.costBasis,
+            account_type: 'taxable',
+          });
+        }
+      }
+
       return { count: transactions.length, stats };
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['holdings'] });
+      queryClient.invalidateQueries({ queryKey: ['budgetItems'] });
       toast.success(`Imported ${data.count} transactions successfully!`);
       setStep(4); // Show summary
     },
