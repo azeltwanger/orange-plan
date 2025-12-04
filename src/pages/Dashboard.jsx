@@ -73,13 +73,22 @@ export default function Dashboard() {
     queryFn: () => base44.entities.Transaction.list(),
   });
 
-  // Get lot counts per ticker
-  const lotCountsByTicker = transactions
+  // Get lot counts per ticker AND account type (key = "ticker|account_type")
+  const lotCountsByTickerAndAccount = transactions
     .filter(t => t.type === 'buy')
     .reduce((acc, t) => {
-      acc[t.asset_ticker] = (acc[t.asset_ticker] || 0) + 1;
+      const accountType = t.account_type || 'taxable';
+      const key = `${t.asset_ticker}|${accountType}`;
+      acc[key] = (acc[key] || 0) + 1;
       return acc;
     }, {});
+
+  // Helper to get lot count for a holding
+  const getLotCount = (holding) => {
+    const accountType = holding.account_type || 'taxable';
+    const key = `${holding.ticker}|${accountType}`;
+    return lotCountsByTickerAndAccount[key] || 0;
+  };
 
   const createHolding = useMutation({
     mutationFn: async ({ holding, transactions }) => {
@@ -278,7 +287,7 @@ export default function Dashboard() {
                                     <AssetCard 
                                       holding={holding} 
                                       btcPrice={currentPrice} 
-                                      lotCount={lotCountsByTicker[holding.ticker] || 0} 
+                                      lotCount={getLotCount(holding)} 
                                       onManageLots={() => setLotsDialogHolding(holding)}
                                       livePrice={assetPrices[holding.ticker]?.price}
                                       priceChange24h={holding.ticker === 'BTC' ? priceChange : assetPrices[holding.ticker]?.change24h}
