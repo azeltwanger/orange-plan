@@ -1,46 +1,94 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { TrendingUp, Zap } from 'lucide-react';
 import { cn } from "@/lib/utils";
+import { differenceInDays, parseISO } from 'date-fns';
+
+// Helper to parse various date formats
+const parseDate = (dateStr) => {
+  if (!dateStr) return null;
+  let d = parseISO(dateStr);
+  if (!isNaN(d.getTime())) return d;
+  d = new Date(dateStr);
+  if (!isNaN(d.getTime())) return d;
+  return null;
+};
 
 export default function NetWorthCard({ totalAssets, totalLiabilities, btcHoldings, btcPrice, transactions = [] }) {
   const netWorth = totalAssets - totalLiabilities;
   const btcValue = btcHoldings * btcPrice;
   const btcPercentage = totalAssets > 0 ? (btcValue / totalAssets) * 100 : 0;
 
-  // Calculate annualized return using Modified Dietz method (time-weighted)
-  const calculateAnnualizedReturn = () => {
-    const buyTxs = transactions.filter(t => t.type === 'buy' && t.asset_ticker === 'BTC');
-    if (buyTxs.length === 0) return null;
+  // Calculate Money-Weighted Return (IRR) - same logic as Performance page
+  const returnData = useMemo(() => {
+    const btcTxs = transactions.filter(t => t.asset_ticker === 'BTC');
+    if (btcTxs.length === 0 || btcHoldings <= 0) return null;
 
-    // Sort by date
-    const sortedTxs = [...buyTxs].sort((a, b) => new Date(a.date) - new Date(b.date));
-    const firstDate = new Date(sortedTxs[0].date);
-    const today = new Date();
-    const totalDays = (today - firstDate) / (1000 * 60 * 60 * 24);
-    
-    if (totalDays < 1) return null;
-
-    // Total invested (cost basis)
-    const totalInvested = buyTxs.reduce((sum, t) => sum + (t.quantity * t.price_per_unit), 0);
-    
-    // Current value
+    const now = new Date();
     const currentValue = btcHoldings * btcPrice;
     
-    if (totalInvested <= 0) return null;
-
-    // Simple return
-    const totalReturn = (currentValue - totalInvested) / totalInvested;
+    // Build cash flows: negative for buys, positive for sells
+    const cashFlows = [];
     
-    // Annualize: (1 + total_return) ^ (365 / days) - 1
-    const years = totalDays / 365;
-    const annualizedReturn = years >= 1 
-      ? (Math.pow(1 + totalReturn, 1 / years) - 1) * 100
-      : totalReturn * 100; // For < 1 year, just show actual return
+    for (const tx of btcTxs) {
+      const txDate = parseDate(tx.date);
+      if (!txDate) continue;
+      
+      const yearsAgo = differenceInDays(now, txDate) / 365;
+      const amount = tx.type === 'buy' 
+        ? -(tx.cost_basis || tx.quantity * tx.price_per_unit)
+        : (tx.total_value || tx.quantity * tx.price_per_unit);
+      
+      cashFlows.push({ yearsAgo, amount });
+    }
+    
+    // Add current BTC value as final positive cash flow (at time 0)
+    cashFlows.push({ yearsAgo: 0, amount: currentValue });
+    
+    if (cashFlows.length < 2) return null;
 
-    return { annualizedReturn, years, totalReturn: totalReturn * 100 };
-  };
+    // Get first transaction date for display
+    const sortedTxs = btcTxs
+      .filter(t => parseDate(t.date))
+      .sort((a, b) => parseDate(a.date) - parseDate(b.date));
+    const firstDate = sortedTxs.length > 0 ? parseDate(sortedTxs[0].date) : null;
+    const years = firstDate ? differenceInDays(now, firstDate) / 365 : 0;
+    
+    if (years < 0.01) return null; // Less than ~4 days
+    
+    // Newton-Raphson method to solve for IRR
+    let rate = 0.1; // Initial guess 10%
+    
+    for (let i = 0; i < 100; i++) {
+      let npv = 0;
+      let derivative = 0;
+      
+      for (const cf of cashFlows) {
+        const discountFactor = Math.pow(1 + rate, cf.yearsAgo);
+        npv += cf.amount / discountFactor;
+        derivative -= cf.yearsAgo * cf.amount / Math.pow(1 + rate, cf.yearsAgo + 1);
+      }
+      
+      if (Math.abs(npv) < 0.01) break; // Converged
+      if (Math.abs(derivative) < 0.0001) break; // Avoid division by zero
+      
+      const newRate = rate - npv / derivative;
+      
+      // Clamp to reasonable bounds
+      if (newRate < -0.99) rate = -0.5;
+      else if (newRate > 10) rate = 5;
+      else rate = newRate;
+    }
+    
+    const annualizedReturn = rate * 100;
+    
+    // Calculate simple total return for reference
+    const totalInvested = btcTxs
+      .filter(t => t.type === 'buy')
+      .reduce((sum, t) => sum + (t.cost_basis || t.quantity * t.price_per_unit), 0);
+    const totalReturn = totalInvested > 0 ? ((currentValue - totalInvested) / totalInvested) * 100 : 0;
 
-  const returnData = calculateAnnualizedReturn();
+    return { annualizedReturn, years, totalReturn };
+  }, [transactions, btcHoldings, btcPrice]);
 
   return (
     <div className="relative overflow-hidden">
