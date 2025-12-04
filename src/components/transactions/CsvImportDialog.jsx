@@ -366,21 +366,9 @@ export default function CsvImportDialog({ open, onClose }) {
         account_type: accountType,
       }));
       
-      try {
-        await base44.entities.Transaction.bulkCreate(transactionsToCreate);
-      } catch (err) {
-        console.error('Bulk create failed, trying individually:', err);
-        // Fallback to individual creates if bulk fails
-        for (const tx of transactionsToCreate) {
-          try {
-            await base44.entities.Transaction.create(tx);
-          } catch (innerErr) {
-            stats.duplicatesSkipped = (stats.duplicatesSkipped || 0) + 1;
-          }
-        }
-      }
+      await base44.entities.Transaction.bulkCreate(transactionsToCreate);
       
-      const successfulTransactions = transactions;
+      const successfulTransactions = transactionsToCreate;
 
       // Sync Holdings - aggregate by ticker (only for successful transactions)
       const holdingUpdates = {};
