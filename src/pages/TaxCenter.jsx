@@ -693,8 +693,17 @@ export default function TaxCenter() {
     const totalGainValue = gainLots.reduce((sum, lot) => sum + lot.currentValue, 0);
     const totalHarvestableGain = gainLots.reduce((sum, lot) => sum + lot.unrealizedGain, 0);
     const optimalGainHarvest = Math.min(totalHarvestableGain, ltcgBracketRoom);
+    
+    // Calculate the value we need to sell to realize the optimal gain amount
+    // Sort lots by gain% (highest first) to minimize value traded for given gain
+    const sortedGainLots = [...gainLots].sort((a, b) => {
+      const aGainPercent = a.unrealizedGain / a.currentValue;
+      const bGainPercent = b.unrealizedGain / b.currentValue;
+      return bGainPercent - aGainPercent; // Higher gain% first = less value to trade
+    });
+    
     const optimalGainValue = optimalGainHarvest > 0 
-      ? gainLots.reduce((acc, lot) => {
+      ? sortedGainLots.reduce((acc, lot) => {
           if (acc.remaining <= 0) return acc;
           const gainFromLot = Math.min(lot.unrealizedGain, acc.remaining);
           const valueRatio = gainFromLot / lot.unrealizedGain;
@@ -704,7 +713,11 @@ export default function TaxCenter() {
           };
         }, { remaining: optimalGainHarvest, value: 0 }).value
       : 0;
-    const gainTradingFees = optimalGainValue * 2 * (feePercent / 100); // Round trip
+    
+    // Trading fees are based on the VALUE traded, not the gain
+    // Round trip = sell + rebuy = 2x the value
+    const gainTradingFees = optimalGainValue * 2 * (feePercent / 100);
+    
     // Tax savings = future tax avoided by resetting basis (15% LTCG on future sale)
     const gainFutureTaxSavings = optimalGainHarvest * 0.15; // Assume 15% LTCG in future
     const gainNetBenefit = canHarvestGainsTaxFree ? gainFutureTaxSavings - gainTradingFees : -gainTradingFees;
