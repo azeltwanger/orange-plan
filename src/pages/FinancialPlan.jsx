@@ -1289,7 +1289,7 @@ export default function FinancialPlan() {
 
             {/* Tax Bracket Info */}
             <div className="p-4 rounded-xl bg-zinc-800/30">
-              <p className="text-sm text-zinc-300 mb-2">Tax Assumptions ({filingStatus === 'married' ? 'MFJ' : 'Single'} 2024 brackets)</p>
+              <p className="text-sm text-zinc-300 mb-2">Tax Assumptions ({filingStatus === 'married' ? 'MFJ' : 'Single'} 2025 brackets)</p>
               <div className="grid grid-cols-3 gap-4 text-sm">
                 <div>
                   <p className="text-zinc-500">Standard Deduction</p>
