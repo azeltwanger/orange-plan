@@ -62,8 +62,8 @@ const TAX_BRACKETS_2025 = {
   },
 };
 
-// Default trading fee estimate (round trip: buy + sell)
-const DEFAULT_ROUND_TRIP_FEE_PERCENT = 0.5; // 0.5% total for buy + sell
+// Default trading fee estimate (round trip: buy + sell) - will be overridden by actual avg if available
+const DEFAULT_ROUND_TRIP_FEE_PERCENT = 2.0; // 1% per side = 2% round trip default
 
 // Tax lot selection methods
 const LOT_METHODS = {
@@ -576,7 +576,19 @@ export default function TaxCenter() {
     };
   };
 
-  const washTradeAnalysis = useMemo(() => calculateWashTradeAnalysis(taxLots), [taxLots, effectiveSTCGRate, ltcgBracketRoom, canHarvestGainsTaxFree]);
+  // Calculate average fee percentage from reported transactions
+  const avgFeePercent = useMemo(() => {
+    const txsWithFees = transactions.filter(t => t.trading_fee && t.trading_fee > 0 && t.total_value > 0);
+    if (txsWithFees.length === 0) return DEFAULT_ROUND_TRIP_FEE_PERCENT; // Default 1% per side
+    
+    const totalFeePercent = txsWithFees.reduce((sum, t) => {
+      return sum + (t.trading_fee / t.total_value) * 100;
+    }, 0);
+    const avgPerSide = totalFeePercent / txsWithFees.length;
+    return avgPerSide * 2; // Round trip = 2x per side
+  }, [transactions]);
+
+  const washTradeAnalysis = useMemo(() => calculateWashTradeAnalysis(taxLots, avgFeePercent), [taxLots, avgFeePercent, effectiveSTCGRate, ltcgBracketRoom, canHarvestGainsTaxFree]);
 
   // Generate Form 8949 style report
   const generateTaxReport = () => {
@@ -743,7 +755,7 @@ export default function TaxCenter() {
                   <p className="text-xl font-bold text-orange-400">${washTradeAnalysis.gain.optimalHarvest.toLocaleString()}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-zinc-400">Est. Trading Fees</p>
+                  <p className="text-sm text-zinc-400">Est. Trading Fees ({avgFeePercent.toFixed(1)}%)</p>
                   <p className="text-xl font-bold text-amber-400">-${washTradeAnalysis.gain.tradingFees.toLocaleString()}</p>
                 </div>
                 <div>
@@ -1064,9 +1076,9 @@ export default function TaxCenter() {
                   <p className="text-xl font-bold text-emerald-400">+${washTradeAnalysis.loss.taxSavings.toLocaleString()}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-zinc-400">Est. Trading Fees</p>
+                  <p className="text-sm text-zinc-400">Est. Trading Fees ({avgFeePercent.toFixed(1)}%)</p>
                   <p className="text-xl font-bold text-amber-400">-${washTradeAnalysis.loss.tradingFees.toLocaleString()}</p>
-                  <p className="text-xs text-zinc-500">{DEFAULT_ROUND_TRIP_FEE_PERCENT}% round trip</p>
+                  <p className="text-xs text-zinc-500">{avgFeePercent.toFixed(1)}% round trip</p>
                 </div>
                 <div>
                   <p className="text-sm text-zinc-400">Net Benefit</p>
@@ -1192,7 +1204,7 @@ export default function TaxCenter() {
             ) : (
               <div className="space-y-3">
                 {gainHarvestOpportunities.map((lot) => {
-                  const lotFees = lot.currentValue * 2 * (DEFAULT_ROUND_TRIP_FEE_PERCENT / 100);
+                  const lotFees = lot.currentValue * (avgFeePercent / 100);
                   const lotFutureTaxSavings = lot.unrealizedGain * 0.15; // Future 15% LTCG avoided
                   const lotNetBenefit = canHarvestGainsTaxFree ? lotFutureTaxSavings - lotFees : -lotFees;
                   
