@@ -394,7 +394,7 @@ export default function Performance() {
     }
 
     return dataPoints;
-  }, [transactions, holdings, timeframe, currentValue, totalCostBasis, historicalPrices, currentPrices]);
+  }, [transactions, holdings, timeframe, currentValue, totalCostBasis, historicalPrices, currentPrices, getPriceAtDate]);
 
   const stats = [
     {
