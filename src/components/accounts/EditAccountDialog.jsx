@@ -56,11 +56,22 @@ export default function EditAccountDialog({ open, onClose, account }) {
 
   const deleteAccount = useMutation({
     mutationFn: async () => {
+      // Reassign holdings to unassigned
+      const holdings = await base44.entities.Holding.filter({ account_id: account.id });
+      for (const h of holdings) {
+        await base44.entities.Holding.update(h.id, { account_id: null });
+      }
+      // Reassign transactions to unassigned
+      const transactions = await base44.entities.Transaction.filter({ account_id: account.id });
+      for (const t of transactions) {
+        await base44.entities.Transaction.update(t.id, { account_id: null });
+      }
       return base44.entities.Account.delete(account.id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
       queryClient.invalidateQueries({ queryKey: ['holdings'] });
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
       onClose();
     },
   });
