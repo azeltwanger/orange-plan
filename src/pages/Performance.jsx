@@ -5,16 +5,6 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { TrendingUp, TrendingDown, Calendar, Bitcoin, DollarSign } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format, subMonths, subYears, differenceInDays, parseISO } from 'date-fns';
-
-// Helper to parse various date formats (M/D/YYYY or YYYY-MM-DD)
-const parseDate = (dateStr) => {
-  if (!dateStr) return null;
-  let d = parseISO(dateStr);
-  if (!isNaN(d.getTime())) return d;
-  d = new Date(dateStr);
-  if (!isNaN(d.getTime())) return d;
-  return null;
-};
 import { cn } from "@/lib/utils";
 
 export default function Performance() {
@@ -91,6 +81,18 @@ export default function Performance() {
   const unrealizedGain = currentValue - totalCostBasis + transactionStats.realizedGains;
   const totalReturn = totalCostBasis > 0 ? (unrealizedGain / totalCostBasis) * 100 : 0;
 
+  // Helper to parse various date formats
+  const parseDate = (dateStr) => {
+    if (!dateStr) return null;
+    // Try ISO format first (YYYY-MM-DD)
+    let d = parseISO(dateStr);
+    if (!isNaN(d.getTime())) return d;
+    // Try M/D/YYYY or MM/DD/YYYY format
+    d = new Date(dateStr);
+    if (!isNaN(d.getTime())) return d;
+    return null;
+  };
+
   // Calculate holding period and annualized return
   const holdingDays = useMemo(() => {
     if (!transactionStats.firstTxDate) return 0;
@@ -101,59 +103,27 @@ export default function Performance() {
   
   const holdingYears = holdingDays / 365;
   
-  // Calculate Money-Weighted Return (IRR) - weights each cash flow by timing
+  // Calculate annualized return using CAGR formula
   const annualizedReturn = useMemo(() => {
-    if (transactions.length === 0 || currentValue <= 0) return 0;
+    if (holdingDays < 1 || totalCostBasis <= 0) return 0;
     
-    const now = new Date();
+    const endValue = currentValue + transactionStats.realizedGains;
+    const startValue = totalCostBasis;
     
-    // Build cash flows: negative for buys, positive for sells
-    const cashFlows = [];
+    if (endValue <= 0 || startValue <= 0) return 0;
     
-    for (const tx of transactions) {
-      const txDate = parseDate(tx.date);
-      if (!txDate) continue;
-      
-      const yearsAgo = differenceInDays(now, txDate) / 365;
-      const amount = tx.type === 'buy' 
-        ? -(tx.cost_basis || tx.quantity * tx.price_per_unit)
-        : (tx.total_value || tx.quantity * tx.price_per_unit);
-      
-      cashFlows.push({ yearsAgo, amount });
+    // For periods less than a year, show simple return annualized
+    if (holdingYears < 1) {
+      const simpleReturn = (endValue - startValue) / startValue;
+      // Annualize: (1 + r)^(365/days) - 1
+      const annualized = (Math.pow(1 + simpleReturn, 365 / holdingDays) - 1) * 100;
+      return annualized;
     }
     
-    // Add current portfolio value as final positive cash flow (at time 0)
-    cashFlows.push({ yearsAgo: 0, amount: currentValue });
-    
-    if (cashFlows.length < 2) return 0;
-    
-    // Newton-Raphson method to solve for IRR
-    // NPV = sum of (cashFlow / (1 + r)^t) = 0
-    let rate = 0.1; // Initial guess 10%
-    
-    for (let i = 0; i < 100; i++) {
-      let npv = 0;
-      let derivative = 0;
-      
-      for (const cf of cashFlows) {
-        const discountFactor = Math.pow(1 + rate, cf.yearsAgo);
-        npv += cf.amount / discountFactor;
-        derivative -= cf.yearsAgo * cf.amount / Math.pow(1 + rate, cf.yearsAgo + 1);
-      }
-      
-      if (Math.abs(npv) < 0.01) break; // Converged
-      if (Math.abs(derivative) < 0.0001) break; // Avoid division by zero
-      
-      const newRate = rate - npv / derivative;
-      
-      // Clamp to reasonable bounds
-      if (newRate < -0.99) rate = -0.5;
-      else if (newRate > 10) rate = 5;
-      else rate = newRate;
-    }
-    
-    return rate * 100;
-  }, [transactions, currentValue]);
+    // CAGR for periods >= 1 year
+    const cagr = (Math.pow(endValue / startValue, 1 / holdingYears) - 1) * 100;
+    return cagr;
+  }, [currentValue, totalCostBasis, transactionStats.realizedGains, holdingDays, holdingYears]);
 
   // Generate chart data from actual transactions
   const chartData = useMemo(() => {
