@@ -46,12 +46,12 @@ export default function Dashboard() {
     queryFn: () => base44.entities.Holding.list(),
   });
 
-  // Get unique tickers for price fetching
-  const stockTickers = useMemo(() => {
-    return [...new Set(holdings.filter(h => h.asset_type === 'stocks' && h.ticker && h.ticker !== 'BTC').map(h => h.ticker))];
+  // Get unique tickers for price fetching (stocks and crypto except BTC which is handled separately)
+  const priceTickers = useMemo(() => {
+    return [...new Set(holdings.filter(h => h.ticker && h.ticker !== 'BTC' && (h.asset_type === 'stocks' || h.asset_type === 'crypto')).map(h => h.ticker))];
   }, [holdings]);
 
-  const { prices: assetPrices, loading: pricesLoading } = useAssetPrices(stockTickers);
+  const { prices: assetPrices, loading: pricesLoading } = useAssetPrices(priceTickers);
 
   const { data: budgetItems = [] } = useQuery({
     queryKey: ['budgetItems'],
