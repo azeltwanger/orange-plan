@@ -13,8 +13,9 @@ export default function useAssetPrices(tickers = []) {
         const newPrices = {};
 
         // Separate crypto and stock tickers
-        const cryptoTickers = tickers.filter(t => ['BTC', 'ETH', 'SOL', 'XRP', 'ADA', 'DOGE', 'DOT', 'AVAX', 'MATIC', 'LINK'].includes(t.toUpperCase()));
-        const stockTickers = tickers.filter(t => !cryptoTickers.includes(t));
+        const knownCrypto = ['BTC', 'ETH', 'SOL', 'XRP', 'ADA', 'DOGE', 'DOT', 'AVAX', 'MATIC', 'LINK', 'LTC', 'BCH', 'ATOM', 'UNI', 'SHIB'];
+        const cryptoTickers = tickers.filter(t => knownCrypto.includes(t.toUpperCase()));
+        const stockTickers = tickers.filter(t => !knownCrypto.includes(t.toUpperCase()));
 
         // Fetch crypto prices from CoinGecko
         if (cryptoTickers.length > 0) {
@@ -47,13 +48,11 @@ export default function useAssetPrices(tickers = []) {
           }
         }
 
-        // Fetch stock prices from Yahoo Finance (via a proxy or alternative API)
-        // Using finnhub.io free tier as an example - users would need to add their API key
+        // Fetch stock prices from Yahoo Finance
         if (stockTickers.length > 0) {
-          // For now, we'll use a simple approach with Yahoo Finance unofficial API
           for (const ticker of stockTickers) {
             try {
-              const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=2d`);
+              const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker.toUpperCase()}?interval=1d&range=2d`);
               const data = await response.json();
               
               if (data.chart?.result?.[0]) {
@@ -70,6 +69,29 @@ export default function useAssetPrices(tickers = []) {
             } catch (err) {
               console.warn(`Failed to fetch price for ${ticker}:`, err);
             }
+          }
+        }
+
+        // Also fetch any remaining tickers that aren't known crypto (treat as stocks)
+        const remainingTickers = tickers.filter(t => !cryptoTickers.includes(t) && !stockTickers.includes(t));
+        for (const ticker of remainingTickers) {
+          try {
+            const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker.toUpperCase()}?interval=1d&range=2d`);
+            const data = await response.json();
+            
+            if (data.chart?.result?.[0]) {
+              const result = data.chart.result[0];
+              const currentPrice = result.meta.regularMarketPrice;
+              const previousClose = result.meta.previousClose || result.meta.chartPreviousClose;
+              const change24h = previousClose ? ((currentPrice - previousClose) / previousClose) * 100 : 0;
+              
+              newPrices[ticker.toUpperCase()] = {
+                price: currentPrice,
+                change24h: change24h,
+              };
+            }
+          } catch (err) {
+            console.warn(`Failed to fetch price for ${ticker}:`, err);
           }
         }
 

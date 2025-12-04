@@ -95,6 +95,10 @@ export default function AddAssetWithTransaction({
       });
       setIncludeTransaction(false);
       setStep(1);
+      // Fetch live price for existing asset
+      if (initialData.ticker && (initialData.asset_type === 'stocks' || initialData.asset_type === 'crypto')) {
+        fetchTickerPrice(initialData.ticker, initialData.asset_type);
+      }
     } else {
       resetForm();
     }
