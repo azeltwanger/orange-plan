@@ -53,8 +53,13 @@ export default function Performance() {
     // Calculate realized gains from sells
     const realizedGains = sellTxs.reduce((sum, t) => sum + (t.realized_gain_loss || 0), 0);
     
-    // Get first transaction date
-    const sortedTxs = [...transactions].sort((a, b) => new Date(a.date) - new Date(b.date));
+    // Get first transaction date - filter for valid dates
+    const txsWithValidDates = transactions.filter(t => {
+      if (!t.date) return false;
+      const d = new Date(t.date);
+      return !isNaN(d.getTime());
+    });
+    const sortedTxs = [...txsWithValidDates].sort((a, b) => new Date(a.date) - new Date(b.date));
     const firstTxDate = sortedTxs.length > 0 ? sortedTxs[0].date : null;
     
     return { totalInvested, realizedGains, firstTxDate };
@@ -78,7 +83,11 @@ export default function Performance() {
   const holdingDays = useMemo(() => {
     if (!transactionStats.firstTxDate) return 0;
     try {
-      const firstDate = parseISO(transactionStats.firstTxDate);
+      // Try parsing as ISO first, then as regular date
+      let firstDate = parseISO(transactionStats.firstTxDate);
+      if (isNaN(firstDate.getTime())) {
+        firstDate = new Date(transactionStats.firstTxDate);
+      }
       if (isNaN(firstDate.getTime())) return 0;
       return differenceInDays(new Date(), firstDate);
     } catch {
