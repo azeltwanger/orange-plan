@@ -509,13 +509,13 @@ export default function Goals() {
                 <Label className="text-zinc-400">Event Type</Label>
                 <Select value={eventForm.event_type} onValueChange={(value) => setEventForm({ ...eventForm, event_type: value })}>
                   <SelectTrigger className="bg-zinc-900 border-zinc-700 text-zinc-100"><SelectValue /></SelectTrigger>
-                  <SelectContent className="bg-zinc-900 border-zinc-700">
-                    <SelectItem value="home_purchase">🏠 Home Purchase</SelectItem>
-                    <SelectItem value="major_expense">💸 Major Expense</SelectItem>
-                    <SelectItem value="expense_change">📊 Expense Change</SelectItem>
-                    <SelectItem value="income_change">💼 Income Change</SelectItem>
-                    <SelectItem value="inheritance">🎁 Inheritance</SelectItem>
-                    <SelectItem value="other">📝 Other</SelectItem>
+                  <SelectContent className="bg-zinc-900 border-zinc-700 text-zinc-100">
+                    <SelectItem value="home_purchase" className="text-zinc-100">🏠 Home Purchase</SelectItem>
+                    <SelectItem value="major_expense" className="text-zinc-100">💸 Major Expense</SelectItem>
+                    <SelectItem value="expense_change" className="text-zinc-100">📊 Expense Change</SelectItem>
+                    <SelectItem value="income_change" className="text-zinc-100">💼 Income Change</SelectItem>
+                    <SelectItem value="inheritance" className="text-zinc-100">🎁 Inheritance</SelectItem>
+                    <SelectItem value="other" className="text-zinc-100">📝 Other</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
