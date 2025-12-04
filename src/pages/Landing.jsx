@@ -12,8 +12,8 @@ import {
   BarChart3,
   Calculator,
   Wallet,
-  Lock
-} from 'lucide-react';
+  Lock } from
+'lucide-react';
 import { Button } from "@/components/ui/button";
 
 const features = [
@@ -115,10 +115,10 @@ export default function Landing() {
             <span className="text-orange-400/90">Live BTC: ${btcPrice?.toLocaleString() || '---'}</span>
           </div>
           
-          <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight leading-[1.1] mb-6">
-            Your Bitcoin
-            <br />
-            <span className="brand-gradient-text">Financial Planning Hub</span>
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight leading-[1.1] mb-6">Build Your 
+Bitcoin Financial Plan
+
+
           </h1>
           
           <p className="text-lg text-zinc-400 max-w-xl mx-auto mb-10 leading-relaxed">
