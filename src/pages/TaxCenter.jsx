@@ -1224,8 +1224,12 @@ export default function TaxCenter() {
                     <Button 
                       variant="outline" 
                       size="sm"
-                      onClick={() => bulkDeleteTx.mutate(selectedTxIds)}
-                      disabled={bulkDeleteTx.isPending}
+                      onClick={() => {
+                        if (selectedTxIds.length > 0 && window.confirm(`Delete ${selectedTxIds.length} transactions?`)) {
+                          bulkDeleteTx.mutate([...selectedTxIds]);
+                        }
+                      }}
+                      disabled={bulkDeleteTx.isPending || selectedTxIds.length === 0}
                       className="bg-transparent border-rose-600/50 text-rose-400 hover:bg-rose-600/20 h-9"
                     >
                       {bulkDeleteTx.isPending ? <RefreshCw className="w-3 h-3 animate-spin mr-1" /> : <Trash2 className="w-3 h-3 mr-1" />}
