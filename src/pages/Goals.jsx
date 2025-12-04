@@ -483,8 +483,51 @@ export default function Goals() {
 
             <div className="space-y-2">
               <Label className="text-zinc-400">Goal Name</Label>
-              <Input value={goalForm.name} onChange={(e) => setGoalForm({ ...goalForm, name: e.target.value })} placeholder="e.g., House Down Payment" className="bg-zinc-900 border-zinc-700 text-zinc-100" required />
+              <Input 
+                value={goalForm.name} 
+                onChange={(e) => setGoalForm({ ...goalForm, name: e.target.value })} 
+                placeholder={
+                  goalForm.bucket === 'emergency' ? "e.g., 6-Month Emergency Fund" :
+                  goalForm.bucket === 'goals' ? "e.g., House Down Payment (3-5 yrs)" :
+                  "e.g., Retirement Fund (10+ yrs)"
+                }
+                className="bg-zinc-900 border-zinc-700 text-zinc-100" 
+                required 
+              />
             </div>
+
+            {/* Emergency Fund Quick Presets */}
+            {goalForm.bucket === 'emergency' && monthlyExpenses > 0 && (
+              <div className="space-y-2">
+                <Label className="text-zinc-400 text-xs">Quick presets based on ${monthlyExpenses.toLocaleString('en-US', { maximumFractionDigits: 0 })}/mo expenses</Label>
+                <div className="grid grid-cols-4 gap-2">
+                  {[3, 6, 12, 24].map(months => {
+                    const amount = monthlyExpenses * months;
+                    const isSelected = parseFloat(goalForm.target_amount) === Math.round(amount);
+                    return (
+                      <button
+                        key={months}
+                        type="button"
+                        onClick={() => setGoalForm({ 
+                          ...goalForm, 
+                          name: goalForm.name || `${months}-Month Emergency Fund`,
+                          target_amount: Math.round(amount).toString() 
+                        })}
+                        className={cn(
+                          "p-2 rounded-lg border text-center transition-all",
+                          isSelected 
+                            ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-400" 
+                            : "bg-zinc-800/50 border-zinc-700 hover:border-zinc-600 text-zinc-400"
+                        )}
+                      >
+                        <p className="text-sm font-semibold">{months}mo</p>
+                        <p className="text-[10px]">${(amount / 1000).toFixed(0)}k</p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-zinc-400">Target Amount ($)</Label>
