@@ -311,12 +311,25 @@ export default function TaxCenter() {
       const holding = holdings.find(h => h.ticker === editingTx.asset_ticker);
       const accountType = editingTx.account_type || holding?.account_type || 'taxable';
       
+      // Format date to YYYY-MM-DD for the input field
+      let formattedDate = '';
+      if (editingTx.date) {
+        try {
+          const d = new Date(editingTx.date);
+          if (!isNaN(d.getTime())) {
+            formattedDate = format(d, 'yyyy-MM-dd');
+          }
+        } catch {
+          formattedDate = editingTx.date;
+        }
+      }
+      
       setFormData({
         type: editingTx.type || 'buy',
         asset_ticker: editingTx.asset_ticker || 'BTC',
         quantity: editingTx.quantity || '',
         price_per_unit: editingTx.price_per_unit || '',
-        date: editingTx.date || '',
+        date: formattedDate,
         exchange: editingTx.exchange_or_wallet || editingTx.exchange || '',
         account_type: accountType,
         notes: editingTx.notes || '',
