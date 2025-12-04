@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
-import { TrendingUp, TrendingDown, Calendar, Bitcoin, DollarSign } from 'lucide-react';
+import { TrendingUp, TrendingDown, Calendar, Bitcoin, DollarSign, BarChart3 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format, subMonths, subYears, differenceInDays, parseISO } from 'date-fns';
 
@@ -41,6 +41,7 @@ export default function Performance() {
   const [priceLoading, setPriceLoading] = useState(true);
   const [timeframe, setTimeframe] = useState('1Y');
   const [historicalPrices, setHistoricalPrices] = useState({}); // { ticker: [{date, price}] }
+  const [stockPrices, setStockPrices] = useState({}); // { ticker: { currentPrice, historical: [{date, price}] } }
 
   const { data: holdings = [] } = useQuery({
     queryKey: ['holdings'],
@@ -52,19 +53,25 @@ export default function Performance() {
     queryFn: () => base44.entities.Transaction.list('-date'),
   });
 
-  // Get unique tickers from holdings and transactions
-  const allTickers = useMemo(() => {
+  // Get unique tickers from holdings and transactions, separated by type
+  const { cryptoTickers, stockTickers } = useMemo(() => {
     const tickerSet = new Set();
     holdings.forEach(h => h.ticker && tickerSet.add(h.ticker));
     transactions.forEach(t => t.asset_ticker && tickerSet.add(t.asset_ticker));
-    return [...tickerSet];
+    
+    const allTickers = [...tickerSet];
+    return {
+      cryptoTickers: allTickers.filter(t => COINGECKO_IDS[t]),
+      stockTickers: allTickers.filter(t => !COINGECKO_IDS[t] && t !== 'USD' && t !== 'CASH')
+    };
   }, [holdings, transactions]);
+  
+  const allTickers = useMemo(() => [...cryptoTickers, ...stockTickers], [cryptoTickers, stockTickers]);
 
   // Fetch current prices for all crypto assets
   useEffect(() => {
     const fetchCurrentPrices = async () => {
       try {
-        const cryptoTickers = allTickers.filter(t => COINGECKO_IDS[t]);
         if (cryptoTickers.length === 0) {
           setPriceLoading(false);
           return;
@@ -89,12 +96,14 @@ export default function Performance() {
       }
     };
     
-    if (allTickers.length > 0) {
+    if (cryptoTickers.length > 0) {
       fetchCurrentPrices();
       const interval = setInterval(fetchCurrentPrices, 60000);
       return () => clearInterval(interval);
+    } else {
+      setPriceLoading(false);
     }
-  }, [allTickers]);
+  }, [cryptoTickers]);
 
   // Fetch historical prices for all crypto assets based on timeframe
   useEffect(() => {
@@ -103,7 +112,6 @@ export default function Performance() {
         const daysMap = { '1M': 30, '3M': 90, '6M': 180, '1Y': 365, '3Y': 1095, '5Y': 1825, '10Y': 3650, 'ALL': 'max' };
         const days = daysMap[timeframe] || 365;
         
-        const cryptoTickers = allTickers.filter(t => COINGECKO_IDS[t]);
         const priceData = {};
         
         // Fetch historical data for each crypto (in parallel)
@@ -129,17 +137,56 @@ export default function Performance() {
       }
     };
     
-    if (allTickers.length > 0) {
+    if (cryptoTickers.length > 0) {
       fetchHistoricalPrices();
     }
-  }, [timeframe, allTickers]);
+  }, [timeframe, cryptoTickers]);
+
+  // Fetch stock prices via backend function
+  useEffect(() => {
+    const fetchStockPrices = async () => {
+      if (stockTickers.length === 0) return;
+      
+      try {
+        const daysMap = { '1M': 30, '3M': 90, '6M': 180, '1Y': 365, '3Y': 1095, '5Y': 1825, '10Y': 3650, 'ALL': 'max' };
+        const days = daysMap[timeframe] || 365;
+        
+        const response = await base44.functions.invoke('getStockPrices', {
+          tickers: stockTickers,
+          days
+        });
+        
+        if (response.data) {
+          // Transform to match crypto format
+          const transformed = {};
+          for (const [ticker, data] of Object.entries(response.data)) {
+            if (data.historical) {
+              transformed[ticker] = data.historical.map(p => ({
+                date: new Date(p.date),
+                price: p.price
+              }));
+            }
+            // Update current prices
+            if (data.currentPrice) {
+              setCurrentPrices(prev => ({ ...prev, [ticker]: data.currentPrice }));
+            }
+          }
+          setStockPrices(transformed);
+        }
+      } catch (err) {
+        console.error('Failed to fetch stock prices:', err);
+      }
+    };
+    
+    fetchStockPrices();
+  }, [timeframe, stockTickers]);
 
   // Helper to get current price for any ticker
-  const getCurrentPrice = (ticker) => {
+  const getCurrentPrice = useCallback((ticker) => {
     if (currentPrices[ticker]) return currentPrices[ticker];
     const holding = holdings.find(h => h.ticker === ticker);
     return holding?.current_price || 0;
-  };
+  }, [currentPrices, holdings]);
 
   // Calculate cost basis from transactions (more accurate than holdings)
   const transactionStats = useMemo(() => {
@@ -244,8 +291,9 @@ export default function Performance() {
   }, [transactions, currentValue]);
 
   // Helper to get price at a specific date from historical data for any ticker
-  const getPriceAtDate = (ticker, date) => {
-    const tickerPrices = historicalPrices[ticker];
+  const getPriceAtDate = useCallback((ticker, date) => {
+    // Check crypto prices first, then stock prices
+    const tickerPrices = historicalPrices[ticker] || stockPrices[ticker];
     if (!tickerPrices || tickerPrices.length === 0) {
       return getCurrentPrice(ticker);
     }
@@ -264,7 +312,7 @@ export default function Performance() {
       }
     }
     return closest.price;
-  };
+  }, [historicalPrices, stockPrices, getCurrentPrice]);
 
   // Generate chart data with historical prices
   const chartData = useMemo(() => {
@@ -372,9 +420,19 @@ export default function Performance() {
         portfolioValue += qty * priceAtDate;
       }
 
+      // Format label based on timeframe
+      let label;
+      if (['3Y', '5Y', '10Y', 'ALL'].includes(timeframe)) {
+        label = format(currentDate, 'MMM yyyy');
+      } else if (['6M', '1Y'].includes(timeframe)) {
+        label = format(currentDate, 'MMM d');
+      } else {
+        label = format(currentDate, 'MMM d');
+      }
+
       dataPoints.push({
         date: dateKey,
-        name: format(currentDate, 'MMM d'),
+        name: label,
         portfolio: Math.round(portfolioValue),
         costBasis: Math.round(Object.values(cumulativeCost).reduce((a, b) => a + b, 0)),
       });
@@ -394,7 +452,7 @@ export default function Performance() {
     }
 
     return dataPoints;
-  }, [transactions, holdings, timeframe, currentValue, totalCostBasis, historicalPrices, currentPrices, getPriceAtDate]);
+  }, [transactions, holdings, timeframe, currentValue, totalCostBasis, historicalPrices, stockPrices, currentPrices, getPriceAtDate]);
 
   const stats = [
     {
