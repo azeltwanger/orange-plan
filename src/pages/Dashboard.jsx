@@ -314,7 +314,12 @@ export default function Dashboard() {
                     <Pencil className="w-3.5 h-3.5 text-zinc-400" />
                   </button>
                   <button
-                    onClick={() => deleteHolding.mutate(holding.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (window.confirm(`Delete ${holding.asset_name}? This will also delete ${getLotCount(holding)} associated transaction(s).`)) {
+                        deleteHolding.mutate(holding.id);
+                      }
+                    }}
                     className="p-1.5 rounded-lg bg-zinc-800/90 hover:bg-rose-600/50 transition-colors"
                   >
                     <Trash2 className="w-3.5 h-3.5 text-zinc-400" />
