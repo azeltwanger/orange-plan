@@ -515,6 +515,7 @@ export default function FinancialPlan() {
       // Pre-retirement: save and grow. Post-retirement: grow then withdraw
       let yearSavings = 0;
       let yearWithdrawal = 0;
+      let taxesPaid = 0;
       let penaltyPaid = 0;
       
       if (i > 0) {
@@ -578,11 +579,11 @@ export default function FinancialPlan() {
           age: currentAgeInYear,
         });
         
-        let withdrawFromTaxable = taxEstimate.fromTaxable;
-        let withdrawFromTaxDeferred = taxEstimate.fromTaxDeferred;
-        let withdrawFromTaxFree = taxEstimate.fromTaxFree;
-        let taxesPaid = taxEstimate.totalTax;
-        let penaltyPaid = taxEstimate.totalPenalty;
+        const withdrawFromTaxable = taxEstimate.fromTaxable;
+        const withdrawFromTaxDeferred = taxEstimate.fromTaxDeferred;
+        const withdrawFromTaxFree = taxEstimate.fromTaxFree;
+        taxesPaid = taxEstimate.totalTax;
+        penaltyPaid = taxEstimate.totalPenalty;
         
         // Update running balances
         runningTaxable -= withdrawFromTaxable;
