@@ -676,10 +676,11 @@ export default function EstateSecurity() {
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 mb-6 p-4 rounded-xl bg-zinc-800/30">
               {Object.entries(SECURITY_SCORES).map(([type, score]) => {
                 const Icon = custodyIcons[type] || Wallet;
+                const displayName = type === 'passphrase' ? 'HW + Passphrase' : type.replace('_', ' ');
                 return (
                   <div key={type} className="flex items-center gap-2 text-sm">
                     <Icon className="w-4 h-4 text-zinc-400" />
-                    <span className="text-zinc-500 capitalize">{type.replace('_', ' ')}</span>
+                    <span className="text-zinc-500 capitalize">{displayName}</span>
                     <span className={cn(
                       "font-semibold",
                       score >= 8 ? "text-emerald-400" : score >= 5 ? "text-amber-400" : "text-rose-400"
