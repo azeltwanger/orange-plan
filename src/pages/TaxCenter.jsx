@@ -423,17 +423,7 @@ export default function TaxCenter() {
   const totalHarvestableGain = gainHarvestOpportunities.reduce((sum, lot) => sum + lot.unrealizedGain, 0);
   const optimalGainHarvest = Math.min(totalHarvestableGain, ltcgBracketRoom);
 
-  // Wash sale detection
-  const potentialWashSales = allSellTxs.filter(sellTx => {
-    if ((sellTx.realized_gain_loss || 0) >= 0) return false;
-    const sellDate = new Date(sellTx.date);
-    return transactions.some(buyTx => {
-      if (buyTx.type !== 'buy' || buyTx.asset_ticker !== sellTx.asset_ticker) return false;
-      const buyDate = new Date(buyTx.date);
-      const daysDiff = Math.abs(differenceInDays(buyDate, sellDate));
-      return daysDiff <= 30;
-    });
-  });
+
 
   // Tax bracket visualization data - include all brackets up to 37%
   const bracketChartData = currentBrackets.income.map(bracket => ({
@@ -723,14 +713,13 @@ export default function TaxCenter() {
 
         <div className="card-premium rounded-xl p-5 border border-zinc-800/50">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs text-zinc-500 uppercase tracking-wider">Wash Sale Alerts</span>
-            <div className={cn("p-1.5 rounded-lg", potentialWashSales.length > 0 ? "bg-rose-400/10" : "bg-emerald-400/10")}>
-              {potentialWashSales.length > 0 ? <AlertTriangle className="w-4 h-4 text-rose-400" /> : <CheckCircle className="w-4 h-4 text-emerald-400" />}
+            <span className="text-xs text-zinc-500 uppercase tracking-wider">BTC Holdings</span>
+            <div className="p-1.5 rounded-lg bg-orange-400/10">
+              <Receipt className="w-4 h-4 text-orange-400" />
             </div>
           </div>
-          <p className={cn("text-2xl font-bold", potentialWashSales.length > 0 ? "text-rose-400" : "text-emerald-400")}>
-            {potentialWashSales.length}
-          </p>
+          <p className="text-2xl font-bold text-orange-400">{totalBtcHeld.toFixed(4)}</p>
+          <p className="text-xs text-zinc-500 mt-1">{taxLots.length} tax lots</p>
         </div>
       </div>
 
