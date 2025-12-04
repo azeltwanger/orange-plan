@@ -304,7 +304,7 @@ export default function Dashboard() {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (window.confirm(`Delete ${holding.asset_name}? This will also delete ${getLotCount(holding)} associated transaction(s).`)) {
+                      if (window.confirm(`Delete ${holding.asset_name} holding?`)) {
                         deleteHolding.mutate(holding.id);
                       }
                     }}
