@@ -554,12 +554,13 @@ export default function Performance() {
                 <div className="flex items-center gap-4">
                   <div className={cn(
                     "w-10 h-10 rounded-xl flex items-center justify-center",
-                    holding.ticker === 'BTC' ? 'bg-amber-400/10' : 'bg-zinc-700'
+                    holding.ticker === 'BTC' ? 'bg-amber-400/10' : 
+                    COINGECKO_IDS[holding.ticker] ? 'bg-blue-500/10' : 'bg-zinc-700'
                   )}>
                     {holding.ticker === 'BTC' ? (
                       <Bitcoin className="w-5 h-5 text-amber-400" />
                     ) : (
-                      <span className="text-sm font-bold text-zinc-400">{holding.ticker?.[0]}</span>
+                      <span className={cn("text-sm font-bold", COINGECKO_IDS[holding.ticker] ? "text-blue-400" : "text-zinc-400")}>{holding.ticker?.[0]}</span>
                     )}
                   </div>
                   <div>
