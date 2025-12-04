@@ -337,7 +337,7 @@ export default function Goals() {
                             <span>{formatNumber(goal.current_amount || 0)}</span>
                             <span>{goalProgress.toFixed(0)}%</span>
                           </div>
-                          <Progress value={Math.min(100, goalProgress)} className="h-1.5 bg-zinc-700" />
+                          <Progress value={Math.min(100, goalProgress)} className={cn("h-1.5 bg-zinc-700", key === 'emergency' && "[&>div]:bg-emerald-500", key === 'goals' && "[&>div]:bg-blue-500", key === 'longterm' && "[&>div]:bg-orange-500")} />
                         </div>
                       );
                     })
