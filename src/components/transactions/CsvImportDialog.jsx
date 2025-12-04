@@ -363,12 +363,21 @@ export default function CsvImportDialog({ open, onClose }) {
       stats.duplicatesSkipped = duplicatesSkipped;
       setImportStats(stats);
 
-      // Bulk create transactions
-      await base44.entities.Transaction.bulkCreate(transactions);
-
-      // Sync Holdings - aggregate by ticker
-      const holdingUpdates = {};
+      // Create transactions one by one to skip any that fail (duplicates, etc.)
+      let successfulTransactions = [];
       for (const tx of transactions) {
+        try {
+          await base44.entities.Transaction.create(tx);
+          successfulTransactions.push(tx);
+        } catch (err) {
+          // Skip failed transactions (likely duplicates)
+          stats.duplicatesSkipped = (stats.duplicatesSkipped || 0) + 1;
+        }
+      }
+
+      // Sync Holdings - aggregate by ticker (only for successful transactions)
+      const holdingUpdates = {};
+      for (const tx of successfulTransactions) {
         const ticker = tx.asset_ticker;
         if (!holdingUpdates[ticker]) {
           holdingUpdates[ticker] = { quantity: 0, costBasis: 0, lastPrice: tx.price_per_unit };
@@ -422,7 +431,7 @@ export default function CsvImportDialog({ open, onClose }) {
         }
       }
 
-      return { count: transactions.length, stats };
+      return { count: successfulTransactions.length, stats };
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
