@@ -524,9 +524,9 @@ export default function CsvImportDialog({ open, onClose }) {
                         <SelectValue placeholder="Select column..." />
                       </SelectTrigger>
                       <SelectContent className="bg-zinc-900 border-zinc-700">
-                        <SelectItem value="_none_" className="text-zinc-500 italic">— Not mapped —</SelectItem>
+                        <SelectItem value="_none_" className="text-zinc-400">— Not mapped —</SelectItem>
                         {csvHeaders.map(header => (
-                          <SelectItem key={header} value={header}>{header}</SelectItem>
+                          <SelectItem key={header} value={header} className="text-zinc-100">{header}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
