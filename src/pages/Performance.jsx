@@ -103,27 +103,59 @@ export default function Performance() {
   
   const holdingYears = holdingDays / 365;
   
-  // Calculate annualized return using CAGR formula
+  // Calculate Money-Weighted Return (IRR) - weights each cash flow by timing
   const annualizedReturn = useMemo(() => {
-    if (holdingDays < 1 || totalCostBasis <= 0) return 0;
+    if (transactions.length === 0 || currentValue <= 0) return 0;
     
-    const endValue = currentValue + transactionStats.realizedGains;
-    const startValue = totalCostBasis;
+    const now = new Date();
     
-    if (endValue <= 0 || startValue <= 0) return 0;
+    // Build cash flows: negative for buys, positive for sells
+    const cashFlows = [];
     
-    // For periods less than a year, show simple return annualized
-    if (holdingYears < 1) {
-      const simpleReturn = (endValue - startValue) / startValue;
-      // Annualize: (1 + r)^(365/days) - 1
-      const annualized = (Math.pow(1 + simpleReturn, 365 / holdingDays) - 1) * 100;
-      return annualized;
+    for (const tx of transactions) {
+      const txDate = parseDate(tx.date);
+      if (!txDate) continue;
+      
+      const yearsAgo = differenceInDays(now, txDate) / 365;
+      const amount = tx.type === 'buy' 
+        ? -(tx.cost_basis || tx.quantity * tx.price_per_unit)
+        : (tx.total_value || tx.quantity * tx.price_per_unit);
+      
+      cashFlows.push({ yearsAgo, amount });
     }
     
-    // CAGR for periods >= 1 year
-    const cagr = (Math.pow(endValue / startValue, 1 / holdingYears) - 1) * 100;
-    return cagr;
-  }, [currentValue, totalCostBasis, transactionStats.realizedGains, holdingDays, holdingYears]);
+    // Add current portfolio value as final positive cash flow (at time 0)
+    cashFlows.push({ yearsAgo: 0, amount: currentValue });
+    
+    if (cashFlows.length < 2) return 0;
+    
+    // Newton-Raphson method to solve for IRR
+    // NPV = sum of (cashFlow / (1 + r)^t) = 0
+    let rate = 0.1; // Initial guess 10%
+    
+    for (let i = 0; i < 100; i++) {
+      let npv = 0;
+      let derivative = 0;
+      
+      for (const cf of cashFlows) {
+        const discountFactor = Math.pow(1 + rate, cf.yearsAgo);
+        npv += cf.amount / discountFactor;
+        derivative -= cf.yearsAgo * cf.amount / Math.pow(1 + rate, cf.yearsAgo + 1);
+      }
+      
+      if (Math.abs(npv) < 0.01) break; // Converged
+      if (Math.abs(derivative) < 0.0001) break; // Avoid division by zero
+      
+      const newRate = rate - npv / derivative;
+      
+      // Clamp to reasonable bounds
+      if (newRate < -0.99) rate = -0.5;
+      else if (newRate > 10) rate = 5;
+      else rate = newRate;
+    }
+    
+    return rate * 100;
+  }, [transactions, currentValue]);
 
   // Generate chart data from actual transactions
   const chartData = useMemo(() => {
