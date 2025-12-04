@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Save, ChevronRight, ChevronLeft, Info, DollarSign, Plus, Trash2 } from 'lucide-react';
+import { Save, ChevronRight, ChevronLeft, Info, DollarSign, Plus, Trash2, Loader2 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { format } from 'date-fns';
@@ -49,6 +49,38 @@ export default function AddAssetWithTransaction({
   }]);
 
   const [includeTransaction, setIncludeTransaction] = useState(true);
+  const [fetchingPrice, setFetchingPrice] = useState(false);
+
+  // Fetch live price for stocks/crypto tickers
+  const fetchTickerPrice = async (ticker, assetType) => {
+    if (!ticker || ticker.length < 1) return;
+    
+    setFetchingPrice(true);
+    try {
+      if (assetType === 'crypto' && ticker !== 'BTC') {
+        // Use CoinGecko for crypto
+        const idMap = { ETH: 'ethereum', SOL: 'solana', XRP: 'ripple', ADA: 'cardano', DOGE: 'dogecoin', DOT: 'polkadot', LINK: 'chainlink', AVAX: 'avalanche-2', MATIC: 'matic-network', LTC: 'litecoin' };
+        const coinId = idMap[ticker.toUpperCase()] || ticker.toLowerCase();
+        const response = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${coinId}&vs_currencies=usd`);
+        const data = await response.json();
+        if (data[coinId]?.usd) {
+          setAssetData(prev => ({ ...prev, current_price: data[coinId].usd }));
+        }
+      } else if (assetType === 'stocks') {
+        // Use Yahoo Finance for stocks
+        const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1d`);
+        const data = await response.json();
+        const price = data?.chart?.result?.[0]?.meta?.regularMarketPrice;
+        if (price) {
+          setAssetData(prev => ({ ...prev, current_price: price }));
+        }
+      }
+    } catch (err) {
+      console.log('Price fetch failed:', err);
+    } finally {
+      setFetchingPrice(false);
+    }
+  };
 
   useEffect(() => {
     if (initialData) {
@@ -90,12 +122,17 @@ export default function AddAssetWithTransaction({
     setStep(1);
   };
 
-  // Auto-fill current price for BTC
+  // Auto-fill current price for BTC or fetch for other tickers
   useEffect(() => {
     if (assetData.ticker === 'BTC' && btcPrice) {
       setAssetData(prev => ({ ...prev, current_price: btcPrice }));
+    } else if (assetData.ticker && assetData.ticker.length >= 1 && (assetData.asset_type === 'stocks' || assetData.asset_type === 'crypto')) {
+      const timeoutId = setTimeout(() => {
+        fetchTickerPrice(assetData.ticker, assetData.asset_type);
+      }, 500); // Debounce 500ms
+      return () => clearTimeout(timeoutId);
     }
-  }, [assetData.ticker, btcPrice]);
+  }, [assetData.ticker, assetData.asset_type, btcPrice]);
 
   const addLot = () => {
     setLots([...lots, {
@@ -247,14 +284,21 @@ export default function AddAssetWithTransaction({
 
               <div className="space-y-2">
                 <Label className="text-zinc-400">Current Price</Label>
-                <Input
-                  type="number"
-                  step="any"
-                  value={assetData.current_price}
-                  onChange={(e) => setAssetData({ ...assetData, current_price: e.target.value })}
-                  placeholder="0.00"
-                  className="bg-zinc-900 border-zinc-800"
-                />
+                <div className="relative">
+                  <Input
+                    type="number"
+                    step="any"
+                    value={assetData.current_price}
+                    onChange={(e) => setAssetData({ ...assetData, current_price: e.target.value })}
+                    placeholder="0.00"
+                    className="bg-zinc-900 border-zinc-800"
+                  />
+                  {fetchingPrice && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <Loader2 className="w-4 h-4 text-orange-400 animate-spin" />
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
