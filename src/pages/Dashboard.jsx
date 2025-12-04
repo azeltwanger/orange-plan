@@ -330,10 +330,9 @@ export default function Dashboard() {
           </div>
         ) : (
           <div className="space-y-4">
-            {/* Accounts with holdings */}
+            {/* All accounts (including empty ones) */}
             {accounts.map(account => {
               const accountHoldings = holdingsByAccount[account.id] || [];
-              if (accountHoldings.length === 0) return null;
               return (
                 <AccountGroup
                   key={account.id}
