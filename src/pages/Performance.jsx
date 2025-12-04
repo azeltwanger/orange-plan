@@ -134,17 +134,12 @@ export default function Performance() {
     }
   }, [timeframe, allTickers]);
 
-  const currentPrice = btcPrice || 97000;
-
-  const { data: holdings = [] } = useQuery({
-    queryKey: ['holdings'],
-    queryFn: () => base44.entities.Holding.list(),
-  });
-
-  const { data: transactions = [] } = useQuery({
-    queryKey: ['transactions'],
-    queryFn: () => base44.entities.Transaction.list('-date'),
-  });
+  // Helper to get current price for any ticker
+  const getCurrentPrice = (ticker) => {
+    if (currentPrices[ticker]) return currentPrices[ticker];
+    const holding = holdings.find(h => h.ticker === ticker);
+    return holding?.current_price || 0;
+  };
 
   // Calculate cost basis from transactions (more accurate than holdings)
   const transactionStats = useMemo(() => {
