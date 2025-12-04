@@ -20,13 +20,16 @@ const colorMap = {
   other: { icon: 'text-zinc-400', bg: 'bg-zinc-400/10', border: 'border-zinc-400/20' },
 };
 
-export default function AssetCard({ holding, btcPrice, lotCount = 0, onManageLots }) {
+export default function AssetCard({ holding, btcPrice, lotCount = 0, onManageLots, livePrice, priceChange24h }) {
   const Icon = iconMap[holding.asset_type] || Coins;
   const colors = colorMap[holding.asset_type] || colorMap.other;
   
-  const value = holding.ticker === 'BTC' 
-    ? holding.quantity * btcPrice 
-    : holding.quantity * (holding.current_price || 1);
+  // Use live price if available, otherwise fall back to btcPrice for BTC or stored price
+  const currentPrice = holding.ticker === 'BTC' 
+    ? btcPrice 
+    : (livePrice || holding.current_price || 1);
+  
+  const value = holding.quantity * currentPrice;
 
   const gainLoss = holding.cost_basis_total 
     ? value - holding.cost_basis_total 
@@ -44,9 +47,19 @@ export default function AssetCard({ holding, btcPrice, lotCount = 0, onManageLot
         <div className={cn("p-2.5 rounded-xl", colors.bg)}>
           <Icon className={cn("w-5 h-5", colors.icon)} />
         </div>
-        <span className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest">
-          {holding.ticker}
-        </span>
+        <div className="text-right">
+          <span className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest block">
+            {holding.ticker}
+          </span>
+          {priceChange24h !== undefined && (
+            <span className={cn(
+              "text-[10px]",
+              priceChange24h >= 0 ? "text-emerald-400" : "text-rose-400"
+            )}>
+              {priceChange24h >= 0 ? '↑' : '↓'}{Math.abs(priceChange24h).toFixed(1)}%
+            </span>
+          )}
+        </div>
       </div>
 
       <h3 className="font-semibold text-zinc-200 mb-1">{holding.asset_name}</h3>

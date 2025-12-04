@@ -275,7 +275,14 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {holdings.map((holding) => (
               <div key={holding.id} className="relative group">
-                <AssetCard holding={holding} btcPrice={currentPrice} lotCount={lotCountsByTicker[holding.ticker] || 0} onManageLots={() => setLotsDialogHolding(holding)} />
+                                    <AssetCard 
+                                      holding={holding} 
+                                      btcPrice={currentPrice} 
+                                      lotCount={lotCountsByTicker[holding.ticker] || 0} 
+                                      onManageLots={() => setLotsDialogHolding(holding)}
+                                      livePrice={assetPrices[holding.ticker]?.price}
+                                      priceChange24h={holding.ticker === 'BTC' ? priceChange : assetPrices[holding.ticker]?.change24h}
+                                    />
                 <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
                   <button
                     onClick={() => setLotsDialogHolding(holding)}
