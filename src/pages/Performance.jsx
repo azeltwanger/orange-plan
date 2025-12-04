@@ -380,7 +380,16 @@ export default function Performance() {
 
     // Generate data points using historical prices (one point per day/week based on timeframe)
     const dataPoints = [];
-    const intervalDays = timeframe === '1M' ? 1 : timeframe === '3M' ? 2 : timeframe === '6M' ? 3 : 7;
+    // Adjust interval based on timeframe for even spacing
+    const intervalDays = 
+      timeframe === '1M' ? 1 : 
+      timeframe === '3M' ? 3 : 
+      timeframe === '6M' ? 7 : 
+      timeframe === '1Y' ? 14 :
+      timeframe === '3Y' ? 30 :
+      timeframe === '5Y' ? 60 :
+      timeframe === '10Y' ? 90 :
+      120; // ALL
     
     // Create a map of transaction dates for quick lookup
     const txByDate = {};
@@ -422,8 +431,10 @@ export default function Performance() {
 
       // Format label based on timeframe
       let label;
-      if (['3Y', '5Y', '10Y', 'ALL'].includes(timeframe)) {
-        label = format(currentDate, 'MMM yyyy');
+      if (['10Y', 'ALL'].includes(timeframe)) {
+        label = format(currentDate, 'yyyy');
+      } else if (['3Y', '5Y'].includes(timeframe)) {
+        label = format(currentDate, "MMM ''yy");
       } else if (['6M', '1Y'].includes(timeframe)) {
         label = format(currentDate, 'MMM d');
       } else {
@@ -544,7 +555,14 @@ export default function Performance() {
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-              <XAxis dataKey="name" stroke="#71717a" fontSize={12} />
+              <XAxis 
+                dataKey="name" 
+                stroke="#71717a" 
+                fontSize={11} 
+                interval={'preserveStartEnd'}
+                tickMargin={8}
+                angle={['10Y', 'ALL'].includes(timeframe) ? 0 : 0}
+              />
               <YAxis stroke="#71717a" fontSize={12} tickFormatter={(v) => `$${(v/1000).toFixed(0)}k`} />
               <Tooltip
                 contentStyle={{
