@@ -85,7 +85,7 @@ export default function TaxCenter() {
 
   // Tax planning settings
   const [annualIncome, setAnnualIncome] = useState(0);
-  const [targetTaxableIncome, setTargetTaxableIncome] = useState(47025);
+  const [targetTaxableIncome, setTargetTaxableIncome] = useState(48350);
   const [filingStatus, setFilingStatus] = useState('single');
 
   // Sale form state
