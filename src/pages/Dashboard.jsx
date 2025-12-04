@@ -126,13 +126,25 @@ export default function Dashboard() {
   });
 
   const deleteHolding = useMutation({
-    mutationFn: async (id) => {
-      // Just delete the holding - don't touch transactions
-      // User can manage transactions separately in Tax Center
-      return base44.entities.Holding.delete(id);
+    mutationFn: async (holding) => {
+      // Delete all transactions for this ticker and account type
+      const accountType = holding.account_type || 'taxable';
+      const relatedTransactions = transactions.filter(t => 
+        t.asset_ticker === holding.ticker && 
+        (t.account_type || 'taxable') === accountType
+      );
+      
+      // Delete all related transactions
+      for (const tx of relatedTransactions) {
+        await base44.entities.Transaction.delete(tx.id);
+      }
+      
+      // Then delete the holding
+      return base44.entities.Holding.delete(holding.id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['holdings'] });
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
     },
     onError: (error) => {
       console.error('Delete failed:', error);
