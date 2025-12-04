@@ -173,6 +173,7 @@ export default function TaxCenter() {
     price_per_unit: '',
     date: format(new Date(), 'yyyy-MM-dd'),
     exchange: '',
+    account_type: 'taxable',
     notes: '',
   });
 
@@ -299,28 +300,38 @@ export default function TaxCenter() {
   });
 
   const resetForm = () => {
-    setFormData({ type: 'buy', asset_ticker: 'BTC', quantity: '', price_per_unit: '', date: format(new Date(), 'yyyy-MM-dd'), exchange: '', notes: '' });
+    setFormData({ type: 'buy', asset_ticker: 'BTC', quantity: '', price_per_unit: '', date: format(new Date(), 'yyyy-MM-dd'), exchange: '', account_type: 'taxable', notes: '' });
     setSaleForm({ quantity: '', price_per_unit: '', date: format(new Date(), 'yyyy-MM-dd'), fee: '', lot_method: 'HIFO', selected_lots: [], exchange: '' });
     setSpecificLotQuantities({});
   };
 
   useEffect(() => {
     if (editingTx) {
+      // Get account type from transaction or fallback to holding
+      const holding = holdings.find(h => h.ticker === editingTx.asset_ticker);
+      const accountType = editingTx.account_type || holding?.account_type || 'taxable';
+      
       setFormData({
         type: editingTx.type || 'buy',
         asset_ticker: editingTx.asset_ticker || 'BTC',
         quantity: editingTx.quantity || '',
         price_per_unit: editingTx.price_per_unit || '',
         date: editingTx.date || '',
-        exchange: editingTx.exchange || '',
+        exchange: editingTx.exchange_or_wallet || editingTx.exchange || '',
+        account_type: accountType,
         notes: editingTx.notes || '',
       });
     }
-  }, [editingTx]);
+  }, [editingTx, holdings]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const data = { ...formData, quantity: parseFloat(formData.quantity) || 0, price_per_unit: parseFloat(formData.price_per_unit) || 0 };
+    const data = { 
+      ...formData, 
+      quantity: parseFloat(formData.quantity) || 0, 
+      price_per_unit: parseFloat(formData.price_per_unit) || 0,
+      exchange_or_wallet: formData.exchange,
+    };
     if (editingTx) {
       updateTx.mutate({ id: editingTx.id, data });
     } else {
@@ -1146,7 +1157,7 @@ export default function TaxCenter() {
                   })
                   .map((tx) => {
                   const holding = holdings.find(h => h.ticker === tx.asset_ticker);
-                  const accountType = holding?.account_type || 'taxable';
+                  const accountType = tx.account_type || holding?.account_type || 'taxable';
                   const accountLabels = {
                     taxable: 'Taxable',
                     traditional_401k: '401(k)',
@@ -1441,9 +1452,26 @@ export default function TaxCenter() {
               <Label className="text-zinc-400">Date</Label>
               <Input type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} className="bg-zinc-900 border-zinc-800" required />
             </div>
-            <div className="space-y-2">
-              <Label className="text-zinc-400">Exchange</Label>
-              <Input value={formData.exchange} onChange={(e) => setFormData({ ...formData, exchange: e.target.value })} placeholder="Coinbase, Ledger..." className="bg-zinc-900 border-zinc-800" />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-zinc-400">Exchange</Label>
+                <Input value={formData.exchange} onChange={(e) => setFormData({ ...formData, exchange: e.target.value })} placeholder="Coinbase, Ledger..." className="bg-zinc-900 border-zinc-800" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-zinc-400">Account Type</Label>
+                <Select value={formData.account_type} onValueChange={(value) => setFormData({ ...formData, account_type: value })}>
+                  <SelectTrigger className="bg-zinc-900 border-zinc-800"><SelectValue /></SelectTrigger>
+                  <SelectContent className="bg-zinc-900 border-zinc-800">
+                    <SelectItem value="taxable">Taxable</SelectItem>
+                    <SelectItem value="traditional_401k">Traditional 401(k)</SelectItem>
+                    <SelectItem value="roth_401k">Roth 401(k)</SelectItem>
+                    <SelectItem value="traditional_ira">Traditional IRA</SelectItem>
+                    <SelectItem value="roth_ira">Roth IRA</SelectItem>
+                    <SelectItem value="hsa">HSA</SelectItem>
+                    <SelectItem value="529">529 Plan</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             {formData.quantity && formData.price_per_unit && (
               <div className="p-3 rounded-xl bg-zinc-800/50">
