@@ -219,30 +219,7 @@ export default function Performance() {
     return holding?.current_price || 0;
   }, [currentPrices, holdings]);
 
-  // Calculate cost basis from transactions (more accurate than holdings)
-  const transactionStats = useMemo(() => {
-    const buyTxs = transactions.filter(t => t.type === 'buy');
-    const sellTxs = transactions.filter(t => t.type === 'sell');
-    
-    // Calculate actual cost basis from buys
-    const totalInvested = buyTxs.reduce((sum, t) => sum + (t.cost_basis || t.quantity * t.price_per_unit), 0);
-    
-    // Calculate realized gains from sells
-    const realizedGains = sellTxs.reduce((sum, t) => sum + (t.realized_gain_loss || 0), 0);
-    
-    // Get first transaction date - filter for valid dates
-    const txsWithValidDates = transactions.filter(t => {
-      if (!t.date) return false;
-      // Handle both ISO (YYYY-MM-DD) and US (M/D/YYYY) formats
-      const d = new Date(t.date);
-      return !isNaN(d.getTime());
-    });
-    const sortedTxs = [...txsWithValidDates].sort((a, b) => new Date(a.date) - new Date(b.date));
-    console.log('First tx date:', sortedTxs[0]?.date, 'Total txs with valid dates:', txsWithValidDates.length);
-    const firstTxDate = sortedTxs.length > 0 ? sortedTxs[0].date : null;
-    
-    return { totalInvested, realizedGains, firstTxDate };
-  }, [transactions]);
+
 
   // Calculate current holdings value using live prices
   const currentValue = holdings.reduce((sum, h) => {
