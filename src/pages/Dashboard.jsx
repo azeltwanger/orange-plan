@@ -127,24 +127,12 @@ export default function Dashboard() {
 
   const deleteHolding = useMutation({
     mutationFn: async (id) => {
-      // Find holding to get ticker and account type
-      const holdingToDelete = holdings.find(h => h.id === id);
-      if (holdingToDelete) {
-        // Delete transactions matching ticker AND account type
-        const holdingAccountType = holdingToDelete.account_type || 'taxable';
-        const relatedTxs = transactions.filter(t => {
-          const txAccountType = t.account_type || 'taxable';
-          return t.asset_ticker === holdingToDelete.ticker && txAccountType === holdingAccountType;
-        });
-        for (const tx of relatedTxs) {
-          await base44.entities.Transaction.delete(tx.id);
-        }
-      }
+      // Just delete the holding - don't touch transactions
+      // User can manage transactions separately in Tax Center
       return base44.entities.Holding.delete(id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['holdings'] });
-      queryClient.invalidateQueries({ queryKey: ['transactions'] });
     },
     onError: (error) => {
       console.error('Delete failed:', error);
