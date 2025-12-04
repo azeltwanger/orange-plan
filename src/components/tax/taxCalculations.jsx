@@ -135,13 +135,15 @@ export const estimateRetirementWithdrawalTaxes = ({
   taxableBalance,
   taxDeferredBalance,
   taxFreeBalance,
-  taxableGainPercent = 0.5, // Assume 50% of taxable account is gains
+  taxableGainPercent = 0.5, // Portion of taxable account that is gains (dynamically calculated)
   isLongTermGain = true,
   filingStatus = 'single',
   age = 65,
+  otherIncome = 0, // Social Security, pension, etc.
 }) => {
   const PENALTY_FREE_AGE = 59.5;
   const canAccessPenaltyFree = age >= PENALTY_FREE_AGE;
+  const standardDeduction = STANDARD_DEDUCTION_2025[filingStatus] || STANDARD_DEDUCTION_2025.single;
   
   let totalTax = 0;
   let totalPenalty = 0;
@@ -156,36 +158,56 @@ export const estimateRetirementWithdrawalTaxes = ({
     penalty: 0,
   };
   
+  // Track cumulative taxable income for accurate bracket calculation
+  let cumulativeTaxableIncome = Math.max(0, otherIncome - standardDeduction);
+  
   // Optimal withdrawal order depends on age and tax situation
   if (canAccessPenaltyFree) {
     // After 59.5: Withdraw from taxable first (lower tax on gains), then tax-deferred, then tax-free last
     
-    // 1. Taxable first
+    // 1. Taxable first - capital gains taxed at preferential rates (0%, 15%, 20%)
     const fromTaxable = Math.min(remainingWithdrawal, taxableBalance);
     if (fromTaxable > 0) {
       const gainPortion = fromTaxable * taxableGainPercent;
-      const taxOnTaxable = calculateWithdrawalTax({
-        withdrawalAmount: fromTaxable,
-        accountType: 'taxable',
-        capitalGainAmount: gainPortion,
-        isLongTermGain,
-        filingStatus,
-      });
+      
+      // Calculate LTCG tax considering 0% bracket
+      // 0% LTCG applies if total taxable income (including gains) stays below threshold
+      const ltcgBrackets = TAX_BRACKETS_2025[filingStatus]?.ltcg || TAX_BRACKETS_2025.single.ltcg;
+      let taxOnTaxable = 0;
+      let remainingGain = gainPortion;
+      
+      for (const bracket of ltcgBrackets) {
+        if (remainingGain <= 0) break;
+        const roomInBracket = Math.max(0, bracket.max - cumulativeTaxableIncome);
+        const gainInBracket = Math.min(remainingGain, roomInBracket);
+        taxOnTaxable += gainInBracket * bracket.rate;
+        cumulativeTaxableIncome += gainInBracket;
+        remainingGain -= gainInBracket;
+      }
+      
       withdrawalBreakdown.fromTaxable = fromTaxable;
       withdrawalBreakdown.taxOnTaxable = taxOnTaxable;
       totalTax += taxOnTaxable;
       remainingWithdrawal -= fromTaxable;
     }
     
-    // 2. Tax-deferred second
+    // 2. Tax-deferred second - taxed as ordinary income
     const fromTaxDeferred = Math.min(remainingWithdrawal, taxDeferredBalance);
     if (fromTaxDeferred > 0) {
-      const taxOnTaxDeferred = calculateWithdrawalTax({
-        withdrawalAmount: fromTaxDeferred,
-        accountType: 'tax_deferred',
-        otherIncome: withdrawalBreakdown.fromTaxable * taxableGainPercent,
-        filingStatus,
-      });
+      // Calculate progressive income tax on the withdrawal
+      const incomeBrackets = TAX_BRACKETS_2025[filingStatus]?.income || TAX_BRACKETS_2025.single.income;
+      let taxOnTaxDeferred = 0;
+      let remainingAmount = fromTaxDeferred;
+      
+      for (const bracket of incomeBrackets) {
+        if (remainingAmount <= 0) break;
+        const roomInBracket = Math.max(0, bracket.max - cumulativeTaxableIncome);
+        const amountInBracket = Math.min(remainingAmount, roomInBracket);
+        taxOnTaxDeferred += amountInBracket * bracket.rate;
+        cumulativeTaxableIncome += amountInBracket;
+        remainingAmount -= amountInBracket;
+      }
+      
       withdrawalBreakdown.fromTaxDeferred = fromTaxDeferred;
       withdrawalBreakdown.taxOnTaxDeferred = taxOnTaxDeferred;
       totalTax += taxOnTaxDeferred;
@@ -204,13 +226,21 @@ export const estimateRetirementWithdrawalTaxes = ({
     const fromTaxable = Math.min(remainingWithdrawal, taxableBalance);
     if (fromTaxable > 0) {
       const gainPortion = fromTaxable * taxableGainPercent;
-      const taxOnTaxable = calculateWithdrawalTax({
-        withdrawalAmount: fromTaxable,
-        accountType: 'taxable',
-        capitalGainAmount: gainPortion,
-        isLongTermGain,
-        filingStatus,
-      });
+      
+      // Calculate LTCG tax considering 0% bracket
+      const ltcgBrackets = TAX_BRACKETS_2025[filingStatus]?.ltcg || TAX_BRACKETS_2025.single.ltcg;
+      let taxOnTaxable = 0;
+      let remainingGain = gainPortion;
+      
+      for (const bracket of ltcgBrackets) {
+        if (remainingGain <= 0) break;
+        const roomInBracket = Math.max(0, bracket.max - cumulativeTaxableIncome);
+        const gainInBracket = Math.min(remainingGain, roomInBracket);
+        taxOnTaxable += gainInBracket * bracket.rate;
+        cumulativeTaxableIncome += gainInBracket;
+        remainingGain -= gainInBracket;
+      }
+      
       withdrawalBreakdown.fromTaxable = fromTaxable;
       withdrawalBreakdown.taxOnTaxable = taxOnTaxable;
       totalTax += taxOnTaxable;
@@ -228,12 +258,21 @@ export const estimateRetirementWithdrawalTaxes = ({
       const fromTaxDeferred = Math.min(remainingWithdrawal, taxDeferredBalance);
       if (fromTaxDeferred > 0) {
         const penalty = fromTaxDeferred * 0.10;
-        const taxOnTaxDeferred = calculateWithdrawalTax({
-          withdrawalAmount: fromTaxDeferred,
-          accountType: 'tax_deferred',
-          otherIncome: withdrawalBreakdown.fromTaxable * taxableGainPercent,
-          filingStatus,
-        });
+        
+        // Calculate progressive income tax
+        const incomeBrackets = TAX_BRACKETS_2025[filingStatus]?.income || TAX_BRACKETS_2025.single.income;
+        let taxOnTaxDeferred = 0;
+        let remainingAmount = fromTaxDeferred;
+        
+        for (const bracket of incomeBrackets) {
+          if (remainingAmount <= 0) break;
+          const roomInBracket = Math.max(0, bracket.max - cumulativeTaxableIncome);
+          const amountInBracket = Math.min(remainingAmount, roomInBracket);
+          taxOnTaxDeferred += amountInBracket * bracket.rate;
+          cumulativeTaxableIncome += amountInBracket;
+          remainingAmount -= amountInBracket;
+        }
+        
         withdrawalBreakdown.fromTaxDeferred = fromTaxDeferred;
         withdrawalBreakdown.taxOnTaxDeferred = taxOnTaxDeferred;
         withdrawalBreakdown.penalty = penalty;

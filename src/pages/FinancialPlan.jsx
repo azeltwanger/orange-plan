@@ -212,8 +212,7 @@ export default function FinancialPlan() {
   
   // Tax settings
   const [filingStatus, setFilingStatus] = useState('single');
-  const [retirementIncome, setRetirementIncome] = useState(0); // Other income in retirement (social security, pension, etc.)
-  const [taxableGainPercent, setTaxableGainPercent] = useState(50); // Estimated % of taxable account that is gains
+  const [otherRetirementIncome, setOtherRetirementIncome] = useState(0); // Other income in retirement (social security, pension, etc.)
   
   // Settings loaded flag
   const [settingsLoaded, setSettingsLoaded] = useState(false);
@@ -304,6 +303,7 @@ export default function FinancialPlan() {
       if (settings.withdrawal_strategy !== undefined) setWithdrawalStrategy(settings.withdrawal_strategy);
       if (settings.dynamic_withdrawal_rate !== undefined) setDynamicWithdrawalRate(settings.dynamic_withdrawal_rate);
       if (settings.btc_return_model !== undefined) setBtcReturnModel(settings.btc_return_model);
+      if (settings.other_retirement_income !== undefined) setOtherRetirementIncome(settings.other_retirement_income);
       setSettingsLoaded(true);
     }
   }, [userSettings, settingsLoaded]);
@@ -340,10 +340,11 @@ export default function FinancialPlan() {
         withdrawal_strategy: withdrawalStrategy || 'dynamic',
         dynamic_withdrawal_rate: dynamicWithdrawalRate || 5,
         btc_return_model: btcReturnModel || 'custom',
+        other_retirement_income: otherRetirementIncome || 0,
       });
     }, 1000); // Debounce 1 second
     return () => clearTimeout(timeoutId);
-  }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, withdrawalStrategy, dynamicWithdrawalRate, btcReturnModel]);
+  }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, withdrawalStrategy, dynamicWithdrawalRate, btcReturnModel, otherRetirementIncome]);
 
   // Calculate annual savings from Income & Expenses (single source of truth)
   const freqMultiplier = { monthly: 12, weekly: 52, biweekly: 26, quarterly: 4, annual: 1, one_time: 0 };
@@ -481,6 +482,10 @@ export default function FinancialPlan() {
     let runningTaxable = taxableValue;
     let runningTaxDeferred = taxDeferredValue;
     let runningTaxFree = taxFreeValue;
+    
+    // Track cost basis for taxable accounts to dynamically estimate capital gains
+    const initialTaxableCostBasis = holdings.filter(h => !h.account_type || h.account_type === 'taxable').reduce((sum, h) => sum + (h.cost_basis_total || 0), 0);
+    let runningTaxableBasis = initialTaxableCostBasis;
 
     for (let i = 0; i <= years; i++) {
       const year = currentYear + i;
@@ -567,16 +572,21 @@ export default function FinancialPlan() {
         const currentAgeInYear = currentAge + i;
         const canAccessRetirementPenaltyFree = currentAgeInYear >= PENALTY_FREE_AGE;
         
+        // Dynamically calculate capital gains ratio based on current value vs cost basis
+        const effectiveRunningTaxableBasis = Math.min(runningTaxable, runningTaxableBasis);
+        const estimatedCurrentGainRatio = runningTaxable > 0 ? Math.max(0, (runningTaxable - effectiveRunningTaxableBasis) / runningTaxable) : 0;
+        
         // Use tax calculation utility for accurate withdrawal taxes
         const taxEstimate = estimateRetirementWithdrawalTaxes({
           withdrawalNeeded: yearWithdrawal,
           taxableBalance: runningTaxable,
           taxDeferredBalance: runningTaxDeferred,
           taxFreeBalance: runningTaxFree,
-          taxableGainPercent: taxableGainPercent / 100,
+          taxableGainPercent: estimatedCurrentGainRatio,
           isLongTermGain: true, // Assume long-term for projections
           filingStatus,
           age: currentAgeInYear,
+          otherIncome: otherRetirementIncome,
         });
         
         const withdrawFromTaxable = taxEstimate.fromTaxable;
@@ -584,6 +594,12 @@ export default function FinancialPlan() {
         const withdrawFromTaxFree = taxEstimate.fromTaxFree;
         taxesPaid = taxEstimate.totalTax;
         penaltyPaid = taxEstimate.totalPenalty;
+        
+        // Adjust cost basis after taxable withdrawal (proportionally reduce basis)
+        if (withdrawFromTaxable > 0 && runningTaxable > 0) {
+          const basisRatio = runningTaxableBasis / runningTaxable;
+          runningTaxableBasis = Math.max(0, runningTaxableBasis - (withdrawFromTaxable * basisRatio));
+        }
         
         // Update running balances
         runningTaxable -= withdrawFromTaxable;
@@ -636,7 +652,7 @@ export default function FinancialPlan() {
       });
     }
     return data;
-  }, [btcValue, stocksValue, realEstateValue, bondsValue, otherValue, taxableValue, taxDeferredValue, taxFreeValue, currentAge, retirementAge, lifeExpectancy, effectiveBtcCagr, effectiveStocksCagr, realEstateCagr, bondsCagr, effectiveInflation, lifeEvents, goals, annualSavings, incomeGrowth, retirementAnnualSpending, withdrawalStrategy, dynamicWithdrawalRate, btcReturnModel, filingStatus, taxableGainPercent]);
+  }, [btcValue, stocksValue, realEstateValue, bondsValue, otherValue, taxableValue, taxDeferredValue, taxFreeValue, currentAge, retirementAge, lifeExpectancy, effectiveBtcCagr, effectiveStocksCagr, realEstateCagr, bondsCagr, effectiveInflation, lifeEvents, goals, annualSavings, incomeGrowth, retirementAnnualSpending, withdrawalStrategy, dynamicWithdrawalRate, btcReturnModel, filingStatus, holdings, otherRetirementIncome]);
 
   // Run Monte Carlo when button clicked
   const handleRunSimulation = () => {
@@ -1252,13 +1268,16 @@ export default function FinancialPlan() {
                   </button>
                 </div>
 
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <Label className="text-zinc-400">Estimated Gain % in Taxable Accounts</Label>
-                    <span className="text-orange-400 font-semibold">{taxableGainPercent}%</span>
-                  </div>
-                  <Slider value={[taxableGainPercent]} onValueChange={([v]) => setTaxableGainPercent(v)} min={0} max={100} step={5} />
-                  <p className="text-xs text-zinc-500">Portion of taxable account value that is capital gains (vs. cost basis)</p>
+                <div className="space-y-2">
+                  <Label className="text-zinc-400">Other Retirement Income ($/yr)</Label>
+                  <Input 
+                    type="number" 
+                    value={otherRetirementIncome} 
+                    onChange={(e) => setOtherRetirementIncome(parseFloat(e.target.value) || 0)} 
+                    placeholder="0" 
+                    className="bg-zinc-900 border-zinc-800 w-48" 
+                  />
+                  <p className="text-xs text-zinc-500">Social Security, pension, rental income, etc.</p>
                 </div>
               </div>
 
