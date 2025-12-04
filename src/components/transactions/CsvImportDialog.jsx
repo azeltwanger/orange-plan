@@ -355,11 +355,16 @@ export default function CsvImportDialog({ open, onClose }) {
           }
         }
         return tx;
-      }).filter(tx => tx.quantity > 0 && tx.price_per_unit > 0);
+      });
+
+      // Log how many were filtered out
+      const validTransactions = rawTransactions.filter(tx => tx.quantity > 0 && tx.price_per_unit > 0);
+      console.log(`CSV rows: ${fullCsvData.length}, Parsed: ${rawTransactions.length}, Valid: ${validTransactions.length}`);
+      console.log('Sample invalid:', rawTransactions.filter(tx => !(tx.quantity > 0 && tx.price_per_unit > 0)).slice(0, 3));
 
       // No duplicate detection - import all transactions as-is
-      const uniqueTransactions = rawTransactions;
-      const duplicatesSkipped = 0;
+      const uniqueTransactions = validTransactions;
+      const duplicatesSkipped = rawTransactions.length - validTransactions.length;
 
       // Process with lot matching (only unique transactions)
       const { transactions: processedTransactions, stats } = processTransactionsWithLots(uniqueTransactions, lotMethod);
