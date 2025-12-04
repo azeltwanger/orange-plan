@@ -553,6 +553,9 @@ export default function EstateSecurity() {
                   </Tooltip>
                 </TooltipProvider>
               </h3>
+              <p className="text-sm text-zinc-500 mt-0.5">
+                Automatically sends your inheritance protocol to beneficiaries if you don't check in for 6 months
+              </p>
               {settings.dead_mans_switch_enabled ? (
                 <p className="text-sm text-zinc-500">
                   Last check-in: {settings.dead_mans_switch_last_checkin 
