@@ -96,7 +96,7 @@ export default function TaxCenter() {
     fee: '',
     lot_method: 'HIFO',
     selected_lots: [],
-    exchange_or_wallet: '',
+    exchange: '',
   });
 
   const [formData, setFormData] = useState({
@@ -105,7 +105,7 @@ export default function TaxCenter() {
     quantity: '',
     price_per_unit: '',
     date: format(new Date(), 'yyyy-MM-dd'),
-    exchange_or_wallet: '',
+    exchange: '',
     notes: '',
   });
 
@@ -218,8 +218,8 @@ export default function TaxCenter() {
   });
 
   const resetForm = () => {
-    setFormData({ type: 'buy', asset_ticker: 'BTC', quantity: '', price_per_unit: '', date: format(new Date(), 'yyyy-MM-dd'), exchange_or_wallet: '', notes: '' });
-    setSaleForm({ quantity: '', price_per_unit: '', date: format(new Date(), 'yyyy-MM-dd'), fee: '', lot_method: 'HIFO', selected_lots: [], exchange_or_wallet: '' });
+    setFormData({ type: 'buy', asset_ticker: 'BTC', quantity: '', price_per_unit: '', date: format(new Date(), 'yyyy-MM-dd'), exchange: '', notes: '' });
+    setSaleForm({ quantity: '', price_per_unit: '', date: format(new Date(), 'yyyy-MM-dd'), fee: '', lot_method: 'HIFO', selected_lots: [], exchange: '' });
     setSpecificLotQuantities({});
   };
 
@@ -231,7 +231,7 @@ export default function TaxCenter() {
         quantity: editingTx.quantity || '',
         price_per_unit: editingTx.price_per_unit || '',
         date: editingTx.date || '',
-        exchange_or_wallet: editingTx.exchange_or_wallet || '',
+        exchange: editingTx.exchange || '',
         notes: editingTx.notes || '',
       });
     }
@@ -436,7 +436,7 @@ export default function TaxCenter() {
       quantity: parseFloat(saleForm.quantity),
       price_per_unit: parseFloat(saleForm.price_per_unit),
       date: saleForm.date,
-      exchange_or_wallet: saleForm.exchange_or_wallet,
+      exchange: saleForm.exchange,
       cost_basis: outcome.totalCostBasis,
       realized_gain_loss: outcome.realizedGain,
       holding_period: outcome.holdingPeriod,
@@ -1263,8 +1263,8 @@ export default function TaxCenter() {
               <Input type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} className="bg-zinc-900 border-zinc-800" required />
             </div>
             <div className="space-y-2">
-              <Label className="text-zinc-400">Exchange/Wallet</Label>
-              <Input value={formData.exchange_or_wallet} onChange={(e) => setFormData({ ...formData, exchange_or_wallet: e.target.value })} placeholder="Coinbase, Ledger..." className="bg-zinc-900 border-zinc-800" />
+              <Label className="text-zinc-400">Exchange</Label>
+              <Input value={formData.exchange} onChange={(e) => setFormData({ ...formData, exchange: e.target.value })} placeholder="Coinbase, Ledger..." className="bg-zinc-900 border-zinc-800" />
             </div>
             {formData.quantity && formData.price_per_unit && (
               <div className="p-3 rounded-xl bg-zinc-800/50">
@@ -1309,8 +1309,8 @@ export default function TaxCenter() {
                 <Input type="date" value={saleForm.date} onChange={(e) => setSaleForm({ ...saleForm, date: e.target.value })} className="bg-zinc-900 border-zinc-800" required />
               </div>
               <div className="space-y-2">
-                <Label className="text-zinc-400">Exchange/Wallet</Label>
-                <Input value={saleForm.exchange_or_wallet} onChange={(e) => setSaleForm({ ...saleForm, exchange_or_wallet: e.target.value })} className="bg-zinc-900 border-zinc-800" />
+                <Label className="text-zinc-400">Exchange</Label>
+                <Input value={saleForm.exchange} onChange={(e) => setSaleForm({ ...saleForm, exchange: e.target.value })} className="bg-zinc-900 border-zinc-800" />
               </div>
             </div>
 
