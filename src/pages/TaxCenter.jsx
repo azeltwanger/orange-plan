@@ -83,6 +83,7 @@ export default function TaxCenter() {
   const [editingTx, setEditingTx] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [csvImportOpen, setCsvImportOpen] = useState(false);
+  const [txDateFilter, setTxDateFilter] = useState('all'); // 'all', 'ytd', '2024', '2023', etc.
   const [syncingHoldings, setSyncingHoldings] = useState(false);
   const [syncComplete, setSyncComplete] = useState(false);
   const queryClient = useQueryClient();
@@ -1121,25 +1122,63 @@ export default function TaxCenter() {
         {/* Transactions Tab */}
         <TabsContent value="transactions">
           <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
-            <h3 className="font-semibold mb-6">Transaction History</h3>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="font-semibold">Transaction History</h3>
+              <Select value={txDateFilter} onValueChange={setTxDateFilter}>
+                <SelectTrigger className="w-32 bg-zinc-800 border-zinc-700">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-zinc-900 border-zinc-700">
+                  <SelectItem value="all">All Time</SelectItem>
+                  <SelectItem value="ytd">{currentYear} YTD</SelectItem>
+                  <SelectItem value="2024">2024</SelectItem>
+                  <SelectItem value="2023">2023</SelectItem>
+                  <SelectItem value="2022">2022</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             {transactions.length === 0 ? (
               <p className="text-center text-zinc-500 py-12">No transactions recorded yet</p>
             ) : (
               <div className="space-y-3">
-                {transactions.map((tx) => (
+                {transactions
+                  .filter(tx => {
+                    if (txDateFilter === 'all') return true;
+                    const txYear = new Date(tx.date).getFullYear();
+                    if (txDateFilter === 'ytd') return txYear === currentYear;
+                    return txYear === parseInt(txDateFilter);
+                  })
+                  .map((tx) => {
+                  const holding = holdings.find(h => h.ticker === tx.asset_ticker);
+                  const accountType = holding?.account_type || 'taxable';
+                  const accountLabels = {
+                    taxable: 'Taxable',
+                    traditional_401k: '401(k)',
+                    roth_401k: 'Roth 401(k)',
+                    traditional_ira: 'Trad IRA',
+                    roth_ira: 'Roth IRA',
+                    hsa: 'HSA',
+                    '529': '529',
+                  };
+                  const isTaxable = accountType === 'taxable';
+                  
+                  return (
                   <div key={tx.id} className="flex items-center justify-between p-4 rounded-xl bg-zinc-800/30 hover:bg-zinc-800/50 transition-colors border border-zinc-800">
                     <div className="flex items-center gap-4">
                       <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", tx.type === 'buy' ? 'bg-emerald-400/10' : 'bg-rose-400/10')}>
                         {tx.type === 'buy' ? <TrendingUp className="w-5 h-5 text-emerald-400" /> : <TrendingDown className="w-5 h-5 text-rose-400" />}
                       </div>
                       <div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-medium">{tx.type === 'buy' ? 'Bought' : 'Sold'} {tx.quantity} {tx.asset_ticker}</p>
                           {tx.holding_period && tx.type === 'sell' && (
                             <Badge variant="outline" className={cn("text-xs", tx.holding_period === 'long_term' ? 'border-emerald-400/50 text-emerald-400' : 'border-amber-400/50 text-amber-400')}>
                               {tx.holding_period === 'long_term' ? 'Long-term' : 'Short-term'}
                             </Badge>
                           )}
+                          <Badge variant="outline" className={cn("text-xs", isTaxable ? 'border-orange-400/50 text-orange-400' : 'border-blue-400/50 text-blue-400')}>
+                            {accountLabels[accountType] || 'Taxable'}
+                          </Badge>
                         </div>
                         <p className="text-sm text-zinc-500">
                           @ ${(tx.price_per_unit || 0).toLocaleString()} • {tx.date ? format(new Date(tx.date), 'MMM d, yyyy') : 'No date'}
@@ -1165,7 +1204,7 @@ export default function TaxCenter() {
                       </div>
                     </div>
                   </div>
-                ))}
+                );})}
               </div>
             )}
           </div>
