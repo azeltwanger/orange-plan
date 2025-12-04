@@ -515,9 +515,7 @@ export default function Performance() {
         <h3 className="font-semibold mb-6">Asset Performance</h3>
         <div className="space-y-4">
           {holdings.map((holding) => {
-            const value = holding.ticker === 'BTC' 
-              ? holding.quantity * currentPrice 
-              : holding.quantity * (holding.current_price || 0);
+            const value = holding.quantity * getCurrentPrice(holding.ticker);
             
             // Get cost basis from transactions for this ticker
             const tickerTxs = transactions.filter(t => t.asset_ticker === holding.ticker);
