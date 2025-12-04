@@ -212,7 +212,9 @@ export default function FinancialPlan() {
   
   // Tax settings
   const [filingStatus, setFilingStatus] = useState('single');
-  const [otherRetirementIncome, setOtherRetirementIncome] = useState(0); // Other income in retirement (social security, pension, etc.)
+  const [otherRetirementIncome, setOtherRetirementIncome] = useState(0);
+    const [socialSecurityStartAge, setSocialSecurityStartAge] = useState(67);
+    const [socialSecurityAmount, setSocialSecurityAmount] = useState(0); // Other income in retirement (social security, pension, etc.)
   
   // Settings loaded flag
   const [settingsLoaded, setSettingsLoaded] = useState(false);
