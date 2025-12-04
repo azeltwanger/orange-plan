@@ -22,6 +22,7 @@ const navItems = [
   { name: 'Summary', icon: LayoutDashboard, page: 'Dashboard', description: 'Your wealth at a glance' },
   { name: 'Performance', icon: TrendingUp, page: 'Performance', description: 'Growth & returns' },
   { name: 'Projections', icon: Target, page: 'FinancialPlan', description: 'Future wealth modeling' },
+  { name: 'Scenarios', icon: RefreshCw, page: 'Scenarios', description: 'Compare financial futures' },
   { name: 'Goals', icon: Target, page: 'Goals', description: '3-bucket savings strategy' },
   { name: 'Income & Expenses', icon: Wallet, page: 'Budget', description: 'Cash flow management' },
   { name: 'Investing', icon: ArrowLeftRight, page: 'DCAStrategy', description: 'DCA & accumulation' },

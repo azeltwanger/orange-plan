@@ -10,6 +10,7 @@ import Landing from './pages/Landing';
 import Goals from './pages/Goals';
 import FeeAnalysis from './pages/FeeAnalysis';
 import Pricing from './pages/Pricing';
+import Scenarios from './pages/Scenarios';
 import __Layout from './Layout.jsx';
 
 
@@ -26,6 +27,7 @@ export const PAGES = {
     "Goals": Goals,
     "FeeAnalysis": FeeAnalysis,
     "Pricing": Pricing,
+    "Scenarios": Scenarios,
 }
 
 export const pagesConfig = {
