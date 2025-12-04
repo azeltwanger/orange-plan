@@ -166,10 +166,9 @@ export default function Performance() {
     return { totalInvested, realizedGains, firstTxDate };
   }, [transactions]);
 
-  // Calculate current holdings value
+  // Calculate current holdings value using live prices
   const currentValue = holdings.reduce((sum, h) => {
-    if (h.ticker === 'BTC') return sum + (h.quantity * currentPrice);
-    return sum + (h.quantity * (h.current_price || 0));
+    return sum + (h.quantity * getCurrentPrice(h.ticker));
   }, 0);
 
   // Use transaction-based cost basis if available, otherwise holdings
