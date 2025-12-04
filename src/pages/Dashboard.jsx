@@ -317,8 +317,8 @@ export default function Dashboard() {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (window.confirm(`Delete ${holding.asset_name} holding?`)) {
-                        deleteHolding.mutate(holding.id);
+                      if (window.confirm(`Delete ${holding.asset_name} holding and all its transactions?`)) {
+                        deleteHolding.mutate(holding);
                       }
                     }}
                     className="p-1.5 rounded-lg bg-zinc-800/90 hover:bg-rose-600/50 transition-colors"
