@@ -56,10 +56,12 @@ export default function Performance() {
     // Get first transaction date - filter for valid dates
     const txsWithValidDates = transactions.filter(t => {
       if (!t.date) return false;
+      // Handle both ISO (YYYY-MM-DD) and US (M/D/YYYY) formats
       const d = new Date(t.date);
       return !isNaN(d.getTime());
     });
     const sortedTxs = [...txsWithValidDates].sort((a, b) => new Date(a.date) - new Date(b.date));
+    console.log('First tx date:', sortedTxs[0]?.date, 'Total txs with valid dates:', txsWithValidDates.length);
     const firstTxDate = sortedTxs.length > 0 ? sortedTxs[0].date : null;
     
     return { totalInvested, realizedGains, firstTxDate };
@@ -79,20 +81,24 @@ export default function Performance() {
   const unrealizedGain = currentValue - totalCostBasis + transactionStats.realizedGains;
   const totalReturn = totalCostBasis > 0 ? (unrealizedGain / totalCostBasis) * 100 : 0;
 
+  // Helper to parse various date formats
+  const parseDate = (dateStr) => {
+    if (!dateStr) return null;
+    // Try ISO format first (YYYY-MM-DD)
+    let d = parseISO(dateStr);
+    if (!isNaN(d.getTime())) return d;
+    // Try M/D/YYYY or MM/DD/YYYY format
+    d = new Date(dateStr);
+    if (!isNaN(d.getTime())) return d;
+    return null;
+  };
+
   // Calculate holding period and annualized return
   const holdingDays = useMemo(() => {
     if (!transactionStats.firstTxDate) return 0;
-    try {
-      // Try parsing as ISO first, then as regular date
-      let firstDate = parseISO(transactionStats.firstTxDate);
-      if (isNaN(firstDate.getTime())) {
-        firstDate = new Date(transactionStats.firstTxDate);
-      }
-      if (isNaN(firstDate.getTime())) return 0;
-      return differenceInDays(new Date(), firstDate);
-    } catch {
-      return 0;
-    }
+    const firstDate = parseDate(transactionStats.firstTxDate);
+    if (!firstDate) return 0;
+    return differenceInDays(new Date(), firstDate);
   }, [transactionStats.firstTxDate]);
   
   const holdingYears = holdingDays / 365;
