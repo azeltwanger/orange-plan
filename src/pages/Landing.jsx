@@ -12,9 +12,8 @@ import {
   BarChart3,
   Calculator,
   Wallet,
-  LineChart,
-  Lock } from
-'lucide-react';
+  Lock
+} from 'lucide-react';
 import { Button } from "@/components/ui/button";
 
 const features = [
@@ -84,7 +83,7 @@ export default function Landing() {
       <div className="fixed inset-0 hero-glow pointer-events-none" />
       
       {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-[#09090b]/60 backdrop-blur-2xl border-b border-white/5">
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-[#09090b]/80 backdrop-blur-2xl border-b border-white/5">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg brand-gradient flex items-center justify-center">
@@ -92,12 +91,17 @@ export default function Landing() {
             </div>
             <span className="font-semibold text-lg">Orange Plan</span>
           </div>
-          <Link to={createPageUrl('Dashboard')}>
-            <Button size="sm" className="brand-gradient text-white font-medium hover:opacity-90 shadow-lg shadow-orange-500/25">
-              Open App
-              <ArrowRight className="w-4 h-4 ml-1.5" />
-            </Button>
-          </Link>
+          <div className="flex items-center gap-6">
+            <Link to={createPageUrl('Pricing')} className="text-sm text-zinc-400 hover:text-white transition-colors hidden sm:block">
+              Pricing
+            </Link>
+            <Link to={createPageUrl('Dashboard')}>
+              <Button size="sm" className="brand-gradient text-white font-medium hover:opacity-90 shadow-lg shadow-orange-500/25">
+                Open App
+                <ArrowRight className="w-4 h-4 ml-1.5" />
+              </Button>
+            </Link>
+          </div>
         </div>
       </nav>
 
@@ -109,15 +113,15 @@ export default function Landing() {
             <span className="text-orange-400/90">Live BTC: ${btcPrice?.toLocaleString() || '---'}</span>
           </div>
           
-          <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight leading-[1.1] mb-6">Your Bitcoin Financial Planning Hub
-
-
-
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight leading-[1.1] mb-6">
+            Your Bitcoin
+            <br />
+            <span className="brand-gradient-text">Financial Planning Hub</span>
           </h1>
           
-          <p className="text-lg text-zinc-400 max-w-xl mx-auto mb-10 leading-relaxed">Track your net worth, model retirement scenarios, compare fees, optimize taxes, and secure your legacy—all in one unified dashboard.
-
-
+          <p className="text-lg text-zinc-400 max-w-xl mx-auto mb-10 leading-relaxed">
+            Track your net worth, model retirement scenarios, compare fees, optimize taxes, 
+            and secure your legacy—all in one unified dashboard.
           </p>
           
           <Link to={createPageUrl('Dashboard')}>
@@ -280,16 +284,34 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* Privacy Note */}
+      <section className="py-16 px-6 border-t border-white/5">
+        <div className="max-w-2xl mx-auto text-center">
+          <div className="inline-flex items-center gap-2 mb-4">
+            <Shield className="w-5 h-5 text-purple-400" />
+            <h3 className="font-semibold">Privacy matters.</h3>
+          </div>
+          <p className="text-sm text-zinc-500 max-w-lg mx-auto">
+            We never sell your data. Many free apps rely on ads or selling user data to make money. 
+            We don't. Your financial information stays private, just as it should.
+          </p>
+        </div>
+      </section>
+
       {/* Footer */}
-      <footer className="py-6 px-6 border-t border-white/5">
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
+      <footer className="py-8 px-6 border-t border-white/5">
+        <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-md brand-gradient flex items-center justify-center">
               <Zap className="w-3.5 h-3.5 text-white" />
             </div>
             <span className="text-sm font-medium text-zinc-400">Orange Plan</span>
           </div>
-          <p className="text-xs text-zinc-600">© 2024</p>
+          <div className="flex items-center gap-6 text-sm text-zinc-500">
+            <Link to={createPageUrl('Pricing')} className="hover:text-zinc-300 transition-colors">Pricing</Link>
+            <Link to={createPageUrl('Dashboard')} className="hover:text-zinc-300 transition-colors">Dashboard</Link>
+          </div>
+          <p className="text-xs text-zinc-600">© 2024 Orange Plan</p>
         </div>
       </footer>
     </div>);
