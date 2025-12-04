@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Shield, Target, TrendingUp, Plus, Pencil, Trash2, Calendar, Home, Car, Briefcase, Heart, DollarSign, Building, Clock } from 'lucide-react';
+import { Shield, Target, TrendingUp, Plus, Pencil, Trash2, Calendar, Home, Car, Briefcase, Heart, DollarSign, Building, Clock, Link2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,6 +11,8 @@ import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import GoalFundingCalculator from '@/components/goals/GoalFundingCalculator';
+import FundingSourcesEditor from '@/components/goals/FundingSourcesEditor';
 
 const BUCKET_CONFIG = {
   emergency: {
@@ -65,7 +67,7 @@ export default function Goals() {
 
   // Form states
   const [goalForm, setGoalForm] = useState({
-    name: '', target_amount: '', current_amount: '', target_date: '', goal_type: 'major_purchase', priority: 'medium', notes: '', bucket: 'goals', will_be_spent: false, fund_from: 'auto',
+    name: '', target_amount: '', current_amount: '', target_date: '', goal_type: 'major_purchase', priority: 'medium', notes: '', bucket: 'goals', will_be_spent: false, funding_sources: [], linked_dca_plan_id: '',
   });
 
   const [eventForm, setEventForm] = useState({
@@ -87,6 +89,24 @@ export default function Goals() {
   const { data: budgetItems = [] } = useQuery({
     queryKey: ['budgetItems'],
     queryFn: () => base44.entities.BudgetItem.list(),
+  });
+
+  const { data: holdings = [] } = useQuery({
+    queryKey: ['holdings'],
+    queryFn: () => base44.entities.Holding.list(),
+  });
+
+  const { data: dcaPlans = [] } = useQuery({
+    queryKey: ['dcaPlans'],
+    queryFn: () => base44.entities.DCAPlan.list(),
+  });
+
+  const { data: userSettings = {} } = useQuery({
+    queryKey: ['userSettings'],
+    queryFn: async () => {
+      const settings = await base44.entities.UserSettings.list();
+      return settings[0] || {};
+    },
   });
 
   // Calculate monthly expenses for emergency fund target
@@ -165,7 +185,7 @@ export default function Goals() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['lifeEvents'] }),
   });
 
-  const resetGoalForm = () => setGoalForm({ name: '', target_amount: '', current_amount: '', target_date: '', goal_type: 'major_purchase', priority: 'medium', notes: '', bucket: 'goals', will_be_spent: false, fund_from: 'auto' });
+  const resetGoalForm = () => setGoalForm({ name: '', target_amount: '', current_amount: '', target_date: '', goal_type: 'major_purchase', priority: 'medium', notes: '', bucket: 'goals', will_be_spent: false, funding_sources: [], linked_dca_plan_id: '' });
   const resetEventForm = () => setEventForm({ name: '', event_type: 'major_expense', year: new Date().getFullYear() + 1, amount: '', is_recurring: false, recurring_years: '', affects: 'assets', notes: '', monthly_expense_impact: '', liability_amount: '', down_payment: '', interest_rate: '', loan_term_years: '' });
 
   useEffect(() => {
@@ -180,7 +200,8 @@ export default function Goals() {
         notes: editingGoal.notes || '',
         bucket: categorizeGoal(editingGoal),
         will_be_spent: editingGoal.will_be_spent || false,
-        fund_from: editingGoal.fund_from || 'auto',
+        funding_sources: editingGoal.funding_sources || [],
+        linked_dca_plan_id: editingGoal.linked_dca_plan_id || '',
       });
     }
   }, [editingGoal]);
@@ -218,7 +239,8 @@ export default function Goals() {
       target_amount: parseFloat(goalForm.target_amount) || 0, 
       current_amount: parseFloat(goalForm.current_amount) || 0,
       will_be_spent: goalForm.will_be_spent,
-      fund_from: goalForm.fund_from,
+      funding_sources: goalForm.funding_sources || [],
+      linked_dca_plan_id: goalForm.linked_dca_plan_id || null,
     };
     delete data.bucket;
     editingGoal ? updateGoal.mutate({ id: editingGoal.id, data }) : createGoal.mutate(data);
@@ -316,32 +338,41 @@ export default function Goals() {
               {isExpanded && (
                 <div className="px-5 pb-5 border-t border-zinc-800/50 pt-4 space-y-3">
                   {bucketGoals.length === 0 ? (
-                    <p className="text-sm text-zinc-500 text-center py-2">No goals yet</p>
-                  ) : (
-                    bucketGoals.map(goal => {
-                      const goalProgress = (goal.current_amount || 0) / (goal.target_amount || 1) * 100;
-                      return (
-                        <div key={goal.id} className="p-3 rounded-lg bg-zinc-800/50">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-sm font-medium text-zinc-200">{goal.name}</span>
-                            <div className="flex gap-1">
-                              <button onClick={(e) => { e.stopPropagation(); setEditingGoal(goal); setGoalFormOpen(true); }} className="p-1 rounded hover:bg-zinc-700">
-                                <Pencil className="w-3 h-3 text-zinc-500" />
-                              </button>
-                              <button onClick={(e) => { e.stopPropagation(); deleteGoal.mutate(goal.id); }} className="p-1 rounded hover:bg-rose-600/50">
-                                <Trash2 className="w-3 h-3 text-zinc-500" />
-                              </button>
-                            </div>
-                          </div>
-                          <div className="flex justify-between text-xs text-zinc-400 mb-1">
-                            <span>{formatNumber(goal.current_amount || 0)}</span>
-                            <span>{goalProgress.toFixed(0)}%</span>
-                          </div>
-                          <Progress value={Math.min(100, goalProgress)} className={cn("h-1.5 bg-zinc-700", key === 'emergency' && "[&>div]:bg-emerald-500", key === 'goals' && "[&>div]:bg-blue-500", key === 'longterm' && "[&>div]:bg-orange-500")} />
-                        </div>
-                      );
-                    })
-                  )}
+                              <p className="text-sm text-zinc-500 text-center py-2">No goals yet</p>
+                            ) : (
+                              bucketGoals.map(goal => {
+                                const goalProgress = (goal.current_amount || 0) / (goal.target_amount || 1) * 100;
+                                const linkedPlan = dcaPlans.find(p => p.id === goal.linked_dca_plan_id);
+                                return (
+                                  <div key={goal.id} className="p-3 rounded-lg bg-zinc-800/50">
+                                    <div className="flex items-center justify-between mb-1">
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-sm font-medium text-zinc-200">{goal.name}</span>
+                                        {linkedPlan && (
+                                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-400 flex items-center gap-1">
+                                            <Link2 className="w-2.5 h-2.5" />
+                                            DCA
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div className="flex gap-1">
+                                        <button onClick={(e) => { e.stopPropagation(); setEditingGoal(goal); setGoalFormOpen(true); }} className="p-1 rounded hover:bg-zinc-700">
+                                          <Pencil className="w-3 h-3 text-zinc-500" />
+                                        </button>
+                                        <button onClick={(e) => { e.stopPropagation(); deleteGoal.mutate(goal.id); }} className="p-1 rounded hover:bg-rose-600/50">
+                                          <Trash2 className="w-3 h-3 text-zinc-500" />
+                                        </button>
+                                      </div>
+                                    </div>
+                                    <div className="flex justify-between text-xs text-zinc-400 mb-1">
+                                      <span>{formatNumber(goal.current_amount || 0)}</span>
+                                      <span>{goalProgress.toFixed(0)}%</span>
+                                    </div>
+                                    <Progress value={Math.min(100, goalProgress)} className={cn("h-1.5 bg-zinc-700", key === 'emergency' && "[&>div]:bg-emerald-500", key === 'goals' && "[&>div]:bg-blue-500", key === 'longterm' && "[&>div]:bg-orange-500")} />
+                                  </div>
+                                );
+                              })
+                            )}
                   <Button 
                     size="sm" 
                     variant="outline" 
@@ -467,26 +498,57 @@ export default function Goals() {
                   className="data-[state=checked]:bg-orange-500"
                 />
               </div>
-              
+
               {goalForm.will_be_spent && (
-                <div className="pt-2 border-t border-zinc-700">
-                  <Label className="text-zinc-400 text-sm">Fund from</Label>
-                  <Select value={goalForm.fund_from} onValueChange={(value) => setGoalForm({ ...goalForm, fund_from: value })}>
-                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-zinc-100 mt-1">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-zinc-900 border-zinc-700">
-                      <SelectItem value="auto">Auto (savings first, then assets)</SelectItem>
-                      <SelectItem value="savings">Savings/Cash only</SelectItem>
-                      <SelectItem value="assets">Sell assets</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-zinc-500 mt-2">
-                    This will appear in your Projections chart as a future expense.
+                <div className="pt-3 border-t border-zinc-700 space-y-4">
+                  <FundingSourcesEditor
+                    fundingSources={goalForm.funding_sources}
+                    onChange={(sources) => setGoalForm({ ...goalForm, funding_sources: sources })}
+                    holdings={holdings}
+                    userSettings={userSettings}
+                  />
+                  <p className="text-xs text-zinc-500">
+                    Specify what percentage of assets to sell to fund this goal at target date.
                   </p>
                 </div>
               )}
             </div>
+
+            {/* Link to DCA Plan */}
+            <div className="space-y-2">
+              <Label className="text-zinc-400 flex items-center gap-2">
+                <Link2 className="w-4 h-4" />
+                Link to Investment Plan (optional)
+              </Label>
+              <Select 
+                value={goalForm.linked_dca_plan_id || 'none'} 
+                onValueChange={(value) => setGoalForm({ ...goalForm, linked_dca_plan_id: value === 'none' ? '' : value })}
+              >
+                <SelectTrigger className="bg-zinc-900 border-zinc-700 text-zinc-100">
+                  <SelectValue placeholder="No linked plan" />
+                </SelectTrigger>
+                <SelectContent className="bg-zinc-900 border-zinc-700">
+                  <SelectItem value="none" className="text-zinc-100">No linked plan</SelectItem>
+                  {dcaPlans.filter(p => p.is_active).map(plan => (
+                    <SelectItem key={plan.id} value={plan.id} className="text-zinc-100">
+                      {plan.name} (${plan.amount_per_period}/{plan.frequency})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-zinc-500">Connect a DCA plan that contributes to this goal</p>
+            </div>
+
+            {/* Funding Calculator */}
+            {goalForm.target_amount && goalForm.target_date && (
+              <GoalFundingCalculator
+                targetAmount={parseFloat(goalForm.target_amount) || 0}
+                currentAmount={parseFloat(goalForm.current_amount) || 0}
+                targetDate={goalForm.target_date}
+                fundingSources={goalForm.funding_sources}
+                userSettings={userSettings}
+              />
+            )}
 
             <div className="flex gap-3 pt-4">
               <Button type="button" variant="outline" onClick={() => { setGoalFormOpen(false); setEditingGoal(null); resetGoalForm(); }} className="flex-1 bg-zinc-800 border-zinc-700 text-zinc-100 hover:bg-zinc-700">Cancel</Button>
