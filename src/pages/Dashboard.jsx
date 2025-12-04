@@ -232,6 +232,7 @@ export default function Dashboard() {
         totalLiabilities={totalLiabilities}
         btcHoldings={btcHoldings}
         btcPrice={currentPrice}
+        transactions={transactions}
       />
 
       {/* Quick Stats */}
