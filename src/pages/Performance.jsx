@@ -390,12 +390,11 @@ export default function Performance() {
         name: 'Now',
         portfolio: Math.round(currentValue),
         costBasis: Math.round(totalCostBasis),
-        btcPrice: Math.round(currentPrice),
       });
     }
 
     return dataPoints;
-  }, [transactions, holdings, timeframe, currentValue, totalCostBasis, historicalPrices, currentPrice]);
+  }, [transactions, holdings, timeframe, currentValue, totalCostBasis, historicalPrices, currentPrices]);
 
   const stats = [
     {
