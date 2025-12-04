@@ -370,6 +370,11 @@ export default function TaxCenter() {
       const daysSincePurchase = isNaN(txDate.getTime()) ? 0 : differenceInDays(new Date(), txDate);
       const isLongTerm = daysSincePurchase > 365;
       
+      // Find the holding for this transaction to get account type
+      const holding = holdings.find(h => h.ticker === tx.asset_ticker);
+      const accountType = holding?.account_type || 'taxable';
+      const taxTreatment = holding?.tax_treatment || 'taxable';
+      
       return {
         ...tx,
         originalQuantity: tx.quantity,
@@ -380,9 +385,11 @@ export default function TaxCenter() {
         unrealizedGainPercent: costBasis > 0 ? (unrealizedGain / costBasis) * 100 : 0,
         isLongTerm,
         daysSincePurchase,
+        accountType,
+        taxTreatment,
       };
     }).filter(lot => lot.remainingQuantity > 0);
-  }, [transactions, currentPrice]);
+  }, [transactions, currentPrice, holdings]);
 
   // Sort lots by different methods
   const sortLotsByMethod = (lots, method) => {
@@ -1048,11 +1055,23 @@ export default function TaxCenter() {
               <p className="text-center text-zinc-500 py-12">No tax lots. Add buy transactions to create lots.</p>
             ) : (
               <div className="space-y-3">
-                {taxLots.map((lot) => (
+                {taxLots.map((lot) => {
+                  const accountLabels = {
+                    taxable: 'Taxable',
+                    traditional_401k: '401(k)',
+                    roth_401k: 'Roth 401(k)',
+                    traditional_ira: 'Trad IRA',
+                    roth_ira: 'Roth IRA',
+                    hsa: 'HSA',
+                    '529': '529',
+                  };
+                  const isTaxable = lot.taxTreatment === 'taxable' || lot.accountType === 'taxable';
+                  
+                  return (
                   <div key={lot.id} className="p-4 rounded-xl bg-zinc-800/30 border border-zinc-800">
                     <div className="flex items-start justify-between mb-3">
                       <div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-medium">{lot.remainingQuantity.toFixed(8)} BTC</p>
                           {lot.originalQuantity !== lot.remainingQuantity && (
                             <span className="text-xs text-zinc-500">(of {lot.originalQuantity} original)</span>
@@ -1060,7 +1079,10 @@ export default function TaxCenter() {
                           <Badge variant="outline" className={cn("text-xs", lot.isLongTerm ? 'border-emerald-400/50 text-emerald-400' : 'border-amber-400/50 text-amber-400')}>
                             {lot.isLongTerm ? 'Long-term' : `${lot.daysSincePurchase}d`}
                           </Badge>
-                          {lot.isLongTerm && lot.unrealizedGain > 0 && canHarvestGainsTaxFree && (
+                          <Badge variant="outline" className={cn("text-xs", isTaxable ? 'border-orange-400/50 text-orange-400' : 'border-blue-400/50 text-blue-400')}>
+                            {accountLabels[lot.accountType] || 'Taxable'}
+                          </Badge>
+                          {lot.isLongTerm && lot.unrealizedGain > 0 && canHarvestGainsTaxFree && isTaxable && (
                             <Badge className="bg-emerald-400/20 text-emerald-400 border-0">0% Tax Eligible</Badge>
                           )}
                         </div>
@@ -1090,7 +1112,7 @@ export default function TaxCenter() {
                       </div>
                     </div>
                   </div>
-                ))}
+                );})}
               </div>
             )}
           </div>
