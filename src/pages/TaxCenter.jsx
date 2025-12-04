@@ -143,6 +143,19 @@ export default function TaxCenter() {
       const total = data.quantity * data.price_per_unit;
       const lotId = `${data.asset_ticker}-${Date.now()}`;
       
+      // Check for duplicate transaction
+      const existingDuplicate = transactions.find(t => 
+        t.type === data.type &&
+        t.asset_ticker === data.asset_ticker &&
+        t.quantity === data.quantity &&
+        t.price_per_unit === data.price_per_unit &&
+        t.date === data.date
+      );
+      
+      if (existingDuplicate) {
+        throw new Error('Duplicate transaction already exists');
+      }
+      
       const txData = {
         ...data,
         total_value: total,
@@ -156,6 +169,8 @@ export default function TaxCenter() {
 
       // Sync to Holdings
       const existingHolding = holdings.find(h => h.ticker === data.asset_ticker);
+      const knownCrypto = ['BTC', 'ETH', 'SOL', 'XRP', 'ADA', 'DOGE', 'DOT', 'AVAX', 'MATIC', 'LINK', 'LTC'];
+      
       if (data.type === 'buy') {
         if (existingHolding) {
           // Update existing holding
@@ -164,12 +179,13 @@ export default function TaxCenter() {
           await base44.entities.Holding.update(existingHolding.id, {
             quantity: newQty,
             cost_basis_total: newCostBasis,
+            current_price: data.price_per_unit,
           });
         } else {
           // Create new holding
           await base44.entities.Holding.create({
             asset_name: data.asset_ticker,
-            asset_type: data.asset_ticker === 'BTC' ? 'crypto' : 'other',
+            asset_type: knownCrypto.includes(data.asset_ticker) ? 'crypto' : 'stocks',
             ticker: data.asset_ticker,
             quantity: data.quantity,
             current_price: data.price_per_unit,
@@ -180,10 +196,8 @@ export default function TaxCenter() {
       } else if (data.type === 'sell' && existingHolding) {
         // Reduce holding quantity on sell
         const newQty = Math.max(0, (existingHolding.quantity || 0) - data.quantity);
-        const costBasisPerUnit = existingHolding.quantity > 0 
-          ? (existingHolding.cost_basis_total || 0) / existingHolding.quantity 
-          : 0;
-        const newCostBasis = newQty * costBasisPerUnit;
+        // Reduce cost basis by the cost basis of sold units
+        const newCostBasis = Math.max(0, (existingHolding.cost_basis_total || 0) - (data.cost_basis || 0));
         await base44.entities.Holding.update(existingHolding.id, {
           quantity: newQty,
           cost_basis_total: newCostBasis,
