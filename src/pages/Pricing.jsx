@@ -223,7 +223,7 @@ export default function Pricing() {
               },
               {
                 q: 'Do you support assets other than Bitcoin?',
-                a: 'Yes! Track stocks, real estate, bonds, retirement accounts, and more alongside your crypto.'
+                a: 'Yes! Track stocks, real estate, bonds, retirement accounts, and more alongside your Bitcoin.'
               },
             ].map((faq, i) => (
               <div key={i} className="p-5 rounded-xl bg-white/[0.02] border border-white/5">
