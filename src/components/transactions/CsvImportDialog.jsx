@@ -162,18 +162,13 @@ export default function CsvImportDialog({ open, onClose }) {
     const lotPool = [...existingBuys];
 
     for (const tx of sortedTransactions) {
-      const txType = String(tx.type || '').toLowerCase().trim();
-      const isSell = txType === 'sell' || txType.includes('sell') || txType.includes('sold') || txType === 'sale' || txType === 's';
-      const isBuy = !isSell;
-      
-      if (isBuy) {
+      if (tx.type === 'buy') {
         stats.buys++;
         const lotId = `${tx.asset_ticker}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         const costBasis = (tx.quantity * tx.price_per_unit) + (tx.trading_fee || 0);
         
         const buyTx = {
           ...tx,
-          type: 'buy',
           lot_id: lotId,
           cost_basis: costBasis,
           total_value: tx.quantity * tx.price_per_unit,
@@ -185,7 +180,7 @@ export default function CsvImportDialog({ open, onClose }) {
           remainingQuantity: tx.quantity,
           isExisting: false,
         });
-      } else if (isSell) {
+      } else if (tx.type === 'sell') {
         stats.sells++;
         const saleDate = new Date(tx.date);
         
@@ -361,31 +356,19 @@ export default function CsvImportDialog({ open, onClose }) {
       const duplicatesSkipped = 0;
 
       // Process with lot matching (only unique transactions)
-      const { transactions: processedTransactions, stats } = processTransactionsWithLots(uniqueTransactions, lotMethod);
+      const { transactions, stats } = processTransactionsWithLots(uniqueTransactions, lotMethod);
       stats.duplicatesSkipped = duplicatesSkipped;
+      setImportStats(stats);
 
       // Use bulk create for efficiency
-      const transactionsToCreate = processedTransactions.map(tx => ({
+      const transactionsToCreate = transactions.map(tx => ({
         ...tx,
         account_type: accountType,
       }));
       
-      try {
-        await base44.entities.Transaction.bulkCreate(transactionsToCreate);
-      } catch (err) {
-        console.error('Bulk create failed, trying individually:', err);
-        // Fallback to individual creates if bulk fails
-        for (const tx of transactionsToCreate) {
-          try {
-            await base44.entities.Transaction.create(tx);
-          } catch (innerErr) {
-            stats.duplicatesSkipped = (stats.duplicatesSkipped || 0) + 1;
-          }
-        }
-      }
+      await base44.entities.Transaction.bulkCreate(transactionsToCreate);
       
-      const successfulTransactions = processedTransactions;
-      setImportStats(stats);
+      const successfulTransactions = transactionsToCreate;
 
       // Sync Holdings - aggregate by ticker (only for successful transactions)
       const holdingUpdates = {};
@@ -679,19 +662,19 @@ export default function CsvImportDialog({ open, onClose }) {
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full max-w-lg">
                 <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center">
-                  <p className="text-2xl font-bold text-emerald-400">{importStats.buys}</p>
+                  <p className="text-2xl font-bold text-emerald-400">{importStats.buys || 0}</p>
                   <p className="text-xs text-zinc-400">Buys</p>
                 </div>
                 <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-center">
-                  <p className="text-2xl font-bold text-rose-400">{importStats.sells}</p>
+                  <p className="text-2xl font-bold text-rose-400">{importStats.sells || 0}</p>
                   <p className="text-xs text-zinc-400">Sells</p>
                 </div>
                 <div className="p-3 rounded-xl bg-zinc-800 text-center">
-                  <p className="text-2xl font-bold text-emerald-400">+${importStats.totalGains.toLocaleString()}</p>
+                  <p className="text-2xl font-bold text-emerald-400">+${(importStats.totalGains || 0).toLocaleString()}</p>
                   <p className="text-xs text-zinc-400">Total Gains</p>
                 </div>
                 <div className="p-3 rounded-xl bg-zinc-800 text-center">
-                  <p className="text-2xl font-bold text-rose-400">-${importStats.totalLosses.toLocaleString()}</p>
+                  <p className="text-2xl font-bold text-rose-400">-${(importStats.totalLosses || 0).toLocaleString()}</p>
                   <p className="text-xs text-zinc-400">Total Losses</p>
                 </div>
               </div>
@@ -706,8 +689,8 @@ export default function CsvImportDialog({ open, onClose }) {
               )}
 
               <div className="flex gap-3 text-sm text-zinc-400">
-                <span className="px-2 py-1 rounded bg-amber-500/10 text-amber-400">{importStats.shortTerm} Short-term</span>
-                <span className="px-2 py-1 rounded bg-emerald-500/10 text-emerald-400">{importStats.longTerm} Long-term</span>
+                <span className="px-2 py-1 rounded bg-amber-500/10 text-amber-400">{importStats.shortTerm || 0} Short-term</span>
+                <span className="px-2 py-1 rounded bg-emerald-500/10 text-emerald-400">{importStats.longTerm || 0} Long-term</span>
               </div>
 
               <Button onClick={handleClose} className="brand-gradient text-white">
