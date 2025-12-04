@@ -921,7 +921,7 @@ export default function TaxCenter() {
               <p className="text-zinc-300 mb-4">
                 Your income qualifies for 0% long-term capital gains tax. Sell and immediately rebuy to raise your cost basis tax-free.
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 p-4 rounded-xl bg-zinc-800/50">
+              <div className="grid grid-cols-1 sm:grid-cols-5 gap-4 p-4 rounded-xl bg-zinc-800/50">
                 <div>
                   <p className="text-sm text-zinc-400">Room in 0% Bracket</p>
                   <p className="text-xl font-bold text-emerald-400">${ltcgBracketRoom.toLocaleString()}</p>
@@ -929,6 +929,10 @@ export default function TaxCenter() {
                 <div>
                   <p className="text-sm text-zinc-400">Optimal Harvest</p>
                   <p className="text-xl font-bold text-orange-400">${washTradeAnalysis.gain.optimalHarvest.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-zinc-400">Future Tax Saved (15%)</p>
+                  <p className="text-xl font-bold text-emerald-400">+${washTradeAnalysis.gain.futureTaxSavings.toLocaleString()}</p>
                 </div>
                 <div>
                   <p className="text-sm text-zinc-400">Est. Trading Fees ({avgFeePercent.toFixed(1)}%)</p>
