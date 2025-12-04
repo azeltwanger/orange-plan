@@ -18,6 +18,8 @@ import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 
 import DCAvsLumpSum from '@/components/investing/DCAvsLumpSum';
+import { Link } from 'react-router-dom';
+import { createPageUrl } from '../utils';
 
 export default function DCAStrategy() {
   const [btcPrice, setBtcPrice] = useState(null);
@@ -56,6 +58,7 @@ export default function DCAStrategy() {
     target_amount: '',
     current_progress: '',
     is_active: true,
+    linked_goal_id: '',
     notes: '',
   });
 
@@ -72,6 +75,11 @@ export default function DCAStrategy() {
   const { data: budgetItems = [] } = useQuery({
     queryKey: ['budgetItems'],
     queryFn: () => base44.entities.BudgetItem.list(),
+  });
+
+  const { data: goals = [] } = useQuery({
+    queryKey: ['goals'],
+    queryFn: () => base44.entities.FinancialGoal.list(),
   });
 
   // Calculate savings from Income & Expenses (single source of truth)
@@ -125,6 +133,7 @@ export default function DCAStrategy() {
       target_amount: '',
       current_progress: '',
       is_active: true,
+      linked_goal_id: '',
       notes: '',
     });
   };
@@ -141,6 +150,7 @@ export default function DCAStrategy() {
         target_amount: editingPlan.target_amount || '',
         current_progress: editingPlan.current_progress || '',
         is_active: editingPlan.is_active !== false,
+        linked_goal_id: editingPlan.linked_goal_id || '',
         notes: editingPlan.notes || '',
       });
     }
@@ -153,6 +163,7 @@ export default function DCAStrategy() {
       amount_per_period: parseFloat(formData.amount_per_period) || 0,
       target_amount: parseFloat(formData.target_amount) || 0,
       current_progress: parseFloat(formData.current_progress) || 0,
+      linked_goal_id: formData.linked_goal_id || null,
     };
     if (editingPlan) {
       updatePlan.mutate({ id: editingPlan.id, data });
@@ -452,14 +463,22 @@ export default function DCAStrategy() {
                       </div>
                       <div>
                         <h4 className="font-semibold text-lg">{plan.name}</h4>
-                        <div className="flex items-center gap-2 text-sm text-zinc-500">
-                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-400/10 text-emerald-400">
-                            DCA
-                          </span>
-                          <span>•</span>
-                          <span>{plan.asset_ticker}</span>
-                          <span>•</span>
-                          <span>{plan.frequency}</span>
+                        <div className="flex items-center gap-2 text-sm text-zinc-500 flex-wrap">
+                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-400/10 text-emerald-400">
+                        DCA
+                        </span>
+                        <span>•</span>
+                        <span>{plan.asset_ticker}</span>
+                        <span>•</span>
+                        <span>{plan.frequency}</span>
+                        {plan.linked_goal_id && goals.find(g => g.id === plan.linked_goal_id) && (
+                        <>
+                        <span>•</span>
+                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-400/10 text-blue-400">
+                        → {goals.find(g => g.id === plan.linked_goal_id)?.name}
+                        </span>
+                        </>
+                        )}
                         </div>
                       </div>
                     </div>
@@ -603,10 +622,30 @@ export default function DCAStrategy() {
                 />
               </div>
             </div>
+            <div className="space-y-2">
+              <Label className="text-zinc-400">Link to Goal (optional)</Label>
+              <Select
+                value={formData.linked_goal_id || 'none'}
+                onValueChange={(value) => setFormData({ ...formData, linked_goal_id: value === 'none' ? '' : value })}
+              >
+                <SelectTrigger className="bg-zinc-800 border-zinc-700">
+                  <SelectValue placeholder="No linked goal" />
+                </SelectTrigger>
+                <SelectContent className="bg-zinc-800 border-zinc-700">
+                  <SelectItem value="none">No linked goal</SelectItem>
+                  {goals.map(goal => (
+                    <SelectItem key={goal.id} value={goal.id}>
+                      {goal.name} (${(goal.target_amount || 0).toLocaleString()})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="flex items-center gap-3">
               <Switch
                 checked={formData.is_active}
                 onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
+                className="data-[state=checked]:bg-orange-500"
               />
               <Label className="text-zinc-400">Active</Label>
             </div>
