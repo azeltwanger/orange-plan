@@ -137,11 +137,10 @@ export default function Dashboard() {
 
   const deleteHolding = useMutation({
     mutationFn: async (holding) => {
-      // Delete all transactions for this ticker and account type
-      const accountType = holding.account_type || 'taxable';
+      // Delete all transactions for this ticker and account_id
       const relatedTransactions = transactions.filter(t => 
         t.asset_ticker === holding.ticker && 
-        (t.account_type || 'taxable') === accountType
+        (holding.account_id ? t.account_id === holding.account_id : !t.account_id)
       );
       
       // Delete all related transactions
