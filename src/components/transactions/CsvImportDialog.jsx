@@ -357,10 +357,18 @@ export default function CsvImportDialog({ open, onClose }) {
         return tx;
       });
 
-      // Log how many were filtered out
+      // Log parsing details
+      console.log(`CSV rows: ${fullCsvData.length}, Parsed transactions: ${rawTransactions.length}`);
+      
+      // Check for invalid transactions
+      const invalidTxs = rawTransactions.filter(tx => !(tx.quantity > 0 && tx.price_per_unit > 0));
+      if (invalidTxs.length > 0) {
+        console.log(`Invalid transactions (missing qty/price): ${invalidTxs.length}`);
+        console.log('Sample invalid:', invalidTxs.slice(0, 5));
+      }
+      
       const validTransactions = rawTransactions.filter(tx => tx.quantity > 0 && tx.price_per_unit > 0);
-      console.log(`CSV rows: ${fullCsvData.length}, Parsed: ${rawTransactions.length}, Valid: ${validTransactions.length}`);
-      console.log('Sample invalid:', rawTransactions.filter(tx => !(tx.quantity > 0 && tx.price_per_unit > 0)).slice(0, 3));
+      console.log(`Valid transactions to import: ${validTransactions.length}`);
 
       // No duplicate detection - import all transactions as-is
       const uniqueTransactions = validTransactions;
