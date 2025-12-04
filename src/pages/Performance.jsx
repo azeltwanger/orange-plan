@@ -363,19 +363,13 @@ export default function Performance() {
         }
       }
 
-      // Calculate portfolio value using historical BTC price
+      // Calculate portfolio value using historical prices for all assets
       let portfolioValue = 0;
-      const btcPriceAtDate = getBtcPriceAtDate(currentDate);
       
       for (const [ticker, qty] of Object.entries(cumulativeQty)) {
         if (qty <= 0) continue;
-        if (ticker === 'BTC') {
-          portfolioValue += qty * btcPriceAtDate;
-        } else {
-          // For other assets, use current price (could enhance later)
-          const holding = holdings.find(h => h.ticker === ticker);
-          portfolioValue += qty * (holding?.current_price || 0);
-        }
+        const priceAtDate = getPriceAtDate(ticker, currentDate);
+        portfolioValue += qty * priceAtDate;
       }
 
       dataPoints.push({
@@ -383,7 +377,6 @@ export default function Performance() {
         name: format(currentDate, 'MMM d'),
         portfolio: Math.round(portfolioValue),
         costBasis: Math.round(Object.values(cumulativeCost).reduce((a, b) => a + b, 0)),
-        btcPrice: Math.round(btcPriceAtDate),
       });
 
       // Move to next interval
