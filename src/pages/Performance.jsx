@@ -17,50 +17,122 @@ const parseDate = (dateStr) => {
 };
 import { cn } from "@/lib/utils";
 
+// CoinGecko ID mapping for common tickers
+const COINGECKO_IDS = {
+  BTC: 'bitcoin',
+  ETH: 'ethereum',
+  SOL: 'solana',
+  XRP: 'ripple',
+  ADA: 'cardano',
+  DOGE: 'dogecoin',
+  DOT: 'polkadot',
+  AVAX: 'avalanche-2',
+  MATIC: 'matic-network',
+  LINK: 'chainlink',
+  LTC: 'litecoin',
+  UNI: 'uniswap',
+  ATOM: 'cosmos',
+  XLM: 'stellar',
+  ALGO: 'algorand',
+};
+
 export default function Performance() {
-  const [btcPrice, setBtcPrice] = useState(null);
+  const [currentPrices, setCurrentPrices] = useState({});
   const [priceLoading, setPriceLoading] = useState(true);
   const [timeframe, setTimeframe] = useState('1Y');
-  const [historicalPrices, setHistoricalPrices] = useState([]);
+  const [historicalPrices, setHistoricalPrices] = useState({}); // { ticker: [{date, price}] }
 
-  // Fetch live BTC price
+  const { data: holdings = [] } = useQuery({
+    queryKey: ['holdings'],
+    queryFn: () => base44.entities.Holding.list(),
+  });
+
+  const { data: transactions = [] } = useQuery({
+    queryKey: ['transactions'],
+    queryFn: () => base44.entities.Transaction.list('-date'),
+  });
+
+  // Get unique tickers from holdings and transactions
+  const allTickers = useMemo(() => {
+    const tickerSet = new Set();
+    holdings.forEach(h => h.ticker && tickerSet.add(h.ticker));
+    transactions.forEach(t => t.asset_ticker && tickerSet.add(t.asset_ticker));
+    return [...tickerSet];
+  }, [holdings, transactions]);
+
+  // Fetch current prices for all crypto assets
   useEffect(() => {
-    const fetchPrice = async () => {
+    const fetchCurrentPrices = async () => {
       try {
-        const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd');
+        const cryptoTickers = allTickers.filter(t => COINGECKO_IDS[t]);
+        if (cryptoTickers.length === 0) {
+          setPriceLoading(false);
+          return;
+        }
+        
+        const ids = cryptoTickers.map(t => COINGECKO_IDS[t]).join(',');
+        const response = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd`);
         const data = await response.json();
-        setBtcPrice(data.bitcoin.usd);
+        
+        const prices = {};
+        for (const ticker of cryptoTickers) {
+          const id = COINGECKO_IDS[ticker];
+          if (data[id]?.usd) {
+            prices[ticker] = data[id].usd;
+          }
+        }
+        setCurrentPrices(prices);
         setPriceLoading(false);
       } catch (err) {
-        setBtcPrice(97000);
+        console.error('Failed to fetch current prices:', err);
         setPriceLoading(false);
       }
     };
-    fetchPrice();
-    const interval = setInterval(fetchPrice, 60000);
-    return () => clearInterval(interval);
-  }, []);
+    
+    if (allTickers.length > 0) {
+      fetchCurrentPrices();
+      const interval = setInterval(fetchCurrentPrices, 60000);
+      return () => clearInterval(interval);
+    }
+  }, [allTickers]);
 
-  // Fetch historical BTC prices based on timeframe
+  // Fetch historical prices for all crypto assets based on timeframe
   useEffect(() => {
     const fetchHistoricalPrices = async () => {
       try {
         const daysMap = { '1M': 30, '3M': 90, '6M': 180, '1Y': 365, '3Y': 1095, '5Y': 1825, '10Y': 3650, 'ALL': 'max' };
         const days = daysMap[timeframe] || 365;
-        const response = await fetch(`https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=${days}&interval=daily`);
-        const data = await response.json();
-        if (data.prices) {
-          setHistoricalPrices(data.prices.map(([timestamp, price]) => ({
-            date: new Date(timestamp),
-            price
-          })));
-        }
+        
+        const cryptoTickers = allTickers.filter(t => COINGECKO_IDS[t]);
+        const priceData = {};
+        
+        // Fetch historical data for each crypto (in parallel)
+        await Promise.all(cryptoTickers.map(async (ticker) => {
+          try {
+            const id = COINGECKO_IDS[ticker];
+            const response = await fetch(`https://api.coingecko.com/api/v3/coins/${id}/market_chart?vs_currency=usd&days=${days}&interval=daily`);
+            const data = await response.json();
+            if (data.prices) {
+              priceData[ticker] = data.prices.map(([timestamp, price]) => ({
+                date: new Date(timestamp),
+                price
+              }));
+            }
+          } catch (err) {
+            console.error(`Failed to fetch historical prices for ${ticker}:`, err);
+          }
+        }));
+        
+        setHistoricalPrices(priceData);
       } catch (err) {
         console.error('Failed to fetch historical prices:', err);
       }
     };
-    fetchHistoricalPrices();
-  }, [timeframe]);
+    
+    if (allTickers.length > 0) {
+      fetchHistoricalPrices();
+    }
+  }, [timeframe, allTickers]);
 
   const currentPrice = btcPrice || 97000;
 
