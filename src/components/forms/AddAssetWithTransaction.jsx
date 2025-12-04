@@ -10,6 +10,8 @@ import { Save, ChevronRight, ChevronLeft, Info, DollarSign, Plus, Trash2, Loader
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { format } from 'date-fns';
+import AccountSelector from '@/components/accounts/AccountSelector';
+import CreateAccountDialog from '@/components/accounts/CreateAccountDialog';
 
 const accountTaxMapping = {
   taxable: 'taxable',
@@ -29,6 +31,7 @@ export default function AddAssetWithTransaction({
   btcPrice = 97000 
 }) {
   const [step, setStep] = useState(1);
+  const [showCreateAccount, setShowCreateAccount] = useState(false);
   const [assetData, setAssetData] = useState({
     asset_name: '',
     asset_type: 'crypto',
@@ -36,6 +39,7 @@ export default function AddAssetWithTransaction({
     quantity: '',
     current_price: '',
     account_type: 'taxable',
+    account_id: '',
     notes: '',
   });
 
@@ -99,6 +103,7 @@ export default function AddAssetWithTransaction({
         quantity: initialData.quantity || '',
         current_price: initialData.current_price || '',
         account_type: initialData.account_type || 'taxable',
+        account_id: initialData.account_id || '',
         notes: initialData.notes || '',
       });
       setIncludeTransaction(false);
@@ -120,6 +125,7 @@ export default function AddAssetWithTransaction({
       quantity: '',
       current_price: '',
       account_type: 'taxable',
+      account_id: '',
       notes: '',
     });
     setLots([{
@@ -214,6 +220,7 @@ export default function AddAssetWithTransaction({
   const totalFees = lots.reduce((sum, l) => sum + (parseFloat(l.trading_fee) || 0), 0);
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="bg-[#0f0f10] border-zinc-800 text-zinc-100 max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -315,24 +322,18 @@ export default function AddAssetWithTransaction({
             </div>
 
             <div className="space-y-2">
-              <Label className="text-zinc-400">Account Type</Label>
-              <Select
-                value={assetData.account_type}
-                onValueChange={(value) => setAssetData({ ...assetData, account_type: value })}
-              >
-                <SelectTrigger className="bg-zinc-900 border-zinc-800">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-zinc-900 border-zinc-800">
-                  <SelectItem value="taxable">Taxable (Brokerage/Self-Custody)</SelectItem>
-                  <SelectItem value="traditional_401k">Traditional 401(k)</SelectItem>
-                  <SelectItem value="roth_401k">Roth 401(k)</SelectItem>
-                  <SelectItem value="traditional_ira">Traditional IRA</SelectItem>
-                  <SelectItem value="roth_ira">Roth IRA</SelectItem>
-                  <SelectItem value="hsa">HSA</SelectItem>
-                  <SelectItem value="529">529 Plan</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label className="text-zinc-400">Account</Label>
+              <AccountSelector
+                value={assetData.account_id}
+                onChange={(value) => {
+                  if (value === '_create_') {
+                    setShowCreateAccount(true);
+                  } else {
+                    setAssetData({ ...assetData, account_id: value === '_none_' ? '' : value });
+                  }
+                }}
+              />
+              <p className="text-xs text-zinc-500">Group assets by account (e.g., Fidelity, Coinbase)</p>
             </div>
 
             <div className="flex gap-3 pt-4">
@@ -589,5 +590,14 @@ export default function AddAssetWithTransaction({
         )}
       </DialogContent>
     </Dialog>
+    
+    <CreateAccountDialog
+      open={showCreateAccount}
+      onClose={() => setShowCreateAccount(false)}
+      onCreated={(newAccount) => {
+        setAssetData({ ...assetData, account_id: newAccount.id });
+      }}
+    />
+    </>
   );
 }
