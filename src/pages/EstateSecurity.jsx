@@ -679,7 +679,7 @@ export default function EstateSecurity() {
                 return (
                   <div key={type} className="flex items-center gap-2 text-sm">
                     <Icon className="w-4 h-4 text-zinc-400" />
-                    <span className="text-zinc-500 capitalize">{type.replace('_', ' ')}</span>
+                    <span className="text-zinc-500 capitalize">{type === 'hardware_wallet' ? 'Hardware Wallet + Passphrase' : type.replace('_', ' ')}</span>
                     <span className={cn(
                       "font-semibold",
                       score >= 8 ? "text-emerald-400" : score >= 5 ? "text-amber-400" : "text-rose-400"
