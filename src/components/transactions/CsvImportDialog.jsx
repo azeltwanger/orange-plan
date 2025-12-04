@@ -351,21 +351,9 @@ export default function CsvImportDialog({ open, onClose }) {
         return tx;
       }).filter(tx => tx.quantity > 0 && tx.price_per_unit > 0);
 
-      // Duplicate detection - ONLY check by transaction_id if present
-      // Don't use loose key matching as it causes false positives with same-day purchases
-      const existingTxIds = new Set(
-        existingTransactions.filter(t => t.transaction_id).map(t => t.transaction_id)
-      );
-
-      const uniqueTransactions = rawTransactions.filter(tx => {
-        // Only skip if transaction_id exists AND matches an existing one
-        if (tx.transaction_id && existingTxIds.has(tx.transaction_id)) {
-          return false;
-        }
-        return true;
-      });
-
-      const duplicatesSkipped = rawTransactions.length - uniqueTransactions.length;
+      // No duplicate detection - import all transactions as-is
+      const uniqueTransactions = rawTransactions;
+      const duplicatesSkipped = 0;
 
       // Process with lot matching (only unique transactions)
       const { transactions, stats } = processTransactionsWithLots(uniqueTransactions, lotMethod);
