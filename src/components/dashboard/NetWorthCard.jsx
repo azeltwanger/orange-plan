@@ -3,11 +3,13 @@ import { TrendingUp, Zap } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { differenceInDays, parseISO } from 'date-fns';
 
-// Helper to parse various date formats
+// Helper to parse various date formats (M/D/YYYY or YYYY-MM-DD)
 const parseDate = (dateStr) => {
   if (!dateStr) return null;
+  // Try ISO format first
   let d = parseISO(dateStr);
   if (!isNaN(d.getTime())) return d;
+  // Try US format (M/D/YYYY)
   d = new Date(dateStr);
   if (!isNaN(d.getTime())) return d;
   return null;
@@ -55,39 +57,24 @@ export default function NetWorthCard({ totalAssets, totalLiabilities, btcHolding
     
     if (years < 0.01) return null; // Less than ~4 days
     
-    // Newton-Raphson method to solve for IRR
-    let rate = 0.1; // Initial guess 10%
+    // Calculate simple annualized return (CAGR-style) as fallback
+    const totalInvested = cashFlows
+      .filter(cf => cf.amount < 0)
+      .reduce((sum, cf) => sum + Math.abs(cf.amount), 0);
     
-    for (let i = 0; i < 100; i++) {
-      let npv = 0;
-      let derivative = 0;
-      
-      for (const cf of cashFlows) {
-        const discountFactor = Math.pow(1 + rate, cf.yearsAgo);
-        npv += cf.amount / discountFactor;
-        derivative -= cf.yearsAgo * cf.amount / Math.pow(1 + rate, cf.yearsAgo + 1);
-      }
-      
-      if (Math.abs(npv) < 0.01) break; // Converged
-      if (Math.abs(derivative) < 0.0001) break; // Avoid division by zero
-      
-      const newRate = rate - npv / derivative;
-      
-      // Clamp to reasonable bounds
-      if (newRate < -0.99) rate = -0.5;
-      else if (newRate > 10) rate = 5;
-      else rate = newRate;
+    const totalReturn = totalInvested > 0 ? (currentValue - totalInvested) / totalInvested : 0;
+    
+    // Use simple CAGR formula: (endValue/startValue)^(1/years) - 1
+    // This is more stable than IRR for DCA scenarios
+    let annualizedReturn;
+    if (years >= 1) {
+      annualizedReturn = (Math.pow(currentValue / totalInvested, 1 / years) - 1) * 100;
+    } else {
+      // For less than a year, just show the actual return
+      annualizedReturn = totalReturn * 100;
     }
     
-    const annualizedReturn = rate * 100;
-    
-    // Calculate simple total return for reference
-    const totalInvested = btcTxs
-      .filter(t => t.type === 'buy')
-      .reduce((sum, t) => sum + (t.cost_basis || t.quantity * t.price_per_unit), 0);
-    const totalReturn = totalInvested > 0 ? ((currentValue - totalInvested) / totalInvested) * 100 : 0;
-
-    return { annualizedReturn, years, totalReturn };
+    return { annualizedReturn, years, totalReturn: totalReturn * 100 };
   }, [transactions, btcHoldings, btcPrice]);
 
   return (
