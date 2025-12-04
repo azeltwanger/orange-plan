@@ -691,7 +691,7 @@ export default function CsvImportDialog({ open, onClose }) {
                 <p className="text-zinc-400 mt-1">Your transactions have been imported and processed.</p>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full max-w-lg">
+              <div className="grid grid-cols-2 gap-4 w-full max-w-xs">
                 <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center">
                   <p className="text-2xl font-bold text-emerald-400">{importStats.buys}</p>
                   <p className="text-xs text-zinc-400">Buys</p>
@@ -699,14 +699,6 @@ export default function CsvImportDialog({ open, onClose }) {
                 <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-center">
                   <p className="text-2xl font-bold text-rose-400">{importStats.sells}</p>
                   <p className="text-xs text-zinc-400">Sells</p>
-                </div>
-                <div className="p-3 rounded-xl bg-zinc-800 text-center">
-                  <p className="text-2xl font-bold text-emerald-400">+${importStats.totalGains.toLocaleString()}</p>
-                  <p className="text-xs text-zinc-400">Total Gains</p>
-                </div>
-                <div className="p-3 rounded-xl bg-zinc-800 text-center">
-                  <p className="text-2xl font-bold text-rose-400">-${importStats.totalLosses.toLocaleString()}</p>
-                  <p className="text-xs text-zinc-400">Total Losses</p>
                 </div>
               </div>
 
