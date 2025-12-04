@@ -22,6 +22,7 @@ export default function Pricing() {
     'Everything in one place',
     'Real-time BTC price updates',
     'Save on taxes with cost basis tracking (FIFO, LIFO, HIFO, AVG)',
+    'Loss & gain harvesting opportunities',
     'Reduce fees with exchange comparison',
     'Custody & asset organization',
     'Monte Carlo retirement simulations',
