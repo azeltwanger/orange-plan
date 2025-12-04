@@ -244,59 +244,21 @@ export default function Performance() {
   
   const holdingYears = holdingDays / 365;
   
-  // Calculate Money-Weighted Return (IRR) - weights each cash flow by timing
+  // Calculate annualized return using CAGR formula
   const annualizedReturn = useMemo(() => {
-    if (transactions.length === 0 || currentValue <= 0) return 0;
+    if (totalCostBasis <= 0 || currentValue <= 0 || holdingDays < 1) return 0;
     
-    const now = new Date();
+    const years = holdingDays / 365;
+    const totalReturn = (currentValue - totalCostBasis) / totalCostBasis;
     
-    // Build cash flows: negative for buys, positive for sells
-    const cashFlows = [];
-    
-    for (const tx of transactions) {
-      const txDate = parseDate(tx.date);
-      if (!txDate) continue;
-      
-      const yearsAgo = differenceInDays(now, txDate) / 365;
-      const amount = tx.type === 'buy' 
-        ? -(tx.cost_basis || tx.quantity * tx.price_per_unit)
-        : (tx.total_value || tx.quantity * tx.price_per_unit);
-      
-      cashFlows.push({ yearsAgo, amount });
+    // Use CAGR formula: (endValue/startValue)^(1/years) - 1
+    if (years >= 1) {
+      return (Math.pow(currentValue / totalCostBasis, 1 / years) - 1) * 100;
+    } else {
+      // For less than a year, show actual return
+      return totalReturn * 100;
     }
-    
-    // Add current portfolio value as final positive cash flow (at time 0)
-    cashFlows.push({ yearsAgo: 0, amount: currentValue });
-    
-    if (cashFlows.length < 2) return 0;
-    
-    // Newton-Raphson method to solve for IRR
-    // NPV = sum of (cashFlow / (1 + r)^t) = 0
-    let rate = 0.1; // Initial guess 10%
-    
-    for (let i = 0; i < 100; i++) {
-      let npv = 0;
-      let derivative = 0;
-      
-      for (const cf of cashFlows) {
-        const discountFactor = Math.pow(1 + rate, cf.yearsAgo);
-        npv += cf.amount / discountFactor;
-        derivative -= cf.yearsAgo * cf.amount / Math.pow(1 + rate, cf.yearsAgo + 1);
-      }
-      
-      if (Math.abs(npv) < 0.01) break; // Converged
-      if (Math.abs(derivative) < 0.0001) break; // Avoid division by zero
-      
-      const newRate = rate - npv / derivative;
-      
-      // Clamp to reasonable bounds
-      if (newRate < -0.99) rate = -0.5;
-      else if (newRate > 10) rate = 5;
-      else rate = newRate;
-    }
-    
-    return rate * 100;
-  }, [transactions, currentValue]);
+  }, [totalCostBasis, currentValue, holdingDays]);
 
   // Helper to get price at a specific date from historical data for any ticker
   const getPriceAtDate = useCallback((ticker, date) => {
