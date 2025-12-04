@@ -303,12 +303,13 @@ export default function TaxCenter() {
 
   const bulkDeleteTx = useMutation({
     mutationFn: async (ids) => {
-      for (const id of ids) {
-        await base44.entities.Transaction.delete(id);
-      }
+      const deletePromises = ids.map(id => base44.entities.Transaction.delete(id));
+      await Promise.all(deletePromises);
+      return ids.length;
     },
-    onSuccess: () => {
+    onSuccess: (count) => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['holdings'] });
       setSelectedTxIds([]);
     },
   });
