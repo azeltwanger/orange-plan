@@ -5,6 +5,16 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { TrendingUp, TrendingDown, Calendar, Bitcoin, DollarSign } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format, subMonths, subYears, differenceInDays, parseISO } from 'date-fns';
+
+// Helper to parse various date formats (M/D/YYYY or YYYY-MM-DD)
+const parseDate = (dateStr) => {
+  if (!dateStr) return null;
+  let d = parseISO(dateStr);
+  if (!isNaN(d.getTime())) return d;
+  d = new Date(dateStr);
+  if (!isNaN(d.getTime())) return d;
+  return null;
+};
 import { cn } from "@/lib/utils";
 
 export default function Performance() {
@@ -80,18 +90,6 @@ export default function Performance() {
   
   const unrealizedGain = currentValue - totalCostBasis + transactionStats.realizedGains;
   const totalReturn = totalCostBasis > 0 ? (unrealizedGain / totalCostBasis) * 100 : 0;
-
-  // Helper to parse various date formats
-  const parseDate = (dateStr) => {
-    if (!dateStr) return null;
-    // Try ISO format first (YYYY-MM-DD)
-    let d = parseISO(dateStr);
-    if (!isNaN(d.getTime())) return d;
-    // Try M/D/YYYY or MM/DD/YYYY format
-    d = new Date(dateStr);
-    if (!isNaN(d.getTime())) return d;
-    return null;
-  };
 
   // Calculate holding period and annualized return
   const holdingDays = useMemo(() => {
