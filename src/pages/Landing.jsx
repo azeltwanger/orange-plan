@@ -1,63 +1,63 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
-import { 
-  TrendingUp, 
-  Shield, 
-  Target, 
-  PieChart, 
-  ArrowRight, 
+import {
+  TrendingUp,
+  Shield,
+  Target,
+  PieChart,
+  ArrowRight,
   CheckCircle,
   Zap,
   BarChart3,
   Calculator,
   Wallet,
   LineChart,
-  Lock
-} from 'lucide-react';
+  Lock } from
+'lucide-react';
 import { Button } from "@/components/ui/button";
 
 const features = [
-  {
-    icon: PieChart,
-    title: 'Net Worth Tracking',
-    description: 'Unified view of crypto, stocks, real estate, and retirement accounts.'
-  },
-  {
-    icon: Target,
-    title: 'Retirement Modeling',
-    description: 'Monte Carlo simulations with multiple withdrawal strategies.'
-  },
-  {
-    icon: Calculator,
-    title: 'Tax Optimization',
-    description: 'FIFO, LIFO, HIFO lot selection and harvest opportunities.'
-  },
-  {
-    icon: Wallet,
-    title: 'Cash Flow',
-    description: 'Income, expenses, and automatic savings calculations.'
-  },
-  {
-    icon: BarChart3,
-    title: 'DCA Planning',
-    description: 'Automated investment plans with allocation strategies.'
-  },
-  {
-    icon: Shield,
-    title: 'Estate Security',
-    description: 'Inheritance protocols and beneficiary management.'
-  },
-];
+{
+  icon: PieChart,
+  title: 'Net Worth Tracking',
+  description: 'Unified view of crypto, stocks, real estate, and retirement accounts.'
+},
+{
+  icon: Target,
+  title: 'Retirement Modeling',
+  description: 'Monte Carlo simulations with multiple withdrawal strategies.'
+},
+{
+  icon: Calculator,
+  title: 'Tax Optimization',
+  description: 'FIFO, LIFO, HIFO lot selection and harvest opportunities.'
+},
+{
+  icon: Wallet,
+  title: 'Cash Flow',
+  description: 'Income, expenses, and automatic savings calculations.'
+},
+{
+  icon: BarChart3,
+  title: 'DCA Planning',
+  description: 'Automated investment plans with allocation strategies.'
+},
+{
+  icon: Shield,
+  title: 'Estate Security',
+  description: 'Inheritance protocols and beneficiary management.'
+}];
+
 
 export default function Landing() {
   const [btcPrice, setBtcPrice] = useState(null);
-  
+
   useEffect(() => {
-    fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd')
-      .then(r => r.json())
-      .then(data => setBtcPrice(data.bitcoin.usd))
-      .catch(() => setBtcPrice(97000));
+    fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd').
+    then((r) => r.json()).
+    then((data) => setBtcPrice(data.bitcoin.usd)).
+    catch(() => setBtcPrice(97000));
   }, []);
 
   return (
@@ -109,15 +109,15 @@ export default function Landing() {
             <span className="text-orange-400/90">Live BTC: ${btcPrice?.toLocaleString() || '---'}</span>
           </div>
           
-          <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight leading-[1.1] mb-6">
-            Financial Planning for
-            <br />
-            <span className="brand-gradient-text">the Bitcoin Standard</span>
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight leading-[1.1] mb-6">Your Bitcoin Financial Planning Hub
+
+
+
           </h1>
           
-          <p className="text-lg text-zinc-400 max-w-xl mx-auto mb-10 leading-relaxed">
-            Track your net worth, model retirement scenarios, optimize taxes, 
-            and secure your legacy—all in one unified dashboard.
+          <p className="text-lg text-zinc-400 max-w-xl mx-auto mb-10 leading-relaxed">Track your net worth, model retirement scenarios, compare fees, optimize taxes, and secure your legacy—all in one unified dashboard.
+
+
           </p>
           
           <Link to={createPageUrl('Dashboard')}>
@@ -167,13 +167,13 @@ export default function Landing() {
                 {/* Chart placeholder */}
                 <div className="h-48 rounded-xl bg-gradient-to-br from-white/[0.02] to-transparent border border-white/5 flex items-end justify-center p-4">
                   <div className="flex items-end gap-1 h-full">
-                    {[40, 55, 45, 60, 75, 65, 80, 70, 85, 90, 82, 95].map((h, i) => (
-                      <div 
-                        key={i} 
-                        className="w-6 md:w-8 rounded-t bg-gradient-to-t from-orange-500/60 to-orange-400/30"
-                        style={{ height: `${h}%` }}
-                      />
-                    ))}
+                    {[40, 55, 45, 60, 75, 65, 80, 70, 85, 90, 82, 95].map((h, i) =>
+                    <div
+                      key={i}
+                      className="w-6 md:w-8 rounded-t bg-gradient-to-t from-orange-500/60 to-orange-400/30"
+                      style={{ height: `${h}%` }} />
+
+                    )}
                   </div>
                 </div>
               </div>
@@ -191,18 +191,18 @@ export default function Landing() {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {features.map((feature, i) => (
-              <div 
-                key={i}
-                className="group p-5 rounded-xl bg-white/[0.02] border border-white/5 hover:border-orange-500/20 hover:bg-white/[0.04] transition-all duration-300"
-              >
+            {features.map((feature, i) =>
+            <div
+              key={i}
+              className="group p-5 rounded-xl bg-white/[0.02] border border-white/5 hover:border-orange-500/20 hover:bg-white/[0.04] transition-all duration-300">
+
                 <div className="w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center mb-4 group-hover:bg-orange-500/20 transition-colors">
                   <feature.icon className="w-5 h-5 text-orange-400" />
                 </div>
                 <h3 className="font-semibold mb-1.5">{feature.title}</h3>
                 <p className="text-sm text-zinc-500 leading-relaxed">{feature.description}</p>
               </div>
-            ))}
+            )}
           </div>
         </div>
       </section>
@@ -224,17 +224,17 @@ export default function Landing() {
               
               <div className="space-y-3">
                 {[
-                  'Automatic transaction → holdings sync',
-                  'Tax lot tracking with optimal selection',
-                  'Monte Carlo retirement simulations',
-                  'Multi-account type support (401k, IRA, taxable)',
-                  'Real-time price updates',
-                ].map((item, i) => (
-                  <div key={i} className="flex items-center gap-3">
+                'Automatic transaction → holdings sync',
+                'Tax lot tracking with optimal selection',
+                'Monte Carlo retirement simulations',
+                'Multi-account type support (401k, IRA, taxable)',
+                'Real-time price updates'].
+                map((item, i) =>
+                <div key={i} className="flex items-center gap-3">
                     <CheckCircle className="w-4 h-4 text-orange-400 flex-shrink-0" />
                     <span className="text-sm text-zinc-300">{item}</span>
                   </div>
-                ))}
+                )}
               </div>
             </div>
             
@@ -242,11 +242,11 @@ export default function Landing() {
               <div className="absolute inset-0 bg-orange-500/5 rounded-2xl blur-3xl" />
               <div className="relative space-y-3">
                 {[
-                  { icon: TrendingUp, label: 'Projection Success', value: '94%', color: 'emerald' },
-                  { icon: Calculator, label: 'Tax Saved (YTD)', value: '$4,280', color: 'orange' },
-                  { icon: Lock, label: 'Security Score', value: '9.2', color: 'purple' },
-                ].map((item, i) => (
-                  <div key={i} className="flex items-center justify-between p-4 rounded-xl bg-white/[0.03] border border-white/5">
+                { icon: TrendingUp, label: 'Projection Success', value: '94%', color: 'emerald' },
+                { icon: Calculator, label: 'Tax Saved (YTD)', value: '$4,280', color: 'orange' },
+                { icon: Lock, label: 'Security Score', value: '9.2', color: 'purple' }].
+                map((item, i) =>
+                <div key={i} className="flex items-center justify-between p-4 rounded-xl bg-white/[0.03] border border-white/5">
                     <div className="flex items-center gap-3">
                       <div className={`w-9 h-9 rounded-lg bg-${item.color}-500/10 flex items-center justify-center`}>
                         <item.icon className={`w-4 h-4 text-${item.color}-400`} />
@@ -255,7 +255,7 @@ export default function Landing() {
                     </div>
                     <span className={`text-lg font-semibold text-${item.color}-400`}>{item.value}</span>
                   </div>
-                ))}
+                )}
               </div>
             </div>
           </div>
@@ -292,6 +292,6 @@ export default function Landing() {
           <p className="text-xs text-zinc-600">© 2024</p>
         </div>
       </footer>
-    </div>
-  );
+    </div>);
+
 }
