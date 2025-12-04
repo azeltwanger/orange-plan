@@ -304,7 +304,9 @@ export default function FinancialPlan() {
       if (settings.dynamic_withdrawal_rate !== undefined) setDynamicWithdrawalRate(settings.dynamic_withdrawal_rate);
       if (settings.btc_return_model !== undefined) setBtcReturnModel(settings.btc_return_model);
       if (settings.other_retirement_income !== undefined) setOtherRetirementIncome(settings.other_retirement_income);
-      setSettingsLoaded(true);
+                  if (settings.social_security_start_age !== undefined) setSocialSecurityStartAge(settings.social_security_start_age);
+                  if (settings.social_security_amount !== undefined) setSocialSecurityAmount(settings.social_security_amount);
+                  setSettingsLoaded(true);
     }
   }, [userSettings, settingsLoaded]);
 
@@ -340,11 +342,13 @@ export default function FinancialPlan() {
         withdrawal_strategy: withdrawalStrategy || 'dynamic',
         dynamic_withdrawal_rate: dynamicWithdrawalRate || 5,
         btc_return_model: btcReturnModel || 'custom',
-        other_retirement_income: otherRetirementIncome || 0,
-      });
+                      other_retirement_income: otherRetirementIncome || 0,
+                      social_security_start_age: socialSecurityStartAge || 67,
+                      social_security_amount: socialSecurityAmount || 0,
+                    });
     }, 1000); // Debounce 1 second
     return () => clearTimeout(timeoutId);
-  }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, withdrawalStrategy, dynamicWithdrawalRate, btcReturnModel, otherRetirementIncome]);
+  }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, withdrawalStrategy, dynamicWithdrawalRate, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount]);
 
   // Calculate annual savings from Income & Expenses (single source of truth)
   const freqMultiplier = { monthly: 12, weekly: 52, biweekly: 26, quarterly: 4, annual: 1, one_time: 0 };
@@ -584,18 +588,29 @@ export default function FinancialPlan() {
         const effectiveRunningTaxableBasis = Math.min(runningTaxable, runningTaxableBasis);
         const estimatedCurrentGainRatio = runningTaxable > 0 ? Math.max(0, (runningTaxable - effectiveRunningTaxableBasis) / runningTaxable) : 0;
         
-        // Use tax calculation utility for accurate withdrawal taxes
-        const taxEstimate = estimateRetirementWithdrawalTaxes({
-          withdrawalNeeded: yearWithdrawal,
-          taxableBalance: runningTaxable,
-          taxDeferredBalance: runningTaxDeferred,
-          taxFreeBalance: runningTaxFree,
-          taxableGainPercent: estimatedCurrentGainRatio,
-          isLongTermGain: true, // Assume long-term for projections
-          filingStatus,
-          age: currentAgeInYear,
-          otherIncome: otherRetirementIncome,
-        });
+        // Calculate Social Security income for this year (inflation-adjusted from start age)
+                      const currentAgeInYearForSS = currentAge + i;
+                      let socialSecurityIncome = 0;
+                      if (currentAgeInYearForSS >= socialSecurityStartAge && socialSecurityAmount > 0) {
+                        const yearsOfSSInflation = currentAgeInYearForSS - socialSecurityStartAge;
+                        socialSecurityIncome = socialSecurityAmount * Math.pow(1 + effectiveInflation / 100, yearsOfSSInflation);
+                      }
+
+                      // Total other income = other retirement income + Social Security (if eligible)
+                      const totalOtherIncome = otherRetirementIncome + socialSecurityIncome;
+
+                      // Use tax calculation utility for accurate withdrawal taxes
+                      const taxEstimate = estimateRetirementWithdrawalTaxes({
+                        withdrawalNeeded: yearWithdrawal,
+                        taxableBalance: runningTaxable,
+                        taxDeferredBalance: runningTaxDeferred,
+                        taxFreeBalance: runningTaxFree,
+                        taxableGainPercent: estimatedCurrentGainRatio,
+                        isLongTermGain: true, // Assume long-term for projections
+                        filingStatus,
+                        age: currentAgeInYear,
+                        otherIncome: totalOtherIncome,
+                      });
         
         const withdrawFromTaxable = taxEstimate.fromTaxable;
         const withdrawFromTaxDeferred = taxEstimate.fromTaxDeferred;
@@ -1259,17 +1274,40 @@ export default function FinancialPlan() {
                   </button>
                 </div>
 
-                <div className="space-y-2">
-                  <Label className="text-zinc-400">Other Retirement Income ($/yr)</Label>
-                  <Input 
-                    type="number" 
-                    value={otherRetirementIncome} 
-                    onChange={(e) => setOtherRetirementIncome(parseFloat(e.target.value) || 0)} 
-                    placeholder="0" 
-                    className="bg-zinc-900 border-zinc-800 w-48" 
-                  />
-                  <p className="text-xs text-zinc-500">Social Security, pension, rental income, etc.</p>
-                </div>
+                <div className="space-y-4">
+                                        <div className="space-y-2">
+                                          <Label className="text-zinc-400">Social Security ($/yr)</Label>
+                                          <div className="flex gap-3 items-center">
+                                            <Input 
+                                              type="number" 
+                                              value={socialSecurityAmount} 
+                                              onChange={(e) => setSocialSecurityAmount(parseFloat(e.target.value) || 0)} 
+                                              placeholder="0" 
+                                              className="bg-zinc-900 border-zinc-800 w-32" 
+                                            />
+                                            <span className="text-zinc-500 text-sm">starting at age</span>
+                                            <Input 
+                                              type="number" 
+                                              value={socialSecurityStartAge} 
+                                              onChange={(e) => setSocialSecurityStartAge(parseInt(e.target.value) || 67)} 
+                                              placeholder="67" 
+                                              className="bg-zinc-900 border-zinc-800 w-20" 
+                                            />
+                                          </div>
+                                          <p className="text-xs text-zinc-500">Annual benefit amount, inflation-adjusted from start age</p>
+                                        </div>
+                                        <div className="space-y-2">
+                                          <Label className="text-zinc-400">Other Retirement Income ($/yr)</Label>
+                                          <Input 
+                                            type="number" 
+                                            value={otherRetirementIncome} 
+                                            onChange={(e) => setOtherRetirementIncome(parseFloat(e.target.value) || 0)} 
+                                            placeholder="0" 
+                                            className="bg-zinc-900 border-zinc-800 w-32" 
+                                          />
+                                          <p className="text-xs text-zinc-500">Pension, rental income, etc. (excluding Social Security)</p>
+                                        </div>
+                                      </div>
 
                 <div className="p-3 rounded-lg bg-zinc-800/30 border border-zinc-700/50">
                   <p className="text-xs text-zinc-400">
