@@ -355,7 +355,8 @@ export default function TaxCenter() {
       const perUnitCost = tx.price_per_unit || 0;
       const costBasis = remainingQuantity * perUnitCost;
       const unrealizedGain = currentValue - costBasis;
-      const daysSincePurchase = differenceInDays(new Date(), new Date(tx.date));
+      const txDate = tx.date ? new Date(tx.date) : new Date();
+      const daysSincePurchase = isNaN(txDate.getTime()) ? 0 : differenceInDays(new Date(), txDate);
       const isLongTerm = daysSincePurchase > 365;
       
       return {
@@ -1041,7 +1042,7 @@ export default function TaxCenter() {
                           )}
                         </div>
                         <p className="text-sm text-zinc-500">
-                          Bought {lot.date && format(new Date(lot.date), 'MMM d, yyyy')} @ ${(lot.price_per_unit || 0).toLocaleString()}
+                          Bought {lot.date ? format(new Date(lot.date), 'MMM d, yyyy') : 'Unknown date'} @ ${(lot.price_per_unit || 0).toLocaleString()}
                         </p>
                       </div>
                       <div className="text-right">
@@ -1096,7 +1097,7 @@ export default function TaxCenter() {
                           )}
                         </div>
                         <p className="text-sm text-zinc-500">
-                          @ ${(tx.price_per_unit || 0).toLocaleString()} • {tx.date && format(new Date(tx.date), 'MMM d, yyyy')}
+                          @ ${(tx.price_per_unit || 0).toLocaleString()} • {tx.date ? format(new Date(tx.date), 'MMM d, yyyy') : 'No date'}
                         </p>
                       </div>
                     </div>
@@ -1524,7 +1525,7 @@ export default function TaxCenter() {
                                 <div>
                                   <p className="text-sm font-medium">{lot.remainingQuantity.toFixed(8)} BTC available</p>
                                   <p className="text-xs text-zinc-500">
-                                    Bought {lot.date && format(new Date(lot.date), 'MMM d, yyyy')} @ ${(lot.price_per_unit || 0).toLocaleString()}
+                                    Bought {lot.date ? format(new Date(lot.date), 'MMM d, yyyy') : 'Unknown'} @ ${(lot.price_per_unit || 0).toLocaleString()}
                                   </p>
                                 </div>
                                 <div className="text-right">
