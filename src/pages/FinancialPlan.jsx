@@ -490,16 +490,24 @@ export default function FinancialPlan() {
     for (let i = 0; i <= years; i++) {
       const year = currentYear + i;
       
-      // Calculate life event impacts for this year
-      let eventImpact = 0;
-      lifeEvents.forEach(event => {
-        if (event.year === year || (event.is_recurring && event.year <= year && year < event.year + (event.recurring_years || 1))) {
-          if (event.affects === 'assets') eventImpact += event.amount;
-          if (event.event_type === 'home_purchase' && event.year === year) {
-            eventImpact -= (event.down_payment || 0);
+      // Calculate life event impacts for this year (with income growth applied)
+        let eventImpact = 0;
+        lifeEvents.forEach(event => {
+          const yearsFromEventStart = year - event.year;
+          if (event.year === year || (event.is_recurring && event.year <= year && year < event.year + (event.recurring_years || 1))) {
+            // Apply income growth to income-related events
+            const growthMultiplier = (event.affects === 'income' || event.event_type === 'income_change') 
+              ? Math.pow(1 + incomeGrowth / 100, Math.max(0, yearsFromEventStart))
+              : 1;
+
+            if (event.affects === 'assets') eventImpact += event.amount;
+            else if (event.affects === 'income') eventImpact += event.amount * growthMultiplier;
+
+            if (event.event_type === 'home_purchase' && event.year === year) {
+              eventImpact -= (event.down_payment || 0);
+            }
           }
-        }
-      });
+        });
       
       // Include goals marked as "will_be_spent" at their target date
       goals.forEach(goal => {
@@ -994,24 +1002,7 @@ export default function FinancialPlan() {
               </div>
               <Slider value={[incomeGrowth]} onValueChange={([v]) => setIncomeGrowth(v)} min={0} max={10} step={0.5} />
             </div>
-            <div className="space-y-3 lg:col-span-2">
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-2">
-                  <Label className="text-zinc-400">Annual Savings (from Income & Expenses)</Label>
-                  <span className="text-xs text-zinc-600 bg-zinc-800 px-2 py-0.5 rounded">Auto-calculated</span>
-                </div>
-                <span className="text-emerald-400 font-semibold">{formatNumberFull(annualSavings)}</span>
-              </div>
-              <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-emerald-500/50 rounded-full" 
-                  style={{ width: `${Math.min(100, (annualSavings / 100000) * 100)}%` }}
-                />
-              </div>
-              <p className="text-xs text-zinc-500">
-                Monthly: {formatNumberFull(monthlyIncome)} income − {formatNumberFull(monthlyExpenses)} expenses = {formatNumberFull(monthlyIncome - monthlyExpenses)} surplus
-              </p>
-            </div>
+
           </div>
         </div>
       )}

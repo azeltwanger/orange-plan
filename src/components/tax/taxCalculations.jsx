@@ -1,7 +1,7 @@
 // 2025 Tax Brackets and Standard Deductions
 export const STANDARD_DEDUCTION_2025 = {
-  single: 15000,
-  married: 30000,
+  single: 15750,
+  married: 31500,
 };
 
 export const TAX_BRACKETS_2025 = {
