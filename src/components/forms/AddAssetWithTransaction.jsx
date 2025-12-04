@@ -51,9 +51,9 @@ export default function AddAssetWithTransaction({
   const [includeTransaction, setIncludeTransaction] = useState(true);
   const [fetchingPrice, setFetchingPrice] = useState(false);
 
-  // Fetch live price for stocks/crypto tickers
+  // Fetch live price for stocks/crypto tickers using InvokeLLM with internet context
   const fetchTickerPrice = async (ticker, assetType) => {
-    if (!ticker || ticker.length < 1) return;
+    if (!ticker || ticker.length < 2) return;
     
     setFetchingPrice(true);
     try {
@@ -67,12 +67,20 @@ export default function AddAssetWithTransaction({
           setAssetData(prev => ({ ...prev, current_price: data[coinId].usd }));
         }
       } else if (assetType === 'stocks') {
-        // Use Yahoo Finance for stocks
-        const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1d`);
-        const data = await response.json();
-        const price = data?.chart?.result?.[0]?.meta?.regularMarketPrice;
-        if (price) {
-          setAssetData(prev => ({ ...prev, current_price: price }));
+        // Use LLM with internet for stock prices (works around CORS)
+        const { base44 } = await import('@/api/base44Client');
+        const result = await base44.integrations.Core.InvokeLLM({
+          prompt: `What is the current stock price for ticker symbol ${ticker}? Return ONLY the price as a number, nothing else.`,
+          add_context_from_internet: true,
+          response_json_schema: {
+            type: "object",
+            properties: {
+              price: { type: "number", description: "Current stock price in USD" }
+            }
+          }
+        });
+        if (result?.price && result.price > 0) {
+          setAssetData(prev => ({ ...prev, current_price: result.price }));
         }
       }
     } catch (err) {

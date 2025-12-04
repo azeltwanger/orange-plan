@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { base44 } from '@/api/base44Client';
 
 // Fetch prices for multiple assets (BTC, stocks, etc.)
 export default function useAssetPrices(tickers = []) {
@@ -48,50 +49,43 @@ export default function useAssetPrices(tickers = []) {
           }
         }
 
-        // Fetch stock prices from Yahoo Finance
+        // Fetch stock prices using LLM with internet (avoids CORS issues)
         if (stockTickers.length > 0) {
-          for (const ticker of stockTickers) {
-            try {
-              const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker.toUpperCase()}?interval=1d&range=2d`);
-              const data = await response.json();
-              
-              if (data.chart?.result?.[0]) {
-                const result = data.chart.result[0];
-                const currentPrice = result.meta.regularMarketPrice;
-                const previousClose = result.meta.previousClose || result.meta.chartPreviousClose;
-                const change24h = previousClose ? ((currentPrice - previousClose) / previousClose) * 100 : 0;
-                
-                newPrices[ticker.toUpperCase()] = {
-                  price: currentPrice,
-                  change24h: change24h,
-                };
-              }
-            } catch (err) {
-              console.warn(`Failed to fetch price for ${ticker}:`, err);
-            }
-          }
-        }
-
-        // Also fetch any remaining tickers that aren't known crypto (treat as stocks)
-        const remainingTickers = tickers.filter(t => !cryptoTickers.includes(t) && !stockTickers.includes(t));
-        for (const ticker of remainingTickers) {
           try {
-            const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker.toUpperCase()}?interval=1d&range=2d`);
-            const data = await response.json();
+            const tickerList = stockTickers.join(', ');
+            const result = await base44.integrations.Core.InvokeLLM({
+              prompt: `Get the current stock prices for these tickers: ${tickerList}. Return the current price for each ticker.`,
+              add_context_from_internet: true,
+              response_json_schema: {
+                type: "object",
+                properties: {
+                  prices: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        ticker: { type: "string" },
+                        price: { type: "number" },
+                        change_percent: { type: "number" }
+                      }
+                    }
+                  }
+                }
+              }
+            });
             
-            if (data.chart?.result?.[0]) {
-              const result = data.chart.result[0];
-              const currentPrice = result.meta.regularMarketPrice;
-              const previousClose = result.meta.previousClose || result.meta.chartPreviousClose;
-              const change24h = previousClose ? ((currentPrice - previousClose) / previousClose) * 100 : 0;
-              
-              newPrices[ticker.toUpperCase()] = {
-                price: currentPrice,
-                change24h: change24h,
-              };
+            if (result?.prices) {
+              for (const item of result.prices) {
+                if (item.ticker && item.price > 0) {
+                  newPrices[item.ticker.toUpperCase()] = {
+                    price: item.price,
+                    change24h: item.change_percent || 0,
+                  };
+                }
+              }
             }
           } catch (err) {
-            console.warn(`Failed to fetch price for ${ticker}:`, err);
+            console.warn('Failed to fetch stock prices:', err);
           }
         }
 
