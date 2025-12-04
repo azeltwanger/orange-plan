@@ -105,6 +105,29 @@ export default function Performance() {
     }
   }, [cryptoTickers]);
 
+  // Calculate cost basis from transactions (more accurate than holdings)
+  const transactionStats = useMemo(() => {
+    const buyTxs = transactions.filter(t => t.type === 'buy');
+    const sellTxs = transactions.filter(t => t.type === 'sell');
+    
+    // Calculate actual cost basis from buys
+    const totalInvested = buyTxs.reduce((sum, t) => sum + (t.cost_basis || t.quantity * t.price_per_unit), 0);
+    
+    // Calculate realized gains from sells
+    const realizedGains = sellTxs.reduce((sum, t) => sum + (t.realized_gain_loss || 0), 0);
+    
+    // Get first transaction date - filter for valid dates
+    const txsWithValidDates = transactions.filter(t => {
+      if (!t.date) return false;
+      const d = new Date(t.date);
+      return !isNaN(d.getTime());
+    });
+    const sortedTxs = [...txsWithValidDates].sort((a, b) => new Date(a.date) - new Date(b.date));
+    const firstTxDate = sortedTxs.length > 0 ? sortedTxs[0].date : null;
+    
+    return { totalInvested, realizedGains, firstTxDate };
+  }, [transactions]);
+
   // Calculate days since first transaction for ALL timeframe
   const daysSinceFirstTx = useMemo(() => {
     if (!transactionStats.firstTxDate) return 365;
