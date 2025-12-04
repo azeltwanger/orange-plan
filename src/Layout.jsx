@@ -19,7 +19,6 @@ import {
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { name: 'Home', icon: Zap, page: 'Landing', description: 'Welcome' },
   { name: 'Summary', icon: LayoutDashboard, page: 'Dashboard', description: 'Your wealth at a glance' },
   { name: 'Performance', icon: TrendingUp, page: 'Performance', description: 'Growth & returns' },
   { name: 'Projections', icon: Target, page: 'FinancialPlan', description: 'Future wealth modeling' },
