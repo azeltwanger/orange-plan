@@ -243,16 +243,20 @@ export default function Performance() {
     return rate * 100;
   }, [transactions, currentValue]);
 
-  // Helper to get BTC price at a specific date from historical data
-  const getBtcPriceAtDate = (date) => {
-    if (!historicalPrices.length) return currentPrice;
+  // Helper to get price at a specific date from historical data for any ticker
+  const getPriceAtDate = (ticker, date) => {
+    const tickerPrices = historicalPrices[ticker];
+    if (!tickerPrices || tickerPrices.length === 0) {
+      return getCurrentPrice(ticker);
+    }
+    
     const targetTime = date.getTime();
     
     // Find closest price point
-    let closest = historicalPrices[0];
+    let closest = tickerPrices[0];
     let minDiff = Math.abs(closest.date.getTime() - targetTime);
     
-    for (const point of historicalPrices) {
+    for (const point of tickerPrices) {
       const diff = Math.abs(point.date.getTime() - targetTime);
       if (diff < minDiff) {
         minDiff = diff;
