@@ -24,7 +24,7 @@ const TAX_COLORS = {
   tax_free: 'text-emerald-400',
 };
 
-export default function AccountGroup({ account, holdings, getPrice, onEditHolding, onDeleteHolding, onManageLots }) {
+export default function AccountGroup({ account, holdings, getPrice, onEditHolding, onDeleteHolding, onManageLots, onEditAccount }) {
   const [expanded, setExpanded] = useState(false);
   const [reassigningHoldingId, setReassigningHoldingId] = useState(null);
   const queryClient = useQueryClient();
@@ -58,14 +58,25 @@ export default function AccountGroup({ account, holdings, getPrice, onEditHoldin
       {/* Header - Always visible */}
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full p-4 flex items-center justify-between hover:bg-zinc-800/30 transition-colors"
+        className="w-full p-4 flex items-center justify-between hover:bg-zinc-800/30 transition-colors group"
       >
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-zinc-800 flex items-center justify-center">
             <Building2 className="w-5 h-5 text-zinc-400" />
           </div>
           <div className="text-left">
-            <p className="font-semibold">{account?.name || 'Unassigned'}</p>
+            <div className="flex items-center gap-2">
+              <p className="font-semibold">{account?.name || 'Unassigned'}</p>
+              {account?.id && onEditAccount && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onEditAccount(account); }}
+                  className="p-1 rounded hover:bg-zinc-700 transition-colors opacity-0 group-hover:opacity-100"
+                  title="Edit account"
+                >
+                  <Pencil className="w-3 h-3 text-zinc-500" />
+                </button>
+              )}
+            </div>
             <div className="flex items-center gap-2 text-xs">
               <span className="text-zinc-500">
                 {ACCOUNT_TYPE_LABELS[account?.account_type] || 'Mixed'}

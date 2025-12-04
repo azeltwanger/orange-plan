@@ -35,13 +35,14 @@ const LOT_METHODS = {
 };
 
 const ACCOUNT_TYPES = [
-  { value: 'taxable', label: 'Taxable (Brokerage/Self-Custody)' },
-  { value: 'traditional_401k', label: 'Traditional 401(k)' },
-  { value: 'roth_401k', label: 'Roth 401(k)' },
-  { value: 'traditional_ira', label: 'Traditional IRA' },
-  { value: 'roth_ira', label: 'Roth IRA' },
-  { value: 'hsa', label: 'HSA' },
-  { value: '529', label: '529 Plan' },
+  { value: 'taxable_brokerage', label: 'Taxable Brokerage', tax: 'taxable' },
+  { value: 'taxable_crypto', label: 'Crypto Exchange/Wallet', tax: 'taxable' },
+  { value: '401k_traditional', label: 'Traditional 401(k)', tax: 'tax_deferred' },
+  { value: '401k_roth', label: 'Roth 401(k)', tax: 'tax_free' },
+  { value: 'ira_traditional', label: 'Traditional IRA', tax: 'tax_deferred' },
+  { value: 'ira_roth', label: 'Roth IRA', tax: 'tax_free' },
+  { value: 'hsa', label: 'HSA', tax: 'tax_free' },
+  { value: '529', label: '529 Plan', tax: 'tax_free' },
 ];
 
 export default function CsvImportDialog({ open, onClose }) {
@@ -56,6 +57,8 @@ export default function CsvImportDialog({ open, onClose }) {
   const [accountType, setAccountType] = useState('taxable');
   const [selectedAccountId, setSelectedAccountId] = useState('');
   const [showCreateAccount, setShowCreateAccount] = useState(false);
+  const [newAccountName, setNewAccountName] = useState('');
+  const [newAccountType, setNewAccountType] = useState('taxable_brokerage');
   const [importStats, setImportStats] = useState(null);
   const queryClient = useQueryClient();
 
@@ -84,6 +87,8 @@ export default function CsvImportDialog({ open, onClose }) {
     setImportStats(null);
     setAccountType('taxable');
     setSelectedAccountId('');
+    setNewAccountName('');
+    setNewAccountType('taxable_brokerage');
   }, []);
 
   const handleClose = () => {
@@ -390,24 +395,44 @@ export default function CsvImportDialog({ open, onClose }) {
       const { transactions: processedTransactions, stats } = processTransactionsWithLots(uniqueTransactions, lotMethod);
       stats.duplicatesSkipped = duplicatesSkipped;
 
-      // Use bulk create for efficiency
-      // Get account details for tax treatment
-      const selectedAccount = accounts.find(a => a.id === selectedAccountId);
-      const taxTreatment = selectedAccount?.tax_treatment || 'taxable';
-      const accountTypeFromAccount = selectedAccount?.account_type || 'taxable_brokerage';
+      // Create new account if needed
+      let finalAccountId = selectedAccountId;
+      let taxTreatment = 'taxable';
+      let legacyAccountType = 'taxable';
 
-      // Map account_type to old format for compatibility
-      const legacyAccountType = accountTypeFromAccount.includes('401k') ? 
-        (accountTypeFromAccount.includes('roth') ? 'roth_401k' : 'traditional_401k') :
-        accountTypeFromAccount.includes('ira') ?
-        (accountTypeFromAccount.includes('roth') ? 'roth_ira' : 'traditional_ira') :
-        accountTypeFromAccount === 'hsa' ? 'hsa' :
-        accountTypeFromAccount === '529' ? '529' : 'taxable';
+      if (selectedAccountId === '_new_' && newAccountName.trim()) {
+        const accountTypeInfo = ACCOUNT_TYPES.find(t => t.value === newAccountType);
+        const newAccount = await base44.entities.Account.create({
+          name: newAccountName.trim(),
+          account_type: newAccountType,
+          tax_treatment: accountTypeInfo?.tax || 'taxable',
+        });
+        finalAccountId = newAccount.id;
+        taxTreatment = accountTypeInfo?.tax || 'taxable';
+        legacyAccountType = newAccountType.includes('401k') ? 
+          (newAccountType.includes('roth') ? 'roth_401k' : 'traditional_401k') :
+          newAccountType.includes('ira') ?
+          (newAccountType.includes('roth') ? 'roth_ira' : 'traditional_ira') :
+          newAccountType === 'hsa' ? 'hsa' :
+          newAccountType === '529' ? '529' : 'taxable';
+      } else if (finalAccountId && finalAccountId !== '_new_') {
+        const selectedAccount = accounts.find(a => a.id === finalAccountId);
+        taxTreatment = selectedAccount?.tax_treatment || 'taxable';
+        const accountTypeFromAccount = selectedAccount?.account_type || 'taxable_brokerage';
+        legacyAccountType = accountTypeFromAccount.includes('401k') ? 
+          (accountTypeFromAccount.includes('roth') ? 'roth_401k' : 'traditional_401k') :
+          accountTypeFromAccount.includes('ira') ?
+          (accountTypeFromAccount.includes('roth') ? 'roth_ira' : 'traditional_ira') :
+          accountTypeFromAccount === 'hsa' ? 'hsa' :
+          accountTypeFromAccount === '529' ? '529' : 'taxable';
+      } else {
+        finalAccountId = undefined;
+      }
 
       const transactionsToCreate = processedTransactions.map(tx => ({
         ...tx,
         account_type: legacyAccountType,
-        account_id: selectedAccountId || undefined,
+        account_id: finalAccountId || undefined,
       }));
       
       try {
@@ -459,7 +484,7 @@ export default function CsvImportDialog({ open, onClose }) {
       for (const [ticker, data] of Object.entries(holdingUpdates)) {
         const existingHolding = existingHoldings.find(h => 
           h.ticker === ticker && 
-          (selectedAccountId ? h.account_id === selectedAccountId : !h.account_id)
+          (finalAccountId ? h.account_id === finalAccountId : !h.account_id)
         );
         if (existingHolding) {
           // Update existing holding for this account
@@ -481,7 +506,7 @@ export default function CsvImportDialog({ open, onClose }) {
             cost_basis_total: data.costBasis,
             account_type: legacyAccountType,
             tax_treatment: taxTreatment,
-            account_id: selectedAccountId || undefined,
+            account_id: finalAccountId || undefined,
           });
         }
       }
@@ -492,6 +517,7 @@ export default function CsvImportDialog({ open, onClose }) {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['holdings'] });
       queryClient.invalidateQueries({ queryKey: ['budgetItems'] });
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
       toast.success(`Imported ${data.count} transactions successfully!`);
       setStep(4); // Show summary
     },
@@ -614,17 +640,46 @@ export default function CsvImportDialog({ open, onClose }) {
               {/* Account Selection */}
               <div className="p-4 rounded-xl bg-zinc-800/30 border border-zinc-700">
                 <Label className="text-zinc-200 font-medium mb-3 block">Import to Account</Label>
-                <p className="text-xs text-zinc-500 mb-3">Select which account these transactions belong to (e.g., Fidelity, Coinbase).</p>
+                <p className="text-xs text-zinc-500 mb-3">Select an existing account or create a new one for these transactions.</p>
                 <AccountSelector
                   value={selectedAccountId}
                   onChange={(value) => {
                     if (value === '_create_') {
-                      setShowCreateAccount(true);
+                      setSelectedAccountId('_new_');
                     } else {
                       setSelectedAccountId(value === '_none_' ? '' : value);
+                      setNewAccountName('');
                     }
                   }}
                 />
+                
+                {/* Inline new account creation */}
+                {selectedAccountId === '_new_' && (
+                  <div className="mt-3 p-3 rounded-lg bg-zinc-900/50 border border-zinc-700 space-y-3">
+                    <div>
+                      <Label className="text-xs text-zinc-400">New Account Name</Label>
+                      <Input
+                        value={newAccountName}
+                        onChange={(e) => setNewAccountName(e.target.value)}
+                        placeholder="e.g., Coinbase, Fidelity"
+                        className="bg-zinc-900 border-zinc-700 mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-zinc-400">Account Type</Label>
+                      <Select value={newAccountType} onValueChange={setNewAccountType}>
+                        <SelectTrigger className="bg-zinc-900 border-zinc-700 mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-zinc-900 border-zinc-700">
+                          {ACCOUNT_TYPES.map(type => (
+                            <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Lot Method Selection */}

@@ -11,6 +11,7 @@ import AddAssetWithTransaction from '@/components/forms/AddAssetWithTransaction'
 import ManageLotsDialog from '@/components/dashboard/ManageLotsDialog';
 import AccountGroup from '@/components/dashboard/AccountGroup';
 import CreateAccountDialog from '@/components/accounts/CreateAccountDialog';
+import EditAccountDialog from '@/components/accounts/EditAccountDialog';
 
 export default function Dashboard() {
   const [btcPrice, setBtcPrice] = useState(null);
@@ -42,6 +43,7 @@ export default function Dashboard() {
   const [editingHolding, setEditingHolding] = useState(null);
   const [lotsDialogHolding, setLotsDialogHolding] = useState(null);
   const [showCreateAccount, setShowCreateAccount] = useState(false);
+  const [editingAccount, setEditingAccount] = useState(null);
   const queryClient = useQueryClient();
 
   const { data: holdings = [], isLoading: holdingsLoading } = useQuery({
@@ -342,6 +344,7 @@ export default function Dashboard() {
                   onEditHolding={handleEdit}
                   onDeleteHolding={(h) => deleteHolding.mutate(h)}
                   onManageLots={setLotsDialogHolding}
+                  onEditAccount={setEditingAccount}
                 />
               );
             })}
@@ -422,6 +425,12 @@ export default function Dashboard() {
         open={showCreateAccount}
         onClose={() => setShowCreateAccount(false)}
         onCreated={() => {}}
+      />
+
+      <EditAccountDialog
+        open={!!editingAccount}
+        onClose={() => setEditingAccount(null)}
+        account={editingAccount}
       />
       </div>
       );
