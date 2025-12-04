@@ -6,12 +6,14 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Loader2, Upload, FileSpreadsheet, ArrowRight, Check, AlertTriangle } from 'lucide-react';
+import { Loader2, Upload, FileSpreadsheet, ArrowRight, Check, AlertTriangle, Plus } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { differenceInDays } from 'date-fns';
+import AccountSelector from '@/components/accounts/AccountSelector';
+import CreateAccountDialog from '@/components/accounts/CreateAccountDialog';
 
 const TRANSACTION_FIELDS = [
   { key: 'type', label: 'Type (buy/sell)', required: true, description: 'Transaction type' },
@@ -52,8 +54,17 @@ export default function CsvImportDialog({ open, onClose }) {
   const [parsingError, setParsingError] = useState(null);
   const [lotMethod, setLotMethod] = useState('HIFO');
   const [accountType, setAccountType] = useState('taxable');
+  const [selectedAccountId, setSelectedAccountId] = useState('');
+  const [showCreateAccount, setShowCreateAccount] = useState(false);
   const [importStats, setImportStats] = useState(null);
   const queryClient = useQueryClient();
+
+  // Fetch accounts
+  const { data: accounts = [] } = useQuery({
+    queryKey: ['accounts'],
+    queryFn: () => base44.entities.Account.list(),
+    enabled: open,
+  });
 
   // Get existing transactions for lot matching
   const { data: existingTransactions = [] } = useQuery({
@@ -72,6 +83,7 @@ export default function CsvImportDialog({ open, onClose }) {
     setParsingError(null);
     setImportStats(null);
     setAccountType('taxable');
+    setSelectedAccountId('');
   }, []);
 
   const handleClose = () => {
@@ -379,9 +391,23 @@ export default function CsvImportDialog({ open, onClose }) {
       stats.duplicatesSkipped = duplicatesSkipped;
 
       // Use bulk create for efficiency
+      // Get account details for tax treatment
+      const selectedAccount = accounts.find(a => a.id === selectedAccountId);
+      const taxTreatment = selectedAccount?.tax_treatment || 'taxable';
+      const accountTypeFromAccount = selectedAccount?.account_type || 'taxable_brokerage';
+
+      // Map account_type to old format for compatibility
+      const legacyAccountType = accountTypeFromAccount.includes('401k') ? 
+        (accountTypeFromAccount.includes('roth') ? 'roth_401k' : 'traditional_401k') :
+        accountTypeFromAccount.includes('ira') ?
+        (accountTypeFromAccount.includes('roth') ? 'roth_ira' : 'traditional_ira') :
+        accountTypeFromAccount === 'hsa' ? 'hsa' :
+        accountTypeFromAccount === '529' ? '529' : 'taxable';
+
       const transactionsToCreate = processedTransactions.map(tx => ({
         ...tx,
-        account_type: accountType,
+        account_type: legacyAccountType,
+        account_id: selectedAccountId || undefined,
       }));
       
       try {
@@ -429,11 +455,14 @@ export default function CsvImportDialog({ open, onClose }) {
         '529': 'tax_free',
       };
 
-      // Update or create holdings - match by ticker AND account type
+      // Update or create holdings - match by ticker AND account_id
       for (const [ticker, data] of Object.entries(holdingUpdates)) {
-        const existingHolding = existingHoldings.find(h => h.ticker === ticker && h.account_type === accountType);
+        const existingHolding = existingHoldings.find(h => 
+          h.ticker === ticker && 
+          (selectedAccountId ? h.account_id === selectedAccountId : !h.account_id)
+        );
         if (existingHolding) {
-          // Update existing holding for this account type
+          // Update existing holding for this account
           const newQty = Math.max(0, (existingHolding.quantity || 0) + data.quantity);
           const newCostBasis = (existingHolding.cost_basis_total || 0) + data.costBasis;
           await base44.entities.Holding.update(existingHolding.id, {
@@ -442,17 +471,17 @@ export default function CsvImportDialog({ open, onClose }) {
             current_price: data.lastPrice,
           });
         } else if (data.quantity > 0) {
-          // Create new holding for this account type
-          const accountLabel = ACCOUNT_TYPES.find(t => t.value === accountType)?.label || accountType;
+          // Create new holding for this account
           await base44.entities.Holding.create({
-            asset_name: accountType === 'taxable' ? ticker : `${ticker} (${accountLabel})`,
+            asset_name: ticker,
             asset_type: ['BTC', 'ETH', 'SOL', 'XRP', 'ADA', 'DOGE', 'DOT', 'AVAX', 'MATIC', 'LINK', 'LTC'].includes(ticker) ? 'crypto' : 'stocks',
             ticker: ticker,
             quantity: data.quantity,
             current_price: data.lastPrice,
             cost_basis_total: data.costBasis,
-            account_type: accountType,
-            tax_treatment: taxTreatmentMap[accountType] || 'taxable',
+            account_type: legacyAccountType,
+            tax_treatment: taxTreatment,
+            account_id: selectedAccountId || undefined,
           });
         }
       }
@@ -473,7 +502,7 @@ export default function CsvImportDialog({ open, onClose }) {
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="bg-[#0f0f10] border-zinc-800 text-zinc-100 max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
+      <DialogContent className="bg-[#0f0f10] border-zinc-800 text-zinc-100 max-w-3xl max-h-[85vh] overflow-hidden flex flex-col" onPointerDownOutside={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileSpreadsheet className="w-5 h-5 text-orange-400" />
@@ -582,20 +611,20 @@ export default function CsvImportDialog({ open, onClose }) {
           {/* Step 3: Preview & Import */}
           {step === 3 && (
             <div className="space-y-4">
-              {/* Account Type Selection */}
+              {/* Account Selection */}
               <div className="p-4 rounded-xl bg-zinc-800/30 border border-zinc-700">
-                <Label className="text-zinc-200 font-medium mb-3 block">Account Type</Label>
-                <p className="text-xs text-zinc-500 mb-3">Select the account type for these transactions. This keeps holdings separate by account.</p>
-                <Select value={accountType} onValueChange={setAccountType}>
-                  <SelectTrigger className="bg-zinc-900 border-zinc-700">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-zinc-900 border-zinc-700">
-                    {ACCOUNT_TYPES.map(type => (
-                      <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label className="text-zinc-200 font-medium mb-3 block">Import to Account</Label>
+                <p className="text-xs text-zinc-500 mb-3">Select which account these transactions belong to (e.g., Fidelity, Coinbase).</p>
+                <AccountSelector
+                  value={selectedAccountId}
+                  onChange={(value) => {
+                    if (value === '_create_') {
+                      setShowCreateAccount(true);
+                    } else {
+                      setSelectedAccountId(value === '_none_' ? '' : value);
+                    }
+                  }}
+                />
               </div>
 
               {/* Lot Method Selection */}
@@ -677,10 +706,18 @@ export default function CsvImportDialog({ open, onClose }) {
                   )}
                 </Button>
               </DialogFooter>
-            </div>
-          )}
+              </div>
+              )}
 
-          {/* Step 4: Success */}
+              <CreateAccountDialog
+              open={showCreateAccount}
+              onClose={() => setShowCreateAccount(false)}
+              onCreated={(newAccount) => {
+              setSelectedAccountId(newAccount.id);
+              }}
+              />
+
+              {/* Step 4: Success */}
           {step === 4 && importStats && (
             <div className="flex flex-col items-center justify-center py-8 space-y-6">
               <div className="w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center">
