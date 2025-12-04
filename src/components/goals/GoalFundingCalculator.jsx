@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Calculator, TrendingUp, Calendar } from 'lucide-react';
+import { Calculator, TrendingUp, Calendar, Coins, AlertTriangle } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
 export default function GoalFundingCalculator({ 
@@ -7,7 +7,9 @@ export default function GoalFundingCalculator({
   currentAmount, 
   targetDate, 
   fundingSources = [],
-  userSettings = {}
+  userSettings = {},
+  monthlySavingsAvailable = 0,
+  btcPrice = 97000
 }) {
   const calculation = useMemo(() => {
     if (!targetAmount || !targetDate) return null;
@@ -47,6 +49,37 @@ export default function GoalFundingCalculator({
     const monthlySavingNoReturns = remaining / monthsRemaining;
     const savingsFromReturns = monthlySavingNoReturns - monthlySaving;
     
+    // Calculate shortfall if monthly savings aren't enough
+    const shortfall = Math.max(0, monthlySaving - monthlySavingsAvailable);
+    const totalShortfall = shortfall * monthsRemaining;
+    
+    // Calculate assets to sell based on funding sources
+    const assetsToSell = [];
+    if (totalShortfall > 0 && fundingSources && fundingSources.length > 0) {
+      const totalPercent = fundingSources.reduce((sum, s) => sum + (s.percentage || 0), 0);
+      fundingSources.forEach(source => {
+        if (source.percentage > 0 && totalPercent > 0) {
+          const amountFromSource = totalShortfall * (source.percentage / totalPercent);
+          const assetType = source.asset_type || 'unknown';
+          
+          // Calculate quantity based on asset type
+          let quantity = null;
+          let priceUsed = null;
+          if (assetType.toLowerCase() === 'btc' || assetType.toLowerCase() === 'bitcoin') {
+            quantity = amountFromSource / btcPrice;
+            priceUsed = btcPrice;
+          }
+          
+          assetsToSell.push({
+            asset_type: assetType,
+            amount: amountFromSource,
+            quantity,
+            priceUsed
+          });
+        }
+      });
+    }
+
     return {
       needed: remaining,
       monthsRemaining,
@@ -55,9 +88,13 @@ export default function GoalFundingCalculator({
       monthlySavingNoReturns,
       savingsFromReturns: Math.max(0, savingsFromReturns),
       weightedReturn,
-      projectedGrowth: weightedReturn > 0 ? (monthlySaving * monthsRemaining * (weightedReturn / 100) * (monthsRemaining / 24)) : 0
+      projectedGrowth: weightedReturn > 0 ? (monthlySaving * monthsRemaining * (weightedReturn / 100) * (monthsRemaining / 24)) : 0,
+      shortfall,
+      totalShortfall,
+      assetsToSell,
+      canAfford: monthlySavingsAvailable >= monthlySaving
     };
-  }, [targetAmount, currentAmount, targetDate, fundingSources, userSettings]);
+  }, [targetAmount, currentAmount, targetDate, fundingSources, userSettings, monthlySavingsAvailable, btcPrice]);
 
   if (!calculation) {
     return (
@@ -117,6 +154,53 @@ export default function GoalFundingCalculator({
           </p>
         )}
       </div>
+
+      {/* Shortfall warning and asset sale estimate */}
+      {monthlySavingsAvailable > 0 && calculation.shortfall > 0 && (
+        <div className="mt-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+          <div className="flex items-center gap-2 mb-2">
+            <AlertTriangle className="w-4 h-4 text-amber-400" />
+            <span className="text-xs font-medium text-amber-400">Savings Shortfall</span>
+          </div>
+          <p className="text-xs text-zinc-400 mb-2">
+            Your available savings (${monthlySavingsAvailable.toLocaleString('en-US', { maximumFractionDigits: 0 })}/mo) is ${calculation.shortfall.toLocaleString('en-US', { maximumFractionDigits: 0 })}/mo short.
+          </p>
+          
+          {calculation.assetsToSell.length > 0 && (
+            <div className="pt-2 border-t border-amber-500/20">
+              <p className="text-xs text-zinc-500 mb-2">Estimated assets to sell by target date:</p>
+              <div className="space-y-1.5">
+                {calculation.assetsToSell.map((asset, i) => (
+                  <div key={i} className="flex items-center justify-between text-xs">
+                    <span className="text-zinc-300 flex items-center gap-1.5">
+                      <Coins className="w-3 h-3 text-amber-400" />
+                      {asset.asset_type}
+                    </span>
+                    <span className="text-amber-400 font-medium">
+                      {asset.quantity !== null 
+                        ? `${asset.quantity.toFixed(4)} ${asset.asset_type} (~$${asset.amount.toLocaleString('en-US', { maximumFractionDigits: 0 })})`
+                        : `$${asset.amount.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
+                      }
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-[10px] text-zinc-600 mt-2">
+                Based on current prices. Actual amount may vary.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {monthlySavingsAvailable > 0 && calculation.canAfford && (
+        <div className="mt-3 p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+          <p className="text-xs text-emerald-400 flex items-center gap-1.5">
+            <TrendingUp className="w-3 h-3" />
+            Your current savings can cover this goal!
+          </p>
+        </div>
+      )}
     </div>
   );
 }
