@@ -287,8 +287,15 @@ export default function CsvImportDialog({ open, onClose }) {
           } else if (field.key === 'asset_ticker') {
             value = String(value).toUpperCase();
           } else if (field.key === 'type') {
-            value = String(value).toLowerCase();
-            if (!['buy', 'sell'].includes(value)) value = 'buy';
+            value = String(value).toLowerCase().trim();
+            // Handle various type formats
+            if (value.includes('sell') || value.includes('sold') || value === 'sale' || value === 's') {
+              value = 'sell';
+            } else if (value.includes('buy') || value.includes('bought') || value === 'purchase' || value === 'b') {
+              value = 'buy';
+            } else if (!['buy', 'sell'].includes(value)) {
+              value = 'buy';
+            }
           }
           previewRow[field.key] = value;
         } else {
@@ -328,8 +335,15 @@ export default function CsvImportDialog({ open, onClose }) {
             } else if (field.key === 'asset_ticker') {
               value = String(value).toUpperCase();
             } else if (field.key === 'type') {
-              value = String(value).toLowerCase();
-              if (!['buy', 'sell'].includes(value)) value = 'buy';
+              value = String(value).toLowerCase().trim();
+              // Handle various type formats
+              if (value.includes('sell') || value.includes('sold') || value === 'sale' || value === 's') {
+                value = 'sell';
+              } else if (value.includes('buy') || value.includes('bought') || value === 'purchase' || value === 'b') {
+                value = 'buy';
+              } else if (!['buy', 'sell'].includes(value)) {
+                value = 'buy';
+              }
             }
             tx[field.key] = value;
           }
