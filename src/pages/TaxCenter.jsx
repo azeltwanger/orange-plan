@@ -83,7 +83,7 @@ export default function TaxCenter() {
   const [editingTx, setEditingTx] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [csvImportOpen, setCsvImportOpen] = useState(false);
-  const [txDateFilter, setTxDateFilter] = useState('all'); // 'all', 'ytd', '2024', '2023', etc.
+  const [txSortOrder, setTxSortOrder] = useState('desc'); // 'desc' (newest first), 'asc' (oldest first)
   const [syncingHoldings, setSyncingHoldings] = useState(false);
   const [syncComplete, setSyncComplete] = useState(false);
   const queryClient = useQueryClient();
@@ -1124,16 +1124,13 @@ export default function TaxCenter() {
           <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
             <div className="flex items-center justify-between mb-6">
               <h3 className="font-semibold">Transaction History</h3>
-              <Select value={txDateFilter} onValueChange={setTxDateFilter}>
-                <SelectTrigger className="w-32 bg-zinc-800 border-zinc-700">
+              <Select value={txSortOrder} onValueChange={setTxSortOrder}>
+                <SelectTrigger className="w-40 bg-zinc-800 border-zinc-700">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-zinc-900 border-zinc-700">
-                  <SelectItem value="all">All Time</SelectItem>
-                  <SelectItem value="ytd">{currentYear} YTD</SelectItem>
-                  <SelectItem value="2024">2024</SelectItem>
-                  <SelectItem value="2023">2023</SelectItem>
-                  <SelectItem value="2022">2022</SelectItem>
+                  <SelectItem value="desc">Newest First</SelectItem>
+                  <SelectItem value="asc">Oldest First</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1141,12 +1138,11 @@ export default function TaxCenter() {
               <p className="text-center text-zinc-500 py-12">No transactions recorded yet</p>
             ) : (
               <div className="space-y-3">
-                {transactions
-                  .filter(tx => {
-                    if (txDateFilter === 'all') return true;
-                    const txYear = new Date(tx.date).getFullYear();
-                    if (txDateFilter === 'ytd') return txYear === currentYear;
-                    return txYear === parseInt(txDateFilter);
+                {[...transactions]
+                  .sort((a, b) => {
+                    const dateA = new Date(a.date);
+                    const dateB = new Date(b.date);
+                    return txSortOrder === 'desc' ? dateB - dateA : dateA - dateB;
                   })
                   .map((tx) => {
                   const holding = holdings.find(h => h.ticker === tx.asset_ticker);
