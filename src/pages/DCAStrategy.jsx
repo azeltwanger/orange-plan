@@ -18,8 +18,6 @@ import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 
 import DCAvsLumpSum from '@/components/investing/DCAvsLumpSum';
-import { Link } from 'react-router-dom';
-import { createPageUrl } from '../utils';
 
 export default function DCAStrategy() {
   const [btcPrice, setBtcPrice] = useState(null);
