@@ -19,7 +19,7 @@ export default function Pricing() {
   const yearlySavings = (monthlyPrice * 12) - yearlyPrice;
 
   const features = [
-    'Everything in one place',
+    'Net worth dashboard & portfolio tracking',
     'Real-time BTC price updates',
     'Save on taxes with cost basis tracking (FIFO, LIFO, HIFO, AVG)',
     'Loss & gain harvesting analysis',
