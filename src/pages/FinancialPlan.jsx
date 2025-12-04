@@ -2,7 +2,15 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Area, AreaChart, Legend } from 'recharts';
-import { Target, Plus, Pencil, Trash2, TrendingUp, Calendar, Settings, Play, AlertTriangle, ChevronDown, ChevronUp, Sparkles, Home, Car, Baby, Briefcase, Heart, DollarSign, RefreshCw } from 'lucide-react';
+import { Target, Plus, Pencil, Trash2, TrendingUp, Calendar, Settings, Play, AlertTriangle, ChevronDown, ChevronUp, Sparkles, Home, Car, Baby, Briefcase, Heart, DollarSign, RefreshCw, Receipt } from 'lucide-react';
+import { 
+  STANDARD_DEDUCTION_2024, 
+  TAX_BRACKETS_2024, 
+  getIncomeTaxRate, 
+  getLTCGRate, 
+  calculateProgressiveIncomeTax,
+  estimateRetirementWithdrawalTaxes 
+} from '@/components/tax/taxCalculations';
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
@@ -201,6 +209,11 @@ export default function FinancialPlan() {
   
   // BTC return model (separate from withdrawal)
   const [btcReturnModel, setBtcReturnModel] = useState('custom');
+  
+  // Tax settings
+  const [filingStatus, setFilingStatus] = useState('single');
+  const [retirementIncome, setRetirementIncome] = useState(0); // Other income in retirement (social security, pension, etc.)
+  const [taxableGainPercent, setTaxableGainPercent] = useState(50); // Estimated % of taxable account that is gains
   
   // Settings loaded flag
   const [settingsLoaded, setSettingsLoaded] = useState(false);
@@ -404,6 +417,9 @@ export default function FinancialPlan() {
   
   // Penalty-free age for retirement accounts
   const PENALTY_FREE_AGE = 59.5;
+  
+  // Calculate effective tax rates based on filing status
+  const standardDeduction = STANDARD_DEDUCTION_2024[filingStatus] || STANDARD_DEDUCTION_2024.single;
 
   // Use slider values directly (scenarios removed)
   const effectiveBtcCagr = btcCagr;
@@ -546,43 +562,27 @@ export default function FinancialPlan() {
           yearWithdrawal = retirementAnnualSpending * Math.pow(1 + effectiveInflation / 100, yearsOfInflation);
         }
         
-        // Smart withdrawal order based on age and account types
+        // Smart withdrawal order based on age and account types with TAX CALCULATION
         const currentAgeInYear = currentAge + i;
         const canAccessRetirementPenaltyFree = currentAgeInYear >= PENALTY_FREE_AGE;
         
-        let remainingWithdrawal = yearWithdrawal;
-        let withdrawFromTaxable = 0;
-        let withdrawFromTaxDeferred = 0;
-        let withdrawFromTaxFree = 0;
-        let penaltyPaid = 0;
+        // Use tax calculation utility for accurate withdrawal taxes
+        const taxEstimate = estimateRetirementWithdrawalTaxes({
+          withdrawalNeeded: yearWithdrawal,
+          taxableBalance: runningTaxable,
+          taxDeferredBalance: runningTaxDeferred,
+          taxFreeBalance: runningTaxFree,
+          taxableGainPercent: taxableGainPercent / 100,
+          isLongTermGain: true, // Assume long-term for projections
+          filingStatus,
+          age: currentAgeInYear,
+        });
         
-        if (canAccessRetirementPenaltyFree) {
-          // After 59½: Withdraw from tax-deferred first (pay income tax), then taxable, then tax-free last
-          withdrawFromTaxDeferred = Math.min(remainingWithdrawal, runningTaxDeferred);
-          remainingWithdrawal -= withdrawFromTaxDeferred;
-          
-          withdrawFromTaxable = Math.min(remainingWithdrawal, runningTaxable);
-          remainingWithdrawal -= withdrawFromTaxable;
-          
-          withdrawFromTaxFree = Math.min(remainingWithdrawal, runningTaxFree);
-          remainingWithdrawal -= withdrawFromTaxFree;
-        } else {
-          // Before 59½: Withdraw from taxable first, then Roth contributions (penalty-free), avoid tax-deferred
-          withdrawFromTaxable = Math.min(remainingWithdrawal, runningTaxable);
-          remainingWithdrawal -= withdrawFromTaxable;
-          
-          // If still need more, tap tax-free (Roth contributions accessible)
-          const taxFreeAvailable = runningTaxFree * 0.5; // Assume 50% is contributions
-          withdrawFromTaxFree = Math.min(remainingWithdrawal, taxFreeAvailable);
-          remainingWithdrawal -= withdrawFromTaxFree;
-          
-          // Last resort: tax-deferred with 10% penalty
-          if (remainingWithdrawal > 0) {
-            withdrawFromTaxDeferred = Math.min(remainingWithdrawal, runningTaxDeferred);
-            penaltyPaid = withdrawFromTaxDeferred * 0.10;
-            remainingWithdrawal -= withdrawFromTaxDeferred;
-          }
-        }
+        let withdrawFromTaxable = taxEstimate.fromTaxable;
+        let withdrawFromTaxDeferred = taxEstimate.fromTaxDeferred;
+        let withdrawFromTaxFree = taxEstimate.fromTaxFree;
+        let taxesPaid = taxEstimate.totalTax;
+        let penaltyPaid = taxEstimate.totalPenalty;
         
         // Update running balances
         runningTaxable -= withdrawFromTaxable;
@@ -606,6 +606,10 @@ export default function FinancialPlan() {
       const total = Math.max(0, runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther + runningSavings + eventImpact);
       const realTotal = total / Math.pow(1 + effectiveInflation / 100, i);
 
+      // Calculate taxes paid this year (only during retirement when withdrawing)
+      const yearTaxesPaid = isRetired ? (taxesPaid || 0) : 0;
+      const yearPenaltyPaid = isRetired ? (penaltyPaid || 0) : 0;
+
       data.push({
         age: currentAge + i,
         year,
@@ -625,11 +629,13 @@ export default function FinancialPlan() {
         taxDeferred: Math.round(runningTaxDeferred),
         taxFree: Math.round(runningTaxFree),
         canAccessPenaltyFree: currentAge + i >= PENALTY_FREE_AGE,
-        penaltyPaid: Math.round(penaltyPaid),
+        penaltyPaid: Math.round(yearPenaltyPaid),
+        taxesPaid: Math.round(yearTaxesPaid),
+        netWithdrawal: Math.round(yearWithdrawal - yearTaxesPaid - yearPenaltyPaid),
       });
     }
     return data;
-  }, [btcValue, stocksValue, realEstateValue, bondsValue, otherValue, taxableValue, taxDeferredValue, taxFreeValue, currentAge, retirementAge, lifeExpectancy, effectiveBtcCagr, effectiveStocksCagr, realEstateCagr, bondsCagr, effectiveInflation, lifeEvents, goals, annualSavings, incomeGrowth, retirementAnnualSpending, withdrawalStrategy, dynamicWithdrawalRate, btcReturnModel]);
+  }, [btcValue, stocksValue, realEstateValue, bondsValue, otherValue, taxableValue, taxDeferredValue, taxFreeValue, currentAge, retirementAge, lifeExpectancy, effectiveBtcCagr, effectiveStocksCagr, realEstateCagr, bondsCagr, effectiveInflation, lifeEvents, goals, annualSavings, incomeGrowth, retirementAnnualSpending, withdrawalStrategy, dynamicWithdrawalRate, btcReturnModel, filingStatus, taxableGainPercent]);
 
   // Run Monte Carlo when button clicked
   const handleRunSimulation = () => {
@@ -695,6 +701,11 @@ export default function FinancialPlan() {
   const runOutOfMoneyAge = projections.findIndex(p => p.total <= 0 && p.isRetired);
   const willRunOutOfMoney = runOutOfMoneyAge !== -1;
   const yearsInRetirement = lifeExpectancy - retirementAge;
+  
+  // Calculate lifetime tax burden in retirement
+  const lifetimeTaxesPaid = projections.filter(p => p.isRetired).reduce((sum, p) => sum + (p.taxesPaid || 0), 0);
+  const lifetimePenaltiesPaid = projections.filter(p => p.isRetired).reduce((sum, p) => sum + (p.penaltyPaid || 0), 0);
+  const avgAnnualTaxInRetirement = yearsInRetirement > 0 ? lifetimeTaxesPaid / yearsInRetirement : 0;
 
   // Calculate when goals will be met based on projections
   const goalsWithProjections = useMemo(() => {
@@ -1205,6 +1216,97 @@ export default function FinancialPlan() {
             </div>
           </div>
 
+          {/* Tax Impact Section */}
+          <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
+            <h3 className="font-semibold mb-4 flex items-center gap-2">
+              <Receipt className="w-5 h-5 text-orange-400" />
+              Estimated Tax Impact in Retirement
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+              {/* Tax Settings */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 p-1 rounded-lg bg-zinc-800/50 w-fit">
+                  <button
+                    onClick={() => setFilingStatus('single')}
+                    className={cn(
+                      "px-3 py-1.5 rounded-md text-sm font-medium transition-all",
+                      filingStatus === 'single' 
+                        ? "bg-orange-500/20 text-orange-400" 
+                        : "text-zinc-400 hover:text-zinc-300"
+                    )}
+                  >
+                    Single
+                  </button>
+                  <button
+                    onClick={() => setFilingStatus('married')}
+                    className={cn(
+                      "px-3 py-1.5 rounded-md text-sm font-medium transition-all",
+                      filingStatus === 'married' 
+                        ? "bg-orange-500/20 text-orange-400" 
+                        : "text-zinc-400 hover:text-zinc-300"
+                    )}
+                  >
+                    Married Filing Jointly
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <Label className="text-zinc-400">Estimated Gain % in Taxable Accounts</Label>
+                    <span className="text-orange-400 font-semibold">{taxableGainPercent}%</span>
+                  </div>
+                  <Slider value={[taxableGainPercent]} onValueChange={([v]) => setTaxableGainPercent(v)} min={0} max={100} step={5} />
+                  <p className="text-xs text-zinc-500">Portion of taxable account value that is capital gains (vs. cost basis)</p>
+                </div>
+              </div>
+
+              {/* Tax Summary */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20">
+                  <p className="text-sm text-zinc-400">Lifetime Taxes</p>
+                  <p className="text-2xl font-bold text-rose-400">${lifetimeTaxesPaid.toLocaleString()}</p>
+                  <p className="text-xs text-zinc-500">Over {yearsInRetirement} years</p>
+                </div>
+                <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                  <p className="text-sm text-zinc-400">Early Withdrawal Penalties</p>
+                  <p className="text-2xl font-bold text-amber-400">${lifetimePenaltiesPaid.toLocaleString()}</p>
+                  <p className="text-xs text-zinc-500">10% penalty before 59½</p>
+                </div>
+                <div className="p-4 rounded-xl bg-zinc-800/30">
+                  <p className="text-sm text-zinc-400">Avg Annual Tax</p>
+                  <p className="text-2xl font-bold text-zinc-200">${avgAnnualTaxInRetirement.toLocaleString()}</p>
+                </div>
+                <div className="p-4 rounded-xl bg-zinc-800/30">
+                  <p className="text-sm text-zinc-400">Avg Net Withdrawal</p>
+                  <p className="text-2xl font-bold text-emerald-400">
+                    ${(avgRetirementWithdrawal - avgAnnualTaxInRetirement).toLocaleString()}
+                  </p>
+                  <p className="text-xs text-zinc-500">After taxes & penalties</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Tax Bracket Info */}
+            <div className="p-4 rounded-xl bg-zinc-800/30">
+              <p className="text-sm text-zinc-300 mb-2">Tax Assumptions ({filingStatus === 'married' ? 'MFJ' : 'Single'} 2024 brackets)</p>
+              <div className="grid grid-cols-3 gap-4 text-sm">
+                <div>
+                  <p className="text-zinc-500">Standard Deduction</p>
+                  <p className="font-medium text-zinc-200">${standardDeduction.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-zinc-500">Tax-Deferred → Ordinary Income</p>
+                  <p className="font-medium text-zinc-200">10-37% marginal</p>
+                </div>
+                <div>
+                  <p className="text-zinc-500">Taxable Gains → LTCG</p>
+                  <p className="font-medium text-zinc-200">0-20% based on income</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
 
 
           {/* Projection Chart */}
@@ -1227,7 +1329,12 @@ export default function FinancialPlan() {
                         if (name === 'Total') {
                           const p = props.payload;
                           let extra = '';
-                          if (p.isRetired) extra = ` (withdrawing $${(p.yearWithdrawal/1000).toFixed(0)}k/yr)`;
+                          if (p.isRetired) {
+                            extra = ` (withdrawing $${(p.yearWithdrawal/1000).toFixed(0)}k`;
+                            if (p.taxesPaid > 0) extra += `, tax: $${(p.taxesPaid/1000).toFixed(0)}k`;
+                            if (p.penaltyPaid > 0) extra += `, penalty: $${(p.penaltyPaid/1000).toFixed(0)}k`;
+                            extra += ')';
+                          }
                           if (p.hasEvent) extra += ' 📅';
                           return [`$${value.toLocaleString()}${extra}`, name];
                         }
