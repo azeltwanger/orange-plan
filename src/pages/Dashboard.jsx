@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, RefreshCw, Pencil, Trash2, Bitcoin, Package } from 'lucide-react';
+import { Plus, RefreshCw, Pencil, Trash2, Bitcoin, Package, Building2 } from 'lucide-react';
 import useAssetPrices from '@/components/shared/useAssetPrices';
 import { Button } from "@/components/ui/button";
 import NetWorthCard from '@/components/dashboard/NetWorthCard';
@@ -9,6 +9,8 @@ import AssetCard from '@/components/dashboard/AssetCard';
 import QuickStats from '@/components/dashboard/QuickStats';
 import AddAssetWithTransaction from '@/components/forms/AddAssetWithTransaction';
 import ManageLotsDialog from '@/components/dashboard/ManageLotsDialog';
+import AccountGroup from '@/components/dashboard/AccountGroup';
+import CreateAccountDialog from '@/components/accounts/CreateAccountDialog';
 
 export default function Dashboard() {
   const [btcPrice, setBtcPrice] = useState(null);
@@ -39,11 +41,17 @@ export default function Dashboard() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingHolding, setEditingHolding] = useState(null);
   const [lotsDialogHolding, setLotsDialogHolding] = useState(null);
+  const [showCreateAccount, setShowCreateAccount] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: holdings = [], isLoading: holdingsLoading } = useQuery({
     queryKey: ['holdings'],
     queryFn: () => base44.entities.Holding.list(),
+  });
+
+  const { data: accounts = [] } = useQuery({
+    queryKey: ['accounts'],
+    queryFn: () => base44.entities.Account.list(),
   });
 
   // Get unique tickers for price fetching (stocks and crypto except BTC which is handled separately)
@@ -158,6 +166,28 @@ export default function Dashboard() {
         return holding.current_price || 0;
       };
 
+      // Helper to get price by ticker
+      const getPriceByTicker = (ticker) => {
+        if (ticker === 'BTC') return currentPrice;
+        if (assetPrices[ticker]?.price) return assetPrices[ticker].price;
+        const holding = holdings.find(h => h.ticker === ticker);
+        return holding?.current_price || 0;
+      };
+
+      // Group holdings by account
+      const holdingsByAccount = useMemo(() => {
+        const groups = {};
+        
+        // Group by account_id
+        holdings.forEach(h => {
+          const accountId = h.account_id || '_unassigned_';
+          if (!groups[accountId]) groups[accountId] = [];
+          groups[accountId].push(h);
+        });
+        
+        return groups;
+      }, [holdings]);
+
       // Calculate totals
       const totalAssets = holdings.reduce((sum, h) => {
         return sum + (h.quantity * getHoldingPrice(h));
@@ -256,20 +286,30 @@ export default function Dashboard() {
         securityScore={Math.round(avgSecurityScore)}
       />
 
-      {/* Holdings Grid */}
+      {/* Holdings by Account */}
       <div>
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-semibold">Asset Allocation</h2>
-          <span className="text-sm text-zinc-500">{holdings.length} position{holdings.length !== 1 ? 's' : ''}</span>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-zinc-500">{accounts.length} account{accounts.length !== 1 ? 's' : ''} • {holdings.length} position{holdings.length !== 1 ? 's' : ''}</span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowCreateAccount(true)}
+              className="bg-transparent border-zinc-700 text-xs"
+            >
+              <Building2 className="w-3 h-3 mr-1" />
+              New Account
+            </Button>
+          </div>
         </div>
 
         {holdingsLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {[1, 2, 3, 4].map((i) => (
+          <div className="space-y-4">
+            {[1, 2].map((i) => (
               <div key={i} className="card-premium rounded-xl p-5 animate-pulse border border-zinc-800/50">
-                <div className="w-10 h-10 bg-zinc-800/50 rounded-xl mb-4" />
-                <div className="h-4 bg-zinc-800/50 rounded w-24 mb-2" />
-                <div className="h-6 bg-zinc-800/50 rounded w-32" />
+                <div className="h-6 bg-zinc-800/50 rounded w-48 mb-2" />
+                <div className="h-4 bg-zinc-800/50 rounded w-32" />
               </div>
             ))}
           </div>
@@ -289,45 +329,35 @@ export default function Dashboard() {
             </Button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {holdings.map((holding) => (
-              <div key={holding.id} className="relative group">
-                                    <AssetCard 
-                                      holding={holding} 
-                                      btcPrice={currentPrice} 
-                                      lotCount={getLotCount(holding)} 
-                                      onManageLots={() => setLotsDialogHolding(holding)}
-                                      livePrice={assetPrices[holding.ticker]?.price}
-                                      priceChange24h={holding.ticker === 'BTC' ? priceChange : assetPrices[holding.ticker]?.change24h}
-                                    />
-                <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                  <button
-                    onClick={() => setLotsDialogHolding(holding)}
-                    className="p-1.5 rounded-lg bg-zinc-800/90 hover:bg-orange-600/50 transition-colors"
-                    title="Manage Tax Lots"
-                  >
-                    <Package className="w-3.5 h-3.5 text-zinc-400" />
-                  </button>
-                  <button
-                    onClick={() => handleEdit(holding)}
-                    className="p-1.5 rounded-lg bg-zinc-800/90 hover:bg-zinc-700 transition-colors"
-                  >
-                    <Pencil className="w-3.5 h-3.5 text-zinc-400" />
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (window.confirm(`Delete ${holding.asset_name} holding and all its transactions?`)) {
-                        deleteHolding.mutate(holding);
-                      }
-                    }}
-                    className="p-1.5 rounded-lg bg-zinc-800/90 hover:bg-rose-600/50 transition-colors"
-                  >
-                    <Trash2 className="w-3.5 h-3.5 text-zinc-400" />
-                  </button>
-                </div>
-              </div>
-            ))}
+          <div className="space-y-4">
+            {/* Accounts with holdings */}
+            {accounts.map(account => {
+              const accountHoldings = holdingsByAccount[account.id] || [];
+              if (accountHoldings.length === 0) return null;
+              return (
+                <AccountGroup
+                  key={account.id}
+                  account={account}
+                  holdings={accountHoldings}
+                  getPrice={getPriceByTicker}
+                  onEditHolding={handleEdit}
+                  onDeleteHolding={(h) => deleteHolding.mutate(h)}
+                  onManageLots={setLotsDialogHolding}
+                />
+              );
+            })}
+
+            {/* Unassigned holdings */}
+            {holdingsByAccount['_unassigned_']?.length > 0 && (
+              <AccountGroup
+                account={{ name: 'Unassigned Assets', account_type: 'mixed', tax_treatment: 'taxable' }}
+                holdings={holdingsByAccount['_unassigned_']}
+                getPrice={getPriceByTicker}
+                onEditHolding={handleEdit}
+                onDeleteHolding={(h) => deleteHolding.mutate(h)}
+                onManageLots={setLotsDialogHolding}
+              />
+            )}
           </div>
         )}
       </div>
@@ -388,6 +418,12 @@ export default function Dashboard() {
         holding={lotsDialogHolding}
         btcPrice={currentPrice}
       />
-    </div>
-  );
-}
+
+      <CreateAccountDialog
+        open={showCreateAccount}
+        onClose={() => setShowCreateAccount(false)}
+        onCreated={() => {}}
+      />
+      </div>
+      );
+      }
