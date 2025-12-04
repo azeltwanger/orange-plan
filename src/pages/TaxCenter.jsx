@@ -85,6 +85,8 @@ export default function TaxCenter() {
   const [csvImportOpen, setCsvImportOpen] = useState(false);
   const [txSortOrder, setTxSortOrder] = useState('desc'); // 'desc' (newest first), 'asc' (oldest first)
   const [syncingHoldings, setSyncingHoldings] = useState(false);
+  const [selectedTxIds, setSelectedTxIds] = useState([]);
+  const [bulkAccountType, setBulkAccountType] = useState('taxable');
   const [syncComplete, setSyncComplete] = useState(false);
   const queryClient = useQueryClient();
 
@@ -298,6 +300,44 @@ export default function TaxCenter() {
     mutationFn: (id) => base44.entities.Transaction.delete(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['transactions'] }),
   });
+
+  const bulkDeleteTx = useMutation({
+    mutationFn: async (ids) => {
+      for (const id of ids) {
+        await base44.entities.Transaction.delete(id);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      setSelectedTxIds([]);
+    },
+  });
+
+  const bulkUpdateAccountType = useMutation({
+    mutationFn: async ({ ids, accountType }) => {
+      for (const id of ids) {
+        await base44.entities.Transaction.update(id, { account_type: accountType });
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      setSelectedTxIds([]);
+    },
+  });
+
+  const toggleSelectTx = (id) => {
+    setSelectedTxIds(prev => 
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedTxIds.length === transactions.length) {
+      setSelectedTxIds([]);
+    } else {
+      setSelectedTxIds(transactions.map(tx => tx.id));
+    }
+  };
 
   const resetForm = () => {
     setFormData({ type: 'buy', asset_ticker: 'BTC', quantity: '', price_per_unit: '', date: format(new Date(), 'yyyy-MM-dd'), exchange: '', account_type: 'taxable', notes: '' });
@@ -1146,18 +1186,76 @@ export default function TaxCenter() {
         {/* Transactions Tab */}
         <TabsContent value="transactions">
           <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="font-semibold">Transaction History</h3>
-              <Select value={txSortOrder} onValueChange={setTxSortOrder}>
-                <SelectTrigger className="w-40 bg-zinc-800 border-zinc-700">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-zinc-900 border-zinc-700">
-                  <SelectItem value="desc">Newest First</SelectItem>
-                  <SelectItem value="asc">Oldest First</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
+              <div className="flex items-center gap-4">
+                <h3 className="font-semibold">Transaction History</h3>
+                {selectedTxIds.length > 0 && (
+                  <Badge className="bg-orange-500/20 text-orange-400">{selectedTxIds.length} selected</Badge>
+                )}
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                {selectedTxIds.length > 0 && (
+                  <>
+                    <Select value={bulkAccountType} onValueChange={setBulkAccountType}>
+                      <SelectTrigger className="w-36 bg-zinc-800 border-zinc-700 h-9 text-sm">
+                        <SelectValue placeholder="Account Type" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-zinc-900 border-zinc-700">
+                        <SelectItem value="taxable">Taxable</SelectItem>
+                        <SelectItem value="traditional_401k">401(k)</SelectItem>
+                        <SelectItem value="roth_401k">Roth 401(k)</SelectItem>
+                        <SelectItem value="traditional_ira">Trad IRA</SelectItem>
+                        <SelectItem value="roth_ira">Roth IRA</SelectItem>
+                        <SelectItem value="hsa">HSA</SelectItem>
+                        <SelectItem value="529">529</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => bulkUpdateAccountType.mutate({ ids: selectedTxIds, accountType: bulkAccountType })}
+                      disabled={bulkUpdateAccountType.isPending}
+                      className="bg-transparent border-zinc-700 h-9"
+                    >
+                      {bulkUpdateAccountType.isPending ? <RefreshCw className="w-3 h-3 animate-spin mr-1" /> : null}
+                      Set Type
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => bulkDeleteTx.mutate(selectedTxIds)}
+                      disabled={bulkDeleteTx.isPending}
+                      className="bg-transparent border-rose-600/50 text-rose-400 hover:bg-rose-600/20 h-9"
+                    >
+                      {bulkDeleteTx.isPending ? <RefreshCw className="w-3 h-3 animate-spin mr-1" /> : <Trash2 className="w-3 h-3 mr-1" />}
+                      Delete ({selectedTxIds.length})
+                    </Button>
+                  </>
+                )}
+                <Select value={txSortOrder} onValueChange={setTxSortOrder}>
+                  <SelectTrigger className="w-36 bg-zinc-800 border-zinc-700 h-9 text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-zinc-900 border-zinc-700">
+                    <SelectItem value="desc">Newest First</SelectItem>
+                    <SelectItem value="asc">Oldest First</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
+
+            {/* Select All */}
+            {transactions.length > 0 && (
+              <div className="flex items-center gap-2 mb-4 pb-3 border-b border-zinc-800">
+                <input
+                  type="checkbox"
+                  checked={selectedTxIds.length === transactions.length && transactions.length > 0}
+                  onChange={toggleSelectAll}
+                  className="w-4 h-4 rounded border-zinc-600 bg-zinc-800"
+                />
+                <span className="text-sm text-zinc-400">Select all ({transactions.length})</span>
+              </div>
+            )}
             {transactions.length === 0 ? (
               <p className="text-center text-zinc-500 py-12">No transactions recorded yet</p>
             ) : (
@@ -1183,8 +1281,17 @@ export default function TaxCenter() {
                   const isTaxable = accountType === 'taxable';
                   
                   return (
-                  <div key={tx.id} className="flex items-center justify-between p-4 rounded-xl bg-zinc-800/30 hover:bg-zinc-800/50 transition-colors border border-zinc-800">
+                  <div key={tx.id} className={cn(
+                    "flex items-center justify-between p-4 rounded-xl hover:bg-zinc-800/50 transition-colors border",
+                    selectedTxIds.includes(tx.id) ? "bg-orange-500/10 border-orange-500/30" : "bg-zinc-800/30 border-zinc-800"
+                  )}>
                     <div className="flex items-center gap-4">
+                      <input
+                        type="checkbox"
+                        checked={selectedTxIds.includes(tx.id)}
+                        onChange={() => toggleSelectTx(tx.id)}
+                        className="w-4 h-4 rounded border-zinc-600 bg-zinc-800"
+                      />
                       <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", tx.type === 'buy' ? 'bg-emerald-400/10' : 'bg-rose-400/10')}>
                         {tx.type === 'buy' ? <TrendingUp className="w-5 h-5 text-emerald-400" /> : <TrendingDown className="w-5 h-5 text-rose-400" />}
                       </div>
