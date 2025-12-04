@@ -18,45 +18,45 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from 'recharts';
 import { cn } from "@/lib/utils";
 
-// 2024 Tax Brackets and Standard Deductions
+// 2025 Tax Brackets and Standard Deductions
 // LTCG brackets are based on TAXABLE income (after standard deduction)
 // So with $0 income, you can realize up to the bracket max + standard deduction in gains at 0%
-const STANDARD_DEDUCTION_2024 = {
-  single: 14600,
-  married: 29200,
+const STANDARD_DEDUCTION_2025 = {
+  single: 15000,
+  married: 30000,
 };
 
-const TAX_BRACKETS_2024 = {
+const TAX_BRACKETS_2025 = {
   single: {
     income: [
-      { min: 0, max: 11600, rate: 0.10, label: '10%' },
-      { min: 11600, max: 47150, rate: 0.12, label: '12%' },
-      { min: 47150, max: 100525, rate: 0.22, label: '22%' },
-      { min: 100525, max: 191950, rate: 0.24, label: '24%' },
-      { min: 191950, max: 243725, rate: 0.32, label: '32%' },
-      { min: 243725, max: 609350, rate: 0.35, label: '35%' },
-      { min: 609350, max: Infinity, rate: 0.37, label: '37%' },
+      { min: 0, max: 11925, rate: 0.10, label: '10%' },
+      { min: 11925, max: 48475, rate: 0.12, label: '12%' },
+      { min: 48475, max: 103350, rate: 0.22, label: '22%' },
+      { min: 103350, max: 197300, rate: 0.24, label: '24%' },
+      { min: 197300, max: 250525, rate: 0.32, label: '32%' },
+      { min: 250525, max: 626350, rate: 0.35, label: '35%' },
+      { min: 626350, max: Infinity, rate: 0.37, label: '37%' },
     ],
     ltcg: [
-      { min: 0, max: 47025, rate: 0, label: '0%' },
-      { min: 47025, max: 518900, rate: 0.15, label: '15%' },
-      { min: 518900, max: Infinity, rate: 0.20, label: '20%' },
+      { min: 0, max: 48350, rate: 0, label: '0%' },
+      { min: 48350, max: 533400, rate: 0.15, label: '15%' },
+      { min: 533400, max: Infinity, rate: 0.20, label: '20%' },
     ],
   },
   married: {
     income: [
-      { min: 0, max: 23200, rate: 0.10, label: '10%' },
-      { min: 23200, max: 94300, rate: 0.12, label: '12%' },
-      { min: 94300, max: 201050, rate: 0.22, label: '22%' },
-      { min: 201050, max: 383900, rate: 0.24, label: '24%' },
-      { min: 383900, max: 487450, rate: 0.32, label: '32%' },
-      { min: 487450, max: 731200, rate: 0.35, label: '35%' },
-      { min: 731200, max: Infinity, rate: 0.37, label: '37%' },
+      { min: 0, max: 23850, rate: 0.10, label: '10%' },
+      { min: 23850, max: 96950, rate: 0.12, label: '12%' },
+      { min: 96950, max: 206700, rate: 0.22, label: '22%' },
+      { min: 206700, max: 394600, rate: 0.24, label: '24%' },
+      { min: 394600, max: 501050, rate: 0.32, label: '32%' },
+      { min: 501050, max: 751600, rate: 0.35, label: '35%' },
+      { min: 751600, max: Infinity, rate: 0.37, label: '37%' },
     ],
     ltcg: [
-      { min: 0, max: 94050, rate: 0, label: '0%' },
-      { min: 94050, max: 583750, rate: 0.15, label: '15%' },
-      { min: 583750, max: Infinity, rate: 0.20, label: '20%' },
+      { min: 0, max: 96700, rate: 0, label: '0%' },
+      { min: 96700, max: 600050, rate: 0.15, label: '15%' },
+      { min: 600050, max: Infinity, rate: 0.20, label: '20%' },
     ],
   },
 };
@@ -456,7 +456,7 @@ export default function TaxCenter() {
   const totalBtcHeld = taxLots.reduce((sum, lot) => sum + lot.remainingQuantity, 0);
 
   // Get brackets based on filing status
-  const currentBrackets = TAX_BRACKETS_2024[filingStatus];
+  const currentBrackets = TAX_BRACKETS_2025[filingStatus];
 
   const getLTCGRate = (income) => {
     for (const bracket of currentBrackets.ltcg) {
@@ -478,7 +478,7 @@ export default function TaxCenter() {
   // Standard deduction effectively increases the 0% LTCG bracket
   // Taxable income = Gross income - Standard deduction
   // So if gross income is $0, you can realize gains up to (standard deduction + 0% bracket max) at 0%
-  const standardDeduction = STANDARD_DEDUCTION_2024[filingStatus];
+  const standardDeduction = STANDARD_DEDUCTION_2025[filingStatus];
   const taxableIncome = Math.max(0, annualIncome - standardDeduction);
   
   // 0% LTCG bracket room is based on taxable income, not gross income
@@ -847,7 +847,7 @@ export default function TaxCenter() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Tax Bracket Chart */}
             <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
-              <h3 className="font-semibold mb-4">Income Tax Brackets (2024)</h3>
+              <h3 className="font-semibold mb-4">Income Tax Brackets (2025)</h3>
               <div className="h-48">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={bracketChartData} layout="vertical">
