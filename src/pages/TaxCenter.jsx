@@ -329,7 +329,16 @@ export default function TaxCenter() {
 
   const currentPrice = btcPrice || 97000;
 
+  // Get taxable holdings only (exclude retirement accounts for harvest analysis)
+  const taxableHoldings = holdings.filter(h => 
+    h.tax_treatment === 'taxable' || 
+    h.account_type === 'taxable' || 
+    (!h.tax_treatment && !h.account_type)
+  );
+  const taxableHoldingTickers = new Set(taxableHoldings.map(h => h.ticker));
+
   // Build tax lots from buy transactions, accounting for sales
+  // Only include transactions for taxable holdings
   const taxLots = useMemo(() => {
     const buyTxs = transactions.filter(t => t.type === 'buy' && t.asset_ticker === 'BTC');
     const sellTxs = transactions.filter(t => t.type === 'sell' && t.asset_ticker === 'BTC');
@@ -569,10 +578,20 @@ export default function TaxCenter() {
 
   const estimatedTax = (shortTermGains > 0 ? shortTermGains * effectiveSTCGRate : 0) + (longTermGains > 0 ? longTermGains * effectiveLTCGRate : 0);
 
-  // Loss/Gain harvesting opportunities
-  const harvestLossOpportunities = taxLots.filter(lot => lot.unrealizedGain < 0);
+  // Loss/Gain harvesting opportunities - only for taxable accounts
+  // Filter to only include lots from taxable holdings
+  const taxableLotsForHarvest = taxLots.filter(lot => {
+    // Check if this lot's ticker belongs to a taxable holding
+    const holding = holdings.find(h => h.ticker === lot.asset_ticker);
+    if (!holding) return true; // If no holding found, assume taxable
+    return holding.tax_treatment === 'taxable' || 
+           holding.account_type === 'taxable' || 
+           (!holding.tax_treatment && !holding.account_type);
+  });
+  
+  const harvestLossOpportunities = taxableLotsForHarvest.filter(lot => lot.unrealizedGain < 0);
   const totalHarvestableLoss = harvestLossOpportunities.reduce((sum, lot) => sum + Math.abs(lot.unrealizedGain), 0);
-  const gainHarvestOpportunities = taxLots.filter(lot => lot.unrealizedGain > 0 && lot.isLongTerm);
+  const gainHarvestOpportunities = taxableLotsForHarvest.filter(lot => lot.unrealizedGain > 0 && lot.isLongTerm);
   const totalHarvestableGain = gainHarvestOpportunities.reduce((sum, lot) => sum + lot.unrealizedGain, 0);
   const optimalGainHarvest = Math.min(totalHarvestableGain, ltcgBracketRoom);
 
@@ -653,7 +672,7 @@ export default function TaxCenter() {
     return avgPerSide * 2; // Round trip = 2x per side
   }, [transactions]);
 
-  const washTradeAnalysis = useMemo(() => calculateWashTradeAnalysis(taxLots, avgFeePercent), [taxLots, avgFeePercent, effectiveSTCGRate, ltcgBracketRoom, canHarvestGainsTaxFree]);
+  const washTradeAnalysis = useMemo(() => calculateWashTradeAnalysis(taxableLotsForHarvest, avgFeePercent), [taxableLotsForHarvest, avgFeePercent, effectiveSTCGRate, ltcgBracketRoom, canHarvestGainsTaxFree]);
 
   // Generate Form 8949 style report
   const generateTaxReport = () => {
