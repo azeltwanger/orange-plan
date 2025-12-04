@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format, differenceInDays } from 'date-fns';
-import { Plus, Pencil, Trash2, Receipt, TrendingUp, TrendingDown, Calendar, AlertTriangle, CheckCircle, Sparkles, RefreshCw, Info, Download, Calculator, DollarSign, Scale, ChevronRight } from 'lucide-react';
+import { Plus, Pencil, Trash2, Receipt, TrendingUp, TrendingDown, Calendar, AlertTriangle, CheckCircle, Sparkles, RefreshCw, Info, Download, Calculator, DollarSign, Scale, ChevronRight, Upload } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,6 +16,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Progress } from "@/components/ui/progress";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from 'recharts';
+import CsvImportDialog from '@/components/transactions/CsvImportDialog';
 import { cn } from "@/lib/utils";
 
 // 2025 Tax Brackets and Standard Deductions
@@ -81,6 +82,7 @@ export default function TaxCenter() {
   const [saleFormOpen, setSaleFormOpen] = useState(false);
   const [editingTx, setEditingTx] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
+  const [csvImportOpen, setCsvImportOpen] = useState(false);
   const queryClient = useQueryClient();
 
   // Tax planning settings
@@ -605,7 +607,11 @@ export default function TaxCenter() {
           <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">Tax Strategy</h1>
           <p className="text-zinc-500 mt-1">Cost basis optimization and tax planning</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <Button variant="outline" onClick={() => setCsvImportOpen(true)} className="bg-transparent border-zinc-700">
+            <Upload className="w-4 h-4 mr-2" />
+            Import CSV
+          </Button>
           <Button variant="outline" onClick={handleDownloadReport} className="bg-transparent border-zinc-700">
             <Download className="w-4 h-4 mr-2" />
             Export 8949
@@ -1550,6 +1556,9 @@ export default function TaxCenter() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* CSV Import Dialog */}
+      <CsvImportDialog open={csvImportOpen} onClose={() => setCsvImportOpen(false)} />
     </div>
   );
 }
