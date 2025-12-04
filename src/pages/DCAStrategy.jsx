@@ -221,15 +221,11 @@ export default function DCAStrategy() {
             <PieChart className="w-4 h-4 mr-2" />
             Allocation
           </TabsTrigger>
-          <TabsTrigger value="fees" className="data-[state=active]:bg-zinc-700">
-            <DollarSign className="w-4 h-4 mr-2" />
-            Fee Tracker
-          </TabsTrigger>
           <TabsTrigger value="simulator" className="data-[state=active]:bg-zinc-700">
             <Calculator className="w-4 h-4 mr-2" />
             DCA vs Lump Sum
           </TabsTrigger>
-        </TabsList>
+          </TabsList>
 
         <TabsContent value="allocation" className="space-y-6 mt-6">
       {/* Savings Source Card */}
@@ -525,10 +521,6 @@ export default function DCAStrategy() {
         )}
       </div>
 
-        </TabsContent>
-
-        <TabsContent value="fees" className="mt-6">
-          <FeeAnalyzer transactions={transactions} btcPrice={currentPrice} />
         </TabsContent>
 
         <TabsContent value="simulator" className="mt-6">

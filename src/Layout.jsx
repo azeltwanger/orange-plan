@@ -13,7 +13,8 @@ import {
         Menu,
         X,
         Zap,
-        RefreshCw
+        RefreshCw,
+        DollarSign
       } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
@@ -25,6 +26,7 @@ const navItems = [
   { name: 'Goals', icon: Target, page: 'Goals', description: '3-bucket savings strategy' },
   { name: 'Income & Expenses', icon: Wallet, page: 'Budget', description: 'Cash flow management' },
   { name: 'Investing', icon: ArrowLeftRight, page: 'DCAStrategy', description: 'DCA & accumulation' },
+  { name: 'Fee Analysis', icon: DollarSign, page: 'FeeAnalysis', description: 'Track & reduce costs' },
   { name: 'Tax Strategy', icon: Receipt, page: 'TaxCenter', description: 'Optimize your taxes' },
   { name: 'Liabilities', icon: Scale, page: 'Liabilities', description: 'Debt management' },
   { name: 'Estate Planning', icon: Shield, page: 'EstateSecurity', description: 'Inheritance & security' },

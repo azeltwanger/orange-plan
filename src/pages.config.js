@@ -8,6 +8,7 @@ import Liabilities from './pages/Liabilities';
 import EstateSecurity from './pages/EstateSecurity';
 import Landing from './pages/Landing';
 import Goals from './pages/Goals';
+import FeeAnalysis from './pages/FeeAnalysis';
 import __Layout from './Layout.jsx';
 
 
@@ -22,6 +23,7 @@ export const PAGES = {
     "EstateSecurity": EstateSecurity,
     "Landing": Landing,
     "Goals": Goals,
+    "FeeAnalysis": FeeAnalysis,
 }
 
 export const pagesConfig = {
