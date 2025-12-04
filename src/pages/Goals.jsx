@@ -109,11 +109,26 @@ export default function Goals() {
     },
   });
 
+  // Fetch BTC price
+  const [btcPrice, setBtcPrice] = React.useState(97000);
+  React.useEffect(() => {
+    fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd')
+      .then(r => r.json())
+      .then(data => setBtcPrice(data.bitcoin.usd))
+      .catch(() => {});
+  }, []);
+
   // Calculate monthly expenses for emergency fund target
   const freqMultiplier = { monthly: 12, weekly: 52, biweekly: 26, quarterly: 4, annual: 1, one_time: 0 };
   const monthlyExpenses = budgetItems
     .filter(b => b.type === 'expense' && b.is_active !== false)
     .reduce((sum, b) => sum + (b.amount * (freqMultiplier[b.frequency] || 12) / 12), 0);
+  
+  const monthlyIncome = budgetItems
+    .filter(b => b.type === 'income' && b.is_active !== false)
+    .reduce((sum, b) => sum + (b.amount * (freqMultiplier[b.frequency] || 12) / 12), 0);
+  
+  const monthlySavingsAvailable = Math.max(0, monthlyIncome - monthlyExpenses);
 
   // Categorize goals by bucket
   const categorizeGoal = (goal) => {
@@ -547,6 +562,8 @@ export default function Goals() {
                 targetDate={goalForm.target_date}
                 fundingSources={goalForm.funding_sources}
                 userSettings={userSettings}
+                monthlySavingsAvailable={monthlySavingsAvailable}
+                btcPrice={btcPrice}
               />
             )}
 
