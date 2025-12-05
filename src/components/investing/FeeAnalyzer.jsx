@@ -8,18 +8,18 @@ const COLORS = ['#F7931A', '#60a5fa', '#a78bfa', '#f472b6', '#34d399', '#fbbf24'
 // Total effective cost = explicit fee + estimated spread
 // Spread estimates based on typical market conditions
 const EXCHANGE_INFO = {
-  coinbase: { name: 'Coinbase', explicitFee: 1.49, spread: 0.5, color: '#0052FF', keywords: ['coinbase'] },
-  coinbase_pro: { name: 'Coinbase Advanced', explicitFee: 0.6, spread: 0.1, color: '#1652F0', keywords: ['coinbase pro', 'coinbase advanced', 'cb pro', 'cbpro'] },
-  kraken: { name: 'Kraken', explicitFee: 0.26, spread: 0.1, color: '#7B61FF', keywords: ['kraken'] },
-  gemini: { name: 'Gemini', explicitFee: 1.49, spread: 0.5, color: '#00DCFA', keywords: ['gemini'] },
-  binance_us: { name: 'Binance US', explicitFee: 0.1, spread: 0.1, color: '#F0B90B', keywords: ['binance'] },
-  strike: { name: 'Strike', explicitFee: 0, spread: 0.3, color: '#9333ea', keywords: ['strike'] },
-  cash_app: { name: 'Cash App', explicitFee: 0, spread: 2.2, color: '#00D632', keywords: ['cash app', 'cashapp', 'cash_app'] },
-  swan: { name: 'Swan Bitcoin', explicitFee: 0.99, spread: 0.2, color: '#F7931A', keywords: ['swan'] },
-  river: { name: 'River', explicitFee: 0, spread: 0.25, color: '#0066FF', keywords: ['river'] },
-  robinhood: { name: 'Robinhood', explicitFee: 0, spread: 0.5, color: '#00C805', keywords: ['robinhood'] },
-  other: { name: 'Other', explicitFee: 0.5, spread: 0.5, color: '#71717a', keywords: [] },
-  unknown: { name: 'Unknown', explicitFee: 0.5, spread: 0.5, color: '#52525b', keywords: [] },
+  coinbase: { name: 'Coinbase', explicitFee: 1.49, spread: 0.5, color: '#3B82F6', keywords: ['coinbase'] },
+  coinbase_pro: { name: 'Coinbase Advanced', explicitFee: 0.6, spread: 0.1, color: '#1D4ED8', keywords: ['coinbase pro', 'coinbase advanced', 'cb pro', 'cbpro'] },
+  kraken: { name: 'Kraken', explicitFee: 0.26, spread: 0.1, color: '#8B5CF6', keywords: ['kraken'] },
+  gemini: { name: 'Gemini', explicitFee: 1.49, spread: 0.5, color: '#06B6D4', keywords: ['gemini'] },
+  binance_us: { name: 'Binance US', explicitFee: 0.1, spread: 0.1, color: '#EAB308', keywords: ['binance'] },
+  strike: { name: 'Strike', explicitFee: 0, spread: 0.3, color: '#A855F7', keywords: ['strike'] },
+  cash_app: { name: 'Cash App', explicitFee: 0, spread: 2.2, color: '#22C55E', keywords: ['cash app', 'cashapp', 'cash_app'] },
+  swan: { name: 'Swan Bitcoin', explicitFee: 0.99, spread: 0.2, color: '#F97316', keywords: ['swan'] },
+  river: { name: 'River', explicitFee: 0, spread: 0.25, color: '#0EA5E9', keywords: ['river'] },
+  robinhood: { name: 'Robinhood', explicitFee: 0, spread: 0.5, color: '#10B981', keywords: ['robinhood'] },
+  other: { name: 'Other', explicitFee: 0.5, spread: 0.5, color: '#71717A', keywords: [] },
+  unknown: { name: 'Unknown', explicitFee: 0.5, spread: 0.5, color: '#52525B', keywords: [] },
 };
 
 // Fuzzy match exchange name to EXCHANGE_INFO key
@@ -333,36 +333,41 @@ export default function FeeAnalyzer({ transactions = [], btcPrice = 97000 }) {
           </div>
         </div>
 
-        {/* Fee Breakdown Bar Chart */}
+        {/* Total Fee Rate by Exchange - Vertical Bar Chart */}
         <div className="card-premium rounded-xl p-6 border border-zinc-800/50">
-          <h3 className="font-semibold mb-4">Fee Breakdown by Type</h3>
-          {analysis.feeBreakdown.length > 0 ? (
+          <h3 className="font-semibold mb-4">Total Fee Rate by Exchange</h3>
+          {analysis.exchangeData.length > 0 ? (
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={analysis.feeBreakdown} layout="vertical">
+                <BarChart data={analysis.exchangeData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-                  <XAxis type="number" stroke="#71717a" fontSize={12} tickFormatter={(v) => `$${v.toFixed(0)}`} />
-                  <YAxis type="category" dataKey="name" stroke="#71717a" fontSize={12} width={100} />
+                  <XAxis dataKey="exchange" stroke="#71717a" fontSize={11} angle={-20} textAnchor="end" height={60} />
+                  <YAxis stroke="#71717a" fontSize={12} tickFormatter={(v) => `${v.toFixed(1)}%`} />
                   <Tooltip
                     contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '12px' }}
-                    formatter={(value) => [`$${value.toFixed(2)}`, 'Amount']}
+                    formatter={(value, name) => [`${value.toFixed(2)}%`, name]}
                   />
-                  <Bar dataKey="value" name="Amount" radius={[0, 4, 4, 0]}>
-                    {analysis.feeBreakdown.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
+                  <Bar dataKey="feeRate" name="Explicit Fee" stackId="a" radius={[0, 0, 0, 0]}>
+                    {analysis.exchangeData.map((entry, index) => (
+                      <Cell key={`cell-fee-${index}`} fill={entry.color} fillOpacity={0.8} />
+                    ))}
+                  </Bar>
+                  <Bar dataKey="spreadRate" name="Est. Spread" stackId="a" radius={[4, 4, 0, 0]}>
+                    {analysis.exchangeData.map((entry, index) => (
+                      <Cell key={`cell-spread-${index}`} fill={entry.color} fillOpacity={0.4} />
                     ))}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </div>
           ) : (
-            <p className="text-zinc-500 text-center py-12">No fee data available</p>
+            <p className="text-zinc-500 text-center py-12">No exchange data available</p>
           )}
           <div className="flex flex-wrap justify-center gap-4 mt-4">
-            {analysis.feeBreakdown.map((item, i) => (
+            {analysis.exchangeData.map((ex, i) => (
               <div key={i} className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
-                <span className="text-xs text-zinc-400">{item.name}</span>
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: ex.color }} />
+                <span className="text-xs text-zinc-400">{ex.exchange}</span>
               </div>
             ))}
           </div>
