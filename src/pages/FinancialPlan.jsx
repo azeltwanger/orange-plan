@@ -911,12 +911,25 @@ export default function FinancialPlan() {
   // Calculate retirement status and insights
   const retirementStatus = useMemo(() => {
     const gap = earliestRetirementAge ? earliestRetirementAge - retirementAge : null;
-    
+
+    // Check if portfolio can support desired spending at retirement
+    const maxSustainableSpending = retirementValue * effectiveWithdrawalRate;
+    const canAffordDesiredSpending = maxSustainableSpending >= inflationAdjustedRetirementSpending * 0.95; // Within 95%
+
     if (willRunOutOfMoney) {
       return {
         type: 'critical',
         title: 'Critical: Plan Not Sustainable',
         description: `Portfolio projected to run out at age ${currentAge + runOutOfMoneyAge}.`,
+        icon: <AlertTriangle className="w-5 h-5" />
+      };
+    } else if (!canAffordDesiredSpending) {
+      // Portfolio exists but can't support desired spending
+      const shortfallPercent = ((inflationAdjustedRetirementSpending - maxSustainableSpending) / inflationAdjustedRetirementSpending * 100).toFixed(0);
+      return {
+        type: 'critical',
+        title: 'At Risk: Spending Not Sustainable',
+        description: `Portfolio at retirement (${formatNumber(retirementValue)}) can only support ${formatNumber(maxSustainableSpending)}/yr, ${shortfallPercent}% below your ${formatNumber(inflationAdjustedRetirementSpending)}/yr target.`,
         icon: <AlertTriangle className="w-5 h-5" />
       };
     } else if (gap === null || gap > 10) {
@@ -951,7 +964,7 @@ export default function FinancialPlan() {
         icon: <Sparkles className="w-5 h-5" />
       };
     }
-  }, [earliestRetirementAge, retirementAge, willRunOutOfMoney, runOutOfMoneyAge, currentAge]);
+  }, [earliestRetirementAge, retirementAge, willRunOutOfMoney, runOutOfMoneyAge, currentAge, retirementValue, effectiveWithdrawalRate, inflationAdjustedRetirementSpending]);
 
   // Calculate earliest achievable FI age (when portfolio can sustain withdrawals to life expectancy)
   useEffect(() => {
