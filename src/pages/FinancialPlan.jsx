@@ -983,7 +983,7 @@ export default function FinancialPlan() {
         icon: <Sparkles className="w-5 h-5" />
       };
     }
-  }, [earliestRetirementAge, retirementAge, willRunOutOfMoney, runOutOfMoneyAge, currentAge, retirementValue, maxSustainableSpending, retirementAnnualSpending]);
+  }, [earliestRetirementAge, retirementAge, willRunOutOfMoney, runOutOfMoneyAge, currentAge, retirementValue, maxSustainableSpending, retirementAnnualSpending, inflationRate]);
 
   // Calculate maximum sustainable spending at retirement age
   useEffect(() => {
