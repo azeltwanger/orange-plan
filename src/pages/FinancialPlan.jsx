@@ -1447,77 +1447,80 @@ export default function FinancialPlan() {
               </div>
             </div>
 
-            {/* Actionable Insights */}
-            {retirementStatus.type !== 'optimistic' && earliestRetirementAge && (
+            {/* Actionable Insights - Only show if behind schedule */}
+            {earliestRetirementAge && earliestRetirementAge > retirementAge && (
               <>
                 {/* Savings Insight */}
                 <div className="card-premium rounded-xl p-4 border border-zinc-700/50">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                    <h5 className="text-xs font-semibold text-zinc-300 uppercase tracking-wide">Increase Savings</h5>
+                    <h5 className="text-xs font-semibold text-zinc-300 uppercase tracking-wide">Increase Savings By</h5>
                   </div>
                   <p className="text-2xl font-bold text-emerald-400">
                     +{formatNumber((() => {
+                      // Calculate what portfolio is needed at target retirement to sustain through life
+                      // This is based on actual simulation, not just the formula
                       const targetIndex = Math.max(0, retirementAge - currentAge);
-                      const projectedPortfolioAtTarget = projections[targetIndex]?.total || 0;
+                      const earliestIndex = Math.max(0, earliestRetirementAge - currentAge);
                       
-                      // Calculate the shortfall at target retirement age compared to the required nest egg
-                      const shortfallAtRetirement = Math.max(0, requiredNestEgg - projectedPortfolioAtTarget);
+                      const portfolioAtTarget = projections[targetIndex]?.total || 0;
+                      const portfolioAtEarliest = projections[earliestIndex]?.total || 0;
                       
+                      // The gap between what we need at target age vs what we'll have
+                      const portfolioGap = Math.max(0, portfolioAtEarliest - portfolioAtTarget);
                       const yearsToWork = retirementAge - currentAge;
-                      if (yearsToWork <= 0 || shortfallAtRetirement <= 0) return 0;
                       
-                      // Use a diversified blended growth rate for additional savings over the working years
-                      const blendedGrowthRateForSavings = ((effectiveBtcCagr + stocksCagr + realEstateCagr + bondsCagr + otherCagr) / 5) / 100;
+                      if (yearsToWork <= 0 || portfolioGap <= 0) return 0;
                       
-                      // Calculate the annual payment (additional savings) needed using FV of annuity formula
-                      // P = FV * [r / ((1 + r)^n - 1)]
-                      if (blendedGrowthRateForSavings === 0) {
-                        return shortfallAtRetirement / yearsToWork;
+                      // Blended growth rate for new savings
+                      const blendedGrowthRate = ((effectiveBtcCagr + stocksCagr + realEstateCagr + bondsCagr + otherCagr) / 5) / 100;
+                      
+                      if (blendedGrowthRate === 0) {
+                        return portfolioGap / yearsToWork;
                       }
                       
-                      const fvFactor = (Math.pow(1 + blendedGrowthRateForSavings, yearsToWork) - 1) / blendedGrowthRateForSavings;
-                      const annualAdditionalSavings = shortfallAtRetirement / fvFactor;
-                      
-                      return annualAdditionalSavings;
+                      // Annual savings needed using annuity formula
+                      const fvFactor = (Math.pow(1 + blendedGrowthRate, yearsToWork) - 1) / blendedGrowthRate;
+                      return portfolioGap / fvFactor;
                     })())}<span className="text-sm text-zinc-500">/yr</span>
                   </p>
-                  <p className="text-[10px] text-zinc-500 mt-1">additional to reach nest egg of {formatNumber(requiredNestEgg)}</p>
+                  <p className="text-[10px] text-zinc-500 mt-1">to retire at age {retirementAge} instead of {earliestRetirementAge}</p>
                 </div>
 
                 {/* Spending Reduction Insight */}
                 <div className="card-premium rounded-xl p-4 border border-zinc-700/50">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-rose-400" />
-                    <h5 className="text-xs font-semibold text-zinc-300 uppercase tracking-wide">Reduce Spending To</h5>
+                    <h5 className="text-xs font-semibold text-zinc-300 uppercase tracking-wide">Or Reduce Spending By</h5>
                   </div>
                   <p className="text-2xl font-bold text-rose-400">
-                    {formatNumber((() => {
+                    -{formatNumber((() => {
                       const targetIndex = Math.max(0, retirementAge - currentAge);
                       const portfolioAtTarget = projections[targetIndex]?.total || 0;
                       
-                      // Sustainable withdrawal in future dollars at retirement age
+                      // What current portfolio can sustain at target age
                       const sustainableWithdrawal = portfolioAtTarget * effectiveWithdrawalRate;
                       
-                      return sustainableWithdrawal;
+                      // Gap between desired and sustainable
+                      const spendingGap = Math.max(0, inflationAdjustedRetirementSpending - sustainableWithdrawal);
+                      
+                      return spendingGap;
                     })())}<span className="text-sm text-zinc-500">/yr</span>
                   </p>
-                  <p className="text-[10px] text-zinc-500 mt-1">sustainable spending at age {retirementAge} (in future $)</p>
+                  <p className="text-[10px] text-zinc-500 mt-1">from planned {formatNumber(inflationAdjustedRetirementSpending)}/yr to retire at {retirementAge}</p>
                 </div>
 
                 {/* Alternative: Delay Retirement */}
-                {earliestRetirementAge && earliestRetirementAge < lifeExpectancy && (
-                  <div className="card-premium rounded-xl p-4 border border-zinc-700/50">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                      <h5 className="text-xs font-semibold text-zinc-300 uppercase tracking-wide">Or Retire At</h5>
-                    </div>
-                    <p className="text-2xl font-bold text-amber-400">
-                      Age {earliestRetirementAge}
-                    </p>
-                    <p className="text-[10px] text-zinc-500 mt-1">+{earliestRetirementAge - retirementAge} years with current plan</p>
+                <div className="card-premium rounded-xl p-4 border border-zinc-700/50">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                    <h5 className="text-xs font-semibold text-zinc-300 uppercase tracking-wide">Or Wait Until</h5>
                   </div>
-                )}
+                  <p className="text-2xl font-bold text-amber-400">
+                    Age {earliestRetirementAge}
+                  </p>
+                  <p className="text-[10px] text-zinc-500 mt-1">+{earliestRetirementAge - retirementAge} years with current plan</p>
+                </div>
               </>
             )}
           </div>
