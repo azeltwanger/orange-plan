@@ -124,6 +124,7 @@ export default function Scenarios() {
     bonds_allocation_override: '',
     cash_allocation_override: '',
     cash_cagr_override: '',
+    other_cagr_override: '',
     rebalancing_strategy: 'none',
     debt_payoff_strategy: 'minimum',
     extra_debt_payment: '',
@@ -189,6 +190,7 @@ export default function Scenarios() {
     realEstateCagr: settings.real_estate_cagr || 4,
     bondsCagr: settings.bonds_cagr || 3,
     cashCagr: settings.cash_cagr || 0,
+    otherCagr: settings.other_cagr || 7,
     inflationRate: settings.inflation_rate || 3,
     incomeGrowth: settings.income_growth_rate || 3,
     retirementSpending: settings.annual_retirement_spending || 100000,
@@ -223,6 +225,7 @@ export default function Scenarios() {
       realEstateCagr: scenario?.real_estate_cagr_override ?? baseAssumptions.realEstateCagr,
       bondsCagr: scenario?.bonds_cagr_override ?? baseAssumptions.bondsCagr,
       cashCagr: scenario?.cash_cagr_override ?? baseAssumptions.cashCagr,
+      otherCagr: scenario?.other_cagr_override ?? baseAssumptions.otherCagr,
       inflationRate: scenario?.inflation_override ?? baseAssumptions.inflationRate,
       incomeGrowth: scenario?.income_growth_override ?? baseAssumptions.incomeGrowth,
       retirementSpending: scenario?.annual_retirement_spending_override || baseAssumptions.retirementSpending,
@@ -302,7 +305,7 @@ export default function Scenarios() {
         runningStocks = runningStocks * (1 + assumptions.stocksCagr / 100) * crashMultiplier * outperformanceMultiplier;
         runningRealEstate = runningRealEstate * (1 + assumptions.realEstateCagr / 100);
         runningBonds = runningBonds * (1 + assumptions.bondsCagr / 100);
-        runningOther = runningOther * (1 + assumptions.stocksCagr / 100) * crashMultiplier * outperformanceMultiplier;
+        runningOther = runningOther * (1 + assumptions.otherCagr / 100) * crashMultiplier * outperformanceMultiplier;
 
         const blendedGrowthRate = (yearBtcGrowth * 0.3 + assumptions.stocksCagr * 0.7) / 100;
         runningSavings = runningSavings * (1 + blendedGrowthRate) * crashMultiplier * outperformanceMultiplier;
@@ -474,7 +477,7 @@ export default function Scenarios() {
       withdrawal_strategy_override: '', dynamic_withdrawal_rate_override: '', btc_return_model_override: '',
       market_crash_year: '', crash_severity_percent: '',
       outperformance_year: '', outperformance_gain_percent: '',
-      btc_allocation_override: '', stocks_allocation_override: '', real_estate_allocation_override: '', bonds_allocation_override: '', cash_allocation_override: '', cash_cagr_override: '',
+      btc_allocation_override: '', stocks_allocation_override: '', real_estate_allocation_override: '', bonds_allocation_override: '', cash_allocation_override: '', cash_cagr_override: '', other_cagr_override: '',
       rebalancing_strategy: 'none', debt_payoff_strategy: 'minimum', extra_debt_payment: '',
       linked_life_event_ids: [],
     });
@@ -505,6 +508,7 @@ export default function Scenarios() {
       bonds_allocation_override: form.bonds_allocation_override !== '' ? parseFloat(form.bonds_allocation_override) : null,
       cash_allocation_override: form.cash_allocation_override !== '' ? parseFloat(form.cash_allocation_override) : null,
       cash_cagr_override: form.cash_cagr_override !== '' ? parseFloat(form.cash_cagr_override) : null,
+      other_cagr_override: form.other_cagr_override !== '' ? parseFloat(form.other_cagr_override) : null,
       rebalancing_strategy: form.rebalancing_strategy || 'none',
       debt_payoff_strategy: form.debt_payoff_strategy || 'minimum',
       extra_debt_payment: form.extra_debt_payment !== '' ? parseFloat(form.extra_debt_payment) : null,
@@ -546,6 +550,7 @@ export default function Scenarios() {
       bonds_allocation_override: scenario.bonds_allocation_override ?? '',
       cash_allocation_override: scenario.cash_allocation_override ?? '',
       cash_cagr_override: scenario.cash_cagr_override ?? '',
+      other_cagr_override: scenario.other_cagr_override ?? '',
       rebalancing_strategy: scenario.rebalancing_strategy || 'none',
       debt_payoff_strategy: scenario.debt_payoff_strategy || 'minimum',
       extra_debt_payment: scenario.extra_debt_payment ?? '',
@@ -1021,6 +1026,19 @@ export default function Scenarios() {
                     onValueChange={([v]) => setForm({ ...form, cash_cagr_override: v })}
                     min={0}
                     max={10}
+                    step={0.5}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <Label className="text-zinc-400 text-xs">Other Assets CAGR</Label>
+                    <span className="text-zinc-400 text-xs font-medium">{form.other_cagr_override !== '' ? form.other_cagr_override : baseAssumptions.otherCagr}%</span>
+                  </div>
+                  <Slider
+                    value={[form.other_cagr_override !== '' ? parseFloat(form.other_cagr_override) : baseAssumptions.otherCagr]}
+                    onValueChange={([v]) => setForm({ ...form, other_cagr_override: v })}
+                    min={-10}
+                    max={20}
                     step={0.5}
                   />
                 </div>

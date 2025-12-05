@@ -246,6 +246,7 @@ export default function FinancialPlan() {
   const [realEstateCagr, setRealEstateCagr] = useState(4);
   const [bondsCagr, setBondsCagr] = useState(3);
   const [cashCagr, setCashCagr] = useState(0);
+  const [otherCagr, setOtherCagr] = useState(7);
   const [inflationRate, setInflationRate] = useState(3);
   const [incomeGrowth, setIncomeGrowth] = useState(3);
   
@@ -354,6 +355,7 @@ export default function FinancialPlan() {
       if (settings.real_estate_cagr !== undefined) setRealEstateCagr(settings.real_estate_cagr);
       if (settings.bonds_cagr !== undefined) setBondsCagr(settings.bonds_cagr);
       if (settings.cash_cagr !== undefined) setCashCagr(settings.cash_cagr);
+      if (settings.other_cagr !== undefined) setOtherCagr(settings.other_cagr);
       if (settings.inflation_rate !== undefined) setInflationRate(settings.inflation_rate);
       if (settings.income_growth_rate !== undefined) setIncomeGrowth(settings.income_growth_rate);
       if (settings.retirement_age !== undefined) setRetirementAge(settings.retirement_age);
@@ -394,6 +396,7 @@ export default function FinancialPlan() {
         real_estate_cagr: realEstateCagr || 4,
         bonds_cagr: bondsCagr || 3,
         cash_cagr: cashCagr || 0,
+        other_cagr: otherCagr || 7,
         inflation_rate: inflationRate || 3,
         income_growth_rate: incomeGrowth || 3,
         retirement_age: retirementAge || 65,
@@ -410,7 +413,7 @@ export default function FinancialPlan() {
                     });
     }, 1000); // Debounce 1 second
     return () => clearTimeout(timeoutId);
-  }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, withdrawalStrategy, dynamicWithdrawalRate, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount]);
+  }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, otherCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, withdrawalStrategy, dynamicWithdrawalRate, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount]);
 
   // Calculate annual savings from Income & Expenses (single source of truth)
   const freqMultiplier = { monthly: 12, weekly: 52, biweekly: 26, quarterly: 4, annual: 1, one_time: 0 };
@@ -635,7 +638,7 @@ export default function FinancialPlan() {
         runningStocks = runningStocks * (1 + effectiveStocksCagr / 100);
         runningRealEstate = runningRealEstate * (1 + realEstateCagr / 100);
         runningBonds = runningBonds * (1 + bondsCagr / 100);
-        runningOther = runningOther * (1 + effectiveStocksCagr / 100);
+        runningOther = runningOther * (1 + otherCagr / 100);
         
         // Calculate blended growth rate based on current portfolio composition
         const totalAssets = runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther;
@@ -646,7 +649,7 @@ export default function FinancialPlan() {
             (runningStocks / totalAssets) * (effectiveStocksCagr / 100) +
             (runningRealEstate / totalAssets) * (realEstateCagr / 100) +
             (runningBonds / totalAssets) * (bondsCagr / 100) +
-            (runningOther / totalAssets) * (effectiveStocksCagr / 100)
+            (runningOther / totalAssets) * (otherCagr / 100)
           );
         }
         runningSavings = runningSavings * (1 + blendedGrowthRate);
@@ -968,7 +971,7 @@ export default function FinancialPlan() {
       stocksPct * effectiveStocksCagr +
       realEstatePct * realEstateCagr +
       bondsPct * bondsCagr +
-      otherPct * effectiveStocksCagr // Assume other assets grow like stocks
+      otherPct * otherCagr
     );
 
     return weightedReturn;
@@ -1236,6 +1239,13 @@ export default function FinancialPlan() {
                 <span className="text-cyan-400 font-semibold">{cashCagr}%</span>
               </div>
               <Slider value={[cashCagr]} onValueChange={([v]) => setCashCagr(v)} min={0} max={10} step={0.5} />
+            </div>
+            <div className="space-y-3">
+              <div className="flex justify-between">
+                <Label className="text-zinc-400">Other Assets CAGR</Label>
+                <span className="text-zinc-400 font-semibold">{otherCagr}%</span>
+              </div>
+              <Slider value={[otherCagr]} onValueChange={([v]) => setOtherCagr(v)} min={-10} max={20} step={0.5} />
             </div>
             <div className="space-y-3">
               <div className="flex justify-between">
