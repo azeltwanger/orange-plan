@@ -1548,7 +1548,7 @@ export default function FinancialPlan() {
             </div>
 
             {/* Actionable Insights - Show when behind schedule or plan not sustainable */}
-            {(!earliestRetirementAge || earliestRetirementAge > retirementAge) && (
+            {(!earliestRetirementAge || earliestRetirementAge > retirementAge || willRunOutOfMoney || retirementStatus.type === 'critical' || retirementStatus.type === 'at_risk') && (
               <>
                 {/* Savings Insight */}
                 <div className="card-premium rounded-xl p-4 border border-zinc-700/50">
