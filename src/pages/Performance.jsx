@@ -176,6 +176,32 @@ export default function Performance() {
     }
   }, [timeframe, cryptoTickers]);
 
+  // Fetch IRR metrics from backend
+  useEffect(() => {
+    const fetchIRRMetrics = async () => {
+      if (Object.keys(currentPrices).length === 0 && priceLoading) return;
+      
+      setIrrLoading(true);
+      try {
+        const response = await base44.functions.invoke('calculatePortfolioIRR', {
+          currentPrices
+        });
+        
+        if (response.data?.success) {
+          setIrrMetrics(response.data.metrics);
+        } else {
+          console.log('IRR calculation:', response.data?.error || 'No data');
+        }
+      } catch (err) {
+        console.error('Failed to fetch IRR metrics:', err);
+      } finally {
+        setIrrLoading(false);
+      }
+    };
+    
+    fetchIRRMetrics();
+  }, [currentPrices, priceLoading]);
+
   // Fetch stock prices via backend function
   useEffect(() => {
     const fetchStockPrices = async () => {
@@ -438,35 +464,62 @@ export default function Performance() {
     return dataPoints;
   }, [transactions, holdings, timeframe, currentValue, totalCostBasis, historicalPrices, stockPrices, currentPrices, getPriceAtDate]);
 
+  // Use IRR metrics if available, otherwise fall back to simple calculations
+  const displayMetrics = useMemo(() => {
+    if (irrMetrics) {
+      return {
+        totalInvested: irrMetrics.totalInvested,
+        currentValue: irrMetrics.currentValue,
+        totalGainLoss: irrMetrics.totalGainLoss,
+        totalReturnPercent: irrMetrics.totalReturnPercent,
+        annualizedReturn: irrMetrics.annualizedIRR ?? irrMetrics.simpleCAGR ?? annualizedReturn,
+        holdingDays: irrMetrics.holdingPeriodDays,
+        holdingYears: irrMetrics.holdingPeriodYears,
+        isIRR: irrMetrics.annualizedIRR !== null
+      };
+    }
+    return {
+      totalInvested: totalCostBasis,
+      currentValue,
+      totalGainLoss: unrealizedGain,
+      totalReturnPercent: totalReturn,
+      annualizedReturn,
+      holdingDays,
+      holdingYears,
+      isIRR: false
+    };
+  }, [irrMetrics, totalCostBasis, currentValue, unrealizedGain, totalReturn, annualizedReturn, holdingDays, holdingYears]);
+
   const stats = [
     {
       label: 'Portfolio Value',
-      value: `$${currentValue.toLocaleString()}`,
+      value: `$${displayMetrics.currentValue.toLocaleString()}`,
       icon: DollarSign,
       color: 'text-emerald-400',
     },
     {
       label: 'Total Invested',
-      value: `$${totalCostBasis.toLocaleString()}`,
-      subtext: holdingDays > 0 ? `${Math.round(holdingDays / 30)} months` : '',
+      value: `$${displayMetrics.totalInvested.toLocaleString()}`,
+      subtext: displayMetrics.holdingDays > 0 ? `${Math.round(displayMetrics.holdingDays / 30)} months` : '',
       icon: DollarSign,
       color: 'text-zinc-400',
     },
     {
       label: 'Total Return',
-      value: `$${Math.abs(unrealizedGain).toLocaleString()}`,
-      prefix: unrealizedGain >= 0 ? '+' : '-',
-      subtext: `${unrealizedGain >= 0 ? '+' : ''}${totalReturn.toFixed(1)}%`,
-      icon: unrealizedGain >= 0 ? TrendingUp : TrendingDown,
-      color: unrealizedGain >= 0 ? 'text-emerald-400' : 'text-rose-400',
+      value: `$${Math.abs(displayMetrics.totalGainLoss).toLocaleString()}`,
+      prefix: displayMetrics.totalGainLoss >= 0 ? '+' : '-',
+      subtext: `${displayMetrics.totalGainLoss >= 0 ? '+' : ''}${displayMetrics.totalReturnPercent.toFixed(1)}%`,
+      icon: displayMetrics.totalGainLoss >= 0 ? TrendingUp : TrendingDown,
+      color: displayMetrics.totalGainLoss >= 0 ? 'text-emerald-400' : 'text-rose-400',
     },
     {
-      label: 'Annualized Return',
-      value: `${Math.abs(annualizedReturn).toFixed(1)}%`,
-      prefix: annualizedReturn >= 0 ? '+' : '-',
-      subtext: holdingYears >= 1 ? `${holdingYears.toFixed(1)} years` : `${holdingDays} days`,
-      icon: annualizedReturn >= 0 ? TrendingUp : TrendingDown,
-      color: annualizedReturn >= 0 ? 'text-emerald-400' : 'text-rose-400',
+      label: displayMetrics.isIRR ? 'IRR (Annualized)' : 'Annualized Return',
+      value: `${Math.abs(displayMetrics.annualizedReturn).toFixed(1)}%`,
+      prefix: displayMetrics.annualizedReturn >= 0 ? '+' : '-',
+      subtext: displayMetrics.holdingYears >= 1 ? `${displayMetrics.holdingYears.toFixed(1)} years` : `${displayMetrics.holdingDays} days`,
+      icon: displayMetrics.annualizedReturn >= 0 ? TrendingUp : TrendingDown,
+      color: displayMetrics.annualizedReturn >= 0 ? 'text-emerald-400' : 'text-rose-400',
+      hasTooltip: true,
     },
   ];
 
@@ -496,24 +549,118 @@ export default function Performance() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((stat, i) => (
-          <div key={i} className="card-glass rounded-xl p-5">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs text-zinc-500 uppercase tracking-wider">{stat.label}</span>
-              <div className={cn("p-1.5 rounded-lg", stat.color.replace('text-', 'bg-') + '/10')}>
-                <stat.icon className={cn("w-4 h-4", stat.color)} />
+      <TooltipProvider>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {stats.map((stat, i) => (
+            <div key={i} className="card-glass rounded-xl p-5">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-zinc-500 uppercase tracking-wider">{stat.label}</span>
+                  {stat.hasTooltip && (
+                    <UITooltip>
+                      <TooltipTrigger>
+                        <Info className="w-3 h-3 text-zinc-600 hover:text-zinc-400 cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs bg-zinc-900 border-zinc-700 text-zinc-200">
+                        <p className="text-xs">
+                          {displayMetrics.isIRR 
+                            ? "Money-Weighted Return (IRR) accounts for the timing of every deposit and investment, providing a more accurate representation of your real performance."
+                            : "Simple annualized return based on total gain divided by holding period. Add more transactions for IRR calculation."}
+                        </p>
+                      </TooltipContent>
+                    </UITooltip>
+                  )}
+                </div>
+                <div className={cn("p-1.5 rounded-lg", stat.color.replace('text-', 'bg-') + '/10')}>
+                  <stat.icon className={cn("w-4 h-4", stat.color)} />
+                </div>
+              </div>
+              <p className={cn("text-xl lg:text-2xl font-bold", stat.color)}>
+                {stat.prefix}{stat.value}
+              </p>
+              {stat.subtext && (
+                <p className="text-xs text-zinc-500 mt-1">{stat.subtext}</p>
+              )}
+            </div>
+          ))}
+        </div>
+      </TooltipProvider>
+
+      {/* IRR Calculation Panel */}
+      {(irrMetrics || irrLoading) && (
+        <div className="card-glass rounded-2xl p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <h3 className="font-semibold">Performance Calculation Method</h3>
+              <UITooltip>
+                <TooltipTrigger>
+                  <Info className="w-4 h-4 text-zinc-500 hover:text-zinc-300 cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent className="max-w-sm bg-zinc-900 border-zinc-700 text-zinc-200">
+                  <p className="text-xs">
+                    This return uses a money-weighted IRR (XIRR) calculation that accounts for the timing 
+                    of every deposit and investment, providing a more accurate representation of your real performance 
+                    compared to simple percentage returns.
+                  </p>
+                </TooltipContent>
+              </UITooltip>
+            </div>
+            {irrLoading && <Loader2 className="w-4 h-4 animate-spin text-zinc-500" />}
+          </div>
+          
+          {irrMetrics ? (
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+              <div className="p-3 rounded-lg bg-zinc-800/30">
+                <p className="text-xs text-zinc-500 mb-1">Total Invested</p>
+                <p className="font-semibold">${irrMetrics.totalInvested.toLocaleString()}</p>
+              </div>
+              <div className="p-3 rounded-lg bg-zinc-800/30">
+                <p className="text-xs text-zinc-500 mb-1">Current Value</p>
+                <p className="font-semibold text-emerald-400">${irrMetrics.currentValue.toLocaleString()}</p>
+              </div>
+              <div className="p-3 rounded-lg bg-zinc-800/30">
+                <p className="text-xs text-zinc-500 mb-1">Total Gain/Loss</p>
+                <p className={cn("font-semibold", irrMetrics.totalGainLoss >= 0 ? "text-emerald-400" : "text-rose-400")}>
+                  {irrMetrics.totalGainLoss >= 0 ? '+' : ''}${irrMetrics.totalGainLoss.toLocaleString()}
+                </p>
+              </div>
+              <div className="p-3 rounded-lg bg-zinc-800/30">
+                <p className="text-xs text-zinc-500 mb-1">Total Return</p>
+                <p className={cn("font-semibold", irrMetrics.totalReturnPercent >= 0 ? "text-emerald-400" : "text-rose-400")}>
+                  {irrMetrics.totalReturnPercent >= 0 ? '+' : ''}{irrMetrics.totalReturnPercent.toFixed(1)}%
+                </p>
+              </div>
+              <div className="p-3 rounded-lg bg-orange-500/10 border border-orange-500/20">
+                <p className="text-xs text-orange-400 mb-1 flex items-center gap-1">
+                  True Annualized Return
+                  <span className="text-[10px] px-1 py-0.5 rounded bg-orange-500/20">IRR</span>
+                </p>
+                <p className={cn("font-bold text-lg", 
+                  (irrMetrics.annualizedIRR ?? irrMetrics.simpleCAGR ?? 0) >= 0 ? "text-orange-400" : "text-rose-400"
+                )}>
+                  {(irrMetrics.annualizedIRR ?? irrMetrics.simpleCAGR ?? 0) >= 0 ? '+' : ''}
+                  {(irrMetrics.annualizedIRR ?? irrMetrics.simpleCAGR ?? 0).toFixed(1)}%
+                </p>
               </div>
             </div>
-            <p className={cn("text-xl lg:text-2xl font-bold", stat.color)}>
-              {stat.prefix}{stat.value}
-            </p>
-            {stat.subtext && (
-              <p className="text-xs text-zinc-500 mt-1">{stat.subtext}</p>
-            )}
-          </div>
-        ))}
-      </div>
+          ) : (
+            <div className="text-center text-zinc-500 py-4">
+              <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
+              <p className="text-sm">Calculating IRR...</p>
+            </div>
+          )}
+          
+          {irrMetrics && (
+            <div className="mt-4 pt-4 border-t border-zinc-800 flex flex-wrap gap-4 text-xs text-zinc-500">
+              <span>First transaction: {irrMetrics.firstTransactionDate}</span>
+              <span>•</span>
+              <span>Holding period: {irrMetrics.holdingPeriodYears.toFixed(1)} years ({irrMetrics.holdingPeriodDays} days)</span>
+              <span>•</span>
+              <span>{irrMetrics.transactionCount} transactions analyzed</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Portfolio Chart */}
       <div className="card-glass rounded-2xl p-6">
