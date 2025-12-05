@@ -620,44 +620,29 @@ export default function Performance() {
       })
       .sort((a, b) => new Date(a.date) - new Date(b.date));
 
-    // Use the actual historical price data points for accurate charting
-    // Collect all dates where we have price data
-    const allHistoricalDates = new Set();
-    for (const ticker of Object.keys(historicalPrices)) {
-      const prices = historicalPrices[ticker];
-      if (prices) {
-        prices.forEach(p => {
-          if (p.date >= startDate && p.date <= now) {
-            allHistoricalDates.add(format(p.date, 'yyyy-MM-dd'));
-          }
-        });
-      }
-    }
-    for (const ticker of Object.keys(stockPrices)) {
-      const prices = stockPrices[ticker];
-      if (prices) {
-        prices.forEach(p => {
-          if (p.date >= startDate && p.date <= now) {
-            allHistoricalDates.add(format(p.date, 'yyyy-MM-dd'));
-          }
-        });
-      }
-    }
+    // Generate dates for the chart - use interval-based approach
+    // This ensures we always have data points even if historical API data is sparse
+    const intervalDays = 
+      timeframe === '1M' ? 1 : 
+      timeframe === '3M' ? 2 : 
+      timeframe === '6M' ? 4 : 
+      timeframe === '1Y' ? 7 :
+      timeframe === '3Y' ? 14 :
+      timeframe === '5Y' ? 21 :
+      timeframe === '10Y' ? 30 :
+      30;
     
-    // Sort dates and sample for reasonable chart density
-    const sortedDates = [...allHistoricalDates].sort();
-    const maxPoints = 
-      timeframe === '1M' ? 30 : 
-      timeframe === '3M' ? 45 : 
-      timeframe === '6M' ? 60 : 
-      timeframe === '1Y' ? 52 :
-      timeframe === '3Y' ? 78 :
-      timeframe === '5Y' ? 100 :
-      timeframe === '10Y' ? 120 :
-      100;
-    
-    const step = Math.max(1, Math.floor(sortedDates.length / maxPoints));
-    const sampledDates = sortedDates.filter((_, i) => i % step === 0 || i === sortedDates.length - 1);
+    const sampledDates = [];
+    let iterDate = new Date(startDate);
+    while (iterDate <= now) {
+      sampledDates.push(format(iterDate, 'yyyy-MM-dd'));
+      iterDate = new Date(iterDate.getTime() + intervalDays * 24 * 60 * 60 * 1000);
+    }
+    // Ensure we include today
+    const todayStr = format(now, 'yyyy-MM-dd');
+    if (sampledDates.length === 0 || sampledDates[sampledDates.length - 1] !== todayStr) {
+      sampledDates.push(todayStr);
+    }
 
     // Process transactions chronologically
     let txIndex = 0;
