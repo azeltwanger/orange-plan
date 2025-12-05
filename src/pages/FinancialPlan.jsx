@@ -815,10 +815,20 @@ export default function FinancialPlan() {
   // Calculate earliest achievable FI age (when portfolio can sustain withdrawals to life expectancy)
   useEffect(() => {
     const calculateEarliestFI = () => {
+      // Use account totals (same as projections) - this is the actual portfolio value
+      const startingPortfolio = taxableValue + taxDeferredValue + taxFreeValue;
+      
+      // Calculate actual blended growth rate based on asset allocation
+      const totalAssets = btcValue + stocksValue + realEstateValue + bondsValue + otherValue;
+      const btcPct = totalAssets > 0 ? btcValue / totalAssets : 0;
+      const stocksPct = totalAssets > 0 ? stocksValue / totalAssets : 0;
+      const realEstatePct = totalAssets > 0 ? realEstateValue / totalAssets : 0;
+      const bondsPct = totalAssets > 0 ? bondsValue / totalAssets : 0;
+      const otherPct = totalAssets > 0 ? otherValue / totalAssets : 0;
+      
       // Try each potential FI age from current age to life expectancy
       for (let testAge = currentAge + 1; testAge <= lifeExpectancy - 5; testAge++) {
-        let portfolio = totalValue;
-        let savings = 0;
+        let portfolio = startingPortfolio;
         let canSustain = true;
         
         // Simulate from now until life expectancy
@@ -826,33 +836,55 @@ export default function FinancialPlan() {
           const age = currentAge + year;
           const isFI = age >= testAge;
           
-          // Growth (simplified blended rate)
-          const growthRate = (getBtcGrowthRate(year) * 0.3 + effectiveStocksCagr * 0.7) / 100;
-          portfolio = portfolio * (1 + growthRate);
-          savings = savings * (1 + growthRate);
+          // Growth using actual blended rate based on portfolio composition
+          const yearBtcGrowth = getBtcGrowthRate(year);
+          const blendedGrowthRate = (
+            btcPct * (yearBtcGrowth / 100) +
+            stocksPct * (effectiveStocksCagr / 100) +
+            realEstatePct * (realEstateCagr / 100) +
+            bondsPct * (bondsCagr / 100) +
+            otherPct * (effectiveStocksCagr / 100)
+          );
+          
+          portfolio = portfolio * (1 + blendedGrowthRate);
           
           if (!isFI) {
-            // Add savings
+            // Add savings (grows with income)
             const yearSavings = annualSavings * Math.pow(1 + incomeGrowth / 100, year);
-            savings += yearSavings;
+            portfolio += yearSavings;
           } else {
-            // Withdraw
-            const yearsOfInflation = testAge - currentAge + (age - testAge);
-            const withdrawal = retirementAnnualSpending * Math.pow(1 + effectiveInflation / 100, yearsOfInflation);
-            const total = portfolio + savings;
+            // Withdraw - use the selected withdrawal strategy
+            let withdrawal;
+            const yearsIntoFI = age - testAge;
             
-            if (total < withdrawal) {
+            if (withdrawalStrategy === '4percent') {
+              // First year is 4% of portfolio at FI, then inflation-adjusted
+              if (yearsIntoFI === 0) {
+                withdrawal = portfolio * 0.04;
+              } else {
+                // Need to track initial withdrawal - approximate
+                const initialPortfolioAtFI = startingPortfolio * Math.pow(1 + blendedGrowthRate, testAge - currentAge);
+                const initial4pct = initialPortfolioAtFI * 0.04;
+                withdrawal = initial4pct * Math.pow(1 + effectiveInflation / 100, yearsIntoFI);
+              }
+            } else if (withdrawalStrategy === 'dynamic') {
+              withdrawal = portfolio * (dynamicWithdrawalRate / 100);
+            } else {
+              // Income-based
+              const yearsOfInflation = testAge - currentAge + yearsIntoFI;
+              withdrawal = retirementAnnualSpending * Math.pow(1 + effectiveInflation / 100, yearsOfInflation);
+            }
+            
+            if (portfolio < withdrawal) {
               canSustain = false;
               break;
             }
             
-            const withdrawRatio = Math.min(1, withdrawal / total);
-            portfolio -= portfolio * withdrawRatio;
-            savings -= savings * withdrawRatio;
+            portfolio -= withdrawal;
           }
         }
         
-        if (canSustain && (portfolio + savings) > 0) {
+        if (canSustain && portfolio > 0) {
           setEarliestFIAge(testAge);
           return;
         }
@@ -860,10 +892,10 @@ export default function FinancialPlan() {
       setEarliestFIAge(null);
     };
     
-    if (totalValue > 0 || annualSavings > 0) {
+    if ((taxableValue + taxDeferredValue + taxFreeValue) > 0 || annualSavings > 0) {
       calculateEarliestFI();
     }
-  }, [currentAge, lifeExpectancy, totalValue, annualSavings, retirementAnnualSpending, effectiveInflation, incomeGrowth, effectiveStocksCagr, getBtcGrowthRate]);
+  }, [currentAge, lifeExpectancy, taxableValue, taxDeferredValue, taxFreeValue, btcValue, stocksValue, realEstateValue, bondsValue, otherValue, annualSavings, retirementAnnualSpending, effectiveInflation, incomeGrowth, effectiveStocksCagr, realEstateCagr, bondsCagr, withdrawalStrategy, dynamicWithdrawalRate, getBtcGrowthRate]);
   
   // Calculate lifetime tax burden in retirement
   const lifetimeTaxesPaid = projections.filter(p => p.isRetired).reduce((sum, p) => sum + (p.taxesPaid || 0), 0);
