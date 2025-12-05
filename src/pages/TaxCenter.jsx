@@ -86,73 +86,9 @@ export default function TaxCenter() {
   const [activeTab, setActiveTab] = useState('overview');
   const [csvImportOpen, setCsvImportOpen] = useState(false);
   const [txSortOrder, setTxSortOrder] = useState('desc'); // 'desc' (newest first), 'asc' (oldest first)
-  const [syncingHoldings, setSyncingHoldings] = useState(false);
   const [selectedTxIds, setSelectedTxIds] = useState([]);
   const [bulkAccountType, setBulkAccountType] = useState('taxable');
-  const [syncComplete, setSyncComplete] = useState(false);
   const queryClient = useQueryClient();
-
-  // Sync Holdings from Transactions - recalculates all holdings based on transaction history
-  const syncHoldingsFromTransactions = async () => {
-    setSyncingHoldings(true);
-    try {
-      const allTxs = await base44.entities.Transaction.list();
-      const existingHoldings = await base44.entities.Holding.list();
-      
-      // Group transactions by ticker
-      const tickerData = {};
-      const knownCrypto = ['BTC', 'ETH', 'SOL', 'XRP', 'ADA', 'DOGE', 'DOT', 'AVAX', 'MATIC', 'LINK', 'LTC'];
-      
-      for (const tx of allTxs) {
-        const ticker = tx.asset_ticker;
-        if (!tickerData[ticker]) {
-          tickerData[ticker] = { quantity: 0, costBasis: 0, lastPrice: tx.price_per_unit };
-        }
-        
-        if (tx.type === 'buy') {
-          tickerData[ticker].quantity += tx.quantity || 0;
-          tickerData[ticker].costBasis += tx.cost_basis || (tx.quantity * tx.price_per_unit) || 0;
-        } else if (tx.type === 'sell') {
-          tickerData[ticker].quantity -= tx.quantity || 0;
-          tickerData[ticker].costBasis -= tx.cost_basis || 0;
-        }
-        tickerData[ticker].lastPrice = tx.price_per_unit;
-      }
-      
-      // Update or create holdings
-      for (const [ticker, data] of Object.entries(tickerData)) {
-        const existingHolding = existingHoldings.find(h => h.ticker === ticker);
-        const finalQty = Math.max(0, data.quantity);
-        const finalCostBasis = Math.max(0, data.costBasis);
-        
-        if (existingHolding) {
-          await base44.entities.Holding.update(existingHolding.id, {
-            quantity: finalQty,
-            cost_basis_total: finalCostBasis,
-            current_price: data.lastPrice,
-          });
-        } else if (finalQty > 0) {
-          await base44.entities.Holding.create({
-            asset_name: ticker,
-            asset_type: knownCrypto.includes(ticker) ? 'crypto' : 'stocks',
-            ticker: ticker,
-            quantity: finalQty,
-            current_price: data.lastPrice,
-            cost_basis_total: finalCostBasis,
-            account_type: 'taxable',
-          });
-        }
-      }
-      
-      queryClient.invalidateQueries({ queryKey: ['holdings'] });
-      queryClient.invalidateQueries({ queryKey: ['transactions'] });
-      setSyncComplete(true);
-    } catch (err) {
-      console.error('Sync failed:', err);
-    } finally {
-      setSyncingHoldings(false);
-    }
-  };
 
   // Tax planning settings
   const [annualIncome, setAnnualIncome] = useState(0);
@@ -858,12 +794,6 @@ export default function TaxCenter() {
           <p className="text-zinc-500 mt-1">Cost basis optimization and tax planning</p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          {!syncComplete && (
-            <Button variant="outline" onClick={syncHoldingsFromTransactions} disabled={syncingHoldings} className="bg-transparent border-zinc-700">
-              <RefreshCw className={cn("w-4 h-4 mr-2", syncingHoldings && "animate-spin")} />
-              {syncingHoldings ? 'Syncing...' : 'Sync Holdings'}
-            </Button>
-          )}
           <Button variant="outline" onClick={() => setCsvImportOpen(true)} className="bg-transparent border-zinc-700">
             <Upload className="w-4 h-4 mr-2" />
             Import CSV
