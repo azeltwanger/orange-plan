@@ -1008,7 +1008,7 @@ export default function FinancialPlan() {
       let low = 0;
       let high = 1000000; // $1M max test
       let maxSpending = 0;
-      const tolerance = 100; // $100 precision for accuracy
+      const tolerance = 10; // $10 precision for accuracy
 
       while (high - low > tolerance) {
         const testSpending = (low + high) / 2;
