@@ -87,6 +87,7 @@ const ASSET_CLASSES = [
   { key: 'stocks', label: 'Stocks', color: 'blue' },
   { key: 'real_estate', label: 'Real Estate', color: 'emerald' },
   { key: 'bonds', label: 'Bonds', color: 'purple' },
+  { key: 'cash', label: 'Cash', color: 'cyan' },
 ];
 
 export default function Scenarios() {
@@ -121,6 +122,8 @@ export default function Scenarios() {
     stocks_allocation_override: '',
     real_estate_allocation_override: '',
     bonds_allocation_override: '',
+    cash_allocation_override: '',
+    cash_cagr_override: '',
     rebalancing_strategy: 'none',
     debt_payoff_strategy: 'minimum',
     extra_debt_payment: '',
@@ -185,6 +188,7 @@ export default function Scenarios() {
     stocksCagr: settings.stocks_cagr || 7,
     realEstateCagr: settings.real_estate_cagr || 4,
     bondsCagr: settings.bonds_cagr || 3,
+    cashCagr: settings.cash_cagr || 0,
     inflationRate: settings.inflation_rate || 3,
     incomeGrowth: settings.income_growth_rate || 3,
     retirementSpending: settings.annual_retirement_spending || 100000,
@@ -218,6 +222,7 @@ export default function Scenarios() {
       stocksCagr: scenario?.stocks_cagr_override ?? baseAssumptions.stocksCagr,
       realEstateCagr: scenario?.real_estate_cagr_override ?? baseAssumptions.realEstateCagr,
       bondsCagr: scenario?.bonds_cagr_override ?? baseAssumptions.bondsCagr,
+      cashCagr: scenario?.cash_cagr_override ?? baseAssumptions.cashCagr,
       inflationRate: scenario?.inflation_override ?? baseAssumptions.inflationRate,
       incomeGrowth: scenario?.income_growth_override ?? baseAssumptions.incomeGrowth,
       retirementSpending: scenario?.annual_retirement_spending_override || baseAssumptions.retirementSpending,
@@ -228,6 +233,7 @@ export default function Scenarios() {
       stocksAllocation: scenario?.stocks_allocation_override,
       realEstateAllocation: scenario?.real_estate_allocation_override,
       bondsAllocation: scenario?.bonds_allocation_override,
+      cashAllocation: scenario?.cash_allocation_override,
       rebalancingStrategy: scenario?.rebalancing_strategy || 'none',
       debtPayoffStrategy: scenario?.debt_payoff_strategy || 'minimum',
       extraDebtPayment: scenario?.extra_debt_payment || 0,
@@ -468,7 +474,7 @@ export default function Scenarios() {
       withdrawal_strategy_override: '', dynamic_withdrawal_rate_override: '', btc_return_model_override: '',
       market_crash_year: '', crash_severity_percent: '',
       outperformance_year: '', outperformance_gain_percent: '',
-      btc_allocation_override: '', stocks_allocation_override: '', real_estate_allocation_override: '', bonds_allocation_override: '',
+      btc_allocation_override: '', stocks_allocation_override: '', real_estate_allocation_override: '', bonds_allocation_override: '', cash_allocation_override: '', cash_cagr_override: '',
       rebalancing_strategy: 'none', debt_payoff_strategy: 'minimum', extra_debt_payment: '',
       linked_life_event_ids: [],
     });
@@ -497,6 +503,8 @@ export default function Scenarios() {
       stocks_allocation_override: form.stocks_allocation_override !== '' ? parseFloat(form.stocks_allocation_override) : null,
       real_estate_allocation_override: form.real_estate_allocation_override !== '' ? parseFloat(form.real_estate_allocation_override) : null,
       bonds_allocation_override: form.bonds_allocation_override !== '' ? parseFloat(form.bonds_allocation_override) : null,
+      cash_allocation_override: form.cash_allocation_override !== '' ? parseFloat(form.cash_allocation_override) : null,
+      cash_cagr_override: form.cash_cagr_override !== '' ? parseFloat(form.cash_cagr_override) : null,
       rebalancing_strategy: form.rebalancing_strategy || 'none',
       debt_payoff_strategy: form.debt_payoff_strategy || 'minimum',
       extra_debt_payment: form.extra_debt_payment !== '' ? parseFloat(form.extra_debt_payment) : null,
@@ -536,6 +544,8 @@ export default function Scenarios() {
       stocks_allocation_override: scenario.stocks_allocation_override ?? '',
       real_estate_allocation_override: scenario.real_estate_allocation_override ?? '',
       bonds_allocation_override: scenario.bonds_allocation_override ?? '',
+      cash_allocation_override: scenario.cash_allocation_override ?? '',
+      cash_cagr_override: scenario.cash_cagr_override ?? '',
       rebalancing_strategy: scenario.rebalancing_strategy || 'none',
       debt_payoff_strategy: scenario.debt_payoff_strategy || 'minimum',
       extra_debt_payment: scenario.extra_debt_payment ?? '',
@@ -948,11 +958,11 @@ export default function Scenarios() {
             {/* Growth Rates */}
             <div className="space-y-4">
               <h4 className="text-sm font-medium text-zinc-300">Growth Rate Assumptions</h4>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
                 <div className="space-y-2">
                   <div className="flex justify-between">
                     <Label className="text-zinc-400 text-xs">Bitcoin CAGR</Label>
-                    <span className="text-orange-400 text-xs">{form.btc_cagr_override || baseAssumptions.btcCagr}%</span>
+                    <span className="text-orange-400 text-xs font-medium">{form.btc_cagr_override !== '' ? form.btc_cagr_override : baseAssumptions.btcCagr}%</span>
                   </div>
                   <Slider
                     value={[form.btc_cagr_override !== '' ? parseFloat(form.btc_cagr_override) : baseAssumptions.btcCagr]}
@@ -965,7 +975,7 @@ export default function Scenarios() {
                 <div className="space-y-2">
                   <div className="flex justify-between">
                     <Label className="text-zinc-400 text-xs">Stocks CAGR</Label>
-                    <span className="text-blue-400 text-xs">{form.stocks_cagr_override || baseAssumptions.stocksCagr}%</span>
+                    <span className="text-blue-400 text-xs font-medium">{form.stocks_cagr_override !== '' ? form.stocks_cagr_override : baseAssumptions.stocksCagr}%</span>
                   </div>
                   <Slider
                     value={[form.stocks_cagr_override !== '' ? parseFloat(form.stocks_cagr_override) : baseAssumptions.stocksCagr]}
@@ -977,8 +987,47 @@ export default function Scenarios() {
                 </div>
                 <div className="space-y-2">
                   <div className="flex justify-between">
+                    <Label className="text-zinc-400 text-xs">Real Estate CAGR</Label>
+                    <span className="text-emerald-400 text-xs font-medium">{form.real_estate_cagr_override !== '' ? form.real_estate_cagr_override : baseAssumptions.realEstateCagr}%</span>
+                  </div>
+                  <Slider
+                    value={[form.real_estate_cagr_override !== '' ? parseFloat(form.real_estate_cagr_override) : baseAssumptions.realEstateCagr]}
+                    onValueChange={([v]) => setForm({ ...form, real_estate_cagr_override: v })}
+                    min={-5}
+                    max={15}
+                    step={0.5}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <Label className="text-zinc-400 text-xs">Bonds CAGR</Label>
+                    <span className="text-purple-400 text-xs font-medium">{form.bonds_cagr_override !== '' ? form.bonds_cagr_override : baseAssumptions.bondsCagr}%</span>
+                  </div>
+                  <Slider
+                    value={[form.bonds_cagr_override !== '' ? parseFloat(form.bonds_cagr_override) : baseAssumptions.bondsCagr]}
+                    onValueChange={([v]) => setForm({ ...form, bonds_cagr_override: v })}
+                    min={0}
+                    max={10}
+                    step={0.5}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <Label className="text-zinc-400 text-xs">Cash/Savings CAGR</Label>
+                    <span className="text-cyan-400 text-xs font-medium">{form.cash_cagr_override !== '' ? form.cash_cagr_override : baseAssumptions.cashCagr}%</span>
+                  </div>
+                  <Slider
+                    value={[form.cash_cagr_override !== '' ? parseFloat(form.cash_cagr_override) : baseAssumptions.cashCagr]}
+                    onValueChange={([v]) => setForm({ ...form, cash_cagr_override: v })}
+                    min={0}
+                    max={10}
+                    step={0.5}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
                     <Label className="text-zinc-400 text-xs">Inflation Rate</Label>
-                    <span className="text-rose-400 text-xs">{form.inflation_override || baseAssumptions.inflationRate}%</span>
+                    <span className="text-rose-400 text-xs font-medium">{form.inflation_override !== '' ? form.inflation_override : baseAssumptions.inflationRate}%</span>
                   </div>
                   <Slider
                     value={[form.inflation_override !== '' ? parseFloat(form.inflation_override) : baseAssumptions.inflationRate]}
@@ -991,7 +1040,7 @@ export default function Scenarios() {
                 <div className="space-y-2">
                   <div className="flex justify-between">
                     <Label className="text-zinc-400 text-xs">Income Growth</Label>
-                    <span className="text-cyan-400 text-xs">{form.income_growth_override || baseAssumptions.incomeGrowth}%</span>
+                    <span className="text-amber-400 text-xs font-medium">{form.income_growth_override !== '' ? form.income_growth_override : baseAssumptions.incomeGrowth}%</span>
                   </div>
                   <Slider
                     value={[form.income_growth_override !== '' ? parseFloat(form.income_growth_override) : baseAssumptions.incomeGrowth]}
@@ -1077,8 +1126,8 @@ export default function Scenarios() {
             {/* Asset Allocation & Rebalancing */}
             <div className="space-y-4">
               <h4 className="text-sm font-medium text-zinc-300">Asset Allocation & Rebalancing</h4>
-              <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-                <div className="space-y-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                <div className="space-y-1.5">
                   <Label className="text-zinc-400 text-xs">BTC (%)</Label>
                   <Input
                     type="number"
@@ -1087,10 +1136,10 @@ export default function Scenarios() {
                     value={form.btc_allocation_override}
                     onChange={(e) => setForm({ ...form, btc_allocation_override: e.target.value })}
                     placeholder="Current"
-                    className="bg-zinc-800 border-zinc-700"
+                    className="bg-zinc-800 border-zinc-700 h-9"
                   />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <Label className="text-zinc-400 text-xs">Stocks (%)</Label>
                   <Input
                     type="number"
@@ -1099,10 +1148,10 @@ export default function Scenarios() {
                     value={form.stocks_allocation_override}
                     onChange={(e) => setForm({ ...form, stocks_allocation_override: e.target.value })}
                     placeholder="Current"
-                    className="bg-zinc-800 border-zinc-700"
+                    className="bg-zinc-800 border-zinc-700 h-9"
                   />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <Label className="text-zinc-400 text-xs">Real Estate (%)</Label>
                   <Input
                     type="number"
@@ -1111,10 +1160,10 @@ export default function Scenarios() {
                     value={form.real_estate_allocation_override}
                     onChange={(e) => setForm({ ...form, real_estate_allocation_override: e.target.value })}
                     placeholder="Current"
-                    className="bg-zinc-800 border-zinc-700"
+                    className="bg-zinc-800 border-zinc-700 h-9"
                   />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <Label className="text-zinc-400 text-xs">Bonds (%)</Label>
                   <Input
                     type="number"
@@ -1123,13 +1172,25 @@ export default function Scenarios() {
                     value={form.bonds_allocation_override}
                     onChange={(e) => setForm({ ...form, bonds_allocation_override: e.target.value })}
                     placeholder="Current"
-                    className="bg-zinc-800 border-zinc-700"
+                    className="bg-zinc-800 border-zinc-700 h-9"
                   />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1.5">
+                  <Label className="text-zinc-400 text-xs">Cash (%)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={form.cash_allocation_override}
+                    onChange={(e) => setForm({ ...form, cash_allocation_override: e.target.value })}
+                    placeholder="Current"
+                    className="bg-zinc-800 border-zinc-700 h-9"
+                  />
+                </div>
+                <div className="space-y-1.5">
                   <Label className="text-zinc-400 text-xs">Rebalancing</Label>
                   <Select value={form.rebalancing_strategy} onValueChange={(v) => setForm({ ...form, rebalancing_strategy: v })}>
-                    <SelectTrigger className="bg-zinc-800 border-zinc-700">
+                    <SelectTrigger className="bg-zinc-800 border-zinc-700 h-9">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="bg-zinc-900 border-zinc-700">
