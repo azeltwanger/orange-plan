@@ -130,10 +130,11 @@ export default function FeeAnalyzer({ transactions = [], btcPrice = 97000 }) {
     // Convert byExchange to array for charts
     const exchangeData = Object.entries(byExchange).map(([key, data]) => {
       const explicitFeeRate = data.volume > 0 ? ((data.tradingFees + data.withdrawalFees + data.depositFees) / data.volume) * 100 : 0;
-      const spreadRate = EXCHANGE_INFO[key]?.spread || 0.5;
+      const spreadRate = EXCHANGE_INFO[data.exchangeKey]?.spread ?? DEFAULT_SPREAD;
+      const isCustom = data.exchangeKey === 'custom';
       return {
         exchange: data.name,
-        exchangeKey: key,
+        exchangeKey: data.exchangeKey,
         total: data.tradingFees + data.withdrawalFees + data.depositFees,
         tradingFees: data.tradingFees,
         withdrawalFees: data.withdrawalFees,
@@ -143,7 +144,8 @@ export default function FeeAnalyzer({ transactions = [], btcPrice = 97000 }) {
         spreadRate: spreadRate,
         totalFeeRate: explicitFeeRate + spreadRate,
         transactions: data.transactions,
-        color: EXCHANGE_INFO[key]?.color || '#71717a',
+        color: EXCHANGE_INFO[data.exchangeKey]?.color || '#71717a',
+        isCustom: isCustom,
       };
     }).sort((a, b) => b.total - a.total);
 
