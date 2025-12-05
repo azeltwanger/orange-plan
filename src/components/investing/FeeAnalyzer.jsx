@@ -89,10 +89,13 @@ export default function FeeAnalyzer({ transactions = [], btcPrice = 97000 }) {
 
       // By exchange - use fuzzy matching
       const rawExchange = tx.exchange_or_wallet || 'unknown';
-      const exchange = matchExchange(rawExchange);
-      if (!byExchange[exchange]) {
-        byExchange[exchange] = { 
-          name: EXCHANGE_INFO[exchange]?.name || rawExchange,
+      const { key: exchangeKey, displayName } = matchExchange(rawExchange);
+      // Use displayName as the unique key for grouping (preserves original names)
+      const groupKey = displayName;
+      if (!byExchange[groupKey]) {
+        byExchange[groupKey] = { 
+          name: displayName,
+          exchangeKey: exchangeKey,
           tradingFees: 0, 
           withdrawalFees: 0, 
           depositFees: 0,
@@ -100,11 +103,11 @@ export default function FeeAnalyzer({ transactions = [], btcPrice = 97000 }) {
           transactions: 0,
         };
       }
-      byExchange[exchange].tradingFees += tradingFee;
-      byExchange[exchange].withdrawalFees += withdrawalFee;
-      byExchange[exchange].depositFees += depositFee;
-      byExchange[exchange].volume += txVolume;
-      byExchange[exchange].transactions += 1;
+      byExchange[groupKey].tradingFees += tradingFee;
+      byExchange[groupKey].withdrawalFees += withdrawalFee;
+      byExchange[groupKey].depositFees += depositFee;
+      byExchange[groupKey].volume += txVolume;
+      byExchange[groupKey].transactions += 1;
     });
 
     const totalExplicitFees = totalTradingFees + totalWithdrawalFees + totalDepositFees;
