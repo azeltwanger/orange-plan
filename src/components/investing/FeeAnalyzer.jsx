@@ -415,6 +415,7 @@ export default function FeeAnalyzer({ transactions = [], btcPrice = 97000 }) {
                   <th className="text-right py-3 px-4 text-zinc-500 font-medium">Volume</th>
                   <th className="text-right py-3 px-4 text-zinc-500 font-medium">Explicit Fees</th>
                   <th className="text-right py-3 px-4 text-zinc-500 font-medium">Est. Spread</th>
+                  <th className="text-right py-3 px-4 text-zinc-500 font-medium">Total Fees</th>
                   <th className="text-right py-3 px-4 text-zinc-500 font-medium">Fee Rate</th>
                   <th className="text-right py-3 px-4 text-zinc-500 font-medium">Spread Rate*</th>
                   <th className="text-right py-3 px-4 text-zinc-500 font-medium">Total Rate</th>
@@ -439,6 +440,11 @@ export default function FeeAnalyzer({ transactions = [], btcPrice = 97000 }) {
                     <td className="py-3 px-4 text-right">
                       <span className="text-purple-400">
                         ~${(ex.volume * ex.spreadRate / 100).toFixed(2)}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <span className="text-rose-400 font-medium">
+                        ${(ex.total + (ex.volume * ex.spreadRate / 100)).toFixed(2)}
                       </span>
                     </td>
                     <td className="py-3 px-4 text-right text-zinc-400">
