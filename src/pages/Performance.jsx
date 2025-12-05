@@ -338,27 +338,28 @@ export default function Performance() {
   }, [transactionStats.firstTxDate]);
 
   // Fetch historical prices for all crypto assets based on timeframe
+  // NOTE: CoinGecko free API only provides ~90 days of granular data
+  // For longer timeframes, we fetch max available and interpolate
   useEffect(() => {
     const fetchHistoricalPrices = async () => {
       try {
+        // CoinGecko free tier: max ~365 days with daily interval, but data quality varies
+        // Request 'max' for longer timeframes to get whatever is available
         const daysMap = { '1M': 30, '3M': 90, '6M': 180, '1Y': 365, '3Y': 1095, '5Y': 1825, '10Y': 3650 };
-        const days = timeframe === 'ALL' ? daysSinceFirstTx : (daysMap[timeframe] || 365);
+        const requestedDays = timeframe === 'ALL' ? daysSinceFirstTx : (daysMap[timeframe] || 365);
+        
+        // For timeframes > 90 days, use 'max' to get all available data
+        const apiDays = requestedDays > 90 ? 'max' : requestedDays;
         
         const priceData = {};
         
-        // Fetch historical data for each crypto (in parallel)
-        // For shorter timeframes (<=90 days), omit interval to get hourly/granular data
-        // For longer timeframes, use daily interval
         await Promise.all(cryptoTickers.map(async (ticker) => {
           try {
             const id = COINGECKO_IDS[ticker];
-            const useDaily = days > 90;
-            const url = useDaily 
-              ? `https://api.coingecko.com/api/v3/coins/${id}/market_chart?vs_currency=usd&days=${days}&interval=daily`
-              : `https://api.coingecko.com/api/v3/coins/${id}/market_chart?vs_currency=usd&days=${days}`;
+            const url = `https://api.coingecko.com/api/v3/coins/${id}/market_chart?vs_currency=usd&days=${apiDays}&interval=daily`;
             const response = await fetch(url);
             const data = await response.json();
-            if (data.prices) {
+            if (data.prices && data.prices.length > 0) {
               priceData[ticker] = data.prices.map(([timestamp, price]) => ({
                 date: new Date(timestamp),
                 price
