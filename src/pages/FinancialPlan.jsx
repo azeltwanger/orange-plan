@@ -1423,8 +1423,8 @@ export default function FinancialPlan() {
               </div>
             </div>
 
-            {/* Actionable Insights - only show if gap is 2+ years */}
-            {retirementStatus.type !== 'optimistic' && earliestRetirementAge && (earliestRetirementAge - retirementAge) >= 2 && (
+            {/* Actionable Insights - only show if not optimistic */}
+            {retirementStatus.type !== 'optimistic' && (
               <>
                 {/* Savings Insight */}
                 <div className="card-premium rounded-xl p-4 border border-zinc-700/50">
