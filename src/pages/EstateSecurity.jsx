@@ -1372,17 +1372,6 @@ export default function EstateSecurity() {
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4 mt-4">
             <div className="space-y-2">
-              <Label className="text-zinc-400">Item Type</Label>
-              <Select value={formData.item_type} onValueChange={(value) => setFormData({ ...formData, item_type: value })} disabled>
-                <SelectTrigger className="bg-zinc-900 border-zinc-800"><SelectValue /></SelectTrigger>
-                <SelectContent className="bg-zinc-900 border-zinc-800 text-zinc-100">
-                  {formData.item_type === 'custody_location' && <SelectItem value="custody_location">Custody Location</SelectItem>}
-                  {formData.item_type === 'beneficiary' && <SelectItem value="beneficiary">Beneficiary</SelectItem>}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
               <Label className="text-zinc-400">Title</Label>
               <Input value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} className="bg-zinc-900 border-zinc-800" required />
             </div>
