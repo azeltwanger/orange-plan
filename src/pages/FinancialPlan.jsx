@@ -906,16 +906,6 @@ export default function FinancialPlan() {
   const endOfLifeValue = projections[projections.length - 1]?.total || 0;
   const runOutOfMoneyAge = projections.findIndex(p => p.total <= 0 && p.isRetired);
   const willRunOutOfMoney = runOutOfMoneyAge !== -1;
-  
-  // Calculate these values early as they're needed by retirementStatus
-  const yearsToRetirement = Math.max(0, retirementAge - currentAge);
-  const inflationAdjustedRetirementSpending = retirementAnnualSpending * Math.pow(1 + inflationRate / 100, yearsToRetirement);
-  const yearsInRetirement = lifeExpectancy - retirementAge;
-  
-  const effectiveWithdrawalRate = withdrawalStrategy === '4percent' ? 0.04 : 
-    withdrawalStrategy === 'dynamic' ? dynamicWithdrawalRate / 100 : 
-    Math.max(0.03, 1 / yearsInRetirement);
-  const requiredNestEgg = inflationAdjustedRetirementSpending / effectiveWithdrawalRate;
 
   // Calculate retirement status and insights
   const retirementStatus = useMemo(() => {
@@ -1995,8 +1985,8 @@ export default function FinancialPlan() {
               </div>
               <div>
                 <p className="text-sm text-zinc-400">Max Sustainable Spending</p>
-                <p className="text-2xl font-bold text-emerald-400">{formatNumber(retirementValue * effectiveWithdrawalRate)}/yr</p>
-                <p className="text-xs text-zinc-500">{formatNumber((retirementValue * effectiveWithdrawalRate) / 12)}/mo at age {retirementAge}</p>
+                <p className="text-2xl font-bold text-emerald-400">{formatNumber(maxSustainableSpending)}/yr</p>
+                <p className="text-xs text-zinc-500">{formatNumber(maxSustainableSpending / 12)}/mo at age {retirementAge}</p>
               </div>
               <div>
                 <p className="text-sm text-zinc-400">At Age {lifeExpectancy}</p>
