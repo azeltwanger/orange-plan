@@ -716,9 +716,15 @@ export default function FinancialPlan() {
         // Total other income = other retirement income + Social Security (if eligible)
         const totalOtherIncome = otherRetirementIncome + socialSecurityIncome;
 
+        // Store original retirement spending for tooltip breakdown
+        const retirementSpendingOnly = yearWithdrawal;
+
+        // Combine retirement withdrawal and goal withdrawal for tax estimation
+        const totalWithdrawalForTaxCalculation = retirementSpendingOnly + yearGoalWithdrawal;
+
         // Use tax calculation utility for accurate withdrawal taxes
         const taxEstimate = estimateRetirementWithdrawalTaxes({
-          withdrawalNeeded: yearWithdrawal,
+          withdrawalNeeded: totalWithdrawalForTaxCalculation,
           taxableBalance: runningTaxable,
           taxDeferredBalance: runningTaxDeferred,
           taxFreeBalance: runningTaxFree,
@@ -747,10 +753,10 @@ export default function FinancialPlan() {
         runningTaxFree = Math.max(0, runningTaxFree - withdrawFromTaxFree);
         
         // Withdraw proportionally from asset types based on actual total withdrawal
-        const actualWithdrawal = withdrawFromTaxable + withdrawFromTaxDeferred + withdrawFromTaxFree;
+        const actualWithdrawalFromAccounts = withdrawFromTaxable + withdrawFromTaxDeferred + withdrawFromTaxFree;
         const totalAssetValue = runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther + runningSavings;
-        if (totalAssetValue > 0 && actualWithdrawal > 0) {
-          const withdrawRatio = Math.min(1, actualWithdrawal / totalAssetValue);
+        if (totalAssetValue > 0 && actualWithdrawalFromAccounts > 0) {
+          const withdrawRatio = Math.min(1, actualWithdrawalFromAccounts / totalAssetValue);
           runningBtc = Math.max(0, runningBtc * (1 - withdrawRatio));
           runningStocks = Math.max(0, runningStocks * (1 - withdrawRatio));
           runningRealEstate = Math.max(0, runningRealEstate * (1 - withdrawRatio));
@@ -762,6 +768,7 @@ export default function FinancialPlan() {
 
       // Apply event impacts to total (but not to individual account buckets for simplicity)
       const totalBeforeEvent = runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther + runningSavings;
+      // Note: eventImpact already includes yearGoalWithdrawal as a negative value
       const total = Math.max(0, totalBeforeEvent + eventImpact);
       const realTotal = total / Math.pow(1 + effectiveInflation / 100, i);
 
@@ -785,8 +792,9 @@ export default function FinancialPlan() {
             year < (g.target_date ? new Date(g.target_date).getFullYear() : currentYear) + g.payoff_years),
         hasGoalWithdrawal: yearGoalWithdrawal > 0,
         isRetired: isRetired,
-        yearWithdrawal: isRetired ? Math.round(yearWithdrawal) : 0,
-        yearGoalWithdrawal: Math.round(yearGoalWithdrawal),
+        yearWithdrawal: isRetired ? Math.round(totalWithdrawalForTaxCalculation) : 0, // Combined outflow for the red line
+        yearGoalWithdrawal: Math.round(yearGoalWithdrawal), // Keep separate for tooltip breakdown
+        retirementSpendingOnly: isRetired ? Math.round(retirementSpendingOnly) : 0, // New property for tooltip breakdown
         goalNames: yearGoalNames,
         btcGrowthRate: yearBtcGrowth,
         // Account type balances
@@ -797,7 +805,7 @@ export default function FinancialPlan() {
         canAccessPenaltyFree: currentAge + i >= PENALTY_FREE_AGE,
         penaltyPaid: isRetired ? Math.round(penaltyPaid) : 0,
         taxesPaid: isRetired ? Math.round(taxesPaid) : 0,
-        netWithdrawal: isRetired ? Math.round(yearWithdrawal - taxesPaid - penaltyPaid) : 0,
+        netWithdrawal: isRetired ? Math.round(totalWithdrawalForTaxCalculation - taxesPaid - penaltyPaid) : 0,
         // Withdrawal breakdown by account type
         withdrawFromTaxable: isRetired ? Math.round(withdrawFromTaxable) : 0,
         withdrawFromTaxDeferred: isRetired ? Math.round(withdrawFromTaxDeferred) : 0,
@@ -1434,24 +1442,35 @@ export default function FinancialPlan() {
                                 <span className="text-purple-400">Bonds:</span>
                                 <span className="text-zinc-200">${(p.bonds || 0).toLocaleString()}</span>
                               </div>
-                              {p.yearGoalWithdrawal > 0 && (
-                                <div className="pt-2 mt-2 border-t border-zinc-700">
-                                  <p className="text-orange-400 font-medium mb-1">Goal Funding: -${(p.yearGoalWithdrawal || 0).toLocaleString()}</p>
-                                  {p.goalNames && p.goalNames.length > 0 && (
-                                    <p className="text-xs text-zinc-500">{p.goalNames.join(', ')}</p>
-                                  )}
-                                </div>
-                              )}
                               <div className="pt-2 mt-2 border-t border-zinc-700">
                                 <div className="flex justify-between gap-4">
                                   <span className="text-white font-semibold">Total:</span>
                                   <span className="text-white font-semibold">${(p.total || 0).toLocaleString()}</span>
                                 </div>
                               </div>
-                              {p.isRetired && p.yearWithdrawal > 0 && (
+                              {p.isRetired && (p.yearWithdrawal > 0 || p.yearGoalWithdrawal > 0) && (
                                 <div className="pt-2 mt-2 border-t border-zinc-700">
-                                  <p className="text-rose-400 font-medium mb-1">Annual Withdrawal: ${(p.yearWithdrawal || 0).toLocaleString()}</p>
-                                  <div className="text-xs space-y-0.5 text-zinc-400">
+                                  <p className="text-rose-400 font-medium mb-1">Total Annual Outflow: ${(p.yearWithdrawal || 0).toLocaleString()}</p>
+                                  {p.retirementSpendingOnly > 0 && (
+                                    <div className="text-xs space-y-0.5 text-zinc-400 mb-1">
+                                      <div className="flex justify-between">
+                                        <span>• Retirement Spending:</span>
+                                        <span className="text-zinc-300">${(p.retirementSpendingOnly).toLocaleString()}</span>
+                                      </div>
+                                    </div>
+                                  )}
+                                  {p.yearGoalWithdrawal > 0 && (
+                                    <div className="text-xs space-y-0.5 text-zinc-400 mb-1">
+                                      <div className="flex justify-between">
+                                        <span>• Goal Funding:</span>
+                                        <span className="text-orange-400">${(p.yearGoalWithdrawal).toLocaleString()}</span>
+                                      </div>
+                                      {p.goalNames && p.goalNames.length > 0 && (
+                                        <p className="text-[10px] text-zinc-500 ml-2">{p.goalNames.join(', ')}</p>
+                                      )}
+                                    </div>
+                                  )}
+                                  <div className="text-xs space-y-0.5 text-zinc-400 mt-2 pt-2 border-t border-zinc-700/50">
                                     {p.withdrawFromTaxable > 0 && (
                                       <div className="flex justify-between">
                                         <span>From Taxable:</span>
@@ -1480,6 +1499,12 @@ export default function FinancialPlan() {
                                       <div className="flex justify-between text-rose-400">
                                         <span>Early Withdrawal Penalty:</span>
                                         <span>-${(p.penaltyPaid).toLocaleString()}</span>
+                                      </div>
+                                    )}
+                                    {p.taxesPaid === 0 && p.penaltyPaid === 0 && p.canAccessPenaltyFree && (
+                                      <div className="flex justify-between text-emerald-400">
+                                        <span>Tax Status:</span>
+                                        <span>Tax-Free! ✓</span>
                                       </div>
                                     )}
                                   </div>
@@ -1579,8 +1604,7 @@ export default function FinancialPlan() {
               <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-blue-400" /><span className="text-sm text-zinc-400">Stocks</span></div>
               <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-400" /><span className="text-sm text-zinc-400">Real Estate</span></div>
               <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-purple-400" /><span className="text-sm text-zinc-400">Bonds</span></div>
-              <div className="flex items-center gap-2"><div className="w-6 h-0.5 bg-rose-400" style={{backgroundImage: 'repeating-linear-gradient(90deg, #ef4444 0, #ef4444 5px, transparent 5px, transparent 10px)'}} /><span className="text-sm text-zinc-400">Withdrawal</span></div>
-              {goals.filter(g => g.will_be_spent).length > 0 && <div className="flex items-center gap-2"><div className="w-6 h-0.5 bg-orange-400" style={{backgroundImage: 'repeating-linear-gradient(90deg, #fb923c 0, #fb923c 4px, transparent 4px, transparent 8px)'}} /><span className="text-sm text-zinc-400">Goal Funding</span></div>}
+              <div className="flex items-center gap-2"><div className="w-6 h-0.5 bg-rose-400" style={{backgroundImage: 'repeating-linear-gradient(90deg, #ef4444 0, #ef4444 5px, transparent 5px, transparent 10px)'}} /><span className="text-sm text-zinc-400">Total Outflow</span></div>
               {lifeEvents.length > 0 && <div className="flex items-center gap-2"><div className="w-3 h-0.5 bg-rose-400/50" /><span className="text-sm text-zinc-400">Life Events</span></div>}
               {goals.length > 0 && <div className="flex items-center gap-2"><div className="w-6 h-0.5 bg-blue-400/50" style={{backgroundImage: 'repeating-linear-gradient(90deg, #60a5fa 0, #60a5fa 8px, transparent 8px, transparent 12px)'}} /><span className="text-sm text-zinc-400">Goal Targets</span></div>}
             </div>
