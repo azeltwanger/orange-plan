@@ -1027,12 +1027,130 @@ export default function FinancialPlan() {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="bg-zinc-800/50 p-1 flex-wrap">
-          <TabsTrigger value="projections" className="data-[state=active]:bg-zinc-700">Projections</TabsTrigger>
+          <TabsTrigger value="projections" className="data-[state=active]:bg-zinc-700">Retirement Planning</TabsTrigger>
           <TabsTrigger value="montecarlo" className="data-[state=active]:bg-zinc-700">Monte Carlo</TabsTrigger>
         </TabsList>
 
         {/* Projections Tab */}
         <TabsContent value="projections" className="space-y-6">
+          {/* Projection Chart - Moved to top */}
+          <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
+            <h3 className="font-semibold mb-2">Wealth Projection</h3>
+            <p className="text-sm text-zinc-400 mb-4">
+              {lifeEvents.length > 0 && `${lifeEvents.length} life event${lifeEvents.length !== 1 ? 's' : ''} • `}
+              {goals.filter(g => g.will_be_spent).length > 0 && `${goals.filter(g => g.will_be_spent).length} planned expense${goals.filter(g => g.will_be_spent).length !== 1 ? 's' : ''} • `}
+              {goals.length > 0 && `${goals.length} goal${goals.length !== 1 ? 's' : ''} tracked`}
+            </p>
+            <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={projections}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+                    <XAxis dataKey="age" stroke="#71717a" fontSize={12} />
+                    <YAxis yAxisId="left" stroke="#71717a" fontSize={12} tickFormatter={(v) => `$${(v/1000000).toFixed(1)}M`} />
+                    <YAxis yAxisId="right" orientation="right" stroke="#71717a" fontSize={12} tickFormatter={(v) => `$${(v/1000).toFixed(0)}k`} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '12px' }}
+                      formatter={(value, name, props) => {
+                        if (name === 'Total') {
+                          const p = props.payload;
+                          let extra = '';
+                          if (p.isRetired) {
+                            extra = ` (withdrawing $${(p.yearWithdrawal/1000).toFixed(0)}k`;
+                            if (p.taxesPaid > 0) extra += `, tax: $${(p.taxesPaid/1000).toFixed(0)}k`;
+                            if (p.penaltyPaid > 0) extra += `, penalty: $${(p.penaltyPaid/1000).toFixed(0)}k`;
+                            extra += ')';
+                          }
+                          if (p.hasEvent) extra += ' 📅';
+                          return [`$${value.toLocaleString()}${extra}`, name];
+                        }
+                        if (name === 'Withdrawal') {
+                          return [`$${value.toLocaleString()}/yr`, name];
+                        }
+                        return [`$${value.toLocaleString()}`, name];
+                      }}
+                      labelFormatter={(age) => {
+                        const year = new Date().getFullYear() + (age - currentAge);
+                        const yearEvents = lifeEvents.filter(e => e.year === year);
+                        const yearGoals = goals.filter(g => g.will_be_spent && g.target_date && new Date(g.target_date).getFullYear() === year);
+                        let label = `Age ${age}`;
+                        if (yearEvents.length > 0) {
+                          label += ` • ${yearEvents.map(e => e.name).join(', ')}`;
+                        }
+                        if (yearGoals.length > 0) {
+                          label += ` • ${yearGoals.map(g => `${g.name} (-$${(g.target_amount/1000).toFixed(0)}k)`).join(', ')}`;
+                        }
+                        return label;
+                      }}
+                    />
+                    <Legend />
+                    <ReferenceLine x={retirementAge} stroke="#F7931A" strokeDasharray="5 5" label={{ value: 'Retire', fill: '#F7931A', fontSize: 10 }} yAxisId="left" />
+                    {/* Life Event Reference Lines */}
+                    {lifeEvents.slice(0, 5).map((event, i) => {
+                      const eventAge = currentAge + (event.year - new Date().getFullYear());
+                      if (eventAge > currentAge && eventAge < lifeExpectancy) {
+                        return (
+                          <ReferenceLine 
+                            key={event.id} 
+                            x={eventAge} 
+                            stroke={event.amount < 0 ? "#f87171" : "#34d399"} 
+                            strokeDasharray="3 3"
+                            strokeOpacity={0.5}
+                            yAxisId="left"
+                          />
+                        );
+                      }
+                      return null;
+                    })}
+                    {/* Goals marked as "will be spent" */}
+                    {goals.filter(g => g.will_be_spent && g.target_date).slice(0, 5).map((goal) => {
+                      const goalYear = new Date(goal.target_date).getFullYear();
+                      const goalAge = currentAge + (goalYear - new Date().getFullYear());
+                      if (goalAge > currentAge && goalAge < lifeExpectancy) {
+                        return (
+                          <ReferenceLine 
+                            key={`goal-${goal.id}`} 
+                            x={goalAge} 
+                            stroke="#f87171"
+                            strokeDasharray="3 3"
+                            strokeOpacity={0.5}
+                            yAxisId="left"
+                          />
+                        );
+                      }
+                      return null;
+                    })}
+                    {/* Goal target lines */}
+                    {goalsWithProjections.filter(g => g.target_amount > 0).slice(0, 3).map((goal, i) => (
+                      <ReferenceLine 
+                        key={goal.id} 
+                        y={goal.target_amount} 
+                        stroke="#60a5fa" 
+                        strokeDasharray="8 4"
+                        strokeOpacity={0.4}
+                        label={{ value: goal.name, fill: '#60a5fa', fontSize: 10, position: 'right' }}
+                        yAxisId="left"
+                      />
+                    ))}
+                    <Area type="monotone" dataKey="bonds" stackId="1" stroke="#a78bfa" fill="#a78bfa" fillOpacity={0.3} name="Bonds" yAxisId="left" />
+                    <Area type="monotone" dataKey="realEstate" stackId="1" stroke="#10b981" fill="#10b981" fillOpacity={0.3} name="Real Estate" yAxisId="left" />
+                    <Area type="monotone" dataKey="stocks" stackId="1" stroke="#60a5fa" fill="#60a5fa" fillOpacity={0.3} name="Stocks" yAxisId="left" />
+                    <Area type="monotone" dataKey="btc" stackId="1" stroke="#F7931A" fill="#F7931A" fillOpacity={0.5} name="Bitcoin" yAxisId="left" />
+                    <Line type="monotone" dataKey="total" stroke="#ffffff" strokeWidth={2} dot={false} name="Total" yAxisId="left" />
+                    <Line type="monotone" dataKey="yearWithdrawal" stroke="#ef4444" strokeWidth={2} dot={false} name="Withdrawal" yAxisId="right" strokeDasharray="5 5" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            <div className="flex flex-wrap justify-center gap-4 mt-4">
+              <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-orange-400" /><span className="text-sm text-zinc-400">Bitcoin</span></div>
+              <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-blue-400" /><span className="text-sm text-zinc-400">Stocks</span></div>
+              <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-400" /><span className="text-sm text-zinc-400">Real Estate</span></div>
+              <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-purple-400" /><span className="text-sm text-zinc-400">Bonds</span></div>
+              <div className="flex items-center gap-2"><div className="w-6 h-0.5 bg-rose-400" style={{backgroundImage: 'repeating-linear-gradient(90deg, #ef4444 0, #ef4444 5px, transparent 5px, transparent 10px)'}} /><span className="text-sm text-zinc-400">Withdrawal</span></div>
+              {lifeEvents.length > 0 && <div className="flex items-center gap-2"><div className="w-3 h-0.5 bg-rose-400/50" /><span className="text-sm text-zinc-400">Life Events</span></div>}
+              {goals.length > 0 && <div className="flex items-center gap-2"><div className="w-6 h-0.5 bg-blue-400/50" style={{backgroundImage: 'repeating-linear-gradient(90deg, #60a5fa 0, #60a5fa 8px, transparent 8px, transparent 12px)'}} /><span className="text-sm text-zinc-400">Goal Targets</span></div>}
+            </div>
+          </div>
+
           {/* Account Type Summary */}
           <div className="card-premium rounded-2xl p-6 border border-zinc-800/50 mb-6">
             <h3 className="font-semibold mb-4">Portfolio by Tax Treatment</h3>
@@ -1239,239 +1357,28 @@ export default function FinancialPlan() {
                 <p className="text-xl font-bold text-zinc-200">{lifeExpectancy - retirementAge} years</p>
               </div>
             </div>
-          </div>
 
-          {/* Tax Impact Section */}
-          <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
-            <h3 className="font-semibold mb-4 flex items-center gap-2">
-              <Receipt className="w-5 h-5 text-orange-400" />
-              Estimated Tax Impact in Retirement
-            </h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-              {/* Tax Settings */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 p-1 rounded-lg bg-zinc-800/50 w-fit">
-                  <button
-                    onClick={() => setFilingStatus('single')}
-                    className={cn(
-                      "px-3 py-1.5 rounded-md text-sm font-medium transition-all",
-                      filingStatus === 'single' 
-                        ? "bg-orange-500/20 text-orange-400" 
-                        : "text-zinc-400 hover:text-zinc-300"
-                    )}
-                  >
-                    Single
-                  </button>
-                  <button
-                    onClick={() => setFilingStatus('married')}
-                    className={cn(
-                      "px-3 py-1.5 rounded-md text-sm font-medium transition-all",
-                      filingStatus === 'married' 
-                        ? "bg-orange-500/20 text-orange-400" 
-                        : "text-zinc-400 hover:text-zinc-300"
-                    )}
-                  >
-                    Married Filing Jointly
-                  </button>
-                </div>
-
-                <div className="space-y-4">
-                                        <div className="space-y-2">
-                                          <Label className="text-zinc-400">Social Security ($/yr)</Label>
-                                          <div className="flex gap-3 items-center">
-                                            <Input 
-                                              type="number" 
-                                              value={socialSecurityAmount} 
-                                              onChange={(e) => setSocialSecurityAmount(parseFloat(e.target.value) || 0)} 
-                                              placeholder="0" 
-                                              className="bg-zinc-900 border-zinc-800 w-32" 
-                                            />
-                                            <span className="text-zinc-500 text-sm">starting at age</span>
-                                            <Input 
-                                              type="number" 
-                                              value={socialSecurityStartAge} 
-                                              onChange={(e) => setSocialSecurityStartAge(parseInt(e.target.value) || 67)} 
-                                              placeholder="67" 
-                                              className="bg-zinc-900 border-zinc-800 w-20" 
-                                            />
-                                          </div>
-                                          <p className="text-xs text-zinc-500">Annual benefit amount, inflation-adjusted from start age</p>
-                                        </div>
-                                        <div className="space-y-2">
-                                          <Label className="text-zinc-400">Other Retirement Income ($/yr)</Label>
-                                          <Input 
-                                            type="number" 
-                                            value={otherRetirementIncome} 
-                                            onChange={(e) => setOtherRetirementIncome(parseFloat(e.target.value) || 0)} 
-                                            placeholder="0" 
-                                            className="bg-zinc-900 border-zinc-800 w-32" 
-                                          />
-                                          <p className="text-xs text-zinc-500">Pension, rental income, etc. (excluding Social Security)</p>
-                                        </div>
-                                      </div>
-
-                <div className="p-3 rounded-lg bg-zinc-800/30 border border-zinc-700/50">
-                  <p className="text-xs text-zinc-400">
-                    <span className="text-amber-400 font-medium">Note:</span> Capital gains are calculated from cost basis data in your holdings. 
-                    If cost basis is missing, it defaults to $0 (most conservative estimate, highest potential tax).
-                  </p>
-                </div>
-              </div>
-
-              {/* Tax Summary */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20">
-                  <p className="text-sm text-zinc-400">Lifetime Taxes</p>
-                  <p className="text-2xl font-bold text-rose-400">${lifetimeTaxesPaid.toLocaleString()}</p>
-                  <p className="text-xs text-zinc-500">Over {yearsInRetirement} years</p>
-                </div>
-                <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20">
-                  <p className="text-sm text-zinc-400">Early Withdrawal Penalties</p>
-                  <p className="text-2xl font-bold text-amber-400">${lifetimePenaltiesPaid.toLocaleString()}</p>
-                  <p className="text-xs text-zinc-500">10% penalty before 59½</p>
-                </div>
-                <div className="p-4 rounded-xl bg-zinc-800/30">
-                  <p className="text-sm text-zinc-400">Avg Annual Tax</p>
-                  <p className="text-2xl font-bold text-zinc-200">${avgAnnualTaxInRetirement.toLocaleString()}</p>
-                </div>
-                <div className="p-4 rounded-xl bg-zinc-800/30">
-                  <p className="text-sm text-zinc-400">Avg Net Withdrawal</p>
-                  <p className="text-2xl font-bold text-emerald-400">
-                    ${(avgRetirementWithdrawal - avgAnnualTaxInRetirement).toLocaleString()}
-                  </p>
-                  <p className="text-xs text-zinc-500">After taxes & penalties</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Tax Bracket Info */}
-            <div className="p-4 rounded-xl bg-zinc-800/30">
-              <p className="text-sm text-zinc-300 mb-2">Tax Assumptions ({filingStatus === 'married' ? 'MFJ' : 'Single'} 2025 brackets)</p>
-              <div className="grid grid-cols-3 gap-4 text-sm">
+            {/* Monthly Spending in Retirement */}
+            <div className="mt-6 p-4 rounded-xl bg-zinc-800/30">
+              <h4 className="text-sm font-medium text-zinc-300 mb-3">Monthly Spending in Retirement</h4>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <div>
-                  <p className="text-zinc-500">Standard Deduction</p>
-                  <p className="font-medium text-zinc-200">${standardDeduction.toLocaleString()}</p>
+                  <p className="text-xs text-zinc-500">Today's Monthly Need</p>
+                  <p className="text-xl font-bold text-zinc-200">{formatNumber(retirementAnnualSpending / 12)}</p>
                 </div>
                 <div>
-                  <p className="text-zinc-500">Tax-Deferred → Ordinary Income</p>
-                  <p className="font-medium text-zinc-200">10-37% marginal</p>
+                  <p className="text-xs text-zinc-500">At Retirement (inflation-adjusted)</p>
+                  <p className="text-xl font-bold text-amber-400">{formatNumber(inflationAdjustedRetirementSpending / 12)}</p>
                 </div>
                 <div>
-                  <p className="text-zinc-500">Taxable Gains → LTCG</p>
-                  <p className="font-medium text-zinc-200">0-20% based on income</p>
+                  <p className="text-xs text-zinc-500">Year 1 Monthly Withdrawal</p>
+                  <p className="text-xl font-bold text-emerald-400">{formatNumber(firstRetirementWithdrawal / 12)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-zinc-500">Avg Monthly Withdrawal</p>
+                  <p className="text-xl font-bold text-cyan-400">{formatNumber(avgRetirementWithdrawal / 12)}</p>
                 </div>
               </div>
-            </div>
-          </div>
-
-
-
-          {/* Projection Chart */}
-          <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
-            <h3 className="font-semibold mb-2">Wealth Projection</h3>
-            <p className="text-sm text-zinc-400 mb-4">
-              {lifeEvents.length > 0 && `${lifeEvents.length} life event${lifeEvents.length !== 1 ? 's' : ''} • `}
-              {goals.filter(g => g.will_be_spent).length > 0 && `${goals.filter(g => g.will_be_spent).length} planned expense${goals.filter(g => g.will_be_spent).length !== 1 ? 's' : ''} • `}
-              {goals.length > 0 && `${goals.length} goal${goals.length !== 1 ? 's' : ''} tracked`}
-            </p>
-            <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={projections}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-                    <XAxis dataKey="age" stroke="#71717a" fontSize={12} />
-                    <YAxis stroke="#71717a" fontSize={12} tickFormatter={(v) => `$${(v/1000000).toFixed(1)}M`} />
-                    <Tooltip
-                      contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '12px' }}
-                      formatter={(value, name, props) => {
-                        if (name === 'Total') {
-                          const p = props.payload;
-                          let extra = '';
-                          if (p.isRetired) {
-                            extra = ` (withdrawing $${(p.yearWithdrawal/1000).toFixed(0)}k`;
-                            if (p.taxesPaid > 0) extra += `, tax: $${(p.taxesPaid/1000).toFixed(0)}k`;
-                            if (p.penaltyPaid > 0) extra += `, penalty: $${(p.penaltyPaid/1000).toFixed(0)}k`;
-                            extra += ')';
-                          }
-                          if (p.hasEvent) extra += ' 📅';
-                          return [`$${value.toLocaleString()}${extra}`, name];
-                        }
-                        return [`$${value.toLocaleString()}`, name];
-                      }}
-                      labelFormatter={(age) => {
-                        const year = new Date().getFullYear() + (age - currentAge);
-                        const yearEvents = lifeEvents.filter(e => e.year === year);
-                        const yearGoals = goals.filter(g => g.will_be_spent && g.target_date && new Date(g.target_date).getFullYear() === year);
-                        let label = `Age ${age}`;
-                        if (yearEvents.length > 0) {
-                          label += ` • ${yearEvents.map(e => e.name).join(', ')}`;
-                        }
-                        if (yearGoals.length > 0) {
-                          label += ` • ${yearGoals.map(g => `${g.name} (-$${(g.target_amount/1000).toFixed(0)}k)`).join(', ')}`;
-                        }
-                        return label;
-                      }}
-                    />
-                    <ReferenceLine x={retirementAge} stroke="#F7931A" strokeDasharray="5 5" label={{ value: 'Retire', fill: '#F7931A', fontSize: 10 }} />
-                    {/* Life Event Reference Lines */}
-                    {lifeEvents.slice(0, 5).map((event, i) => {
-                      const eventAge = currentAge + (event.year - new Date().getFullYear());
-                      if (eventAge > currentAge && eventAge < lifeExpectancy) {
-                        return (
-                          <ReferenceLine 
-                            key={event.id} 
-                            x={eventAge} 
-                            stroke={event.amount < 0 ? "#f87171" : "#34d399"} 
-                            strokeDasharray="3 3"
-                            strokeOpacity={0.5}
-                          />
-                        );
-                      }
-                      return null;
-                    })}
-                    {/* Goals marked as "will be spent" */}
-                    {goals.filter(g => g.will_be_spent && g.target_date).slice(0, 5).map((goal) => {
-                      const goalYear = new Date(goal.target_date).getFullYear();
-                      const goalAge = currentAge + (goalYear - new Date().getFullYear());
-                      if (goalAge > currentAge && goalAge < lifeExpectancy) {
-                        return (
-                          <ReferenceLine 
-                            key={`goal-${goal.id}`} 
-                            x={goalAge} 
-                            stroke="#f87171"
-                            strokeDasharray="3 3"
-                            strokeOpacity={0.5}
-                          />
-                        );
-                      }
-                      return null;
-                    })}
-                    {/* Goal target lines */}
-                    {goalsWithProjections.filter(g => g.target_amount > 0).slice(0, 3).map((goal, i) => (
-                      <ReferenceLine 
-                        key={goal.id} 
-                        y={goal.target_amount} 
-                        stroke="#60a5fa" 
-                        strokeDasharray="8 4"
-                        strokeOpacity={0.4}
-                        label={{ value: goal.name, fill: '#60a5fa', fontSize: 10, position: 'right' }}
-                      />
-                    ))}
-                    <Area type="monotone" dataKey="bonds" stackId="1" stroke="#a78bfa" fill="#a78bfa" fillOpacity={0.3} name="Bonds" />
-                    <Area type="monotone" dataKey="realEstate" stackId="1" stroke="#10b981" fill="#10b981" fillOpacity={0.3} name="Real Estate" />
-                    <Area type="monotone" dataKey="stocks" stackId="1" stroke="#60a5fa" fill="#60a5fa" fillOpacity={0.3} name="Stocks" />
-                    <Area type="monotone" dataKey="btc" stackId="1" stroke="#F7931A" fill="#F7931A" fillOpacity={0.5} name="Bitcoin" />
-                    <Line type="monotone" dataKey="total" stroke="#ffffff" strokeWidth={2} dot={false} name="Total" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            <div className="flex flex-wrap justify-center gap-4 mt-4">
-              <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-orange-400" /><span className="text-sm text-zinc-400">Bitcoin</span></div>
-              <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-blue-400" /><span className="text-sm text-zinc-400">Stocks</span></div>
-              <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-400" /><span className="text-sm text-zinc-400">Real Estate</span></div>
-              <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-purple-400" /><span className="text-sm text-zinc-400">Bonds</span></div>
-              {lifeEvents.length > 0 && <div className="flex items-center gap-2"><div className="w-3 h-0.5 bg-rose-400/50" /><span className="text-sm text-zinc-400">Life Events</span></div>}
-              {goals.length > 0 && <div className="flex items-center gap-2"><div className="w-6 h-0.5 bg-blue-400/50" style={{backgroundImage: 'repeating-linear-gradient(90deg, #60a5fa 0, #60a5fa 8px, transparent 8px, transparent 12px)'}} /><span className="text-sm text-zinc-400">Goal Targets</span></div>}
             </div>
           </div>
         </TabsContent>
