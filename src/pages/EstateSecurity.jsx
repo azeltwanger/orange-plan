@@ -367,7 +367,7 @@ export default function EstateSecurity() {
       }, 0)
     : 0;
 
-  const btcHoldings = holdings.filter(h => h.ticker === 'BTC').reduce((sum, h) => sum + h.quantity, 0);
+  const totalBtcHoldings = holdings.filter(h => h.ticker === 'BTC').reduce((sum, h) => sum + h.quantity, 0);
   const totalAllocation = beneficiaries.reduce((sum, b) => sum + (b.beneficiary_allocation_percent || 0), 0);
 
   // Protocol coverage
