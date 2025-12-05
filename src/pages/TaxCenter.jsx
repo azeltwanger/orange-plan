@@ -195,6 +195,20 @@ export default function TaxCenter() {
     queryFn: () => base44.entities.Holding.list(),
   });
 
+  // Map account_type to tax_treatment
+  const getTaxTreatment = (accountType) => {
+    const taxTreatmentMap = {
+      taxable: 'taxable',
+      traditional_401k: 'tax_deferred',
+      roth_401k: 'tax_free',
+      traditional_ira: 'tax_deferred',
+      roth_ira: 'tax_free',
+      hsa: 'tax_free',
+      '529': 'tax_free',
+    };
+    return taxTreatmentMap[accountType] || 'taxable';
+  };
+
   const createTx = useMutation({
     mutationFn: async (data) => {
       const total = data.quantity * data.price_per_unit;
@@ -212,9 +226,32 @@ export default function TaxCenter() {
       if (existingDuplicate) {
         throw new Error('Duplicate transaction already exists');
       }
+
+      // Get proper account type from selected account if account_id is set
+      let finalAccountType = data.account_type || 'taxable';
+      if (data.account_id) {
+        const selectedAccount = await base44.entities.Account.list();
+        const account = selectedAccount.find(a => a.id === data.account_id);
+        if (account?.account_type) {
+          // Map Account entity account_type to Transaction entity account_type
+          const accountTypeMap = {
+            'taxable_brokerage': 'taxable',
+            'taxable_crypto': 'taxable',
+            'taxable_real_estate': 'taxable',
+            '401k_traditional': 'traditional_401k',
+            '401k_roth': 'roth_401k',
+            'ira_traditional': 'traditional_ira',
+            'ira_roth': 'roth_ira',
+            'hsa': 'hsa',
+            '529': '529',
+          };
+          finalAccountType = accountTypeMap[account.account_type] || account.account_type || 'taxable';
+        }
+      }
       
       const txData = {
         ...data,
+        account_type: finalAccountType,
         total_value: total,
         lot_id: data.type === 'buy' ? lotId : undefined,
         cost_basis: data.type === 'buy' ? total : data.cost_basis,
@@ -224,9 +261,13 @@ export default function TaxCenter() {
 
       const tx = await base44.entities.Transaction.create(txData);
 
-      // Sync to Holdings
-      const existingHolding = holdings.find(h => h.ticker === data.asset_ticker);
+      // Sync to Holdings - match by ticker AND account_id
+      const existingHolding = holdings.find(h => 
+        h.ticker === data.asset_ticker && 
+        (data.account_id ? h.account_id === data.account_id : !h.account_id)
+      );
       const knownCrypto = ['BTC', 'ETH', 'SOL', 'XRP', 'ADA', 'DOGE', 'DOT', 'AVAX', 'MATIC', 'LINK', 'LTC'];
+      const taxTreatment = getTaxTreatment(finalAccountType);
       
       if (data.type === 'buy') {
         if (existingHolding) {
@@ -239,7 +280,7 @@ export default function TaxCenter() {
             current_price: data.price_per_unit,
           });
         } else {
-          // Create new holding
+          // Create new holding with proper account type and tax treatment
           await base44.entities.Holding.create({
             asset_name: data.asset_ticker,
             asset_type: knownCrypto.includes(data.asset_ticker) ? 'crypto' : 'stocks',
@@ -247,7 +288,9 @@ export default function TaxCenter() {
             quantity: data.quantity,
             current_price: data.price_per_unit,
             cost_basis_total: total,
-            account_type: 'taxable',
+            account_type: finalAccountType,
+            tax_treatment: taxTreatment,
+            account_id: data.account_id || undefined,
           });
         }
       } else if (data.type === 'sell' && existingHolding) {
