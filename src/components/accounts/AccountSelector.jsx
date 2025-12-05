@@ -33,16 +33,16 @@ export default function AccountSelector({ value, onChange, onCreateNew, showCrea
           )}
         </SelectValue>
       </SelectTrigger>
-      <SelectContent className="bg-zinc-900 border-zinc-700">
-        <SelectItem value="_none_" className="text-zinc-400">
+      <SelectContent className="bg-zinc-900 border-zinc-700 text-zinc-100">
+        <SelectItem value="_none_" className="text-zinc-300">
           No account (unassigned)
         </SelectItem>
         {accounts.map(account => (
-          <SelectItem key={account.id} value={account.id}>
+          <SelectItem key={account.id} value={account.id} className="text-zinc-100">
             <div className="flex items-center gap-2">
-              <Building2 className="w-3 h-3 text-zinc-500" />
-              <span>{account.name}</span>
-              <span className="text-xs text-zinc-500">
+              <Building2 className="w-3 h-3 text-zinc-400" />
+              <span className="text-zinc-100">{account.name}</span>
+              <span className="text-xs text-zinc-400">
                 ({ACCOUNT_TYPE_LABELS[account.account_type] || account.account_type})
               </span>
             </div>

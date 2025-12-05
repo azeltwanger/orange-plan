@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format, differenceInDays } from 'date-fns';
-import { Plus, Pencil, Trash2, Receipt, TrendingUp, TrendingDown, Calendar, AlertTriangle, CheckCircle, Sparkles, RefreshCw, Info, Download, Calculator, DollarSign, Scale, ChevronRight, Upload } from 'lucide-react';
+import { Plus, Pencil, Trash2, Receipt, TrendingUp, TrendingDown, Calendar, AlertTriangle, CheckCircle, Sparkles, RefreshCw, Info, Download, Calculator, DollarSign, Scale, ChevronRight, Upload, Loader2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -182,6 +182,54 @@ export default function TaxCenter() {
     notes: '',
   });
   const [showCreateAccount, setShowCreateAccount] = useState(false);
+  const [fetchingPrice, setFetchingPrice] = useState(false);
+
+  // CoinGecko ID mapping for crypto
+  const COINGECKO_IDS = {
+    BTC: 'bitcoin', ETH: 'ethereum', SOL: 'solana', XRP: 'ripple', ADA: 'cardano',
+    DOGE: 'dogecoin', DOT: 'polkadot', AVAX: 'avalanche-2', MATIC: 'matic-network',
+    LINK: 'chainlink', LTC: 'litecoin', UNI: 'uniswap', ATOM: 'cosmos',
+  };
+
+  // Fetch price for ticker (crypto from CoinGecko, stocks from backend)
+  const fetchTickerPrice = async (ticker) => {
+    if (!ticker || ticker.length < 1) return;
+    setFetchingPrice(true);
+    try {
+      const coinId = COINGECKO_IDS[ticker.toUpperCase()];
+      if (coinId) {
+        // Crypto - use CoinGecko
+        const response = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${coinId}&vs_currencies=usd`);
+        const data = await response.json();
+        if (data[coinId]?.usd) {
+          setFormData(prev => ({ ...prev, price_per_unit: data[coinId].usd }));
+        }
+      } else if (ticker !== 'USD' && ticker !== 'CASH') {
+        // Stock - use backend function
+        const response = await base44.functions.invoke('getStockPrices', {
+          tickers: [ticker],
+          days: 1
+        });
+        if (response.data?.[ticker]?.currentPrice) {
+          setFormData(prev => ({ ...prev, price_per_unit: response.data[ticker].currentPrice }));
+        }
+      }
+    } catch (err) {
+      console.log('Price fetch failed:', err);
+    } finally {
+      setFetchingPrice(false);
+    }
+  };
+
+  // Auto-fetch price when ticker changes
+  useEffect(() => {
+    if (formData.asset_ticker && formOpen && !editingTx) {
+      const timeoutId = setTimeout(() => {
+        fetchTickerPrice(formData.asset_ticker);
+      }, 300);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [formData.asset_ticker, formOpen]);
 
   useEffect(() => {
     const fetchPrice = async () => {
@@ -1574,31 +1622,52 @@ export default function TaxCenter() {
               <div className="space-y-2">
                 <Label className="text-zinc-400">Type</Label>
                 <Select value={formData.type} onValueChange={(value) => setFormData({ ...formData, type: value })}>
-                  <SelectTrigger className="bg-zinc-900 border-zinc-800"><SelectValue /></SelectTrigger>
-                  <SelectContent className="bg-zinc-900 border-zinc-800">
-                    <SelectItem value="buy">Buy</SelectItem>
-                    <SelectItem value="sell">Sell</SelectItem>
+                  <SelectTrigger className="bg-zinc-900 border-zinc-700 text-zinc-100"><SelectValue /></SelectTrigger>
+                  <SelectContent className="bg-zinc-900 border-zinc-700 text-zinc-100">
+                    <SelectItem value="buy" className="text-zinc-100">Buy</SelectItem>
+                    <SelectItem value="sell" className="text-zinc-100">Sell</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label className="text-zinc-400">Asset</Label>
-                <Input value={formData.asset_ticker} onChange={(e) => setFormData({ ...formData, asset_ticker: e.target.value.toUpperCase() })} className="bg-zinc-900 border-zinc-800" />
+                <Label className="text-zinc-400">Asset Ticker</Label>
+                <Input 
+                  value={formData.asset_ticker} 
+                  onChange={(e) => setFormData({ ...formData, asset_ticker: e.target.value.toUpperCase() })} 
+                  className="bg-zinc-900 border-zinc-700 text-zinc-100 placeholder:text-zinc-500" 
+                  placeholder="BTC, AAPL, etc."
+                />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-zinc-400">Quantity</Label>
-                <Input type="number" step="any" value={formData.quantity} onChange={(e) => setFormData({ ...formData, quantity: e.target.value })} className="bg-zinc-900 border-zinc-800" required />
+                <Input 
+                  type="number" 
+                  step="any" 
+                  value={formData.quantity} 
+                  onChange={(e) => setFormData({ ...formData, quantity: e.target.value })} 
+                  className="bg-zinc-900 border-zinc-700 text-zinc-100 placeholder:text-zinc-500" 
+                  placeholder="0.00"
+                  required 
+                />
               </div>
               <div className="space-y-2">
-                <Label className="text-zinc-400">Price per Unit</Label>
-                <Input type="number" step="any" value={formData.price_per_unit} onChange={(e) => setFormData({ ...formData, price_per_unit: e.target.value })} className="bg-zinc-900 border-zinc-800" required />
+                <Label className="text-zinc-400">Price per Unit {fetchingPrice && <Loader2 className="inline w-3 h-3 ml-1 animate-spin text-orange-400" />}</Label>
+                <Input 
+                  type="number" 
+                  step="any" 
+                  value={formData.price_per_unit} 
+                  onChange={(e) => setFormData({ ...formData, price_per_unit: e.target.value })} 
+                  className="bg-zinc-900 border-zinc-700 text-zinc-100 placeholder:text-zinc-500" 
+                  placeholder="Auto-fetched"
+                  required 
+                />
               </div>
             </div>
             <div className="space-y-2">
               <Label className="text-zinc-400">Date</Label>
-              <Input type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} className="bg-zinc-900 border-zinc-800" required />
+              <Input type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} className="bg-zinc-900 border-zinc-700 text-zinc-100" required />
             </div>
             <div className="space-y-2">
               <Label className="text-zinc-400">Account</Label>
@@ -1617,20 +1686,20 @@ export default function TaxCenter() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-zinc-400">Exchange/Platform (Optional)</Label>
-                <Input value={formData.exchange} onChange={(e) => setFormData({ ...formData, exchange: e.target.value })} placeholder="Coinbase, Strike..." className="bg-zinc-900 border-zinc-800" />
+                <Input value={formData.exchange} onChange={(e) => setFormData({ ...formData, exchange: e.target.value })} placeholder="Coinbase, Strike..." className="bg-zinc-900 border-zinc-700 text-zinc-100 placeholder:text-zinc-500" />
               </div>
               <div className="space-y-2">
                 <Label className="text-zinc-400">Tax Account Type</Label>
                 <Select value={formData.account_type} onValueChange={(value) => setFormData({ ...formData, account_type: value })}>
-                  <SelectTrigger className="bg-zinc-900 border-zinc-800"><SelectValue /></SelectTrigger>
-                  <SelectContent className="bg-zinc-900 border-zinc-800">
-                    <SelectItem value="taxable">Taxable</SelectItem>
-                    <SelectItem value="traditional_401k">Traditional 401(k)</SelectItem>
-                    <SelectItem value="roth_401k">Roth 401(k)</SelectItem>
-                    <SelectItem value="traditional_ira">Traditional IRA</SelectItem>
-                    <SelectItem value="roth_ira">Roth IRA</SelectItem>
-                    <SelectItem value="hsa">HSA</SelectItem>
-                    <SelectItem value="529">529 Plan</SelectItem>
+                  <SelectTrigger className="bg-zinc-900 border-zinc-700 text-zinc-100"><SelectValue /></SelectTrigger>
+                  <SelectContent className="bg-zinc-900 border-zinc-700 text-zinc-100">
+                    <SelectItem value="taxable" className="text-zinc-100">Taxable</SelectItem>
+                    <SelectItem value="traditional_401k" className="text-zinc-100">Traditional 401(k)</SelectItem>
+                    <SelectItem value="roth_401k" className="text-zinc-100">Roth 401(k)</SelectItem>
+                    <SelectItem value="traditional_ira" className="text-zinc-100">Traditional IRA</SelectItem>
+                    <SelectItem value="roth_ira" className="text-zinc-100">Roth IRA</SelectItem>
+                    <SelectItem value="hsa" className="text-zinc-100">HSA</SelectItem>
+                    <SelectItem value="529" className="text-zinc-100">529 Plan</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1642,8 +1711,8 @@ export default function TaxCenter() {
               </div>
             )}
             <div className="flex gap-3 pt-4">
-              <Button type="button" variant="outline" onClick={() => setFormOpen(false)} className="flex-1 bg-transparent border-zinc-800">Cancel</Button>
-              <Button type="submit" className="flex-1 brand-gradient text-white font-semibold">{editingTx ? 'Update' : 'Add'}</Button>
+              <Button type="button" variant="outline" onClick={() => setFormOpen(false)} className="flex-1 bg-transparent border-zinc-700 text-zinc-100">Cancel</Button>
+              <Button type="submit" className="flex-1 brand-gradient text-white font-semibold" disabled={fetchingPrice}>{editingTx ? 'Update' : 'Add'}</Button>
             </div>
           </form>
         </DialogContent>

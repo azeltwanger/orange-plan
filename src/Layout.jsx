@@ -125,13 +125,21 @@ export default function Layout({ children, currentPageName }) {
         
         /* Fix dark mode input text color */
         input, textarea, select {
-          color: inherit !important;
+          color: rgb(244 244 245) !important;
         }
         input::placeholder, textarea::placeholder {
           color: rgb(113 113 122) !important;
         }
         input[type="date"], input[type="number"], input[type="text"] {
-          color-scheme: ${darkMode ? 'dark' : 'light'};
+          color-scheme: dark;
+          color: rgb(244 244 245) !important;
+        }
+        /* Select dropdown text colors */
+        [role="listbox"], [role="option"], [data-radix-collection-item] {
+          color: rgb(244 244 245) !important;
+        }
+        [role="option"]:hover, [data-highlighted] {
+          background-color: rgb(39 39 42) !important;
         }
         
         /* Light mode overrides */
