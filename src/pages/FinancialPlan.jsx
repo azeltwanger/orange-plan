@@ -1725,14 +1725,36 @@ export default function FinancialPlan() {
                         <YAxis stroke="#71717a" fontSize={12} tickFormatter={(v) => `$${(v/1000000).toFixed(1)}M`} />
                         <Tooltip
                           contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '12px' }}
-                          formatter={(value, name, props) => {
-                            const labels = { p10: 'Worst Case (10%)', p25: 'Pessimistic (25%)', p50: 'Most Likely', p75: 'Optimistic (75%)', p90: 'Best Case (90%)', withdrawal: 'Annual Withdrawal' };
-                            if (name === 'withdrawal') return [`$${value.toLocaleString()}/yr`, labels[name]];
-                            return [`$${value.toLocaleString()}`, labels[name] || name];
-                          }}
-                          labelFormatter={(age) => {
-                            const dataPoint = simulationResults?.find(d => d.age === age);
-                            return `Age ${age}${dataPoint?.isRetired ? ' (Retired)' : ''}`;
+                          content={({ active, payload, label }) => {
+                            if (!active || !payload?.length) return null;
+                            const data = payload[0]?.payload;
+                            return (
+                              <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-3 text-sm">
+                                <p className="font-semibold text-zinc-200 mb-2">Age {label}{data?.isRetired ? ' (Retired)' : ''}</p>
+                                <div className="space-y-1">
+                                  <div className="flex justify-between gap-4">
+                                    <span className="text-emerald-400">Best Case (90%):</span>
+                                    <span className="text-zinc-200">${(data?.p90 || 0).toLocaleString()}</span>
+                                  </div>
+                                  <div className="flex justify-between gap-4">
+                                    <span className="text-orange-400">Most Likely:</span>
+                                    <span className="text-zinc-200 font-semibold">${(data?.p50 || 0).toLocaleString()}</span>
+                                  </div>
+                                  <div className="flex justify-between gap-4">
+                                    <span className="text-rose-400">Worst Case (10%):</span>
+                                    <span className="text-zinc-200">${(data?.p10 || 0).toLocaleString()}</span>
+                                  </div>
+                                  {data?.isRetired && data?.withdrawal > 0 && (
+                                    <div className="pt-2 mt-2 border-t border-zinc-700">
+                                      <div className="flex justify-between gap-4">
+                                        <span className="text-cyan-400">Annual Withdrawal:</span>
+                                        <span className="text-zinc-200">${(data?.withdrawal || 0).toLocaleString()}/yr</span>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            );
                           }}
                         />
                         <ReferenceLine x={retirementAge} stroke="#F7931A" strokeDasharray="5 5" label={{ value: 'Retire', fill: '#F7931A', fontSize: 10 }} />
