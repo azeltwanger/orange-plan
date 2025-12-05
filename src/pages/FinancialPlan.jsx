@@ -1188,7 +1188,7 @@ export default function FinancialPlan() {
                 <Label className="text-zinc-400">Stocks CAGR</Label>
                 <span className="text-blue-400 font-semibold">{stocksCagr}%</span>
               </div>
-              <Slider value={[stocksCagr]} onValueChange={([v]) => setStocksCagr(v)} min={-10} max={20} step={0.5} />
+              <Slider value={[stocksCagr]} onValueChange={([v]) => setStocksCagr(v)} min={-10} max={100} step={1} />
             </div>
             <div className="space-y-3">
               <div className="flex justify-between">
@@ -1717,7 +1717,7 @@ export default function FinancialPlan() {
               )}
             </div>
 
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-6 p-4 rounded-xl bg-zinc-800/30">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6 p-4 rounded-xl bg-zinc-800/30">
               <div>
                 <p className="text-sm text-zinc-400">At Retirement (Age {retirementAge})</p>
                 <p className="text-2xl font-bold text-orange-400">{formatNumber(retirementValue, 2)}</p>
@@ -1728,14 +1728,9 @@ export default function FinancialPlan() {
                 <p className="text-2xl font-bold text-zinc-200">{formatNumber(endOfLifeValue, 2)}</p>
               </div>
               <div>
-                <p className="text-sm text-zinc-400">Needed at Retirement</p>
+                <p className="text-sm text-zinc-400">Spending at Retirement</p>
                 <p className="text-2xl font-bold text-amber-400">{formatNumber(inflationAdjustedRetirementSpending)}/yr</p>
                 <p className="text-xs text-zinc-500">{formatNumber(inflationAdjustedRetirementSpending / 12)}/mo • {inflationRate}% inflation adj.</p>
-              </div>
-              <div>
-                <p className="text-sm text-zinc-400">Avg Annual Withdrawal</p>
-                <p className="text-2xl font-bold text-cyan-400">{formatNumber(avgRetirementWithdrawal)}</p>
-                <p className="text-xs text-zinc-500">{formatNumber(avgRetirementWithdrawal / 12)}/mo avg</p>
               </div>
             </div>
           </div>
