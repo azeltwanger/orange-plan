@@ -17,6 +17,8 @@ import { Progress } from "@/components/ui/progress";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from 'recharts';
 import CsvImportDialog from '@/components/transactions/CsvImportDialog';
+import AccountSelector from '@/components/accounts/AccountSelector';
+import CreateAccountDialog from '@/components/accounts/CreateAccountDialog';
 import { cn } from "@/lib/utils";
 
 // 2025 Tax Brackets and Standard Deductions
@@ -176,8 +178,10 @@ export default function TaxCenter() {
     date: format(new Date(), 'yyyy-MM-dd'),
     exchange: '',
     account_type: 'taxable',
+    account_id: '',
     notes: '',
   });
+  const [showCreateAccount, setShowCreateAccount] = useState(false);
 
   useEffect(() => {
     const fetchPrice = async () => {
@@ -341,7 +345,7 @@ export default function TaxCenter() {
   };
 
   const resetForm = () => {
-    setFormData({ type: 'buy', asset_ticker: 'BTC', quantity: '', price_per_unit: '', date: format(new Date(), 'yyyy-MM-dd'), exchange: '', account_type: 'taxable', notes: '' });
+    setFormData({ type: 'buy', asset_ticker: 'BTC', quantity: '', price_per_unit: '', date: format(new Date(), 'yyyy-MM-dd'), exchange: '', account_type: 'taxable', account_id: '', notes: '' });
     setSaleForm({ quantity: '', price_per_unit: '', date: format(new Date(), 'yyyy-MM-dd'), fee: '', lot_method: 'HIFO', selected_lots: [], exchange: '' });
     setSpecificLotQuantities({});
   };
@@ -373,6 +377,7 @@ export default function TaxCenter() {
         date: formattedDate,
         exchange: editingTx.exchange_or_wallet || editingTx.exchange || '',
         account_type: accountType,
+        account_id: editingTx.account_id || '',
         notes: editingTx.notes || '',
       });
     }
@@ -385,6 +390,7 @@ export default function TaxCenter() {
       quantity: parseFloat(formData.quantity) || 0, 
       price_per_unit: parseFloat(formData.price_per_unit) || 0,
       exchange_or_wallet: formData.exchange,
+      account_id: formData.account_id || null,
     };
     if (editingTx) {
       updateTx.mutate({ id: editingTx.id, data });
@@ -1594,13 +1600,27 @@ export default function TaxCenter() {
               <Label className="text-zinc-400">Date</Label>
               <Input type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} className="bg-zinc-900 border-zinc-800" required />
             </div>
+            <div className="space-y-2">
+              <Label className="text-zinc-400">Account</Label>
+              <AccountSelector
+                value={formData.account_id}
+                onChange={(value) => {
+                  if (value === '_create_') {
+                    setShowCreateAccount(true);
+                  } else {
+                    setFormData({ ...formData, account_id: value === '_none_' ? '' : value });
+                  }
+                }}
+              />
+              <p className="text-xs text-zinc-500">Assign to account (e.g., Fidelity, Coinbase, Ledger)</p>
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-zinc-400">Exchange</Label>
-                <Input value={formData.exchange} onChange={(e) => setFormData({ ...formData, exchange: e.target.value })} placeholder="Coinbase, Ledger..." className="bg-zinc-900 border-zinc-800" />
+                <Label className="text-zinc-400">Exchange/Platform (Optional)</Label>
+                <Input value={formData.exchange} onChange={(e) => setFormData({ ...formData, exchange: e.target.value })} placeholder="Coinbase, Strike..." className="bg-zinc-900 border-zinc-800" />
               </div>
               <div className="space-y-2">
-                <Label className="text-zinc-400">Account Type</Label>
+                <Label className="text-zinc-400">Tax Account Type</Label>
                 <Select value={formData.account_type} onValueChange={(value) => setFormData({ ...formData, account_type: value })}>
                   <SelectTrigger className="bg-zinc-900 border-zinc-800"><SelectValue /></SelectTrigger>
                   <SelectContent className="bg-zinc-900 border-zinc-800">
@@ -1902,6 +1922,15 @@ export default function TaxCenter() {
 
       {/* CSV Import Dialog */}
       <CsvImportDialog open={csvImportOpen} onClose={() => setCsvImportOpen(false)} />
+      
+      {/* Create Account Dialog */}
+      <CreateAccountDialog
+        open={showCreateAccount}
+        onClose={() => setShowCreateAccount(false)}
+        onCreated={(newAccount) => {
+          setFormData({ ...formData, account_id: newAccount.id });
+        }}
+      />
     </div>
   );
 }
