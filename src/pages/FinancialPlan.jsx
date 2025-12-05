@@ -917,11 +917,6 @@ export default function FinancialPlan() {
     withdrawalStrategy === 'dynamic' ? dynamicWithdrawalRate / 100 : 
     Math.max(0.03, 1 / yearsInRetirement);
   const requiredNestEgg = inflationAdjustedRetirementSpending / effectiveWithdrawalRate;
-  
-  // Calculate max sustainable spending
-  const maxSustainableSpending = !willRunOutOfMoney && withdrawalStrategy === 'variable' 
-    ? inflationAdjustedRetirementSpending 
-    : retirementValue * effectiveWithdrawalRate;
 
   // Calculate retirement status and insights
   const retirementStatus = useMemo(() => {
@@ -984,6 +979,92 @@ export default function FinancialPlan() {
       };
     }
   }, [earliestRetirementAge, retirementAge, willRunOutOfMoney, runOutOfMoneyAge, currentAge, retirementValue, effectiveWithdrawalRate, inflationAdjustedRetirementSpending]);
+
+  // Calculate maximum sustainable spending at retirement age
+  const [maxSustainableSpending, setMaxSustainableSpending] = useState(0);
+
+  useEffect(() => {
+    const calculateMaxSpending = () => {
+      // Only calculate for income-based withdrawal strategy
+      if (withdrawalStrategy !== 'variable') {
+        setMaxSustainableSpending(retirementValue * effectiveWithdrawalRate);
+        return;
+      }
+
+      const startingPortfolio = taxableValue + taxDeferredValue + taxFreeValue;
+      if (startingPortfolio <= 0 && annualSavings <= 0) {
+        setMaxSustainableSpending(0);
+        return;
+      }
+
+      // Calculate actual blended growth rate
+      const totalAssets = btcValue + stocksValue + realEstateValue + bondsValue + otherValue;
+      const btcPct = totalAssets > 0 ? btcValue / totalAssets : 0;
+      const stocksPct = totalAssets > 0 ? stocksValue / totalAssets : 0;
+      const realEstatePct = totalAssets > 0 ? realEstateValue / totalAssets : 0;
+      const bondsPct = totalAssets > 0 ? bondsValue / totalAssets : 0;
+      const otherPct = totalAssets > 0 ? otherValue / totalAssets : 0;
+
+      // Binary search for max spending (faster than linear search)
+      let low = 0;
+      let high = 1000000; // $1M max test
+      let maxSpending = 0;
+      const tolerance = 1000; // $1k precision
+
+      while (high - low > tolerance) {
+        const testSpending = (low + high) / 2;
+        let portfolio = startingPortfolio;
+        let canSustain = true;
+
+        // Simulate from now until life expectancy
+        for (let year = 1; year <= lifeExpectancy - currentAge; year++) {
+          const age = currentAge + year;
+          const isRetired = age >= retirementAge;
+
+          // Growth
+          const yearBtcGrowth = getBtcGrowthRate(year);
+          const blendedGrowthRate = (
+            btcPct * (yearBtcGrowth / 100) +
+            stocksPct * (effectiveStocksCagr / 100) +
+            realEstatePct * (realEstateCagr / 100) +
+            bondsPct * (bondsCagr / 100) +
+            otherPct * (effectiveStocksCagr / 100)
+          );
+
+          portfolio = portfolio * (1 + blendedGrowthRate);
+
+          if (!isRetired) {
+            // Add savings
+            const yearSavings = annualSavings * Math.pow(1 + incomeGrowth / 100, year);
+            portfolio += yearSavings;
+          } else {
+            // Withdraw test amount (inflation-adjusted)
+            const yearsIntoRetirement = age - retirementAge;
+            const yearsOfInflation = Math.max(0, retirementAge - currentAge) + yearsIntoRetirement;
+            const withdrawal = testSpending * Math.pow(1 + effectiveInflation / 100, yearsOfInflation);
+
+            if (portfolio < withdrawal) {
+              canSustain = false;
+              break;
+            }
+
+            portfolio -= withdrawal;
+          }
+        }
+
+        if (canSustain && portfolio >= 0) {
+          maxSpending = testSpending;
+          low = testSpending;
+        } else {
+          high = testSpending;
+        }
+      }
+
+      setMaxSustainableSpending(Math.floor(maxSpending));
+    };
+
+    calculateMaxSpending();
+  }, [currentAge, retirementAge, lifeExpectancy, taxableValue, taxDeferredValue, taxFreeValue, btcValue, stocksValue, realEstateValue, bondsValue, otherValue, annualSavings, effectiveInflation, incomeGrowth, effectiveStocksCagr, realEstateCagr, bondsCagr, withdrawalStrategy, effectiveWithdrawalRate, retirementValue, getBtcGrowthRate]);
 
   // Calculate earliest achievable FI age (when portfolio can sustain withdrawals to life expectancy)
   useEffect(() => {
