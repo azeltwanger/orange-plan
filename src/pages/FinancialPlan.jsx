@@ -1008,7 +1008,7 @@ export default function FinancialPlan() {
       let low = 0;
       let high = 1000000; // $1M max test
       let maxSpending = 0;
-      const tolerance = 1000; // $1k precision
+      const tolerance = 100; // $100 precision for accuracy
 
       while (high - low > tolerance) {
         const testSpending = (low + high) / 2;
@@ -1567,13 +1567,17 @@ export default function FinancialPlan() {
 
                       if (yearsToWork <= 0) return 0;
 
-                      // Calculate required nest egg for sustainable retirement
-                      const yearsToRetirement = Math.max(0, retirementAge - currentAge);
-                      const inflationAdjustedSpending = retirementAnnualSpending * Math.pow(1 + inflationRate / 100, yearsToRetirement);
+                      // Calculate required nest egg for sustainable retirement (using today's dollars)
                       const effectiveWithdrawalRate = withdrawalStrategy === '4percent' ? 0.04 : 
                         withdrawalStrategy === 'dynamic' ? dynamicWithdrawalRate / 100 : 
                         Math.max(0.03, 1 / (lifeExpectancy - retirementAge));
-                      const requiredNestEgg = inflationAdjustedSpending / effectiveWithdrawalRate;
+                      
+                      // Use today's dollars for max sustainable spending comparison
+                      const requiredNestEggTodayDollars = retirementAnnualSpending / effectiveWithdrawalRate;
+                      
+                      // But we need to inflate it to retirement age for comparison with future portfolio value
+                      const yearsToRetirement = Math.max(0, retirementAge - currentAge);
+                      const requiredNestEgg = requiredNestEggTodayDollars * Math.pow(1 + inflationRate / 100, yearsToRetirement);
 
                       // Gap between required and projected
                       const portfolioGap = Math.max(0, requiredNestEgg - portfolioAtTarget);
