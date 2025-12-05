@@ -1423,8 +1423,8 @@ export default function FinancialPlan() {
               </div>
             </div>
 
-            {/* Actionable Insights - only show if not optimistic */}
-            {retirementStatus.type !== 'optimistic' && (
+            {/* Actionable Insights - only show if meaningful gap exists (2+ years) */}
+            {retirementStatus.type !== 'optimistic' && earliestRetirementAge && (earliestRetirementAge - retirementAge) >= 2 && (
               <>
                 {/* Savings Insight */}
                 <div className="card-premium rounded-xl p-4 border border-zinc-700/50">
@@ -1434,27 +1434,27 @@ export default function FinancialPlan() {
                   </div>
                   <p className="text-2xl font-bold text-emerald-400">
                     +{formatNumber((() => {
-                      // Calculate how much more to save per year to retire at target age
-                      const yearsToTargetRetirement = Math.max(1, retirementAge - currentAge);
+                      // Simple calculation: difference in portfolio value between earliest and target retirement
+                      const targetIndex = Math.max(0, retirementAge - currentAge);
+                      const earliestIndex = Math.max(0, earliestRetirementAge - currentAge);
                       
-                      // Get projection at target retirement age
-                      const targetRetirementIndex = Math.max(0, retirementAge - currentAge);
-                      const projectedAtTarget = projections[targetRetirementIndex]?.total || retirementValue;
+                      const portfolioAtTarget = projections[targetIndex]?.total || 0;
+                      const portfolioAtEarliest = projections[earliestIndex]?.total || 0;
                       
-                      // Shortfall between what's needed and what's projected
-                      const shortfall = Math.max(0, requiredNestEgg - projectedAtTarget);
+                      // The gap is the difference, spread over the years we're trying to gain back
+                      const portfolioGap = Math.max(0, portfolioAtEarliest - portfolioAtTarget);
+                      const yearsGap = earliestRetirementAge - retirementAge;
+                      const yearsToWork = retirementAge - currentAge;
                       
-                      // If shortfall is small (within 10%), show a reasonable amount
-                      if (shortfall < requiredNestEgg * 0.1) {
-                        return shortfall / yearsToTargetRetirement;
-                      }
+                      if (yearsToWork <= 0) return 0;
                       
-                      // Calculate using future value of annuity formula
-                      const blendedGrowth = (effectiveBtcCagr * 0.3 + effectiveStocksCagr * 0.7) / 100;
-                      const fvFactor = blendedGrowth > 0.001 
-                        ? (Math.pow(1 + blendedGrowth, yearsToTargetRetirement) - 1) / blendedGrowth 
-                        : yearsToTargetRetirement;
-                      return shortfall / fvFactor;
+                      // Additional annual savings needed, accounting for compounding
+                      const avgGrowthRate = (effectiveBtcCagr * 0.3 + effectiveStocksCagr * 0.7) / 100;
+                      const fvFactor = avgGrowthRate > 0.001
+                        ? (Math.pow(1 + avgGrowthRate, yearsToWork) - 1) / avgGrowthRate
+                        : yearsToWork;
+                      
+                      return portfolioGap / fvFactor;
                     })())}<span className="text-sm text-zinc-500">/yr</span>
                   </p>
                   <p className="text-[10px] text-zinc-500 mt-1">to retire at age {retirementAge}</p>
@@ -1464,25 +1464,22 @@ export default function FinancialPlan() {
                 <div className="card-premium rounded-xl p-4 border border-zinc-700/50">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-rose-400" />
-                    <h5 className="text-xs font-semibold text-zinc-300 uppercase tracking-wide">Reduce Spending</h5>
+                    <h5 className="text-xs font-semibold text-zinc-300 uppercase tracking-wide">Reduce Spending To</h5>
                   </div>
                   <p className="text-2xl font-bold text-rose-400">
                     {formatNumber((() => {
-                      // Calculate what's sustainably withdrawable at target retirement age
-                      const targetRetirementIndex = Math.max(0, retirementAge - currentAge);
-                      const projectedAtTarget = projections[targetRetirementIndex]?.total || retirementValue;
+                      // What the portfolio at target retirement age can actually sustain
+                      const targetIndex = Math.max(0, retirementAge - currentAge);
+                      const portfolioAtTarget = projections[targetIndex]?.total || 0;
                       
-                      // What can be withdrawn sustainably
-                      const sustainableAtTarget = projectedAtTarget * effectiveWithdrawalRate;
+                      // Sustainable withdrawal in future dollars
+                      const sustainableWithdrawal = portfolioAtTarget * effectiveWithdrawalRate;
                       
-                      // Convert to today's dollars
-                      const yearsToRetire = retirementAge - currentAge;
-                      const sustainableInTodaysDollars = sustainableAtTarget / Math.pow(1 + inflationRate / 100, yearsToRetire);
-                      
-                      return Math.max(0, sustainableInTodaysDollars);
+                      // Don't convert to today's dollars - show what they can spend at retirement
+                      return sustainableWithdrawal;
                     })())}<span className="text-sm text-zinc-500">/yr</span>
                   </p>
-                  <p className="text-[10px] text-zinc-500 mt-1">sustainable at age {retirementAge} (today's dollars)</p>
+                  <p className="text-[10px] text-zinc-500 mt-1">max sustainable at age {retirementAge}</p>
                 </div>
 
                 {/* Alternative: Delay Retirement */}
@@ -1490,12 +1487,12 @@ export default function FinancialPlan() {
                   <div className="card-premium rounded-xl p-4 border border-zinc-700/50">
                     <div className="flex items-center gap-2 mb-2">
                       <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                      <h5 className="text-xs font-semibold text-zinc-300 uppercase tracking-wide">Delay Retirement</h5>
+                      <h5 className="text-xs font-semibold text-zinc-300 uppercase tracking-wide">Or Retire At</h5>
                     </div>
                     <p className="text-2xl font-bold text-amber-400">
                       Age {earliestRetirementAge}
                     </p>
-                    <p className="text-[10px] text-zinc-500 mt-1">+{earliestRetirementAge - retirementAge} years keeps plan intact</p>
+                    <p className="text-[10px] text-zinc-500 mt-1">+{earliestRetirementAge - retirementAge} years with current plan</p>
                   </div>
                 )}
               </>
