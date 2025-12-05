@@ -1411,6 +1411,87 @@ export default function FinancialPlan() {
               {lifeEvents.length > 0 && <div className="flex items-center gap-2"><div className="w-3 h-0.5 bg-rose-400/50" /><span className="text-sm text-zinc-400">Life Events</span></div>}
               {goals.length > 0 && <div className="flex items-center gap-2"><div className="w-6 h-0.5 bg-blue-400/50" style={{backgroundImage: 'repeating-linear-gradient(90deg, #60a5fa 0, #60a5fa 8px, transparent 8px, transparent 12px)'}} /><span className="text-sm text-zinc-400">Goal Targets</span></div>}
             </div>
+            
+            {/* Retirement Withdrawal Summary Box */}
+            {firstRetirementWithdrawal > 0 && (
+              <div className="mt-6 p-4 rounded-xl bg-cyan-500/10 border border-cyan-500/20">
+                <h4 className="text-sm font-medium text-cyan-400 mb-3 flex items-center gap-2">
+                  <Receipt className="w-4 h-4" />
+                  Retirement Withdrawals
+                </h4>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div>
+                    <p className="text-xs text-zinc-500">First Year (Age {retirementAge})</p>
+                    <p className="text-lg font-bold text-cyan-400">{formatNumber(firstRetirementWithdrawal)}/yr</p>
+                    <p className="text-xs text-zinc-600">{formatNumber(firstRetirementWithdrawal / 12)}/mo</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-zinc-500">Average Annual</p>
+                    <p className="text-lg font-bold text-cyan-400">{formatNumber(avgRetirementWithdrawal)}/yr</p>
+                    <p className="text-xs text-zinc-600">{formatNumber(avgRetirementWithdrawal / 12)}/mo</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-zinc-500">Last Year (Age {lifeExpectancy})</p>
+                    <p className="text-lg font-bold text-cyan-400">{formatNumber(projections[projections.length - 1]?.yearWithdrawal || 0)}/yr</p>
+                    <p className="text-xs text-zinc-600">Inflation adjusted</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-zinc-500">Lifetime Total</p>
+                    <p className="text-lg font-bold text-cyan-400">{formatNumber(totalLifetimeWithdrawals)}</p>
+                    <p className="text-xs text-zinc-600">{yearsInRetirement} years</p>
+                  </div>
+                </div>
+                
+                {/* Withdrawal Source Breakdown for First Year */}
+                {projections[retirementYearIndex] && (
+                  <div className="mt-4 pt-4 border-t border-cyan-500/20">
+                    <p className="text-xs text-zinc-400 mb-2">First Year Withdrawal Sources (Age {retirementAge})</p>
+                    <div className="flex flex-wrap gap-3">
+                      {(() => {
+                        const p = projections[retirementYearIndex + 1] || projections[retirementYearIndex];
+                        const pPrev = projections[retirementYearIndex];
+                        // Calculate how much came from each account type
+                        const fromTaxable = Math.max(0, (pPrev?.taxable || 0) - (p?.taxable || 0));
+                        const fromTaxDeferred = Math.max(0, (pPrev?.taxDeferred || 0) - (p?.taxDeferred || 0));
+                        const fromTaxFree = Math.max(0, (pPrev?.taxFree || 0) - (p?.taxFree || 0));
+                        const totalWithdrawn = fromTaxable + fromTaxDeferred + fromTaxFree;
+                        
+                        return (
+                          <>
+                            {fromTaxable > 0 && (
+                              <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-emerald-500/20">
+                                <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                                <span className="text-xs text-emerald-400">Taxable: {formatNumber(fromTaxable)}</span>
+                                {totalWithdrawn > 0 && <span className="text-xs text-zinc-500">({Math.round(fromTaxable/totalWithdrawn*100)}%)</span>}
+                              </div>
+                            )}
+                            {fromTaxDeferred > 0 && (
+                              <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-amber-500/20">
+                                <div className="w-2 h-2 rounded-full bg-amber-400" />
+                                <span className="text-xs text-amber-400">Tax-Deferred: {formatNumber(fromTaxDeferred)}</span>
+                                {totalWithdrawn > 0 && <span className="text-xs text-zinc-500">({Math.round(fromTaxDeferred/totalWithdrawn*100)}%)</span>}
+                              </div>
+                            )}
+                            {fromTaxFree > 0 && (
+                              <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-purple-500/20">
+                                <div className="w-2 h-2 rounded-full bg-purple-400" />
+                                <span className="text-xs text-purple-400">Tax-Free: {formatNumber(fromTaxFree)}</span>
+                                {totalWithdrawn > 0 && <span className="text-xs text-zinc-500">({Math.round(fromTaxFree/totalWithdrawn*100)}%)</span>}
+                              </div>
+                            )}
+                            {p?.taxesPaid > 0 && (
+                              <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-rose-500/20">
+                                <span className="text-xs text-rose-400">Est. Taxes: {formatNumber(p.taxesPaid)}</span>
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Account Type Summary */}
