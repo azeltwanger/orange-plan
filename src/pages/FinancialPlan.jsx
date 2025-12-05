@@ -1008,7 +1008,7 @@ export default function FinancialPlan() {
       let low = 0;
       let high = 1000000; // $1M max test
       let maxSpending = 0;
-      const tolerance = 10; // $10 precision for accuracy
+      const tolerance = 1; // $1 precision for maximum accuracy
 
       while (high - low > tolerance) {
         const testSpending = (low + high) / 2;
@@ -1062,7 +1062,7 @@ export default function FinancialPlan() {
       // Deflate to today's dollars
       const inflationFactor = Math.pow(1 + effectiveInflation / 100, Math.max(0, retirementAge - currentAge));
       const maxSpendingToday = maxSpending / inflationFactor;
-      setMaxSustainableSpending(Math.floor(maxSpendingToday));
+      setMaxSustainableSpending(Math.round(maxSpendingToday));
     };
 
     calculateMaxSpending();
