@@ -459,8 +459,8 @@ export default function FeeAnalyzer({ transactions = [], btcPrice = 97000 }) {
                       {ex.feeRate.toFixed(2)}%
                     </td>
                     <td className="py-3 px-4 text-right text-zinc-400">
-                      ~{ex.spreadRate.toFixed(2)}%
-                    </td>
+                        ~{ex.spreadRate.toFixed(2)}%{ex.isCustom && <span className="text-zinc-600 text-xs ml-1">(avg)</span>}
+                      </td>
                     <td className="py-3 px-4 text-right">
                       <span className={cn(
                         "px-2 py-0.5 rounded text-xs font-medium",
