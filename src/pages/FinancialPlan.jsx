@@ -906,21 +906,26 @@ export default function FinancialPlan() {
   const endOfLifeValue = projections[projections.length - 1]?.total || 0;
   const runOutOfMoneyAge = projections.findIndex(p => p.total <= 0 && p.isRetired);
   const willRunOutOfMoney = runOutOfMoneyAge !== -1;
-  
-  // Calculate these values early as they're needed by retirementStatus
+  const yearsInRetirement = lifeExpectancy - retirementAge;
+
+  // Calculate inflation-adjusted retirement spending need at retirement
   const yearsToRetirement = Math.max(0, retirementAge - currentAge);
   const inflationAdjustedRetirementSpending = retirementAnnualSpending * Math.pow(1 + inflationRate / 100, yearsToRetirement);
-  const yearsInRetirement = lifeExpectancy - retirementAge;
   
+  // Required nest egg and withdrawal rate based on withdrawal strategy
   const effectiveWithdrawalRate = withdrawalStrategy === '4percent' ? 0.04 : 
     withdrawalStrategy === 'dynamic' ? dynamicWithdrawalRate / 100 : 
     Math.max(0.03, 1 / yearsInRetirement);
   const requiredNestEgg = inflationAdjustedRetirementSpending / effectiveWithdrawalRate;
+  
+  // Calculate max sustainable spending
+  const maxSustainableSpending = !willRunOutOfMoney && withdrawalStrategy === 'variable' 
+    ? inflationAdjustedRetirementSpending 
+    : retirementValue * effectiveWithdrawalRate;
 
   // Calculate retirement status and insights
   const retirementStatus = useMemo(() => {
-    // Check if portfolio can support desired spending at retirement - THIS IS THE MOST CRITICAL CHECK
-    const maxSustainableSpending = retirementValue * effectiveWithdrawalRate;
+    // Check if portfolio can support desired spending at retirement
     const canAffordDesiredSpending = maxSustainableSpending >= inflationAdjustedRetirementSpending * 0.95; // Within 95%
 
     if (willRunOutOfMoney) {
@@ -978,7 +983,7 @@ export default function FinancialPlan() {
         icon: <Sparkles className="w-5 h-5" />
       };
     }
-  }, [earliestRetirementAge, retirementAge, willRunOutOfMoney, runOutOfMoneyAge, currentAge, retirementValue, inflationRate, retirementAnnualSpending, lifeExpectancy, withdrawalStrategy, dynamicWithdrawalRate, effectiveWithdrawalRate, inflationAdjustedRetirementSpending]);
+  }, [earliestRetirementAge, retirementAge, willRunOutOfMoney, runOutOfMoneyAge, currentAge, retirementValue, effectiveWithdrawalRate, inflationAdjustedRetirementSpending]);
 
   // Calculate earliest achievable FI age (when portfolio can sustain withdrawals to life expectancy)
   useEffect(() => {
@@ -1480,6 +1485,14 @@ export default function FinancialPlan() {
                       if (yearsToWork <= 0) return 0;
 
                       // Calculate required nest egg for sustainable retirement
+                      const yearsToRetirement = Math.max(0, retirementAge - currentAge);
+                      const inflationAdjustedSpending = retirementAnnualSpending * Math.pow(1 + inflationRate / 100, yearsToRetirement);
+                      const effectiveWithdrawalRate = withdrawalStrategy === '4percent' ? 0.04 : 
+                        withdrawalStrategy === 'dynamic' ? dynamicWithdrawalRate / 100 : 
+                        Math.max(0.03, 1 / (lifeExpectancy - retirementAge));
+                      const requiredNestEgg = inflationAdjustedSpending / effectiveWithdrawalRate;
+
+                      // Gap between required and projected
                       const portfolioGap = Math.max(0, requiredNestEgg - portfolioAtTarget);
 
                       if (portfolioGap <= 0) return 0;
@@ -1506,22 +1519,11 @@ export default function FinancialPlan() {
                     <h5 className="text-xs font-semibold text-zinc-300 uppercase tracking-wide">Or Reduce Retirement Spending To</h5>
                   </div>
                   <p className="text-2xl font-bold text-rose-400">
-                    {formatNumber((() => {
-                      const targetIndex = Math.max(0, retirementAge - currentAge);
-                      const portfolioAtTarget = projections[targetIndex]?.total || 0;
-
-                      // Calculate what the portfolio can sustainably support
-                      const sustainableWithdrawal = portfolioAtTarget * effectiveWithdrawalRate;
-
-                      return sustainableWithdrawal;
-                    })())}<span className="text-sm text-zinc-500">/yr</span>
+                    {formatNumber(maxSustainableSpending)}<span className="text-sm text-zinc-500">/yr</span>
                   </p>
                   <p className="text-[10px] text-zinc-500 mt-1">
                     {(() => {
-                      const targetIndex = Math.max(0, retirementAge - currentAge);
-                      const portfolioAtTarget = projections[targetIndex]?.total || 0;
-                      const sustainableWithdrawal = portfolioAtTarget * effectiveWithdrawalRate;
-                      const reduction = Math.max(0, inflationAdjustedRetirementSpending - sustainableWithdrawal);
+                      const reduction = Math.max(0, inflationAdjustedRetirementSpending - maxSustainableSpending);
                       return `${formatNumber(reduction)} less than planned ${formatNumber(inflationAdjustedRetirementSpending)}/yr at age ${retirementAge}`;
                     })()}
                   </p>
@@ -1995,8 +1997,8 @@ export default function FinancialPlan() {
               </div>
               <div>
                 <p className="text-sm text-zinc-400">Max Sustainable Spending</p>
-                <p className="text-2xl font-bold text-emerald-400">{formatNumber(retirementValue * effectiveWithdrawalRate)}/yr</p>
-                <p className="text-xs text-zinc-500">{formatNumber((retirementValue * effectiveWithdrawalRate) / 12)}/mo at age {retirementAge}</p>
+                <p className="text-2xl font-bold text-emerald-400">{formatNumber(maxSustainableSpending)}/yr</p>
+                <p className="text-xs text-zinc-500">{formatNumber(maxSustainableSpending / 12)}/mo at age {retirementAge}</p>
               </div>
               <div>
                 <p className="text-sm text-zinc-400">At Age {lifeExpectancy}</p>
