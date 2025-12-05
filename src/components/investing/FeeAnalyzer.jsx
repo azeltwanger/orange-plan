@@ -22,16 +22,18 @@ const EXCHANGE_INFO = {
   unknown: { name: 'Unknown', explicitFee: 0.5, spread: 0.5, color: '#52525B', keywords: [] },
 };
 
-// Fuzzy match exchange name to EXCHANGE_INFO key
+// Default spread for unknown exchanges (industry average)
+const DEFAULT_SPREAD = 0.5;
+
+// Fuzzy match exchange name to EXCHANGE_INFO key, returns { key, displayName }
 const matchExchange = (exchangeName) => {
-  if (!exchangeName) return 'unknown';
+  if (!exchangeName) return { key: 'unknown', displayName: 'Unknown' };
   const normalized = exchangeName.toLowerCase().trim();
   
   // First check for exact key match
-  if (EXCHANGE_INFO[normalized]) return normalized;
+  if (EXCHANGE_INFO[normalized]) return { key: normalized, displayName: EXCHANGE_INFO[normalized].name };
   
   // Check keywords for each exchange (more specific first)
-  // Sort by keyword length descending to match more specific terms first
   const exchanges = Object.entries(EXCHANGE_INFO);
   for (const [key, info] of exchanges) {
     if (info.keywords && info.keywords.some(kw => normalized.includes(kw))) {
@@ -39,11 +41,12 @@ const matchExchange = (exchangeName) => {
       if (key === 'coinbase' && (normalized.includes('pro') || normalized.includes('advanced'))) {
         continue;
       }
-      return key;
+      return { key, displayName: info.name };
     }
   }
   
-  return 'other';
+  // Return original name for unlisted exchanges, use 'custom' key for fee lookup
+  return { key: 'custom', displayName: exchangeName };
 };
 
 // Best-in-class total cost (Kraken Pro: 0.26% fee + ~0.1% spread = ~0.36%)
