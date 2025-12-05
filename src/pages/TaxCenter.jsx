@@ -64,8 +64,8 @@ const TAX_BRACKETS_2025 = {
   },
 };
 
-// Default trading fee estimate (round trip: buy + sell) - will be overridden by actual avg if available
-const DEFAULT_ROUND_TRIP_FEE_PERCENT = 2.0; // 1% per side = 2% round trip default
+// Default trading fee estimate (round trip: buy + sell) - industry standard, used when no user data available
+const DEFAULT_ROUND_TRIP_FEE_PERCENT = 0.5; // 0.25% per side = 0.5% round trip (industry standard for major exchanges)
 
 // Tax lot selection methods
 const LOT_METHODS = {
@@ -871,7 +871,7 @@ export default function TaxCenter() {
         <div className="flex gap-2 flex-wrap">
           <Button variant="outline" onClick={() => setCsvImportOpen(true)} className="bg-transparent border-zinc-700">
             <Upload className="w-4 h-4 mr-2" />
-            Import CSV
+            Transaction CSV Import
           </Button>
           <Button variant="outline" onClick={handleDownloadReport} className="bg-transparent border-zinc-700">
             <Download className="w-4 h-4 mr-2" />
