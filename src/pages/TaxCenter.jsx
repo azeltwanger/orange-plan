@@ -471,11 +471,18 @@ export default function TaxCenter() {
   );
   const taxableHoldingTickers = new Set(taxableHoldings.map(h => h.ticker));
 
+  // Helper to check if a transaction is in a taxable account
+  const isTaxableTransaction = (tx) => {
+    const accountType = tx.account_type || 'taxable';
+    const taxAdvantaged = ['traditional_401k', 'roth_401k', 'traditional_ira', 'roth_ira', 'hsa', '529'];
+    return !taxAdvantaged.includes(accountType);
+  };
+
   // Build tax lots from buy transactions, accounting for sales
-  // Only include transactions for taxable holdings
+  // Only include transactions from TAXABLE accounts (exclude 401k, IRA, etc.)
   const taxLots = useMemo(() => {
-    const buyTxs = transactions.filter(t => t.type === 'buy' && t.asset_ticker === 'BTC');
-    const sellTxs = transactions.filter(t => t.type === 'sell' && t.asset_ticker === 'BTC');
+    const buyTxs = transactions.filter(t => t.type === 'buy' && t.asset_ticker === 'BTC' && isTaxableTransaction(t));
+    const sellTxs = transactions.filter(t => t.type === 'sell' && t.asset_ticker === 'BTC' && isTaxableTransaction(t));
     
     // Calculate total sold quantity
     const totalSold = sellTxs.reduce((sum, t) => sum + (t.quantity || 0), 0);
@@ -811,16 +818,50 @@ export default function TaxCenter() {
     };
   };
 
-  // Calculate average fee percentage from reported transactions
+  // Calculate all-in fee percentage (explicit fees + estimated spread) matching Fee Analysis
   const avgFeePercent = useMemo(() => {
-    const txsWithFees = transactions.filter(t => t.trading_fee && t.trading_fee > 0 && t.total_value > 0);
-    if (txsWithFees.length === 0) return DEFAULT_ROUND_TRIP_FEE_PERCENT; // Default 1% per side
+    // Filter to BTC buy transactions only (same as Fee Analysis)
+    const btcBuyTxs = transactions.filter(t => t.asset_ticker === 'BTC' && t.type === 'buy');
+    if (btcBuyTxs.length === 0) return DEFAULT_ROUND_TRIP_FEE_PERCENT;
     
-    const totalFeePercent = txsWithFees.reduce((sum, t) => {
-      return sum + (t.trading_fee / t.total_value) * 100;
-    }, 0);
-    const avgPerSide = totalFeePercent / txsWithFees.length;
-    return avgPerSide * 2; // Round trip = 2x per side
+    // Exchange spread estimates (matching FeeAnalyzer component)
+    const EXCHANGE_SPREADS = {
+      coinbase: 0.5, coinbase_pro: 0.1, kraken: 0.1, gemini: 0.5, binance_us: 0.1,
+      strike: 0.3, cash_app: 2.2, swan: 0.2, river: 0.25, robinhood: 0.5,
+    };
+    const DEFAULT_SPREAD = 0.5;
+    
+    const matchExchangeSpread = (exchangeName) => {
+      if (!exchangeName) return DEFAULT_SPREAD;
+      const normalized = exchangeName.toLowerCase().trim();
+      for (const [key, spread] of Object.entries(EXCHANGE_SPREADS)) {
+        if (normalized.includes(key.replace('_', ' ')) || normalized.includes(key)) {
+          return spread;
+        }
+      }
+      return DEFAULT_SPREAD;
+    };
+    
+    let totalExplicitFees = 0;
+    let totalSpreadCost = 0;
+    let totalVolume = 0;
+    
+    btcBuyTxs.forEach(tx => {
+      const txVolume = (tx.quantity || 0) * (tx.price_per_unit || 0);
+      totalVolume += txVolume;
+      totalExplicitFees += (tx.trading_fee || 0) + (tx.withdrawal_fee || 0) + (tx.deposit_fee || 0);
+      
+      // Estimate spread based on exchange
+      const spreadRate = matchExchangeSpread(tx.exchange_or_wallet);
+      totalSpreadCost += txVolume * (spreadRate / 100);
+    });
+    
+    if (totalVolume === 0) return DEFAULT_ROUND_TRIP_FEE_PERCENT;
+    
+    // All-in cost = explicit fees + spread, as percentage
+    // For round trip (sell + rebuy), multiply by 2
+    const allInRate = ((totalExplicitFees + totalSpreadCost) / totalVolume) * 100;
+    return allInRate * 2; // Round trip
   }, [transactions]);
 
   const washTradeAnalysis = useMemo(() => calculateWashTradeAnalysis(taxableLotsForHarvest, avgFeePercent), [taxableLotsForHarvest, avgFeePercent, effectiveSTCGRate, ltcgBracketRoom, canHarvestGainsTaxFree, filingStatus]);
@@ -1018,7 +1059,7 @@ export default function TaxCenter() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="card-premium rounded-xl p-5 border border-zinc-800/50">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs text-zinc-500 uppercase tracking-wider">Short-Term Gains</span>
+            <span className="text-xs text-zinc-500 uppercase tracking-wider">YTD Short-Term Realized</span>
             <div className={cn("p-1.5 rounded-lg", shortTermGains >= 0 ? "bg-emerald-400/10" : "bg-rose-400/10")}>
               {shortTermGains >= 0 ? <TrendingUp className="w-4 h-4 text-emerald-400" /> : <TrendingDown className="w-4 h-4 text-rose-400" />}
             </div>
@@ -1026,12 +1067,12 @@ export default function TaxCenter() {
           <p className={cn("text-2xl font-bold", shortTermGains >= 0 ? "text-emerald-400" : "text-rose-400")}>
             {shortTermGains >= 0 ? '+' : '-'}${Math.abs(shortTermGains).toLocaleString()}
           </p>
-          <p className="text-xs text-zinc-500 mt-1">Taxed at {(effectiveSTCGRate * 100).toFixed(0)}%</p>
+          <p className="text-xs text-zinc-500 mt-1">{shortTermGains === 0 ? 'No ST sales this year' : `Taxed at ${(effectiveSTCGRate * 100).toFixed(0)}%`}</p>
         </div>
 
         <div className="card-premium rounded-xl p-5 border border-zinc-800/50">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs text-zinc-500 uppercase tracking-wider">Long-Term Gains</span>
+            <span className="text-xs text-zinc-500 uppercase tracking-wider">YTD Long-Term Realized</span>
             <div className={cn("p-1.5 rounded-lg", longTermGains >= 0 ? "bg-emerald-400/10" : "bg-rose-400/10")}>
               {longTermGains >= 0 ? <TrendingUp className="w-4 h-4 text-emerald-400" /> : <TrendingDown className="w-4 h-4 text-rose-400" />}
             </div>
@@ -1039,8 +1080,8 @@ export default function TaxCenter() {
           <p className={cn("text-2xl font-bold", longTermGains >= 0 ? "text-emerald-400" : "text-rose-400")}>
             {longTermGains >= 0 ? '+' : '-'}${Math.abs(longTermGains).toLocaleString()}
           </p>
-          <p className={cn("text-xs mt-1", effectiveLTCGRate === 0 ? "text-emerald-400" : "text-zinc-500")}>
-            {effectiveLTCGRate === 0 ? '0% TAX!' : `Taxed at ${(effectiveLTCGRate * 100).toFixed(0)}%`}
+          <p className={cn("text-xs mt-1", longTermGains === 0 ? "text-zinc-500" : effectiveLTCGRate === 0 ? "text-emerald-400" : "text-zinc-500")}>
+            {longTermGains === 0 ? 'No LT sales this year' : effectiveLTCGRate === 0 ? '0% TAX!' : `Taxed at ${(effectiveLTCGRate * 100).toFixed(0)}%`}
           </p>
         </div>
 
@@ -1056,13 +1097,13 @@ export default function TaxCenter() {
 
         <div className="card-premium rounded-xl p-5 border border-zinc-800/50">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs text-zinc-500 uppercase tracking-wider">BTC Holdings</span>
+            <span className="text-xs text-zinc-500 uppercase tracking-wider">Taxable BTC</span>
             <div className="p-1.5 rounded-lg bg-orange-400/10">
               <Receipt className="w-4 h-4 text-orange-400" />
             </div>
           </div>
           <p className="text-2xl font-bold text-orange-400">{totalBtcHeld.toFixed(4)}</p>
-          <p className="text-xs text-zinc-500 mt-1">{taxLots.length} tax lots</p>
+          <p className="text-xs text-zinc-500 mt-1">{taxLots.length} taxable lots</p>
         </div>
       </div>
 
