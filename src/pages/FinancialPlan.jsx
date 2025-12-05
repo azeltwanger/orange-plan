@@ -1323,20 +1323,45 @@ export default function FinancialPlan() {
             <h3 className="font-semibold mb-4">Portfolio by Tax Treatment</h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-                <p className="text-sm text-zinc-400">Taxable (Accessible Now)</p>
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-sm text-zinc-400">Taxable (Accessible Now)</p>
+                  <Badge className="bg-emerald-500/20 text-emerald-400 text-[10px]">1st</Badge>
+                </div>
                 <p className="text-2xl font-bold text-emerald-400">{formatNumber(taxableValue)}</p>
                 <p className="text-xs text-zinc-500">Brokerage, self-custody crypto</p>
               </div>
               <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20">
-                <p className="text-sm text-zinc-400">Tax-Deferred (59½+)</p>
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-sm text-zinc-400">Tax-Deferred (59½+)</p>
+                  <Badge className="bg-amber-500/20 text-amber-400 text-[10px]">2nd</Badge>
+                </div>
                 <p className="text-2xl font-bold text-amber-400">{formatNumber(taxDeferredValue)}</p>
                 <p className="text-xs text-zinc-500">401(k), Traditional IRA • 10% penalty if early</p>
               </div>
               <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-500/20">
-                <p className="text-sm text-zinc-400">Tax-Free (Roth/HSA)</p>
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-sm text-zinc-400">Tax-Free (Roth/HSA)</p>
+                  <Badge className="bg-purple-500/20 text-purple-400 text-[10px]">3rd</Badge>
+                </div>
                 <p className="text-2xl font-bold text-purple-400">{formatNumber(taxFreeValue)}</p>
                 <p className="text-xs text-zinc-500">Roth IRA/401k, HSA • Contributions accessible</p>
               </div>
+            </div>
+            
+            {/* Withdrawal Priority Explanation */}
+            <div className="mt-4 p-3 rounded-lg bg-zinc-800/30 border border-zinc-700/50">
+              <p className="text-xs font-medium text-zinc-300 mb-2">Withdrawal Priority Order</p>
+              <div className="flex items-center gap-2 text-xs text-zinc-400">
+                <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400">1. Taxable</span>
+                <span>→</span>
+                <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-400">2. Tax-Deferred</span>
+                <span>→</span>
+                <span className="px-2 py-0.5 rounded bg-purple-500/20 text-purple-400">3. Tax-Free (Last)</span>
+              </div>
+              <p className="text-[10px] text-zinc-500 mt-2">
+                After age 59½: Taxable first (LTCG rates), then tax-deferred (income tax), then tax-free last (preserves tax-free growth).
+                Before 59½: Taxable first, then Roth contributions, then tax-deferred with 10% penalty as last resort.
+              </p>
             </div>
             {retirementAge < 59.5 && (() => {
                 const yearsUntilPenaltyFree = Math.ceil(59.5 - retirementAge);
