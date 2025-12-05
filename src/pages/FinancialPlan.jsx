@@ -921,8 +921,8 @@ export default function FinancialPlan() {
 
   // Calculate retirement status and insights
   const retirementStatus = useMemo(() => {
-    // Compare in today's dollars (both are already in today's dollars)
-    const canAffordDesiredSpending = maxSustainableSpending >= retirementAnnualSpending * 0.98; // Within 98%
+    // Compare in today's dollars - allow spending up to ~102% of max sustainable (within 2% tolerance)
+    const canAffordDesiredSpending = retirementAnnualSpending <= maxSustainableSpending / 0.98;
 
     if (willRunOutOfMoney) {
       return {
