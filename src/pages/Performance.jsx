@@ -416,31 +416,29 @@ export default function Performance() {
     fetchIRRMetrics();
   }, [currentPrices, priceLoading]);
 
-  // Fetch stock prices via backend function
+  // Fetch stock prices via Yahoo Finance backend function
   useEffect(() => {
     const fetchStockPrices = async () => {
       if (stockTickers.length === 0) return;
       
       try {
         const daysMap = { '1M': 30, '3M': 90, '6M': 180, '1Y': 365, '3Y': 1095, '5Y': 1825, '10Y': 3650 };
-        const days = timeframe === 'ALL' ? daysSinceFirstTx : (daysMap[timeframe] || 365);
+        const days = timeframe === 'ALL' ? Math.max(daysSinceFirstTx, 365) : (daysMap[timeframe] || 365);
         
         const response = await base44.functions.invoke('getStockPrices', {
           tickers: stockTickers,
-          days
+          days: days > 365 ? 'max' : days
         });
         
         if (response.data) {
-          // Transform to match crypto format
           const transformed = {};
           for (const [ticker, data] of Object.entries(response.data)) {
-            if (data.historical) {
+            if (data.historical && data.historical.length > 0) {
               transformed[ticker] = data.historical.map(p => ({
                 date: new Date(p.date),
                 price: p.price
               }));
             }
-            // Update current prices
             if (data.currentPrice) {
               setCurrentPrices(prev => ({ ...prev, [ticker]: data.currentPrice }));
             }
@@ -453,7 +451,7 @@ export default function Performance() {
     };
     
     fetchStockPrices();
-  }, [timeframe, stockTickers]);
+  }, [timeframe, stockTickers, daysSinceFirstTx]);
 
   // Helper to get current price for any ticker
   const getCurrentPrice = useCallback((ticker) => {
