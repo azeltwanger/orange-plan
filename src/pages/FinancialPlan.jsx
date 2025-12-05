@@ -1491,23 +1491,22 @@ export default function FinancialPlan() {
                 <div className="card-premium rounded-xl p-4 border border-zinc-700/50">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-rose-400" />
-                    <h5 className="text-xs font-semibold text-zinc-300 uppercase tracking-wide">Or Reduce Spending By</h5>
+                    <h5 className="text-xs font-semibold text-zinc-300 uppercase tracking-wide">Or Reduce Spending To</h5>
                   </div>
                   <p className="text-2xl font-bold text-rose-400">
-                    -{formatNumber((() => {
+                    {formatNumber((() => {
                       const targetIndex = Math.max(0, retirementAge - currentAge);
                       const portfolioAtTarget = projections[targetIndex]?.total || 0;
                       
-                      // What current portfolio can sustain at target age
+                      // What current portfolio trajectory can sustain at target age
                       const sustainableWithdrawal = portfolioAtTarget * effectiveWithdrawalRate;
                       
-                      // Gap between desired and sustainable
-                      const spendingGap = Math.max(0, inflationAdjustedRetirementSpending - sustainableWithdrawal);
-                      
-                      return spendingGap;
+                      return sustainableWithdrawal;
                     })())}<span className="text-sm text-zinc-500">/yr</span>
                   </p>
-                  <p className="text-[10px] text-zinc-500 mt-1">from planned {formatNumber(inflationAdjustedRetirementSpending)}/yr to retire at {retirementAge}</p>
+                  <p className="text-[10px] text-zinc-500 mt-1">
+                    max sustainable at age {retirementAge} (vs. {formatNumber(inflationAdjustedRetirementSpending)}/yr planned)
+                  </p>
                 </div>
 
                 {/* Alternative: Delay Retirement */}
