@@ -884,6 +884,51 @@ export default function FinancialPlan() {
   const willRunOutOfMoney = runOutOfMoneyAge !== -1;
   const yearsInRetirement = lifeExpectancy - retirementAge;
 
+  // Calculate retirement status and insights
+  const retirementStatus = useMemo(() => {
+    const gap = earliestRetirementAge ? earliestRetirementAge - retirementAge : null;
+    
+    if (willRunOutOfMoney) {
+      return {
+        type: 'critical',
+        title: 'Critical: Plan Not Sustainable',
+        description: `Portfolio projected to run out at age ${currentAge + runOutOfMoneyAge}.`,
+        icon: <AlertTriangle className="w-5 h-5" />
+      };
+    } else if (gap === null || gap > 10) {
+      return {
+        type: 'critical',
+        title: 'At Risk: Major Shortfall',
+        description: `Retirement not achievable at target age ${retirementAge} with current plan.`,
+        icon: <AlertTriangle className="w-5 h-5" />
+      };
+    } else if (gap > 3) {
+      return {
+        type: 'at_risk',
+        title: 'At Risk: Adjustments Needed',
+        description: `Earliest sustainable retirement: Age ${earliestRetirementAge} (${gap} years later than target).`,
+        icon: <AlertTriangle className="w-5 h-5" />
+      };
+    } else if (gap > 0) {
+      return {
+        type: 'on_track',
+        title: 'Nearly On Track',
+        description: `Close to target! Earliest retirement: Age ${earliestRetirementAge} (${gap} years from target).`,
+        icon: <TrendingUp className="w-5 h-5" />
+      };
+    } else {
+      const yearsEarly = Math.abs(gap);
+      return {
+        type: 'optimistic',
+        title: 'Ahead of Schedule!',
+        description: yearsEarly > 0 
+          ? `You can retire ${yearsEarly} year${yearsEarly !== 1 ? 's' : ''} earlier at Age ${earliestRetirementAge}.`
+          : `On track to retire at Age ${retirementAge} as planned.`,
+        icon: <Sparkles className="w-5 h-5" />
+      };
+    }
+  }, [earliestRetirementAge, retirementAge, willRunOutOfMoney, runOutOfMoneyAge, currentAge]);
+
   // Calculate earliest achievable FI age (when portfolio can sustain withdrawals to life expectancy)
   useEffect(() => {
     const calculateEarliestFI = () => {
