@@ -81,7 +81,7 @@ export default function Performance() {
         }
         
         const ids = cryptoTickers.map(t => COINGECKO_IDS[t]).join(',');
-        const response = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd`);
+        const response = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd&include_24hr_change=true`);
         const data = await response.json();
         
         const prices = {};
@@ -91,7 +91,7 @@ export default function Performance() {
             prices[ticker] = data[id].usd;
           }
         }
-        setCurrentPrices(prices);
+        setCurrentPrices(prev => ({ ...prev, ...prices }));
         setPriceLoading(false);
       } catch (err) {
         console.error('Failed to fetch current prices:', err);
@@ -101,7 +101,8 @@ export default function Performance() {
     
     if (cryptoTickers.length > 0) {
       fetchCurrentPrices();
-      const interval = setInterval(fetchCurrentPrices, 60000);
+      // Refresh every 30 seconds for more up-to-date prices
+      const interval = setInterval(fetchCurrentPrices, 30000);
       return () => clearInterval(interval);
     } else {
       setPriceLoading(false);
@@ -149,10 +150,16 @@ export default function Performance() {
         const priceData = {};
         
         // Fetch historical data for each crypto (in parallel)
+        // For shorter timeframes (<=90 days), omit interval to get hourly/granular data
+        // For longer timeframes, use daily interval
         await Promise.all(cryptoTickers.map(async (ticker) => {
           try {
             const id = COINGECKO_IDS[ticker];
-            const response = await fetch(`https://api.coingecko.com/api/v3/coins/${id}/market_chart?vs_currency=usd&days=${days}&interval=daily`);
+            const useDaily = days > 90;
+            const url = useDaily 
+              ? `https://api.coingecko.com/api/v3/coins/${id}/market_chart?vs_currency=usd&days=${days}&interval=daily`
+              : `https://api.coingecko.com/api/v3/coins/${id}/market_chart?vs_currency=usd&days=${days}`;
+            const response = await fetch(url);
             const data = await response.json();
             if (data.prices) {
               priceData[ticker] = data.prices.map(([timestamp, price]) => ({
@@ -174,7 +181,7 @@ export default function Performance() {
     if (cryptoTickers.length > 0) {
       fetchHistoricalPrices();
     }
-  }, [timeframe, cryptoTickers]);
+  }, [timeframe, cryptoTickers, daysSinceFirstTx]);
 
   // Fetch IRR metrics from backend
   useEffect(() => {
