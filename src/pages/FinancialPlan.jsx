@@ -245,6 +245,7 @@ export default function FinancialPlan() {
   const [stocksVolatility, setStocksVolatility] = useState(15);
   const [realEstateCagr, setRealEstateCagr] = useState(4);
   const [bondsCagr, setBondsCagr] = useState(3);
+  const [cashCagr, setCashCagr] = useState(0);
   const [inflationRate, setInflationRate] = useState(3);
   const [incomeGrowth, setIncomeGrowth] = useState(3);
   
@@ -352,6 +353,7 @@ export default function FinancialPlan() {
       if (settings.stocks_volatility !== undefined) setStocksVolatility(settings.stocks_volatility);
       if (settings.real_estate_cagr !== undefined) setRealEstateCagr(settings.real_estate_cagr);
       if (settings.bonds_cagr !== undefined) setBondsCagr(settings.bonds_cagr);
+      if (settings.cash_cagr !== undefined) setCashCagr(settings.cash_cagr);
       if (settings.inflation_rate !== undefined) setInflationRate(settings.inflation_rate);
       if (settings.income_growth_rate !== undefined) setIncomeGrowth(settings.income_growth_rate);
       if (settings.retirement_age !== undefined) setRetirementAge(settings.retirement_age);
@@ -391,6 +393,7 @@ export default function FinancialPlan() {
         stocks_volatility: stocksVolatility || 15,
         real_estate_cagr: realEstateCagr || 4,
         bonds_cagr: bondsCagr || 3,
+        cash_cagr: cashCagr || 0,
         inflation_rate: inflationRate || 3,
         income_growth_rate: incomeGrowth || 3,
         retirement_age: retirementAge || 65,
@@ -407,7 +410,7 @@ export default function FinancialPlan() {
                     });
     }, 1000); // Debounce 1 second
     return () => clearTimeout(timeoutId);
-  }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, withdrawalStrategy, dynamicWithdrawalRate, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount]);
+  }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, withdrawalStrategy, dynamicWithdrawalRate, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount]);
 
   // Calculate annual savings from Income & Expenses (single source of truth)
   const freqMultiplier = { monthly: 12, weekly: 52, biweekly: 26, quarterly: 4, annual: 1, one_time: 0 };
@@ -1226,6 +1229,13 @@ export default function FinancialPlan() {
                 <span className="text-purple-400 font-semibold">{bondsCagr}%</span>
               </div>
               <Slider value={[bondsCagr]} onValueChange={([v]) => setBondsCagr(v)} min={0} max={10} step={0.5} />
+            </div>
+            <div className="space-y-3">
+              <div className="flex justify-between">
+                <Label className="text-zinc-400">Cash/Savings CAGR</Label>
+                <span className="text-cyan-400 font-semibold">{cashCagr}%</span>
+              </div>
+              <Slider value={[cashCagr]} onValueChange={([v]) => setCashCagr(v)} min={0} max={10} step={0.5} />
             </div>
             <div className="space-y-3">
               <div className="flex justify-between">
