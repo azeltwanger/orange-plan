@@ -154,7 +154,7 @@ export default function NetWorthCard({ totalAssets, totalLiabilities, btcHolding
                     {returnData.annualizedReturn >= 0 ? '+' : ''}{returnData.annualizedReturn.toFixed(1)}%
                   </p>
                   <p className="text-[10px] text-zinc-500 uppercase tracking-wider">
-                    {returnData.years >= 1 ? 'Annualized' : 'Return'} ({returnData.years.toFixed(1)}y)
+                    {returnData.isIRR ? 'IRR' : returnData.years >= 1 ? 'Annualized' : 'Return'} ({returnData.years.toFixed(1)}y)
                   </p>
                 </div>
               </div>
