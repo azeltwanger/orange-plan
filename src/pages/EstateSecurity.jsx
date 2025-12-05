@@ -730,12 +730,12 @@ export default function EstateSecurity() {
               })}
             </div>
 
-            {/* BTC Holdings to Allocate */}
-            {btcHoldings.length > 0 && (
+            {/* BTC Holdings to Allocate - only show if there are unallocated holdings */}
+            {btcHoldings.length > 0 && btcHoldings.some(h => (h.quantity - (allocatedBtcByHolding[h.id] || 0)) > 0) && (
               <div className="mb-6 p-4 rounded-xl bg-orange-500/5 border border-orange-500/20">
                 <h4 className="text-sm font-medium text-orange-400 mb-3">Bitcoin Holdings to Allocate</h4>
                 <div className="space-y-2">
-                  {btcHoldings.map(h => {
+                  {btcHoldings.filter(h => (h.quantity - (allocatedBtcByHolding[h.id] || 0)) > 0).map(h => {
                     const account = accounts.find(a => a.id === h.account_id);
                     const allocated = allocatedBtcByHolding[h.id] || 0;
                     const remaining = h.quantity - allocated;
@@ -746,8 +746,8 @@ export default function EstateSecurity() {
                           <p className="text-xs text-zinc-500">{h.quantity.toFixed(8)} BTC total</p>
                         </div>
                         <div className="text-right">
-                          <p className={cn("font-semibold", remaining > 0 ? "text-amber-400" : "text-emerald-400")}>
-                            {remaining > 0 ? `${remaining.toFixed(8)} unallocated` : 'Fully allocated'}
+                          <p className="font-semibold text-amber-400">
+                            {remaining.toFixed(8)} unallocated
                           </p>
                           <p className="text-xs text-zinc-500">{allocated.toFixed(8)} in custody locations</p>
                         </div>
