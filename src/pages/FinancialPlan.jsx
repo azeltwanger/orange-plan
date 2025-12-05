@@ -1496,7 +1496,7 @@ export default function FinancialPlan() {
                 <div className="card-premium rounded-xl p-4 border border-zinc-700/50">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-rose-400" />
-                    <h5 className="text-xs font-semibold text-zinc-300 uppercase tracking-wide">Or Reduce Retirement Spending By</h5>
+                    <h5 className="text-xs font-semibold text-zinc-300 uppercase tracking-wide">Or Reduce Retirement Spending To</h5>
                   </div>
                   <p className="text-2xl font-bold text-rose-400">
                     {formatNumber((() => {
@@ -1506,14 +1506,7 @@ export default function FinancialPlan() {
                       // Calculate what the portfolio can sustainably support
                       const sustainableWithdrawal = portfolioAtTarget * effectiveWithdrawalRate;
 
-                      // Inflation-adjusted retirement spending need
-                      const yearsToRetirement = Math.max(0, retirementAge - currentAge);
-                      const inflationAdjustedSpending = retirementAnnualSpending * Math.pow(1 + inflationRate / 100, yearsToRetirement);
-
-                      // The reduction needed
-                      const reductionNeeded = Math.max(0, inflationAdjustedSpending - sustainableWithdrawal);
-
-                      return reductionNeeded;
+                      return sustainableWithdrawal;
                     })())}<span className="text-sm text-zinc-500">/yr</span>
                   </p>
                   <p className="text-[10px] text-zinc-500 mt-1">
@@ -1523,7 +1516,8 @@ export default function FinancialPlan() {
                       const sustainableWithdrawal = portfolioAtTarget * effectiveWithdrawalRate;
                       const yearsToRetirement = Math.max(0, retirementAge - currentAge);
                       const inflationAdjustedSpending = retirementAnnualSpending * Math.pow(1 + inflationRate / 100, yearsToRetirement);
-                      return `from ${formatNumber(inflationAdjustedSpending)}/yr to ${formatNumber(sustainableWithdrawal)}/yr at age ${retirementAge}`;
+                      const reduction = Math.max(0, inflationAdjustedSpending - sustainableWithdrawal);
+                      return `${formatNumber(reduction)} less than planned ${formatNumber(inflationAdjustedSpending)}/yr at age ${retirementAge}`;
                     })()}
                   </p>
                 </div>
