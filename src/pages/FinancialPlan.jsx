@@ -1492,32 +1492,38 @@ export default function FinancialPlan() {
                   <p className="text-[10px] text-zinc-500 mt-1">invested into your portfolio to retire at age {retirementAge}</p>
                 </div>
 
-                {/* Spending Reduction Insight */}
-                <div className="card-premium rounded-xl p-4 border border-zinc-700/50">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-rose-400" />
-                    <h5 className="text-xs font-semibold text-zinc-300 uppercase tracking-wide">Or Reduce Retirement Spending By</h5>
-                  </div>
-                  <p className="text-2xl font-bold text-rose-400">
-                    -{formatNumber((() => {
-                      const targetIndex = Math.max(0, retirementAge - currentAge);
-                      const portfolioAtTarget = projections[targetIndex]?.total || 0;
+                {/* Spending Reduction Insight - only show when behind schedule */}
+                {(() => {
+                  if (!earliestRetirementAge || earliestRetirementAge <= retirementAge) return null;
 
-                      // Calculate what the portfolio can sustainably support
-                      const sustainableWithdrawal = portfolioAtTarget * effectiveWithdrawalRate;
+                  const targetIndex = Math.max(0, retirementAge - currentAge);
+                  const portfolioAtTarget = projections[targetIndex]?.total || 0;
 
-                      // Inflation-adjusted retirement spending need
-                      const yearsToRetirement = Math.max(0, retirementAge - currentAge);
-                      const inflationAdjustedSpending = retirementAnnualSpending * Math.pow(1 + inflationRate / 100, yearsToRetirement);
+                  // Calculate what the portfolio can sustainably support
+                  const sustainableWithdrawal = portfolioAtTarget * effectiveWithdrawalRate;
 
-                      // The reduction needed
-                      const reductionNeeded = Math.max(0, inflationAdjustedSpending - sustainableWithdrawal);
+                  // Inflation-adjusted retirement spending need
+                  const yearsToRetirement = Math.max(0, retirementAge - currentAge);
+                  const inflationAdjustedSpending = retirementAnnualSpending * Math.pow(1 + inflationRate / 100, yearsToRetirement);
 
-                      return reductionNeeded;
-                    })())}<span className="text-sm text-zinc-500">/yr</span>
-                  </p>
-                  <p className="text-[10px] text-zinc-500 mt-1">to retire at age {retirementAge} with current portfolio trajectory</p>
-                </div>
+                  // The reduction needed
+                  const reductionNeeded = Math.max(0, inflationAdjustedSpending - sustainableWithdrawal);
+
+                  return (
+                    <div className="card-premium rounded-xl p-4 border border-zinc-700/50">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+                        <h5 className="text-xs font-semibold text-zinc-300 uppercase tracking-wide">Or Reduce Retirement Spending By</h5>
+                      </div>
+                      <p className="text-2xl font-bold text-rose-400">
+                        {formatNumber(reductionNeeded)}<span className="text-sm text-zinc-500">/yr</span>
+                      </p>
+                      <p className="text-[10px] text-zinc-500 mt-1">
+                        from {formatNumber(inflationAdjustedSpending)}/yr to {formatNumber(sustainableWithdrawal)}/yr at age {retirementAge}
+                      </p>
+                    </div>
+                  );
+                })()}
 
                 {/* Alternative: Delay Retirement */}
                 <div className="card-premium rounded-xl p-4 border border-zinc-700/50">
