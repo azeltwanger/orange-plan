@@ -675,12 +675,13 @@ export default function FinancialPlan() {
         }
       }
 
-      const total = Math.max(0, runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther + runningSavings + eventImpact);
+      // Apply event impacts to total (but not to individual account buckets for simplicity)
+      const totalBeforeEvent = runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther + runningSavings;
+      const total = Math.max(0, totalBeforeEvent + eventImpact);
       const realTotal = total / Math.pow(1 + effectiveInflation / 100, i);
 
-      // Calculate taxes paid this year (only during retirement when withdrawing)
-      const yearTaxesPaid = isRetired ? (taxesPaid || 0) : 0;
-      const yearPenaltyPaid = isRetired ? (penaltyPaid || 0) : 0;
+      // Verify account totals match asset totals (they should track together)
+      const accountTotal = runningTaxable + runningTaxDeferred + runningTaxFree;
 
       data.push({
         age: currentAge + i,
@@ -694,20 +695,21 @@ export default function FinancialPlan() {
         realTotal: Math.round(realTotal),
         hasEvent: lifeEvents.some(e => e.year === year) || goals.some(g => g.will_be_spent && g.target_date && new Date(g.target_date).getFullYear() === year),
         isRetired: isRetired,
-        yearWithdrawal: Math.round(yearWithdrawal),
+        yearWithdrawal: isRetired ? Math.round(yearWithdrawal) : 0,
         btcGrowthRate: yearBtcGrowth,
         // Account type balances
         taxable: Math.round(runningTaxable),
         taxDeferred: Math.round(runningTaxDeferred),
         taxFree: Math.round(runningTaxFree),
+        accountTotal: Math.round(accountTotal),
         canAccessPenaltyFree: currentAge + i >= PENALTY_FREE_AGE,
-        penaltyPaid: Math.round(yearPenaltyPaid),
-        taxesPaid: Math.round(yearTaxesPaid),
-        netWithdrawal: Math.round(yearWithdrawal - yearTaxesPaid - yearPenaltyPaid),
+        penaltyPaid: isRetired ? Math.round(penaltyPaid) : 0,
+        taxesPaid: isRetired ? Math.round(taxesPaid) : 0,
+        netWithdrawal: isRetired ? Math.round(yearWithdrawal - taxesPaid - penaltyPaid) : 0,
       });
     }
     return data;
-  }, [btcValue, stocksValue, realEstateValue, bondsValue, otherValue, taxableValue, taxDeferredValue, taxFreeValue, currentAge, retirementAge, lifeExpectancy, effectiveBtcCagr, effectiveStocksCagr, realEstateCagr, bondsCagr, effectiveInflation, lifeEvents, goals, annualSavings, incomeGrowth, retirementAnnualSpending, withdrawalStrategy, dynamicWithdrawalRate, btcReturnModel, filingStatus, holdings, otherRetirementIncome]);
+  }, [btcValue, stocksValue, realEstateValue, bondsValue, otherValue, taxableValue, taxDeferredValue, taxFreeValue, currentAge, retirementAge, lifeExpectancy, effectiveBtcCagr, effectiveStocksCagr, realEstateCagr, bondsCagr, effectiveInflation, lifeEvents, goals, annualSavings, incomeGrowth, retirementAnnualSpending, withdrawalStrategy, dynamicWithdrawalRate, btcReturnModel, filingStatus, taxableHoldings, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount]);
 
   // Run Monte Carlo when button clicked
   const handleRunSimulation = () => {
