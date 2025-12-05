@@ -8,18 +8,42 @@ const COLORS = ['#F7931A', '#60a5fa', '#a78bfa', '#f472b6', '#34d399', '#fbbf24'
 // Total effective cost = explicit fee + estimated spread
 // Spread estimates based on typical market conditions
 const EXCHANGE_INFO = {
-  coinbase: { name: 'Coinbase', explicitFee: 1.49, spread: 0.5, color: '#0052FF' },
-  coinbase_pro: { name: 'Coinbase Advanced', explicitFee: 0.6, spread: 0.1, color: '#1652F0' },
-  kraken: { name: 'Kraken', explicitFee: 0.26, spread: 0.1, color: '#7B61FF' },
-  gemini: { name: 'Gemini', explicitFee: 1.49, spread: 0.5, color: '#00DCFA' },
-  binance_us: { name: 'Binance US', explicitFee: 0.1, spread: 0.1, color: '#F0B90B' },
-  strike: { name: 'Strike', explicitFee: 0, spread: 0.3, color: '#9333ea' },
-  cash_app: { name: 'Cash App', explicitFee: 0, spread: 2.2, color: '#00D632' },
-  swan: { name: 'Swan Bitcoin', explicitFee: 0.99, spread: 0.2, color: '#F7931A' },
-  river: { name: 'River', explicitFee: 0, spread: 0.25, color: '#0066FF' },
-  robinhood: { name: 'Robinhood', explicitFee: 0, spread: 0.5, color: '#00C805' },
-  other: { name: 'Other', explicitFee: 0.5, spread: 0.5, color: '#71717a' },
-  unknown: { name: 'Unknown', explicitFee: 0.5, spread: 0.5, color: '#52525b' },
+  coinbase: { name: 'Coinbase', explicitFee: 1.49, spread: 0.5, color: '#0052FF', keywords: ['coinbase'] },
+  coinbase_pro: { name: 'Coinbase Advanced', explicitFee: 0.6, spread: 0.1, color: '#1652F0', keywords: ['coinbase pro', 'coinbase advanced', 'cb pro', 'cbpro'] },
+  kraken: { name: 'Kraken', explicitFee: 0.26, spread: 0.1, color: '#7B61FF', keywords: ['kraken'] },
+  gemini: { name: 'Gemini', explicitFee: 1.49, spread: 0.5, color: '#00DCFA', keywords: ['gemini'] },
+  binance_us: { name: 'Binance US', explicitFee: 0.1, spread: 0.1, color: '#F0B90B', keywords: ['binance'] },
+  strike: { name: 'Strike', explicitFee: 0, spread: 0.3, color: '#9333ea', keywords: ['strike'] },
+  cash_app: { name: 'Cash App', explicitFee: 0, spread: 2.2, color: '#00D632', keywords: ['cash app', 'cashapp', 'cash_app'] },
+  swan: { name: 'Swan Bitcoin', explicitFee: 0.99, spread: 0.2, color: '#F7931A', keywords: ['swan'] },
+  river: { name: 'River', explicitFee: 0, spread: 0.25, color: '#0066FF', keywords: ['river'] },
+  robinhood: { name: 'Robinhood', explicitFee: 0, spread: 0.5, color: '#00C805', keywords: ['robinhood'] },
+  other: { name: 'Other', explicitFee: 0.5, spread: 0.5, color: '#71717a', keywords: [] },
+  unknown: { name: 'Unknown', explicitFee: 0.5, spread: 0.5, color: '#52525b', keywords: [] },
+};
+
+// Fuzzy match exchange name to EXCHANGE_INFO key
+const matchExchange = (exchangeName) => {
+  if (!exchangeName) return 'unknown';
+  const normalized = exchangeName.toLowerCase().trim();
+  
+  // First check for exact key match
+  if (EXCHANGE_INFO[normalized]) return normalized;
+  
+  // Check keywords for each exchange (more specific first)
+  // Sort by keyword length descending to match more specific terms first
+  const exchanges = Object.entries(EXCHANGE_INFO);
+  for (const [key, info] of exchanges) {
+    if (info.keywords && info.keywords.some(kw => normalized.includes(kw))) {
+      // Special case: "coinbase" should not match "coinbase_pro" unless it has pro/advanced
+      if (key === 'coinbase' && (normalized.includes('pro') || normalized.includes('advanced'))) {
+        continue;
+      }
+      return key;
+    }
+  }
+  
+  return 'other';
 };
 
 // Best-in-class total cost (Kraken Pro: 0.26% fee + ~0.1% spread = ~0.36%)
@@ -59,11 +83,12 @@ export default function FeeAnalyzer({ transactions = [], btcPrice = 97000 }) {
         totalSpreadCost += (tx.price_per_unit - tx.global_fmv_at_purchase) * tx.quantity;
       }
 
-      // By exchange
-      const exchange = tx.exchange_or_wallet || 'unknown';
+      // By exchange - use fuzzy matching
+      const rawExchange = tx.exchange_or_wallet || 'unknown';
+      const exchange = matchExchange(rawExchange);
       if (!byExchange[exchange]) {
         byExchange[exchange] = { 
-          name: EXCHANGE_INFO[exchange]?.name || exchange,
+          name: EXCHANGE_INFO[exchange]?.name || rawExchange,
           tradingFees: 0, 
           withdrawalFees: 0, 
           depositFees: 0,
