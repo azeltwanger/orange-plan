@@ -42,7 +42,45 @@ const SCENARIO_PRESETS = {
     market_crash_year: new Date().getFullYear() + 3,
     crash_severity_percent: 50,
   },
+  bull_run: {
+    name: 'Bull Run',
+    outperformance_year: new Date().getFullYear() + 2,
+    outperformance_gain_percent: 100,
+  },
+  aggressive_debt_payoff: {
+    name: 'Aggressive Debt Payoff',
+    debt_payoff_strategy: 'accelerated',
+  },
 };
+
+const BTC_RETURN_MODELS = {
+  custom: { name: 'Custom', getRate: (btcCagr) => btcCagr },
+  saylor24: { 
+    name: 'Saylor Bitcoin24', 
+    getRate: (btcCagr, yearFromNow) => Math.max(15, 45 - (yearFromNow * 1.5)) 
+  },
+  powerlaw: { 
+    name: 'Power Law', 
+    getRate: (btcCagr, yearFromNow) => Math.max(20, 60 - (yearFromNow * 2)) 
+  },
+  conservative: { 
+    name: 'Conservative', 
+    getRate: () => 10 
+  },
+};
+
+const REBALANCING_OPTIONS = [
+  { value: 'none', label: 'No Rebalancing', desc: 'Let allocations drift naturally' },
+  { value: 'annual', label: 'Annual', desc: 'Rebalance once per year' },
+  { value: 'quarterly', label: 'Quarterly', desc: 'Rebalance every 3 months' },
+];
+
+const DEBT_STRATEGIES = [
+  { value: 'minimum', label: 'Minimum Payments', desc: 'Pay only required amounts' },
+  { value: 'accelerated', label: 'Accelerated', desc: 'Extra payments to principal' },
+  { value: 'avalanche', label: 'Avalanche', desc: 'Highest interest first' },
+  { value: 'snowball', label: 'Snowball', desc: 'Smallest balance first' },
+];
 
 export default function Scenarios() {
   const [btcPrice, setBtcPrice] = useState(null);
@@ -67,8 +105,16 @@ export default function Scenarios() {
     annual_retirement_spending_override: '',
     withdrawal_strategy_override: '',
     dynamic_withdrawal_rate_override: '',
+    btc_return_model_override: '',
     market_crash_year: '',
     crash_severity_percent: '',
+    outperformance_year: '',
+    outperformance_gain_percent: '',
+    btc_allocation_override: '',
+    stocks_allocation_override: '',
+    rebalancing_strategy: 'none',
+    debt_payoff_strategy: 'minimum',
+    linked_life_event_ids: [],
   });
 
   // Fetch BTC price
@@ -102,7 +148,23 @@ export default function Scenarios() {
     queryFn: () => base44.entities.BudgetItem.list(),
   });
 
+  const { data: lifeEvents = [] } = useQuery({
+    queryKey: ['lifeEvents'],
+    queryFn: () => base44.entities.LifeEvent.list(),
+  });
+
+  const { data: liabilities = [] } = useQuery({
+    queryKey: ['liabilities'],
+    queryFn: () => base44.entities.Liability.list(),
+  });
+
   const settings = userSettings[0] || {};
+  
+  // Get BTC growth rate based on model
+  const getBtcGrowthRate = (model, customCagr, yearFromNow) => {
+    const modelConfig = BTC_RETURN_MODELS[model] || BTC_RETURN_MODELS.custom;
+    return modelConfig.getRate(customCagr, yearFromNow);
+  };
 
   // Base assumptions from UserSettings
   const baseAssumptions = {
@@ -118,6 +180,7 @@ export default function Scenarios() {
     retirementSpending: settings.annual_retirement_spending || 100000,
     withdrawalStrategy: settings.withdrawal_strategy || 'dynamic',
     dynamicWithdrawalRate: settings.dynamic_withdrawal_rate || 5,
+    btcReturnModel: settings.btc_return_model || 'custom',
   };
 
   // Calculate portfolio values
@@ -136,6 +199,7 @@ export default function Scenarios() {
 
   // Generate projection for a scenario
   const generateProjection = (scenario) => {
+    const btcModel = scenario?.btc_return_model_override || baseAssumptions.btcReturnModel;
     const assumptions = {
       ...baseAssumptions,
       retirementAge: scenario?.retirement_age_override || baseAssumptions.retirementAge,
@@ -149,6 +213,11 @@ export default function Scenarios() {
       retirementSpending: scenario?.annual_retirement_spending_override || baseAssumptions.retirementSpending,
       withdrawalStrategy: scenario?.withdrawal_strategy_override || baseAssumptions.withdrawalStrategy,
       dynamicWithdrawalRate: scenario?.dynamic_withdrawal_rate_override || baseAssumptions.dynamicWithdrawalRate,
+      btcReturnModel: btcModel,
+      btcAllocation: scenario?.btc_allocation_override,
+      stocksAllocation: scenario?.stocks_allocation_override,
+      rebalancingStrategy: scenario?.rebalancing_strategy || 'none',
+      debtPayoffStrategy: scenario?.debt_payoff_strategy || 'minimum',
     };
 
     const years = assumptions.lifeExpectancy - assumptions.currentAge;
@@ -162,31 +231,106 @@ export default function Scenarios() {
     let runningOther = otherValue;
     let runningSavings = 0;
     let initialRetirementWithdrawal = 0;
+    
+    // Track debt for accelerated payoff
+    let runningDebt = liabilities.reduce((sum, l) => sum + (l.current_balance || 0), 0);
+    const avgDebtInterestRate = liabilities.length > 0 
+      ? liabilities.reduce((sum, l) => sum + (l.interest_rate || 0), 0) / liabilities.length 
+      : 0;
+
+    // Calculate initial total for allocation targets
+    const initialTotal = btcValue + stocksValue + realEstateValue + bondsValue + otherValue;
+    
+    // Linked life events for this scenario
+    const scenarioLifeEvents = scenario?.linked_life_event_ids?.length > 0
+      ? lifeEvents.filter(e => scenario.linked_life_event_ids.includes(e.id))
+      : [];
 
     for (let i = 0; i <= years; i++) {
       const year = currentYear + i;
       const isRetired = assumptions.currentAge + i >= assumptions.retirementAge;
       const yearsIntoRetirement = isRetired ? assumptions.currentAge + i - assumptions.retirementAge : 0;
 
+      // Get dynamic BTC growth rate based on model
+      const yearBtcGrowth = getBtcGrowthRate(assumptions.btcReturnModel, assumptions.btcCagr, i);
+
       // Check for market crash
       let crashMultiplier = 1;
       if (scenario?.market_crash_year === year && scenario?.crash_severity_percent) {
         crashMultiplier = 1 - (scenario.crash_severity_percent / 100);
       }
+      
+      // Check for market outperformance
+      let outperformanceMultiplier = 1;
+      if (scenario?.outperformance_year === year && scenario?.outperformance_gain_percent) {
+        outperformanceMultiplier = 1 + (scenario.outperformance_gain_percent / 100);
+      }
+
+      // Apply life event impacts
+      let lifeEventImpact = 0;
+      scenarioLifeEvents.forEach(event => {
+        if (event.year === year || (event.is_recurring && event.year <= year && year < event.year + (event.recurring_years || 1))) {
+          const growthMultiplier = event.affects === 'income' 
+            ? Math.pow(1 + assumptions.incomeGrowth / 100, Math.max(0, year - event.year))
+            : 1;
+          lifeEventImpact += event.amount * growthMultiplier;
+        }
+      });
 
       if (i > 0) {
-        runningBtc = runningBtc * (1 + assumptions.btcCagr / 100) * crashMultiplier;
-        runningStocks = runningStocks * (1 + assumptions.stocksCagr / 100) * crashMultiplier;
+        // Apply growth rates with market events
+        runningBtc = runningBtc * (1 + yearBtcGrowth / 100) * crashMultiplier * outperformanceMultiplier;
+        runningStocks = runningStocks * (1 + assumptions.stocksCagr / 100) * crashMultiplier * outperformanceMultiplier;
         runningRealEstate = runningRealEstate * (1 + assumptions.realEstateCagr / 100);
         runningBonds = runningBonds * (1 + assumptions.bondsCagr / 100);
-        runningOther = runningOther * (1 + assumptions.stocksCagr / 100) * crashMultiplier;
+        runningOther = runningOther * (1 + assumptions.stocksCagr / 100) * crashMultiplier * outperformanceMultiplier;
 
-        const blendedGrowthRate = (assumptions.btcCagr * 0.3 + assumptions.stocksCagr * 0.7) / 100;
-        runningSavings = runningSavings * (1 + blendedGrowthRate) * crashMultiplier;
+        const blendedGrowthRate = (yearBtcGrowth * 0.3 + assumptions.stocksCagr * 0.7) / 100;
+        runningSavings = runningSavings * (1 + blendedGrowthRate) * crashMultiplier * outperformanceMultiplier;
+        
+        // Apply debt interest (grows debt if not paid off)
+        if (runningDebt > 0) {
+          runningDebt = runningDebt * (1 + avgDebtInterestRate / 100);
+        }
+
+        // Rebalancing logic
+        const shouldRebalance = 
+          (assumptions.rebalancingStrategy === 'annual' && i % 1 === 0) ||
+          (assumptions.rebalancingStrategy === 'quarterly' && i % 0.25 === 0);
+        
+        if (shouldRebalance && assumptions.btcAllocation !== undefined && assumptions.stocksAllocation !== undefined) {
+          const totalAssets = runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther;
+          const targetBtc = totalAssets * (assumptions.btcAllocation / 100);
+          const targetStocks = totalAssets * (assumptions.stocksAllocation / 100);
+          const remainingAlloc = 100 - (assumptions.btcAllocation || 0) - (assumptions.stocksAllocation || 0);
+          const targetOther = totalAssets * (remainingAlloc / 100);
+          
+          runningBtc = targetBtc;
+          runningStocks = targetStocks;
+          // Distribute remaining proportionally among other assets
+          const otherTotal = runningRealEstate + runningBonds + runningOther;
+          if (otherTotal > 0) {
+            const reRatio = runningRealEstate / otherTotal;
+            const bondRatio = runningBonds / otherTotal;
+            const miscRatio = runningOther / otherTotal;
+            runningRealEstate = targetOther * reRatio;
+            runningBonds = targetOther * bondRatio;
+            runningOther = targetOther * miscRatio;
+          }
+        }
       }
 
       if (!isRetired) {
-        const yearSavings = annualSavings * Math.pow(1 + assumptions.incomeGrowth / 100, i);
+        let yearSavings = annualSavings * Math.pow(1 + assumptions.incomeGrowth / 100, i);
+        
+        // Apply accelerated debt payoff strategies
+        if (assumptions.debtPayoffStrategy !== 'minimum' && runningDebt > 0) {
+          const extraPayment = yearSavings * 0.3; // 30% of savings to debt
+          const debtPayment = Math.min(extraPayment, runningDebt);
+          runningDebt = Math.max(0, runningDebt - debtPayment);
+          yearSavings -= debtPayment;
+        }
+        
         runningSavings += yearSavings;
       } else {
         let yearWithdrawal = 0;
@@ -216,13 +360,16 @@ export default function Scenarios() {
         }
       }
 
-      const total = Math.max(0, runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther + runningSavings);
+      // Apply life event impact
+      const totalBeforeEvent = runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther + runningSavings;
+      const total = Math.max(0, totalBeforeEvent + lifeEventImpact - runningDebt);
 
       data.push({
         age: assumptions.currentAge + i,
         year,
         total: Math.round(total),
         isRetired,
+        btcGrowthRate: yearBtcGrowth,
       });
     }
 
@@ -292,8 +439,12 @@ export default function Scenarios() {
       retirement_age_override: '', life_expectancy_override: '',
       btc_cagr_override: '', stocks_cagr_override: '', real_estate_cagr_override: '', bonds_cagr_override: '',
       inflation_override: '', income_growth_override: '', annual_retirement_spending_override: '',
-      withdrawal_strategy_override: '', dynamic_withdrawal_rate_override: '',
+      withdrawal_strategy_override: '', dynamic_withdrawal_rate_override: '', btc_return_model_override: '',
       market_crash_year: '', crash_severity_percent: '',
+      outperformance_year: '', outperformance_gain_percent: '',
+      btc_allocation_override: '', stocks_allocation_override: '',
+      rebalancing_strategy: 'none', debt_payoff_strategy: 'minimum',
+      linked_life_event_ids: [],
     });
   };
 
@@ -311,8 +462,16 @@ export default function Scenarios() {
       income_growth_override: form.income_growth_override !== '' ? parseFloat(form.income_growth_override) : null,
       annual_retirement_spending_override: form.annual_retirement_spending_override ? parseFloat(form.annual_retirement_spending_override) : null,
       dynamic_withdrawal_rate_override: form.dynamic_withdrawal_rate_override !== '' ? parseFloat(form.dynamic_withdrawal_rate_override) : null,
+      btc_return_model_override: form.btc_return_model_override || null,
       market_crash_year: form.market_crash_year ? parseInt(form.market_crash_year) : null,
       crash_severity_percent: form.crash_severity_percent !== '' ? parseFloat(form.crash_severity_percent) : null,
+      outperformance_year: form.outperformance_year ? parseInt(form.outperformance_year) : null,
+      outperformance_gain_percent: form.outperformance_gain_percent !== '' ? parseFloat(form.outperformance_gain_percent) : null,
+      btc_allocation_override: form.btc_allocation_override !== '' ? parseFloat(form.btc_allocation_override) : null,
+      stocks_allocation_override: form.stocks_allocation_override !== '' ? parseFloat(form.stocks_allocation_override) : null,
+      rebalancing_strategy: form.rebalancing_strategy || 'none',
+      debt_payoff_strategy: form.debt_payoff_strategy || 'minimum',
+      linked_life_event_ids: form.linked_life_event_ids || [],
     };
 
     if (editingScenario) {
@@ -339,8 +498,16 @@ export default function Scenarios() {
       annual_retirement_spending_override: scenario.annual_retirement_spending_override || '',
       withdrawal_strategy_override: scenario.withdrawal_strategy_override || '',
       dynamic_withdrawal_rate_override: scenario.dynamic_withdrawal_rate_override ?? '',
+      btc_return_model_override: scenario.btc_return_model_override || '',
       market_crash_year: scenario.market_crash_year || '',
       crash_severity_percent: scenario.crash_severity_percent ?? '',
+      outperformance_year: scenario.outperformance_year || '',
+      outperformance_gain_percent: scenario.outperformance_gain_percent ?? '',
+      btc_allocation_override: scenario.btc_allocation_override ?? '',
+      stocks_allocation_override: scenario.stocks_allocation_override ?? '',
+      rebalancing_strategy: scenario.rebalancing_strategy || 'none',
+      debt_payoff_strategy: scenario.debt_payoff_strategy || 'minimum',
+      linked_life_event_ids: scenario.linked_life_event_ids || [],
     });
     setFormOpen(true);
   };
@@ -565,6 +732,26 @@ export default function Scenarios() {
                                 Crash in {scenario.market_crash_year}
                               </Badge>
                             )}
+                            {scenario.outperformance_year && (
+                              <Badge variant="outline" className="border-emerald-500/30 text-emerald-400">
+                                Bull run {scenario.outperformance_year}
+                              </Badge>
+                            )}
+                            {scenario.rebalancing_strategy && scenario.rebalancing_strategy !== 'none' && (
+                              <Badge variant="outline" className="border-purple-500/30 text-purple-400">
+                                {scenario.rebalancing_strategy} rebalance
+                              </Badge>
+                            )}
+                            {scenario.debt_payoff_strategy && scenario.debt_payoff_strategy !== 'minimum' && (
+                              <Badge variant="outline" className="border-cyan-500/30 text-cyan-400">
+                                {scenario.debt_payoff_strategy} debt
+                              </Badge>
+                            )}
+                            {scenario.linked_life_event_ids?.length > 0 && (
+                              <Badge variant="outline" className="border-amber-500/30 text-amber-400">
+                                {scenario.linked_life_event_ids.length} life event(s)
+                              </Badge>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -785,10 +972,33 @@ export default function Scenarios() {
               </div>
             </div>
 
+            {/* BTC Return Model */}
+            <div className="space-y-4">
+              <h4 className="text-sm font-medium text-zinc-300">BTC Return Model</h4>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                {Object.entries(BTC_RETURN_MODELS).map(([key, model]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setForm({ ...form, btc_return_model_override: key })}
+                    className={cn(
+                      "p-3 rounded-lg border text-left transition-all",
+                      form.btc_return_model_override === key
+                        ? "bg-orange-500/20 border-orange-500/50 text-orange-300"
+                        : "bg-zinc-800/50 border-zinc-700 text-zinc-300 hover:border-zinc-600"
+                    )}
+                  >
+                    <p className="font-medium text-sm">{model.name}</p>
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-zinc-500">Leave unselected to use base case model from settings</p>
+            </div>
+
             {/* Market Events */}
             <div className="space-y-4">
               <h4 className="text-sm font-medium text-zinc-300">Market Events (Optional)</h4>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="space-y-2">
                   <Label className="text-zinc-400 text-xs">Market Crash Year</Label>
                   <Input
@@ -809,8 +1019,139 @@ export default function Scenarios() {
                     className="bg-zinc-800 border-zinc-700"
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label className="text-zinc-400 text-xs">Outperformance Year</Label>
+                  <Input
+                    type="number"
+                    value={form.outperformance_year}
+                    onChange={(e) => setForm({ ...form, outperformance_year: e.target.value })}
+                    placeholder="e.g., 2026"
+                    className="bg-zinc-800 border-zinc-700"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-zinc-400 text-xs">Outperformance Gain (%)</Label>
+                  <Input
+                    type="number"
+                    value={form.outperformance_gain_percent}
+                    onChange={(e) => setForm({ ...form, outperformance_gain_percent: e.target.value })}
+                    placeholder="e.g., 100"
+                    className="bg-zinc-800 border-zinc-700"
+                  />
+                </div>
               </div>
             </div>
+
+            {/* Asset Allocation & Rebalancing */}
+            <div className="space-y-4">
+              <h4 className="text-sm font-medium text-zinc-300">Asset Allocation & Rebalancing</h4>
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-zinc-400 text-xs">BTC Allocation (%)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={form.btc_allocation_override}
+                    onChange={(e) => setForm({ ...form, btc_allocation_override: e.target.value })}
+                    placeholder="Leave empty for current"
+                    className="bg-zinc-800 border-zinc-700"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-zinc-400 text-xs">Stocks Allocation (%)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={form.stocks_allocation_override}
+                    onChange={(e) => setForm({ ...form, stocks_allocation_override: e.target.value })}
+                    placeholder="Leave empty for current"
+                    className="bg-zinc-800 border-zinc-700"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-zinc-400 text-xs">Rebalancing Strategy</Label>
+                  <Select value={form.rebalancing_strategy} onValueChange={(v) => setForm({ ...form, rebalancing_strategy: v })}>
+                    <SelectTrigger className="bg-zinc-800 border-zinc-700">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-zinc-900 border-zinc-700">
+                      {REBALANCING_OPTIONS.map(opt => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          <div>
+                            <span className="font-medium">{opt.label}</span>
+                            <span className="text-xs text-zinc-500 ml-2">{opt.desc}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <p className="text-xs text-zinc-500">Set allocation targets and rebalancing frequency. Rebalancing will adjust holdings to maintain target percentages.</p>
+            </div>
+
+            {/* Debt Payoff Strategy */}
+            <div className="space-y-4">
+              <h4 className="text-sm font-medium text-zinc-300">Debt Payoff Strategy</h4>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                {DEBT_STRATEGIES.map(strategy => (
+                  <button
+                    key={strategy.value}
+                    type="button"
+                    onClick={() => setForm({ ...form, debt_payoff_strategy: strategy.value })}
+                    className={cn(
+                      "p-3 rounded-lg border text-left transition-all",
+                      form.debt_payoff_strategy === strategy.value
+                        ? "bg-cyan-500/20 border-cyan-500/50 text-cyan-300"
+                        : "bg-zinc-800/50 border-zinc-700 text-zinc-300 hover:border-zinc-600"
+                    )}
+                  >
+                    <p className="font-medium text-sm">{strategy.label}</p>
+                    <p className="text-xs text-zinc-500 mt-0.5">{strategy.desc}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Life Events Integration */}
+            {lifeEvents.length > 0 && (
+              <div className="space-y-4">
+                <h4 className="text-sm font-medium text-zinc-300">Include Life Events</h4>
+                <p className="text-xs text-zinc-500">Select life events to include in this scenario's projections. Life events model changes to income, expenses, or assets at specific years.</p>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 max-h-48 overflow-y-auto">
+                  {lifeEvents.map(event => (
+                    <button
+                      key={event.id}
+                      type="button"
+                      onClick={() => {
+                        const current = form.linked_life_event_ids || [];
+                        const updated = current.includes(event.id)
+                          ? current.filter(id => id !== event.id)
+                          : [...current, event.id];
+                        setForm({ ...form, linked_life_event_ids: updated });
+                      }}
+                      className={cn(
+                        "p-3 rounded-lg border text-left transition-all flex items-center gap-3",
+                        (form.linked_life_event_ids || []).includes(event.id)
+                          ? "bg-amber-500/20 border-amber-500/50"
+                          : "bg-zinc-800/50 border-zinc-700 hover:border-zinc-600"
+                      )}
+                    >
+                      <div className={cn(
+                        "w-3 h-3 rounded border-2",
+                        (form.linked_life_event_ids || []).includes(event.id) ? "bg-amber-400 border-amber-400" : "border-zinc-600"
+                      )} />
+                      <div className="flex-1">
+                        <p className="font-medium text-sm">{event.name}</p>
+                        <p className="text-xs text-zinc-500">{event.year} • {event.amount >= 0 ? '+' : ''}{event.amount?.toLocaleString()}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="flex justify-end gap-3 pt-4">
               <Button type="button" variant="outline" onClick={() => setFormOpen(false)} className="bg-transparent border-zinc-700">
