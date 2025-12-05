@@ -748,12 +748,15 @@ export default function FinancialPlan() {
 
   // Run Monte Carlo when button clicked
   const handleRunSimulation = () => {
-    const { paths: simulations, successResults } = runMonteCarloSimulation({
+    const { paths: simulations, successResults, withdrawalPaths } = runMonteCarloSimulation({
       btcValue,
       stocksValue,
       realEstateValue,
       bondsValue,
       otherValue,
+      taxableValue,
+      taxDeferredValue,
+      taxFreeValue,
       currentAge,
       retirementAge,
       lifeExpectancy,
@@ -773,16 +776,14 @@ export default function FinancialPlan() {
     
     const percentiles = calculatePercentiles(simulations);
     
-    // Calculate withdrawals for display
-    const withdrawals = calculateWithdrawals({
-      currentAge,
-      retirementAge,
-      lifeExpectancy,
-      inflationRate: effectiveInflation,
-      retirementAnnualSpending,
-      withdrawalStrategy,
-      dynamicWithdrawalRate,
-    });
+    // Calculate median withdrawal per year from simulations
+    const medianWithdrawals = [];
+    const years = Math.max(1, lifeExpectancy - currentAge);
+    for (let i = 0; i <= years; i++) {
+      const yearWithdrawals = withdrawalPaths.map(path => path[i] || 0).sort((a, b) => a - b);
+      const medianIndex = Math.floor(yearWithdrawals.length / 2);
+      medianWithdrawals.push(yearWithdrawals[medianIndex] || 0);
+    }
     
     // Calculate success probability - did you NOT run out of money through life expectancy?
     const probability = calculateSuccessProbability(successResults);
@@ -796,7 +797,7 @@ export default function FinancialPlan() {
       p50: Math.round(p.p50 || 0),
       p75: Math.round(p.p75 || 0),
       p90: Math.round(p.p90 || 0),
-      withdrawal: withdrawals[i] || 0,
+      withdrawal: Math.round(medianWithdrawals[i] || 0),
       isRetired: i >= (retirementAge - currentAge),
     }));
     
