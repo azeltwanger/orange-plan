@@ -719,10 +719,10 @@ export default function FinancialPlan() {
         const totalOtherIncome = otherRetirementIncome + socialSecurityIncome;
 
         // Store original retirement spending for tooltip breakdown
-        const retirementSpendingOnly = yearWithdrawal;
+        retirementSpendingOnly = yearWithdrawal;
 
         // Combine retirement withdrawal and goal withdrawal for tax estimation
-        const totalWithdrawalForTaxCalculation = retirementSpendingOnly + yearGoalWithdrawal;
+        totalWithdrawalForTaxCalculation = retirementSpendingOnly + yearGoalWithdrawal;
 
         // Use tax calculation utility for accurate withdrawal taxes
         const taxEstimate = estimateRetirementWithdrawalTaxes({
