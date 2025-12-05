@@ -1423,7 +1423,9 @@ export default function TaxCenter() {
                           </p>
                         </div>
                       </div>
-                      <p className="text-xs text-amber-400 mt-2">⚠️ Selling and rebuying within 30 days creates a wash sale</p>
+                      {lot.asset_ticker !== 'BTC' && !COINGECKO_IDS[lot.asset_ticker] && (
+                        <p className="text-xs text-amber-400 mt-2">⚠️ Selling and rebuying within 30 days creates a wash sale</p>
+                      )}
                     </div>
                   );
                 })}
