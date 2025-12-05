@@ -551,40 +551,39 @@ export default function Performance() {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {stats.map((stat, i) => (
-            <div key={i} className="card-glass rounded-xl p-5">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs text-zinc-500 uppercase tracking-wider">{stat.label}</span>
-                  {stat.hasTooltip && (
-                    <UITooltip>
-                      <TooltipTrigger>
-                        <Info className="w-3 h-3 text-zinc-600 hover:text-zinc-400 cursor-help" />
-                      </TooltipTrigger>
-                      <TooltipContent className="max-w-xs bg-zinc-900 border-zinc-700 text-zinc-200">
-                        <p className="text-xs">
-                          {displayMetrics.isIRR 
-                            ? "Money-Weighted Return (IRR) accounts for the timing of every deposit and investment, providing a more accurate representation of your real performance."
-                            : "Simple annualized return based on total gain divided by holding period. Add more transactions for IRR calculation."}
-                        </p>
-                      </TooltipContent>
-                    </UITooltip>
-                  )}
-                </div>
-                <div className={cn("p-1.5 rounded-lg", stat.color.replace('text-', 'bg-') + '/10')}>
-                  <stat.icon className={cn("w-4 h-4", stat.color)} />
-                </div>
+        {stats.map((stat, i) => (
+          <div key={i} className="card-glass rounded-xl p-5">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-zinc-500 uppercase tracking-wider">{stat.label}</span>
+                {stat.hasTooltip && (
+                  <UITooltip>
+                    <TooltipTrigger>
+                      <Info className="w-3 h-3 text-zinc-600 hover:text-zinc-400 cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs bg-zinc-900 border-zinc-700 text-zinc-200">
+                      <p className="text-xs">
+                        {displayMetrics.isIRR 
+                          ? "Money-Weighted Return (IRR) accounts for the timing of every deposit and investment, providing a more accurate representation of your real performance."
+                          : "Simple annualized return based on total gain divided by holding period. Add more transactions for IRR calculation."}
+                      </p>
+                    </TooltipContent>
+                  </UITooltip>
+                )}
               </div>
-              <p className={cn("text-xl lg:text-2xl font-bold", stat.color)}>
-                {stat.prefix}{stat.value}
-              </p>
-              {stat.subtext && (
-                <p className="text-xs text-zinc-500 mt-1">{stat.subtext}</p>
-              )}
+              <div className={cn("p-1.5 rounded-lg", stat.color.replace('text-', 'bg-') + '/10')}>
+                <stat.icon className={cn("w-4 h-4", stat.color)} />
+              </div>
             </div>
-          ))}
-        </div>
+            <p className={cn("text-xl lg:text-2xl font-bold", stat.color)}>
+              {stat.prefix}{stat.value}
+            </p>
+            {stat.subtext && (
+              <p className="text-xs text-zinc-500 mt-1">{stat.subtext}</p>
+            )}
+          </div>
+        ))}
+      </div>
 
       {/* IRR Calculation Panel */}
       {(irrMetrics || irrLoading) && (
