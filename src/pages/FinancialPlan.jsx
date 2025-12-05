@@ -984,12 +984,6 @@ export default function FinancialPlan() {
   // Calculate maximum sustainable spending at retirement age
   useEffect(() => {
     const calculateMaxSpending = () => {
-      // Only calculate for income-based withdrawal strategy
-      if (withdrawalStrategy !== 'variable') {
-        setMaxSustainableSpending(retirementValue * effectiveWithdrawalRate);
-        return;
-      }
-
       const startingPortfolio = taxableValue + taxDeferredValue + taxFreeValue;
       if (startingPortfolio <= 0 && annualSavings <= 0) {
         setMaxSustainableSpending(0);
