@@ -935,7 +935,7 @@ export default function FinancialPlan() {
 
     // Check spending sustainability FIRST - even if you can retire "early", if you can't afford your spending, you're not on track
     if (!canAffordDesiredSpending && maxSustainableSpending > 0) {
-      const shortfallPercent = ((desiredAtRetirement - maxAtRetirement) / desiredAtRetirement * 100).toFixed(0);
+      const shortfallPercent = ((retirementAnnualSpending - maxSustainableSpending) / retirementAnnualSpending * 100).toFixed(0);
       return {
         type: 'critical',
         title: 'At Risk: Spending Not Sustainable',
