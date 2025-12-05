@@ -956,43 +956,56 @@ export default function Performance() {
       <div className="card-glass rounded-2xl p-6">
         <h3 className="font-semibold mb-6">Portfolio Value Over Time</h3>
         <div className="h-80">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={chartData}>
-              <defs>
-                <linearGradient id="portfolioGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#F7931A" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="#F7931A" stopOpacity={0}/>
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-              <XAxis 
-                dataKey="name" 
-                stroke="#71717a" 
-                fontSize={11} 
-                interval={'preserveStartEnd'}
-                tickMargin={8}
-                angle={['10Y', 'ALL'].includes(timeframe) ? 0 : 0}
-              />
-              <YAxis stroke="#71717a" fontSize={12} tickFormatter={(v) => `$${(v/1000).toFixed(0)}k`} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: '#18181b',
-                  border: '1px solid #27272a',
-                  borderRadius: '12px',
-                }}
-                labelStyle={{ color: '#a1a1aa' }}
-                itemStyle={{ color: '#F7931A' }}
-                formatter={(value) => [`$${value.toLocaleString()}`, 'Value']}
-              />
-              <Area
-                type="monotone"
-                dataKey="portfolio"
-                stroke="#F7931A"
-                strokeWidth={2}
-                fill="url(#portfolioGradient)"
-              />
-            </AreaChart>
-          </ResponsiveContainer>
+          {chartData.length === 0 ? (
+            <div className="h-full flex items-center justify-center">
+              {(cryptoTickers.length > 0 || stockTickers.length > 0) && Object.keys(historicalPrices).length === 0 && Object.keys(stockPrices).length === 0 ? (
+                <div className="text-center">
+                  <Loader2 className="w-8 h-8 animate-spin text-orange-400 mx-auto mb-3" />
+                  <p className="text-zinc-500 text-sm">Loading historical prices...</p>
+                </div>
+              ) : (
+                <p className="text-zinc-500">No chart data available. Add transactions to see performance.</p>
+              )}
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chartData}>
+                <defs>
+                  <linearGradient id="portfolioGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#F7931A" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#F7931A" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+                <XAxis 
+                  dataKey="name" 
+                  stroke="#71717a" 
+                  fontSize={11} 
+                  interval={'preserveStartEnd'}
+                  tickMargin={8}
+                  angle={['10Y', 'ALL'].includes(timeframe) ? 0 : 0}
+                />
+                <YAxis stroke="#71717a" fontSize={12} tickFormatter={(v) => `$${(v/1000).toFixed(0)}k`} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#18181b',
+                    border: '1px solid #27272a',
+                    borderRadius: '12px',
+                  }}
+                  labelStyle={{ color: '#a1a1aa' }}
+                  itemStyle={{ color: '#F7931A' }}
+                  formatter={(value) => [`$${value.toLocaleString()}`, 'Value']}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="portfolio"
+                  stroke="#F7931A"
+                  strokeWidth={2}
+                  fill="url(#portfolioGradient)"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </div>
 
