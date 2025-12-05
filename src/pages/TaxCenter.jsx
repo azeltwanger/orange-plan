@@ -1244,12 +1244,14 @@ export default function TaxCenter() {
                           <Badge variant="outline" className={cn("text-xs", isTaxable ? 'border-orange-400/50 text-orange-400' : 'border-purple-400/50 text-purple-400')}>
                             {accountLabels[lot.accountType] || 'Taxable'}
                           </Badge>
-                          <Badge variant="outline" className={cn("text-xs", 
-                            lot.taxTreatment === 'taxable' ? 'border-orange-400/50 text-orange-400' : 
-                            lot.taxTreatment === 'tax_deferred' ? 'border-amber-400/50 text-amber-400' : 
-                            'border-emerald-400/50 text-emerald-400')}>
-                            {taxTreatmentLabels[lot.taxTreatment] || 'Taxable'}
-                          </Badge>
+                          {accountLabels[lot.accountType] !== taxTreatmentLabels[lot.taxTreatment] && (
+                            <Badge variant="outline" className={cn("text-xs", 
+                              lot.taxTreatment === 'taxable' ? 'border-orange-400/50 text-orange-400' : 
+                              lot.taxTreatment === 'tax_deferred' ? 'border-amber-400/50 text-amber-400' : 
+                              'border-emerald-400/50 text-emerald-400')}>
+                              {taxTreatmentLabels[lot.taxTreatment] || 'Taxable'}
+                            </Badge>
+                          )}
                           {lot.isLongTerm && lot.unrealizedGain > 0 && canHarvestGainsTaxFree && isTaxable && (
                             <Badge className="bg-emerald-400/20 text-emerald-400 border-0">0% Tax Eligible</Badge>
                           )}
@@ -1419,12 +1421,14 @@ export default function TaxCenter() {
                           <Badge variant="outline" className={cn("text-xs", isTaxable ? 'border-orange-400/50 text-orange-400' : 'border-purple-400/50 text-purple-400')}>
                             {accountLabels[accountType] || 'Taxable'}
                           </Badge>
-                          <Badge variant="outline" className={cn("text-xs", 
-                            taxTreatment === 'taxable' ? 'border-orange-400/50 text-orange-400' : 
-                            taxTreatment === 'tax_deferred' ? 'border-amber-400/50 text-amber-400' : 
-                            'border-emerald-400/50 text-emerald-400')}>
-                            {taxTreatmentLabels[taxTreatment] || 'Taxable'}
-                          </Badge>
+                          {accountLabels[accountType] !== taxTreatmentLabels[taxTreatment] && (
+                            <Badge variant="outline" className={cn("text-xs", 
+                              taxTreatment === 'taxable' ? 'border-orange-400/50 text-orange-400' : 
+                              taxTreatment === 'tax_deferred' ? 'border-amber-400/50 text-amber-400' : 
+                              'border-emerald-400/50 text-emerald-400')}>
+                              {taxTreatmentLabels[taxTreatment] || 'Taxable'}
+                            </Badge>
+                          )}
                         </div>
                         <p className="text-sm text-zinc-500">
                           @ ${(tx.price_per_unit || 0).toLocaleString()} • {tx.date ? format(new Date(tx.date), 'MMM d, yyyy') : 'No date'}
