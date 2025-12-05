@@ -1209,11 +1209,16 @@ export default function FinancialPlan() {
                     <p className="text-xs text-zinc-400">Increase savings by</p>
                     <p className="text-lg font-bold text-emerald-400">
                       +{formatNumber((() => {
-                        // Calculate how much more annual savings needed to hit requiredNestEgg by target retirement
+                        // Calculate additional annual savings needed using future value annuity formula
                         const yearsToRetire = Math.max(1, retirementAge - currentAge);
                         const shortfall = Math.max(0, requiredNestEgg - retirementValue);
-                        // Simple annuity calculation: shortfall / years
-                        return shortfall / yearsToRetire;
+                        // Estimate blended growth rate
+                        const blendedGrowth = (effectiveBtcCagr * 0.3 + effectiveStocksCagr * 0.7) / 100;
+                        // Future value of annuity factor: ((1+r)^n - 1) / r
+                        const fvFactor = blendedGrowth > 0.001 
+                          ? (Math.pow(1 + blendedGrowth, yearsToRetire) - 1) / blendedGrowth 
+                          : yearsToRetire;
+                        return shortfall / fvFactor;
                       })())}
                     </p>
                     <p className="text-xs text-zinc-500">per year</p>
@@ -1223,10 +1228,12 @@ export default function FinancialPlan() {
                     <p className="text-lg font-bold text-rose-400">
                       {formatNumber((() => {
                         // Calculate sustainable spending given projected portfolio at target age
-                        // Convert back to today's dollars
+                        // Use projected value at retirement, not required nest egg
                         const sustainableAtRetirement = retirementValue * effectiveWithdrawalRate;
-                        const todaysDollars = sustainableAtRetirement / Math.pow(1 + inflationRate / 100, retirementAge - currentAge);
-                        return todaysDollars;
+                        // Convert back to today's dollars
+                        const yearsToRetire = retirementAge - currentAge;
+                        const todaysDollars = sustainableAtRetirement / Math.pow(1 + inflationRate / 100, yearsToRetire);
+                        return Math.max(0, todaysDollars);
                       })())}
                     </p>
                     <p className="text-xs text-zinc-500">per year (today's dollars)</p>
@@ -1236,7 +1243,7 @@ export default function FinancialPlan() {
                     <p className="text-lg font-bold text-blue-400">
                       {formatNumber(requiredNestEgg)}
                     </p>
-                    <p className="text-xs text-zinc-500">at age {retirementAge} (have {formatNumber(retirementValue)})</p>
+                    <p className="text-xs text-zinc-500">at age {retirementAge} (projected: {formatNumber(retirementValue)})</p>
                   </div>
                   <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
                     <p className="text-xs text-zinc-400">Or delay retirement to</p>
@@ -1808,24 +1815,27 @@ export default function FinancialPlan() {
                   </div>
                 </div>
                 
-                {/* Withdrawal Info for Retirement */}
+                {/* Retirement Withdrawals Summary */}
                 {(() => {
-                  const retirementIndex = Math.min(retirementAge - currentAge, simulationResults.length - 1);
-                  const firstYearWithdrawal = simulationResults[retirementIndex + 1]?.withdrawal || simulationResults[retirementIndex]?.withdrawal || 0;
-                  const lastYearWithdrawal = simulationResults[simulationResults.length - 1]?.withdrawal || 0;
-                  return firstYearWithdrawal > 0 ? (
+                  const retIndex = Math.min(retirementAge - currentAge, simulationResults.length - 1);
+                  const firstRetirementYear = retIndex + 1 < simulationResults.length ? simulationResults[retIndex + 1] : simulationResults[retIndex];
+                  const lastYear = simulationResults[simulationResults.length - 1];
+                  const firstWithdrawal = firstRetirementYear?.withdrawal || 0;
+                  const lastWithdrawal = lastYear?.withdrawal || 0;
+                  
+                  return firstWithdrawal > 0 ? (
                     <div className="mt-4 p-4 rounded-xl bg-cyan-500/10 border border-cyan-500/20">
-                      <h4 className="text-sm font-medium text-cyan-400 mb-3">Annual Withdrawals (Median)</h4>
+                      <h4 className="text-sm font-medium text-cyan-400 mb-3">Annual Withdrawals (Median Simulation)</h4>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <p className="text-xs text-zinc-500">First Year of Retirement</p>
-                          <p className="text-lg font-bold text-cyan-400">{formatNumber(firstYearWithdrawal)}/yr</p>
-                          <p className="text-xs text-zinc-600">{formatNumber(firstYearWithdrawal / 12)}/mo</p>
+                          <p className="text-lg font-bold text-cyan-400">{formatNumber(firstWithdrawal)}/yr</p>
+                          <p className="text-xs text-zinc-600">{formatNumber(firstWithdrawal / 12)}/mo</p>
                         </div>
                         <div>
                           <p className="text-xs text-zinc-500">At Age {lifeExpectancy}</p>
-                          <p className="text-lg font-bold text-cyan-400">{formatNumber(lastYearWithdrawal)}/yr</p>
-                          <p className="text-xs text-zinc-600">{formatNumber(lastYearWithdrawal / 12)}/mo (inflation adjusted)</p>
+                          <p className="text-lg font-bold text-cyan-400">{formatNumber(lastWithdrawal)}/yr</p>
+                          <p className="text-xs text-zinc-600">{formatNumber(lastWithdrawal / 12)}/mo (inflation adjusted)</p>
                         </div>
                       </div>
                     </div>
