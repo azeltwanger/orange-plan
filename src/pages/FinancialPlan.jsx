@@ -921,8 +921,8 @@ export default function FinancialPlan() {
 
   // Calculate retirement status and insights
   const retirementStatus = useMemo(() => {
-    // Check if portfolio can support desired spending at retirement
-    const canAffordDesiredSpending = maxSustainableSpending >= inflationAdjustedRetirementSpending * 0.95; // Within 95%
+    // Check if portfolio can support desired spending at retirement (both in today's dollars)
+    const canAffordDesiredSpending = maxSustainableSpending >= retirementAnnualSpending * 0.95; // Within 95%
 
     if (willRunOutOfMoney) {
       return {
@@ -935,11 +935,11 @@ export default function FinancialPlan() {
 
     // Check spending sustainability FIRST - even if you can retire "early", if you can't afford your spending, you're not on track
     if (!canAffordDesiredSpending && maxSustainableSpending > 0) {
-      const shortfallPercent = ((inflationAdjustedRetirementSpending - maxSustainableSpending) / inflationAdjustedRetirementSpending * 100).toFixed(0);
+      const shortfallPercent = ((retirementAnnualSpending - maxSustainableSpending) / retirementAnnualSpending * 100).toFixed(0);
       return {
         type: 'critical',
         title: 'At Risk: Spending Not Sustainable',
-        description: `Portfolio at retirement (${formatNumber(retirementValue)}) can only support ${formatNumber(maxSustainableSpending)}/yr, ${shortfallPercent}% below your ${formatNumber(inflationAdjustedRetirementSpending)}/yr target.`,
+        description: `Portfolio can only support ${formatNumber(maxSustainableSpending)}/yr in today's dollars, ${shortfallPercent}% below your ${formatNumber(retirementAnnualSpending)}/yr target.`,
         icon: <AlertTriangle className="w-5 h-5" />
       };
     }
@@ -979,7 +979,7 @@ export default function FinancialPlan() {
         icon: <Sparkles className="w-5 h-5" />
       };
     }
-  }, [earliestRetirementAge, retirementAge, willRunOutOfMoney, runOutOfMoneyAge, currentAge, retirementValue, maxSustainableSpending, inflationAdjustedRetirementSpending]);
+  }, [earliestRetirementAge, retirementAge, willRunOutOfMoney, runOutOfMoneyAge, currentAge, retirementValue, maxSustainableSpending, retirementAnnualSpending]);
 
   // Calculate maximum sustainable spending at retirement age
   useEffect(() => {
@@ -1059,7 +1059,10 @@ export default function FinancialPlan() {
         }
       }
 
-      setMaxSustainableSpending(Math.floor(maxSpending));
+      // Deflate to today's dollars
+      const inflationFactor = Math.pow(1 + effectiveInflation / 100, Math.max(0, retirementAge - currentAge));
+      const maxSpendingToday = maxSpending / inflationFactor;
+      setMaxSustainableSpending(Math.floor(maxSpendingToday));
     };
 
     calculateMaxSpending();
@@ -1603,8 +1606,8 @@ export default function FinancialPlan() {
                   </p>
                   <p className="text-[10px] text-zinc-500 mt-1">
                     {(() => {
-                      const reduction = Math.max(0, inflationAdjustedRetirementSpending - maxSustainableSpending);
-                      return `${formatNumber(reduction)} less than planned ${formatNumber(inflationAdjustedRetirementSpending)}/yr at age ${retirementAge}`;
+                      const reduction = Math.max(0, retirementAnnualSpending - maxSustainableSpending);
+                      return `${formatNumber(reduction)} less than planned (in today's dollars)`;
                     })()}
                   </p>
                 </div>
@@ -2078,7 +2081,7 @@ export default function FinancialPlan() {
               <div>
                 <p className="text-sm text-zinc-400">Max Sustainable Spending</p>
                 <p className="text-2xl font-bold text-emerald-400">{formatNumber(maxSustainableSpending)}/yr</p>
-                <p className="text-xs text-zinc-500">{formatNumber(maxSustainableSpending / 12)}/mo at age {retirementAge}</p>
+                <p className="text-xs text-zinc-500">{formatNumber(maxSustainableSpending / 12)}/mo (today's dollars)</p>
               </div>
               <div>
                 <p className="text-sm text-zinc-400">At Age {lifeExpectancy}</p>
