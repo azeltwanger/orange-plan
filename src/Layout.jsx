@@ -21,7 +21,7 @@ import { cn } from "@/lib/utils";
 const navItems = [
   { name: 'Summary', icon: LayoutDashboard, page: 'Dashboard', description: 'Your wealth at a glance' },
   { name: 'Performance', icon: TrendingUp, page: 'Performance', description: 'Growth & returns' },
-  { name: 'Retirement Planning', icon: Target, page: 'FinancialPlan', description: 'Future wealth modeling' },
+  { name: 'Financial Independence', icon: Target, page: 'FinancialPlan', description: 'Path to FI modeling' },
   { name: 'Scenarios', icon: RefreshCw, page: 'Scenarios', description: 'Compare financial futures' },
   { name: 'Goals', icon: Target, page: 'Goals', description: '3-bucket savings strategy' },
   { name: 'Income & Expenses', icon: Wallet, page: 'Budget', description: 'Cash flow management' },
