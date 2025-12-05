@@ -497,14 +497,17 @@ export default function FinancialPlan() {
     let runningOther = otherValue;
     let runningSavings = 0;
     
-    // Track by account type
+    // Track by account type - use the correctly calculated values
     let runningTaxable = taxableValue;
     let runningTaxDeferred = taxDeferredValue;
     let runningTaxFree = taxFreeValue;
     
     // Track cost basis for taxable accounts to dynamically estimate capital gains
-    const initialTaxableCostBasis = holdings.filter(h => !h.account_type || h.account_type === 'taxable').reduce((sum, h) => sum + (h.cost_basis_total || 0), 0);
+    const initialTaxableCostBasis = taxableHoldings.reduce((sum, h) => sum + (h.cost_basis_total || 0), 0);
     let runningTaxableBasis = initialTaxableCostBasis;
+    
+    // Initial 4% withdrawal amount (set on first retirement year)
+    let initial4PercentWithdrawal = 0;
 
     for (let i = 0; i <= years; i++) {
       const year = currentYear + i;
