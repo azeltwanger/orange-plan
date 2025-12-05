@@ -921,8 +921,12 @@ export default function FinancialPlan() {
 
   // Calculate retirement status and insights
   const retirementStatus = useMemo(() => {
-    // Check if portfolio can support desired spending at retirement (both in today's dollars)
-    const canAffordDesiredSpending = maxSustainableSpending >= retirementAnnualSpending * 0.95; // Within 95%
+    // Inflate both to retirement year for apples-to-apples comparison
+    const yearsToRet = Math.max(0, retirementAge - currentAge);
+    const inflationFactor = Math.pow(1 + inflationRate / 100, yearsToRet);
+    const maxAtRetirement = maxSustainableSpending * inflationFactor;
+    const desiredAtRetirement = retirementAnnualSpending * inflationFactor;
+    const canAffordDesiredSpending = maxAtRetirement >= desiredAtRetirement * 0.98; // Within 98%
 
     if (willRunOutOfMoney) {
       return {
