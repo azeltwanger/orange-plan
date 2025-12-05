@@ -412,9 +412,9 @@ export default function FeeAnalyzer({ transactions = [], btcPrice = 97000 }) {
         <div className="card-premium rounded-xl p-6 border border-zinc-800/50">
           <h3 className="font-semibold mb-2">Exchange Comparison</h3>
           <p className="text-xs text-zinc-500 mb-4 flex items-center gap-1">
-            <Info className="w-3 h-3" />
-            Spread rates are estimates based on typical market conditions and may vary.
-          </p>
+              <Info className="w-3 h-3" />
+              Spread rates are estimates based on typical market conditions. Unlisted exchanges use industry average ({DEFAULT_SPREAD}%).
+            </p>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
