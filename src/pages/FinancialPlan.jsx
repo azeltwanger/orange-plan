@@ -24,11 +24,10 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
-// Monte Carlo simulation - uses same logic as main projections
+// Monte Carlo simulation - simplified and realistic
 const runMonteCarloSimulation = (params, numSimulations = 1000) => {
   const {
     btcValue, stocksValue, realEstateValue, bondsValue, otherValue,
-    taxableValue, taxDeferredValue, taxFreeValue,
     currentAge, retirementAge, lifeExpectancy,
     getBtcGrowthRate, stocksCagr, realEstateCagr, bondsCagr, inflationRate,
     annualSavings, incomeGrowth, retirementAnnualSpending,
@@ -38,16 +37,11 @@ const runMonteCarloSimulation = (params, numSimulations = 1000) => {
   
   const results = [];
   const successResults = [];
-  const withdrawalPaths = []; // Track withdrawals per simulation
   const years = Math.max(1, lifeExpectancy - currentAge);
   const yearsToRetirement = Math.max(0, retirementAge - currentAge);
   const totalStartingAssets = btcValue + stocksValue + realEstateValue + bondsValue + otherValue;
-  const totalStartingAccounts = taxableValue + taxDeferredValue + taxFreeValue;
   
-  // Use account totals if available, otherwise use asset totals
-  const startingPortfolio = totalStartingAccounts > 0 ? totalStartingAccounts : totalStartingAssets;
-  
-  // Calculate portfolio allocation percentages for growth rates
+  // Calculate portfolio allocation percentages
   const btcPct = totalStartingAssets > 0 ? btcValue / totalStartingAssets : 0;
   const stocksPct = totalStartingAssets > 0 ? stocksValue / totalStartingAssets : 0;
   const realEstatePct = totalStartingAssets > 0 ? realEstateValue / totalStartingAssets : 0;
@@ -55,16 +49,12 @@ const runMonteCarloSimulation = (params, numSimulations = 1000) => {
   const otherPct = totalStartingAssets > 0 ? otherValue / totalStartingAssets : 0;
   
   for (let sim = 0; sim < numSimulations; sim++) {
-    // Track by account type (same as main projections)
-    let runningTaxable = taxableValue;
-    let runningTaxDeferred = taxDeferredValue;
-    let runningTaxFree = taxFreeValue;
-    let runningSavings = 0;
+    let portfolio = totalStartingAssets;
+    let savings = 0;
     let ranOutOfMoney = false;
-    let initial4PercentWithdrawal = 0;
+    let initialRetirementWithdrawal = 0;
     
-    const path = [startingPortfolio];
-    const withdrawalPath = [0];
+    const path = [portfolio];
     
     for (let year = 1; year <= years; year++) {
       const isRetired = year > yearsToRetirement;
@@ -80,6 +70,7 @@ const runMonteCarloSimulation = (params, numSimulations = 1000) => {
       const z2 = Math.sqrt(-2 * Math.log(u1)) * Math.sin(2 * Math.PI * u2);
       
       // Asset returns with realistic volatility
+      // BTC: high vol but capped to prevent extreme swings
       const btcReturn = Math.max(-60, Math.min(200, expectedBtcReturn + btcVolatility * z1));
       const stocksReturn = Math.max(-40, Math.min(50, stocksCagr + stocksVolatility * z2));
       const realEstateReturn = realEstateCagr + (Math.random() * 10 - 5);
@@ -94,77 +85,51 @@ const runMonteCarloSimulation = (params, numSimulations = 1000) => {
         otherPct * stocksReturn
       ) / 100;
       
-      // Grow all account buckets
-      runningTaxable = Math.max(0, runningTaxable * (1 + portfolioReturn));
-      runningTaxDeferred = Math.max(0, runningTaxDeferred * (1 + portfolioReturn));
-      runningTaxFree = Math.max(0, runningTaxFree * (1 + portfolioReturn));
-      runningSavings = Math.max(0, runningSavings * (1 + portfolioReturn));
-      
-      let yearWithdrawal = 0;
+      // Grow portfolio
+      portfolio = Math.max(0, portfolio * (1 + portfolioReturn));
+      savings = Math.max(0, savings * (1 + portfolioReturn));
       
       if (!isRetired) {
-        // Add annual savings to taxable (same as main projection)
+        // Add annual savings
         const yearSavings = annualSavings * Math.pow(1 + incomeGrowth / 100, year);
-        runningSavings += yearSavings;
-        runningTaxable += yearSavings;
+        savings += yearSavings;
       } else {
-        // Retirement withdrawals - use account total for withdrawal calculation
-        const accountTotal = runningTaxable + runningTaxDeferred + runningTaxFree;
+        // Retirement withdrawals
+        let yearWithdrawal = 0;
+        const total = portfolio + savings;
         
         if (withdrawalStrategy === '4percent') {
           if (yearsIntoRetirement === 1) {
-            initial4PercentWithdrawal = accountTotal * 0.04;
+            initialRetirementWithdrawal = total * 0.04;
           }
-          yearWithdrawal = initial4PercentWithdrawal * Math.pow(1 + inflationRate / 100, yearsIntoRetirement - 1);
+          yearWithdrawal = initialRetirementWithdrawal * Math.pow(1 + inflationRate / 100, yearsIntoRetirement - 1);
         } else if (withdrawalStrategy === 'dynamic') {
-          yearWithdrawal = accountTotal * (dynamicWithdrawalRate / 100);
+          yearWithdrawal = total * (dynamicWithdrawalRate / 100);
         } else {
-          // Income-based withdrawal (same formula as main projection)
+          // Income-based withdrawal
           yearWithdrawal = retirementAnnualSpending * Math.pow(1 + inflationRate / 100, yearsToRetirement + yearsIntoRetirement);
         }
         
-        // Withdraw in priority order: Taxable -> Tax-Deferred -> Tax-Free
-        let remaining = yearWithdrawal;
-        
-        // 1. Taxable first
-        const fromTaxable = Math.min(remaining, runningTaxable);
-        runningTaxable -= fromTaxable;
-        remaining -= fromTaxable;
-        
-        // 2. Tax-Deferred second  
-        const fromTaxDeferred = Math.min(remaining, runningTaxDeferred);
-        runningTaxDeferred -= fromTaxDeferred;
-        remaining -= fromTaxDeferred;
-        
-        // 3. Tax-Free last
-        const fromTaxFree = Math.min(remaining, runningTaxFree);
-        runningTaxFree -= fromTaxFree;
-        remaining -= fromTaxFree;
-        
-        // Also reduce savings proportionally
-        const totalBeforeWithdraw = runningTaxable + runningTaxDeferred + runningTaxFree + runningSavings + yearWithdrawal;
-        if (totalBeforeWithdraw > 0 && runningSavings > 0) {
-          const savingsRatio = runningSavings / totalBeforeWithdraw;
-          runningSavings = Math.max(0, runningSavings - yearWithdrawal * savingsRatio);
+        // Withdraw from portfolio and savings proportionally
+        if (total > 0 && yearWithdrawal > 0) {
+          const withdrawRatio = Math.min(1, yearWithdrawal / total);
+          portfolio = Math.max(0, portfolio * (1 - withdrawRatio));
+          savings = Math.max(0, savings * (1 - withdrawRatio));
         }
         
-        // Check if ran out of money
-        if (runningTaxable + runningTaxDeferred + runningTaxFree <= 0) {
+        if (portfolio + savings <= 0) {
           ranOutOfMoney = true;
         }
       }
       
-      const total = runningTaxable + runningTaxDeferred + runningTaxFree;
-      path.push(Math.max(0, total));
-      withdrawalPath.push(yearWithdrawal);
+      path.push(Math.max(0, portfolio + savings));
     }
     
     results.push(path);
-    withdrawalPaths.push(withdrawalPath);
     successResults.push(!ranOutOfMoney);
   }
   
-  return { paths: results, successResults, withdrawalPaths };
+  return { paths: results, successResults };
 };
 
 // Calculate success probability (percentage of simulations that didn't run out of money)
@@ -748,15 +713,12 @@ export default function FinancialPlan() {
 
   // Run Monte Carlo when button clicked
   const handleRunSimulation = () => {
-    const { paths: simulations, successResults, withdrawalPaths } = runMonteCarloSimulation({
+    const { paths: simulations, successResults } = runMonteCarloSimulation({
       btcValue,
       stocksValue,
       realEstateValue,
       bondsValue,
       otherValue,
-      taxableValue,
-      taxDeferredValue,
-      taxFreeValue,
       currentAge,
       retirementAge,
       lifeExpectancy,
@@ -776,14 +738,16 @@ export default function FinancialPlan() {
     
     const percentiles = calculatePercentiles(simulations);
     
-    // Calculate median withdrawal per year from simulations
-    const medianWithdrawals = [];
-    const years = Math.max(1, lifeExpectancy - currentAge);
-    for (let i = 0; i <= years; i++) {
-      const yearWithdrawals = withdrawalPaths.map(path => path[i] || 0).sort((a, b) => a - b);
-      const medianIndex = Math.floor(yearWithdrawals.length / 2);
-      medianWithdrawals.push(yearWithdrawals[medianIndex] || 0);
-    }
+    // Calculate withdrawals for display
+    const withdrawals = calculateWithdrawals({
+      currentAge,
+      retirementAge,
+      lifeExpectancy,
+      inflationRate: effectiveInflation,
+      retirementAnnualSpending,
+      withdrawalStrategy,
+      dynamicWithdrawalRate,
+    });
     
     // Calculate success probability - did you NOT run out of money through life expectancy?
     const probability = calculateSuccessProbability(successResults);
@@ -797,7 +761,7 @@ export default function FinancialPlan() {
       p50: Math.round(p.p50 || 0),
       p75: Math.round(p.p75 || 0),
       p90: Math.round(p.p90 || 0),
-      withdrawal: Math.round(medianWithdrawals[i] || 0),
+      withdrawal: withdrawals[i] || 0,
       isRetired: i >= (retirementAge - currentAge),
     }));
     
@@ -1208,35 +1172,23 @@ export default function FinancialPlan() {
                   <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
                     <p className="text-xs text-zinc-400">Increase savings by</p>
                     <p className="text-lg font-bold text-emerald-400">
-                      +{formatNumber((() => {
-                        // Calculate how much more annual savings needed to hit requiredNestEgg by target retirement
-                        const yearsToRetire = Math.max(1, retirementAge - currentAge);
-                        const shortfall = Math.max(0, requiredNestEgg - retirementValue);
-                        // Simple annuity calculation: shortfall / years
-                        return shortfall / yearsToRetire;
-                      })())}
+                      +{formatNumber(Math.max(0, (requiredNestEgg - retirementValue) / Math.max(1, retirementAge - currentAge)))}
                     </p>
                     <p className="text-xs text-zinc-500">per year</p>
                   </div>
                   <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20">
                     <p className="text-xs text-zinc-400">Or reduce FI spending to</p>
                     <p className="text-lg font-bold text-rose-400">
-                      {formatNumber((() => {
-                        // Calculate sustainable spending given projected portfolio at target age
-                        // Convert back to today's dollars
-                        const sustainableAtRetirement = retirementValue * effectiveWithdrawalRate;
-                        const todaysDollars = sustainableAtRetirement / Math.pow(1 + inflationRate / 100, retirementAge - currentAge);
-                        return todaysDollars;
-                      })())}
+                      {formatNumber(retirementValue * effectiveWithdrawalRate / Math.pow(1 + inflationRate / 100, retirementAge - currentAge))}
                     </p>
                     <p className="text-xs text-zinc-500">per year (today's dollars)</p>
                   </div>
                   <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
-                    <p className="text-xs text-zinc-400">Need portfolio of</p>
+                    <p className="text-xs text-zinc-400">Or increase portfolio to</p>
                     <p className="text-lg font-bold text-blue-400">
                       {formatNumber(requiredNestEgg)}
                     </p>
-                    <p className="text-xs text-zinc-500">at age {retirementAge} (have {formatNumber(retirementValue)})</p>
+                    <p className="text-xs text-zinc-500">at retirement</p>
                   </div>
                   <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
                     <p className="text-xs text-zinc-400">Or delay retirement to</p>
@@ -1725,36 +1677,14 @@ export default function FinancialPlan() {
                         <YAxis stroke="#71717a" fontSize={12} tickFormatter={(v) => `$${(v/1000000).toFixed(1)}M`} />
                         <Tooltip
                           contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '12px' }}
-                          content={({ active, payload, label }) => {
-                            if (!active || !payload?.length) return null;
-                            const data = payload[0]?.payload;
-                            return (
-                              <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-3 text-sm">
-                                <p className="font-semibold text-zinc-200 mb-2">Age {label}{data?.isRetired ? ' (Retired)' : ''}</p>
-                                <div className="space-y-1">
-                                  <div className="flex justify-between gap-4">
-                                    <span className="text-emerald-400">Best Case (90%):</span>
-                                    <span className="text-zinc-200">${(data?.p90 || 0).toLocaleString()}</span>
-                                  </div>
-                                  <div className="flex justify-between gap-4">
-                                    <span className="text-orange-400">Most Likely:</span>
-                                    <span className="text-zinc-200 font-semibold">${(data?.p50 || 0).toLocaleString()}</span>
-                                  </div>
-                                  <div className="flex justify-between gap-4">
-                                    <span className="text-rose-400">Worst Case (10%):</span>
-                                    <span className="text-zinc-200">${(data?.p10 || 0).toLocaleString()}</span>
-                                  </div>
-                                  {data?.isRetired && data?.withdrawal > 0 && (
-                                    <div className="pt-2 mt-2 border-t border-zinc-700">
-                                      <div className="flex justify-between gap-4">
-                                        <span className="text-cyan-400">Annual Withdrawal:</span>
-                                        <span className="text-zinc-200">${(data?.withdrawal || 0).toLocaleString()}/yr</span>
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            );
+                          formatter={(value, name, props) => {
+                            const labels = { p10: 'Worst Case (10%)', p25: 'Pessimistic (25%)', p50: 'Most Likely', p75: 'Optimistic (75%)', p90: 'Best Case (90%)', withdrawal: 'Annual Withdrawal' };
+                            if (name === 'withdrawal') return [`$${value.toLocaleString()}/yr`, labels[name]];
+                            return [`$${value.toLocaleString()}`, labels[name] || name];
+                          }}
+                          labelFormatter={(age) => {
+                            const dataPoint = simulationResults?.find(d => d.age === age);
+                            return `Age ${age}${dataPoint?.isRetired ? ' (Retired)' : ''}`;
                           }}
                         />
                         <ReferenceLine x={retirementAge} stroke="#F7931A" strokeDasharray="5 5" label={{ value: 'Retire', fill: '#F7931A', fontSize: 10 }} />
