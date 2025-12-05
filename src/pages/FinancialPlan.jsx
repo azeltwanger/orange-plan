@@ -1008,7 +1008,7 @@ export default function FinancialPlan() {
       let low = 0;
       let high = 1000000; // $1M max test
       let maxSpending = 0;
-      const tolerance = 1; // $1 precision for maximum accuracy
+      const tolerance = 0.01; // $0.01 precision for maximum accuracy
 
       while (high - low > tolerance) {
         const testSpending = (low + high) / 2;
@@ -1037,7 +1037,7 @@ export default function FinancialPlan() {
             const yearSavings = annualSavings * Math.pow(1 + incomeGrowth / 100, year);
             portfolio += yearSavings;
           } else {
-            // Withdraw test amount (inflation-adjusted)
+            // Withdraw test amount (inflation-adjusted from today's dollars)
             const yearsIntoRetirement = age - retirementAge;
             const yearsOfInflation = Math.max(0, retirementAge - currentAge) + yearsIntoRetirement;
             const withdrawal = testSpending * Math.pow(1 + effectiveInflation / 100, yearsOfInflation);
