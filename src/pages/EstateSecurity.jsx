@@ -408,6 +408,10 @@ export default function EstateSecurity() {
     return sum + usdVal;
   }, 0);
 
+  // Calculate total estate value (BTC + other manual assets + auto-synced holdings)
+  const totalHoldingsValue = nonBtcHoldings.reduce((sum, h) => sum + (h.quantity * (h.current_price || 0)), 0);
+  const totalEstateValue = (totalCustodyBtc * currentPrice) + totalOtherAssetsValue + totalHoldingsValue;
+
   // Generate protocol report
   const generateProtocolReport = () => {
     let report = `INHERITANCE PROTOCOL DOCUMENT\n`;
@@ -552,9 +556,9 @@ export default function EstateSecurity() {
             <Download className="w-4 h-4 mr-2" />
             Export Protocol
           </Button>
-          <Button onClick={() => { setEditingItem(null); resetForm(); setFormOpen(true); }} className="brand-gradient text-white font-semibold hover:opacity-90 shadow-lg shadow-orange-500/20">
+          <Button onClick={() => { setEditingItem(null); resetForm(); setFormData(prev => ({ ...prev, item_type: 'custody_location', asset_type: 'btc' })); setFormOpen(true); }} className="brand-gradient text-white font-semibold hover:opacity-90 shadow-lg shadow-orange-500/20">
             <Plus className="w-4 h-4 mr-2" />
-            Add Item
+            Add BTC Custody
           </Button>
         </div>
       </div>
@@ -867,7 +871,7 @@ export default function EstateSecurity() {
               </div>
               <Button size="sm" onClick={() => { resetForm(); setFormData(prev => ({ ...prev, item_type: 'custody_location', asset_type: 'stocks' })); setFormOpen(true); }} className="brand-gradient text-white">
                 <Plus className="w-4 h-4 mr-2" />
-                Add Asset Manually
+                Add Other Asset
               </Button>
             </div>
 
@@ -1141,10 +1145,10 @@ export default function EstateSecurity() {
               <div>
                 <h3 className="font-semibold">Beneficiaries</h3>
                 <p className={cn("text-sm", totalAllocation === 100 ? "text-emerald-400" : "text-amber-400")}>
-                  Total allocated: {totalAllocation}%
+                  Total allocated: {totalAllocation}% of ${totalEstateValue.toLocaleString()} estate
                 </p>
               </div>
-              <Button size="sm" onClick={() => openAddForm('beneficiary')} className="brand-gradient text-white">
+              <Button size="sm" onClick={() => { resetForm(); setFormData(prev => ({ ...prev, item_type: 'beneficiary' })); setFormOpen(true); }} className="brand-gradient text-white">
                 <Plus className="w-4 h-4 mr-2" />
                 Add Beneficiary
               </Button>
@@ -1190,7 +1194,7 @@ export default function EstateSecurity() {
                       <div className="text-right">
                         <p className="text-xl font-bold text-purple-400">{beneficiary.beneficiary_allocation_percent || 0}%</p>
                         <p className="text-xs text-zinc-500">
-                          ≈ {(((beneficiary.beneficiary_allocation_percent || 0) / 100) * totalCustodyBtc).toFixed(4)} BTC
+                          ≈ ${(((beneficiary.beneficiary_allocation_percent || 0) / 100) * totalEstateValue).toLocaleString()}
                         </p>
                       </div>
                       <div className="flex gap-1">
@@ -1369,12 +1373,11 @@ export default function EstateSecurity() {
           <form onSubmit={handleSubmit} className="space-y-4 mt-4">
             <div className="space-y-2">
               <Label className="text-zinc-400">Item Type</Label>
-              <Select value={formData.item_type} onValueChange={(value) => setFormData({ ...formData, item_type: value })}>
+              <Select value={formData.item_type} onValueChange={(value) => setFormData({ ...formData, item_type: value })} disabled>
                 <SelectTrigger className="bg-zinc-900 border-zinc-800"><SelectValue /></SelectTrigger>
                 <SelectContent className="bg-zinc-900 border-zinc-800 text-zinc-100">
-                  <SelectItem value="custody_location">Custody Location</SelectItem>
-                  <SelectItem value="beneficiary">Beneficiary</SelectItem>
-                  <SelectItem value="reminder">Reminder</SelectItem>
+                  {formData.item_type === 'custody_location' && <SelectItem value="custody_location">Custody Location</SelectItem>}
+                  {formData.item_type === 'beneficiary' && <SelectItem value="beneficiary">Beneficiary</SelectItem>}
                 </SelectContent>
               </Select>
             </div>
@@ -1412,6 +1415,7 @@ export default function EstateSecurity() {
                               const account = accounts.find(a => a.id === h.account_id);
                               const allocated = allocatedBtcByHolding[h.id] || 0;
                               const remaining = h.quantity - allocated;
+                              if (remaining <= 0 && formData.linked_holding_id !== h.id) return null;
                               return (
                                 <SelectItem key={h.id} value={h.id}>
                                   {account?.name || h.asset_name} - {remaining.toFixed(8)} BTC available
@@ -1489,26 +1493,7 @@ export default function EstateSecurity() {
               </>
             )}
 
-            {formData.item_type === 'reminder' && (
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-zinc-400">Reminder Date</Label>
-                  <Input type="date" value={formData.reminder_date} onChange={(e) => setFormData({ ...formData, reminder_date: e.target.value })} className="bg-zinc-900 border-zinc-800" />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-zinc-400">Frequency</Label>
-                  <Select value={formData.reminder_frequency || ''} onValueChange={(value) => setFormData({ ...formData, reminder_frequency: value })}>
-                    <SelectTrigger className="bg-zinc-900 border-zinc-800"><SelectValue placeholder="One-time" /></SelectTrigger>
-                    <SelectContent className="bg-zinc-900 border-zinc-800 text-zinc-100">
-                      <SelectItem value="one_time">One-time</SelectItem>
-                      <SelectItem value="monthly">Monthly</SelectItem>
-                      <SelectItem value="quarterly">Quarterly</SelectItem>
-                      <SelectItem value="annual">Annual</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            )}
+
 
             <div className="space-y-2">
               <Label className="text-zinc-400">Notes</Label>
