@@ -687,8 +687,9 @@ export default function Performance() {
         txIndex++;
       }
 
-      // Calculate portfolio value using ONLY historical API prices
+      // Calculate portfolio value using historical API prices
       let portfolioValue = 0;
+      let hasAnyPrice = false;
       
       for (const [ticker, qty] of Object.entries(cumulativeQty)) {
         if (qty <= 0) continue;
@@ -697,10 +698,10 @@ export default function Performance() {
         const tickerHistorical = historicalPrices[ticker] || stockPrices[ticker];
         
         if (tickerHistorical && tickerHistorical.length > 0) {
-          // Find closest price point (within 3 days)
+          // Find closest price point
           const targetTime = currentDate.getTime();
-          let closest = null;
-          let minDiff = 3 * 24 * 60 * 60 * 1000;
+          let closest = tickerHistorical[0];
+          let minDiff = Math.abs(closest.date.getTime() - targetTime);
           
           for (const point of tickerHistorical) {
             const diff = Math.abs(point.date.getTime() - targetTime);
@@ -710,10 +711,21 @@ export default function Performance() {
             }
           }
           
-          if (closest) {
-            portfolioValue += qty * closest.price;
+          portfolioValue += qty * closest.price;
+          hasAnyPrice = true;
+        } else {
+          // Fallback to current price if no historical data for this ticker
+          const price = getCurrentPrice(ticker);
+          if (price > 0) {
+            portfolioValue += qty * price;
+            hasAnyPrice = true;
           }
         }
+      }
+      
+      // Skip if no holdings at this point
+      if (!hasAnyPrice && Object.keys(cumulativeQty).length === 0) {
+        continue;
       }
 
       // Format label based on timeframe
