@@ -1059,10 +1059,8 @@ export default function FinancialPlan() {
         }
       }
 
-      // Deflate to today's dollars for display consistency
-      const inflationFactor = Math.pow(1 + effectiveInflation / 100, Math.max(0, retirementAge - currentAge));
-      const maxSpendingToday = maxSpending / inflationFactor;
-      setMaxSustainableSpending(Math.round(maxSpendingToday));
+      // maxSpending is already in today's dollars from binary search
+      setMaxSustainableSpending(Math.round(maxSpending));
     };
 
     calculateMaxSpending();
