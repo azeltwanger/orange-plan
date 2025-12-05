@@ -86,6 +86,7 @@ export default function TaxCenter() {
   const [activeTab, setActiveTab] = useState('overview');
   const [csvImportOpen, setCsvImportOpen] = useState(false);
   const [txSortOrder, setTxSortOrder] = useState('desc'); // 'desc' (newest first), 'asc' (oldest first)
+  const [lotSortOrder, setLotSortOrder] = useState('asc'); // 'asc' (oldest first), 'desc' (newest first)
   const [selectedTxIds, setSelectedTxIds] = useState([]);
   const [bulkAccountType, setBulkAccountType] = useState('taxable');
   const queryClient = useQueryClient();
@@ -1117,12 +1118,27 @@ export default function TaxCenter() {
                 <h3 className="font-semibold">Tax Lots (Unrealized)</h3>
                 <p className="text-sm text-zinc-500">Total: {totalBtcHeld.toFixed(8)} BTC remaining</p>
               </div>
+              <Select value={lotSortOrder} onValueChange={setLotSortOrder}>
+                <SelectTrigger className="w-36 bg-zinc-800 border-zinc-700 h-9 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-zinc-900 border-zinc-700">
+                  <SelectItem value="asc">Oldest First</SelectItem>
+                  <SelectItem value="desc">Newest First</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             {taxLots.length === 0 ? (
               <p className="text-center text-zinc-500 py-12">No tax lots. Add buy transactions to create lots.</p>
             ) : (
               <div className="space-y-3">
-                {taxLots.map((lot) => {
+                {[...taxLots]
+                  .sort((a, b) => {
+                    const dateA = new Date(a.date);
+                    const dateB = new Date(b.date);
+                    return lotSortOrder === 'asc' ? dateA - dateB : dateB - dateA;
+                  })
+                  .map((lot) => {
                   const accountLabels = {
                     taxable: 'Taxable',
                     traditional_401k: '401(k)',
