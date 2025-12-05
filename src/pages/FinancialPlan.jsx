@@ -401,18 +401,30 @@ export default function FinancialPlan() {
   // Calculate portfolio values by tax treatment
   const getHoldingValue = (h) => h.ticker === 'BTC' ? h.quantity * currentPrice : h.quantity * (h.current_price || 0);
   
+  // Helper to determine tax treatment from account_type or tax_treatment field
+  const getTaxTreatmentFromHolding = (h) => {
+    // Check explicit tax_treatment first
+    if (h.tax_treatment) return h.tax_treatment;
+    
+    // Derive from account_type
+    const accountType = h.account_type || 'taxable';
+    if (['traditional_401k', 'traditional_ira'].includes(accountType)) return 'tax_deferred';
+    if (['roth_401k', 'roth_ira', 'hsa', '529'].includes(accountType)) return 'tax_free';
+    return 'taxable';
+  };
+  
   // Taxable accounts (accessible anytime) - exclude real estate for liquidity
-  const taxableHoldings = holdings.filter(h => !h.account_type || h.account_type === 'taxable');
+  const taxableHoldings = holdings.filter(h => getTaxTreatmentFromHolding(h) === 'taxable');
   const taxableValue = taxableHoldings.reduce((sum, h) => sum + getHoldingValue(h), 0);
   const taxableLiquidHoldings = taxableHoldings.filter(h => h.asset_type !== 'real_estate');
   const taxableLiquidValue = taxableLiquidHoldings.reduce((sum, h) => sum + getHoldingValue(h), 0);
   
   // Tax-deferred accounts (401k, Traditional IRA) - 10% penalty before 59½
-  const taxDeferredHoldings = holdings.filter(h => ['traditional_401k', 'traditional_ira'].includes(h.account_type));
+  const taxDeferredHoldings = holdings.filter(h => getTaxTreatmentFromHolding(h) === 'tax_deferred');
   const taxDeferredValue = taxDeferredHoldings.reduce((sum, h) => sum + getHoldingValue(h), 0);
   
   // Tax-free accounts (Roth, HSA) - contributions accessible, gains after 59½
-  const taxFreeHoldings = holdings.filter(h => ['roth_401k', 'roth_ira', 'hsa', '529'].includes(h.account_type));
+  const taxFreeHoldings = holdings.filter(h => getTaxTreatmentFromHolding(h) === 'tax_free');
   const taxFreeValue = taxFreeHoldings.reduce((sum, h) => sum + getHoldingValue(h), 0);
   
   // By asset type for projections
