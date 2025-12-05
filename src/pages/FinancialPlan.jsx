@@ -237,6 +237,7 @@ export default function FinancialPlan() {
   const [activeTab, setActiveTab] = useState('projections');
   const [showMonteCarloSettings, setShowMonteCarloSettings] = useState(false);
   const [earliestRetirementAge, setEarliestRetirementAge] = useState(null);
+  const [maxSustainableSpending, setMaxSustainableSpending] = useState(0);
   const queryClient = useQueryClient();
 
   // Assumption states - will be loaded from UserSettings
@@ -981,8 +982,6 @@ export default function FinancialPlan() {
   }, [earliestRetirementAge, retirementAge, willRunOutOfMoney, runOutOfMoneyAge, currentAge, retirementValue, effectiveWithdrawalRate, inflationAdjustedRetirementSpending]);
 
   // Calculate maximum sustainable spending at retirement age
-  const [maxSustainableSpending, setMaxSustainableSpending] = useState(0);
-
   useEffect(() => {
     const calculateMaxSpending = () => {
       // Only calculate for income-based withdrawal strategy
