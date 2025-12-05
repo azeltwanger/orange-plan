@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Shield, Target, TrendingUp, Plus, Pencil, Trash2, Calendar, Home, Car, Briefcase, Heart, DollarSign, Building, Clock, Link2 } from 'lucide-react';
+import { Shield, Target, TrendingUp, Plus, Pencil, Trash2, Calendar, Home, Car, Briefcase, Heart, DollarSign, Building, Clock, Link2, CreditCard } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -67,7 +67,7 @@ export default function Goals() {
 
   // Form states
   const [goalForm, setGoalForm] = useState({
-    name: '', target_amount: '', current_amount: '', target_date: '', goal_type: 'major_purchase', priority: 'medium', notes: '', bucket: 'goals', will_be_spent: false, funding_sources: [], linked_dca_plan_id: '',
+    name: '', target_amount: '', current_amount: '', target_date: '', goal_type: 'major_purchase', priority: 'medium', notes: '', bucket: 'goals', will_be_spent: false, funding_sources: [], linked_dca_plan_id: '', linked_liability_id: '', payoff_years: '',
   });
 
   const [eventForm, setEventForm] = useState({
@@ -107,6 +107,11 @@ export default function Goals() {
       const settings = await base44.entities.UserSettings.list();
       return settings[0] || {};
     },
+  });
+
+  const { data: liabilities = [] } = useQuery({
+    queryKey: ['liabilities'],
+    queryFn: () => base44.entities.Liability.list(),
   });
 
   // Fetch BTC price
@@ -200,7 +205,7 @@ export default function Goals() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['lifeEvents'] }),
   });
 
-  const resetGoalForm = () => setGoalForm({ name: '', target_amount: '', current_amount: '', target_date: '', goal_type: 'major_purchase', priority: 'medium', notes: '', bucket: 'goals', will_be_spent: false, funding_sources: [], linked_dca_plan_id: '' });
+  const resetGoalForm = () => setGoalForm({ name: '', target_amount: '', current_amount: '', target_date: '', goal_type: 'major_purchase', priority: 'medium', notes: '', bucket: 'goals', will_be_spent: false, funding_sources: [], linked_dca_plan_id: '', linked_liability_id: '', payoff_years: '' });
   const resetEventForm = () => setEventForm({ name: '', event_type: 'major_expense', year: new Date().getFullYear() + 1, amount: '', is_recurring: false, recurring_years: '', affects: 'assets', notes: '', monthly_expense_impact: '', liability_amount: '', down_payment: '', interest_rate: '', loan_term_years: '' });
 
   useEffect(() => {
@@ -217,6 +222,8 @@ export default function Goals() {
         will_be_spent: editingGoal.will_be_spent || false,
         funding_sources: editingGoal.funding_sources || [],
         linked_dca_plan_id: editingGoal.linked_dca_plan_id || '',
+        linked_liability_id: editingGoal.linked_liability_id || '',
+        payoff_years: editingGoal.payoff_years || '',
       });
     }
   }, [editingGoal]);
@@ -256,6 +263,8 @@ export default function Goals() {
       will_be_spent: goalForm.will_be_spent,
       funding_sources: goalForm.funding_sources || [],
       linked_dca_plan_id: goalForm.linked_dca_plan_id || null,
+      linked_liability_id: goalForm.linked_liability_id || null,
+      payoff_years: parseFloat(goalForm.payoff_years) || null,
     };
     delete data.bucket;
     editingGoal ? updateGoal.mutate({ id: editingGoal.id, data }) : createGoal.mutate(data);
@@ -496,6 +505,38 @@ export default function Goals() {
               />
             </div>
 
+            {/* Goal Type Selector for non-emergency buckets */}
+            {goalForm.bucket !== 'emergency' && (
+              <div className="space-y-2">
+                <Label className="text-zinc-400">Goal Type</Label>
+                <Select 
+                  value={goalForm.goal_type} 
+                  onValueChange={(value) => setGoalForm({ ...goalForm, goal_type: value })}
+                >
+                  <SelectTrigger className="bg-zinc-900 border-zinc-700 text-zinc-100">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-zinc-900 border-zinc-700">
+                    {goalForm.bucket === 'goals' && (
+                      <>
+                        <SelectItem value="major_purchase" className="text-zinc-100">🏠 Major Purchase</SelectItem>
+                        <SelectItem value="debt_payoff" className="text-zinc-100">💳 Debt Payoff</SelectItem>
+                        <SelectItem value="other" className="text-zinc-100">📝 Other</SelectItem>
+                      </>
+                    )}
+                    {goalForm.bucket === 'longterm' && (
+                      <>
+                        <SelectItem value="retirement" className="text-zinc-100">🎯 Retirement</SelectItem>
+                        <SelectItem value="btc_stack" className="text-zinc-100">₿ BTC Stack</SelectItem>
+                        <SelectItem value="debt_payoff" className="text-zinc-100">💳 Debt Payoff</SelectItem>
+                        <SelectItem value="other" className="text-zinc-100">📝 Other</SelectItem>
+                      </>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             {/* Emergency Fund Quick Presets */}
             {goalForm.bucket === 'emergency' && monthlyExpenses > 0 && (
               <div className="space-y-2">
@@ -596,6 +637,71 @@ export default function Goals() {
               </Select>
               <p className="text-xs text-zinc-500">Connect a DCA plan that contributes to this goal</p>
             </div>
+
+            {/* Link to Liability (for debt_payoff goals) */}
+            {goalForm.goal_type === 'debt_payoff' && (
+              <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 space-y-4">
+                <div className="flex items-center gap-2">
+                  <CreditCard className="w-5 h-5 text-rose-400" />
+                  <Label className="text-rose-300 font-medium">Debt Payoff Settings</Label>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label className="text-zinc-400">Link to Liability</Label>
+                  <Select 
+                    value={goalForm.linked_liability_id || 'none'} 
+                    onValueChange={(value) => {
+                      const liability = liabilities.find(l => l.id === value);
+                      setGoalForm({ 
+                        ...goalForm, 
+                        linked_liability_id: value === 'none' ? '' : value,
+                        target_amount: liability ? liability.current_balance : goalForm.target_amount,
+                        name: liability && !goalForm.name ? `Pay off ${liability.name}` : goalForm.name,
+                      });
+                    }}
+                  >
+                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-zinc-100">
+                      <SelectValue placeholder="Select a liability..." />
+                    </SelectTrigger>
+                    <SelectContent className="bg-zinc-900 border-zinc-700">
+                      <SelectItem value="none" className="text-zinc-100">No linked liability</SelectItem>
+                      {liabilities.map(liability => (
+                        <SelectItem key={liability.id} value={liability.id} className="text-zinc-100">
+                          {liability.name} (${(liability.current_balance || 0).toLocaleString()} @ {liability.interest_rate || 0}%)
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-zinc-400">Payoff Period (years)</Label>
+                  <Input 
+                    type="number" 
+                    value={goalForm.payoff_years} 
+                    onChange={(e) => setGoalForm({ ...goalForm, payoff_years: e.target.value })} 
+                    placeholder="e.g., 5" 
+                    className="bg-zinc-900 border-zinc-700 text-zinc-100" 
+                  />
+                  <p className="text-xs text-zinc-500">
+                    How many years to pay off this debt? This will be factored into retirement projections as annual withdrawals from investments.
+                  </p>
+                </div>
+
+                {goalForm.linked_liability_id && goalForm.payoff_years && parseFloat(goalForm.target_amount) > 0 && (
+                  <div className="p-3 rounded-lg bg-zinc-800/50">
+                    <p className="text-sm text-zinc-300">
+                      Annual payment needed: <span className="font-semibold text-rose-400">
+                        ${Math.round(parseFloat(goalForm.target_amount) / parseFloat(goalForm.payoff_years)).toLocaleString()}/yr
+                      </span>
+                    </p>
+                    <p className="text-xs text-zinc-500 mt-1">
+                      This will be withdrawn from your portfolio each year during the payoff period.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Funding Calculator */}
             {goalForm.target_amount && goalForm.target_date && (
