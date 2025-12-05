@@ -982,7 +982,7 @@ export default function FinancialPlan() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">Financial Independence</h1>
+          <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">Retirement Planning</h1>
           <p className="text-zinc-500 mt-1">Model your path to financial freedom</p>
         </div>
         <Button variant="outline" onClick={() => setShowMonteCarloSettings(!showMonteCarloSettings)} className="bg-transparent border-zinc-700">
@@ -1087,7 +1087,91 @@ export default function FinancialPlan() {
 
         {/* Projections Tab */}
         <TabsContent value="projections" className="space-y-6">
-          {/* Projection Chart - Moved to top */}
+          {/* Earliest FI Age - Hero Card - NOW AT TOP */}
+          <div className="card-premium rounded-2xl p-6 border border-orange-500/30 bg-gradient-to-br from-orange-500/10 to-transparent">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+              <div>
+                <p className="text-sm text-zinc-400 uppercase tracking-wider mb-2">Earliest Financial Independence</p>
+                <div className="flex items-baseline gap-3">
+                  <span className={cn(
+                    "text-5xl font-bold",
+                    earliestFIAge && earliestFIAge <= retirementAge ? "text-emerald-400" : 
+                    earliestFIAge ? "text-orange-400" : "text-rose-400"
+                  )}>
+                    {earliestFIAge ? `Age ${earliestFIAge}` : "Not Yet Achievable"}
+                  </span>
+                  {earliestFIAge && (
+                    <span className="text-zinc-500">
+                      ({earliestFIAge - currentAge} years from now)
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm text-zinc-400 mt-2">
+                  {earliestFIAge && earliestFIAge <= retirementAge 
+                    ? `You can achieve FI ${retirementAge - earliestFIAge} years earlier than your target!`
+                    : earliestFIAge 
+                      ? `Your target age ${retirementAge} is ${earliestFIAge - retirementAge} years too early based on current trajectory.`
+                      : "Increase savings or reduce spending to achieve financial independence."}
+                </p>
+              </div>
+              <div className="flex flex-col gap-2 text-sm">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                  <span className="text-zinc-400">Annual Savings:</span>
+                  <span className="font-semibold text-emerald-400">{formatNumber(annualSavings)}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-amber-400" />
+                  <span className="text-zinc-400">FI Spending Need:</span>
+                  <span className="font-semibold text-amber-400">{formatNumber(retirementAnnualSpending)}/yr</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-blue-400" />
+                  <span className="text-zinc-400">Current Portfolio:</span>
+                  <span className="font-semibold text-blue-400">{formatNumber(totalValue)}</span>
+                </div>
+              </div>
+            </div>
+            
+            {/* Actionable Insights when target is too early */}
+            {earliestFIAge && earliestFIAge > retirementAge && (
+              <div className="mt-6 pt-6 border-t border-zinc-700/50">
+                <p className="text-sm font-medium text-zinc-300 mb-3">💡 How to reach your target age of {retirementAge}:</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                    <p className="text-xs text-zinc-400">Increase savings by</p>
+                    <p className="text-lg font-bold text-emerald-400">
+                      +{formatNumber(Math.max(0, (requiredNestEgg - retirementValue) / Math.max(1, retirementAge - currentAge)))}
+                    </p>
+                    <p className="text-xs text-zinc-500">per year</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20">
+                    <p className="text-xs text-zinc-400">Or reduce FI spending to</p>
+                    <p className="text-lg font-bold text-rose-400">
+                      {formatNumber(retirementValue * effectiveWithdrawalRate / Math.pow(1 + inflationRate / 100, retirementAge - currentAge))}
+                    </p>
+                    <p className="text-xs text-zinc-500">per year (today's dollars)</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                    <p className="text-xs text-zinc-400">Or increase portfolio to</p>
+                    <p className="text-lg font-bold text-blue-400">
+                      {formatNumber(requiredNestEgg)}
+                    </p>
+                    <p className="text-xs text-zinc-500">at retirement</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                    <p className="text-xs text-zinc-400">Or delay retirement to</p>
+                    <p className="text-lg font-bold text-amber-400">
+                      Age {earliestFIAge}
+                    </p>
+                    <p className="text-xs text-zinc-500">{earliestFIAge - retirementAge} years later</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Projection Chart */}
           <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
             <h3 className="font-semibold mb-2">Wealth Projection</h3>
             <p className="text-sm text-zinc-400 mb-4">
@@ -1206,7 +1290,7 @@ export default function FinancialPlan() {
           </div>
 
           {/* Account Type Summary */}
-          <div className="card-premium rounded-2xl p-6 border border-zinc-800/50 mb-6">
+          <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
             <h3 className="font-semibold mb-4">Portfolio by Tax Treatment</h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
@@ -1287,56 +1371,9 @@ export default function FinancialPlan() {
               })()}
           </div>
 
-          {/* Earliest FI Age - Hero Card */}
-          <div className="card-premium rounded-2xl p-6 border border-orange-500/30 bg-gradient-to-br from-orange-500/10 to-transparent">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-              <div>
-                <p className="text-sm text-zinc-400 uppercase tracking-wider mb-2">Earliest Financial Independence</p>
-                <div className="flex items-baseline gap-3">
-                  <span className={cn(
-                    "text-5xl font-bold",
-                    earliestFIAge && earliestFIAge <= retirementAge ? "text-emerald-400" : 
-                    earliestFIAge ? "text-orange-400" : "text-rose-400"
-                  )}>
-                    {earliestFIAge ? `Age ${earliestFIAge}` : "Not Yet Achievable"}
-                  </span>
-                  {earliestFIAge && (
-                    <span className="text-zinc-500">
-                      ({earliestFIAge - currentAge} years from now)
-                    </span>
-                  )}
-                </div>
-                <p className="text-sm text-zinc-400 mt-2">
-                  {earliestFIAge && earliestFIAge <= retirementAge 
-                    ? `You can achieve FI ${retirementAge - earliestFIAge} years earlier than your target!`
-                    : earliestFIAge 
-                      ? `Your target age ${retirementAge} is ${earliestFIAge - retirementAge} years too early based on current trajectory.`
-                      : "Increase savings or reduce spending to achieve financial independence."}
-                </p>
-              </div>
-              <div className="flex flex-col gap-2 text-sm">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-emerald-400" />
-                  <span className="text-zinc-400">Annual Savings:</span>
-                  <span className="font-semibold text-emerald-400">{formatNumber(annualSavings)}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-amber-400" />
-                  <span className="text-zinc-400">FI Spending Need:</span>
-                  <span className="font-semibold text-amber-400">{formatNumber(retirementAnnualSpending)}/yr</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-blue-400" />
-                  <span className="text-zinc-400">Current Portfolio:</span>
-                  <span className="font-semibold text-blue-400">{formatNumber(totalValue)}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* FI Planning Settings */}
+          {/* Retirement Planning Settings */}
           <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
-            <h3 className="font-semibold mb-6">FI Planning Settings</h3>
+            <h3 className="font-semibold mb-6">Retirement Planning Settings</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                 <div className="space-y-2">
                   <Label className="text-zinc-400">Current Age</Label>
@@ -1422,68 +1459,25 @@ export default function FinancialPlan() {
               )}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6 p-4 rounded-xl bg-zinc-800/30">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-6 p-4 rounded-xl bg-zinc-800/30">
               <div>
                 <p className="text-sm text-zinc-400">At Retirement (Age {retirementAge})</p>
                 <p className="text-2xl font-bold text-orange-400">{formatNumber(retirementValue, 2)}</p>
                 <p className="text-xs text-zinc-500">Need: {formatNumber(requiredNestEgg)}</p>
               </div>
               <div>
-                <p className="text-sm text-zinc-400">At Life Expectancy (Age {lifeExpectancy})</p>
+                <p className="text-sm text-zinc-400">At Age {lifeExpectancy}</p>
                 <p className="text-2xl font-bold text-zinc-200">{formatNumber(endOfLifeValue, 2)}</p>
               </div>
               <div>
-                <p className="text-sm text-zinc-400">Year 1 Withdrawal</p>
-                <p className="text-2xl font-bold text-emerald-400">{formatNumber(firstRetirementWithdrawal)}</p>
+                <p className="text-sm text-zinc-400">Needed at Retirement</p>
+                <p className="text-2xl font-bold text-amber-400">{formatNumber(inflationAdjustedRetirementSpending)}/yr</p>
+                <p className="text-xs text-zinc-500">{formatNumber(inflationAdjustedRetirementSpending / 12)}/mo • {inflationRate}% inflation adj.</p>
               </div>
               <div>
                 <p className="text-sm text-zinc-400">Avg Annual Withdrawal</p>
                 <p className="text-2xl font-bold text-cyan-400">{formatNumber(avgRetirementWithdrawal)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-zinc-400">Needed at Retirement</p>
-                <p className="text-xl font-bold text-amber-400">{formatNumber(inflationAdjustedRetirementSpending)}/yr</p>
-                <p className="text-xs text-zinc-500">({inflationRate}% inflation adjusted)</p>
-              </div>
-              <div>
-                <p className="text-sm text-zinc-400">Total Lifetime Withdrawals</p>
-                <p className="text-xl font-bold text-purple-400">{formatNumber(totalLifetimeWithdrawals, 1)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-zinc-400">Retirement Status</p>
-                <p className={cn("text-xl font-bold", canRetire && !willRunOutOfMoney ? "text-emerald-400" : "text-amber-400")}>
-                  {willRunOutOfMoney ? `Runs out at ${currentAge + runOutOfMoneyAge}` : canRetire ? 'On Track ✓' : 'Optimistic*'}
-                </p>
-                {!canRetire && !willRunOutOfMoney && (
-                  <p className="text-xs text-zinc-400">*Based on avg returns. Run Monte Carlo for realistic odds.</p>
-                )}
-              </div>
-              <div>
-                <p className="text-sm text-zinc-400">Retirement Duration</p>
-                <p className="text-xl font-bold text-zinc-200">{lifeExpectancy - retirementAge} years</p>
-              </div>
-            </div>
-
-            {/* Monthly Spending in Retirement */}
-            <div className="mt-6 p-4 rounded-xl bg-zinc-800/30">
-              <h4 className="text-sm font-medium text-zinc-300 mb-3">Monthly Spending in Retirement</h4>
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <div>
-                  <p className="text-xs text-zinc-500">Today's Monthly Need</p>
-                  <p className="text-xl font-bold text-zinc-200">{formatNumber(retirementAnnualSpending / 12)}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-zinc-500">At Retirement (inflation-adjusted)</p>
-                  <p className="text-xl font-bold text-amber-400">{formatNumber(inflationAdjustedRetirementSpending / 12)}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-zinc-500">Year 1 Monthly Withdrawal</p>
-                  <p className="text-xl font-bold text-emerald-400">{formatNumber(firstRetirementWithdrawal / 12)}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-zinc-500">Avg Monthly Withdrawal</p>
-                  <p className="text-xl font-bold text-cyan-400">{formatNumber(avgRetirementWithdrawal / 12)}</p>
-                </div>
+                <p className="text-xs text-zinc-500">{formatNumber(avgRetirementWithdrawal / 12)}/mo avg</p>
               </div>
             </div>
           </div>
