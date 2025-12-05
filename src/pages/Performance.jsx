@@ -585,10 +585,9 @@ export default function Performance() {
       }
     }
     
-    // Don't go before our earliest historical data
-    if (startDate < earliestHistoricalDate) {
-      startDate = earliestHistoricalDate;
-    }
+    // For longer timeframes, if we don't have historical data going back far enough,
+    // still show the chart but note data may be limited
+    // Don't limit startDate - we'll handle missing data gracefully
 
     // Build cumulative holdings from ALL transactions before start date
     let cumulativeQty = {};
