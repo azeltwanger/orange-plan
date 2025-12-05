@@ -1732,11 +1732,7 @@ export default function TaxCenter() {
               />
               <p className="text-xs text-zinc-500">Assign to account (e.g., Fidelity, Coinbase, Ledger)</p>
             </div>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label className="text-zinc-400">Exchange/Platform (Optional)</Label>
-                <Input value={formData.exchange} onChange={(e) => setFormData({ ...formData, exchange: e.target.value })} placeholder="Coinbase, Strike..." className="bg-zinc-900 border-zinc-700 text-zinc-100 placeholder:text-zinc-500" />
-              </div>
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-zinc-400">Transaction Fee</Label>
                 <Input type="number" step="any" value={formData.trading_fee} onChange={(e) => setFormData({ ...formData, trading_fee: e.target.value })} placeholder="0.00" className="bg-zinc-900 border-zinc-700 text-zinc-100 placeholder:text-zinc-500" />
@@ -1756,6 +1752,10 @@ export default function TaxCenter() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-zinc-400">Exchange/Platform (Optional)</Label>
+              <Input value={formData.exchange} onChange={(e) => setFormData({ ...formData, exchange: e.target.value })} placeholder="Coinbase, Strike..." className="bg-zinc-900 border-zinc-700 text-zinc-100 placeholder:text-zinc-500" />
             </div>
             {formData.quantity && formData.price_per_unit && (
               <div className="p-3 rounded-xl bg-zinc-800/50">
