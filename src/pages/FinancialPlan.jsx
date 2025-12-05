@@ -1389,11 +1389,10 @@ export default function FinancialPlan() {
                       <span className="font-semibold text-cyan-400">{projectedPortfolioReturn.toFixed(1)}%/yr</span>
                     </div>
                   </div>
-            </div>
-            
-          </div>
+                  </div>
+                  </div>
 
-          {/* Retirement Status Indicator */}
+                  {/* Retirement Status Indicator */}
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
             {/* Status Card */}
             <div className={cn(
