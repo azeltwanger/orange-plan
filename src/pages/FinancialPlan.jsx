@@ -621,34 +621,34 @@ export default function FinancialPlan() {
         const estimatedCurrentGainRatio = runningTaxable > 0 ? Math.max(0, (runningTaxable - effectiveRunningTaxableBasis) / runningTaxable) : 0;
         
         // Calculate Social Security income for this year (inflation-adjusted from start age)
-                      const currentAgeInYearForSS = currentAge + i;
-                      let socialSecurityIncome = 0;
-                      if (currentAgeInYearForSS >= socialSecurityStartAge && socialSecurityAmount > 0) {
-                        const yearsOfSSInflation = currentAgeInYearForSS - socialSecurityStartAge;
-                        socialSecurityIncome = socialSecurityAmount * Math.pow(1 + effectiveInflation / 100, yearsOfSSInflation);
-                      }
+        const currentAgeInYearForSS = currentAge + i;
+        let socialSecurityIncome = 0;
+        if (currentAgeInYearForSS >= socialSecurityStartAge && socialSecurityAmount > 0) {
+          const yearsOfSSInflation = currentAgeInYearForSS - socialSecurityStartAge;
+          socialSecurityIncome = socialSecurityAmount * Math.pow(1 + effectiveInflation / 100, yearsOfSSInflation);
+        }
 
-                      // Total other income = other retirement income + Social Security (if eligible)
-                      const totalOtherIncome = otherRetirementIncome + socialSecurityIncome;
+        // Total other income = other retirement income + Social Security (if eligible)
+        const totalOtherIncome = otherRetirementIncome + socialSecurityIncome;
 
-                      // Use tax calculation utility for accurate withdrawal taxes
-                      const taxEstimate = estimateRetirementWithdrawalTaxes({
-                        withdrawalNeeded: yearWithdrawal,
-                        taxableBalance: runningTaxable,
-                        taxDeferredBalance: runningTaxDeferred,
-                        taxFreeBalance: runningTaxFree,
-                        taxableGainPercent: estimatedCurrentGainRatio,
-                        isLongTermGain: true, // Assume long-term for projections
-                        filingStatus,
-                        age: currentAgeInYear,
-                        otherIncome: totalOtherIncome,
-                      });
+        // Use tax calculation utility for accurate withdrawal taxes
+        const taxEstimate = estimateRetirementWithdrawalTaxes({
+          withdrawalNeeded: yearWithdrawal,
+          taxableBalance: runningTaxable,
+          taxDeferredBalance: runningTaxDeferred,
+          taxFreeBalance: runningTaxFree,
+          taxableGainPercent: estimatedCurrentGainRatio,
+          isLongTermGain: true, // Assume long-term for projections
+          filingStatus,
+          age: currentAgeInYear,
+          otherIncome: totalOtherIncome,
+        });
         
-        const withdrawFromTaxable = taxEstimate.fromTaxable;
-        const withdrawFromTaxDeferred = taxEstimate.fromTaxDeferred;
-        const withdrawFromTaxFree = taxEstimate.fromTaxFree;
-        taxesPaid = taxEstimate.totalTax;
-        penaltyPaid = taxEstimate.totalPenalty;
+        const withdrawFromTaxable = taxEstimate.fromTaxable || 0;
+        const withdrawFromTaxDeferred = taxEstimate.fromTaxDeferred || 0;
+        const withdrawFromTaxFree = taxEstimate.fromTaxFree || 0;
+        taxesPaid = taxEstimate.totalTax || 0;
+        penaltyPaid = taxEstimate.totalPenalty || 0;
         
         // Adjust cost basis after taxable withdrawal (proportionally reduce basis)
         if (withdrawFromTaxable > 0 && runningTaxable > 0) {
@@ -656,22 +656,22 @@ export default function FinancialPlan() {
           runningTaxableBasis = Math.max(0, runningTaxableBasis - (withdrawFromTaxable * basisRatio));
         }
         
-        // Update running balances
-        runningTaxable -= withdrawFromTaxable;
-        runningTaxDeferred -= withdrawFromTaxDeferred;
-        runningTaxFree -= withdrawFromTaxFree;
+        // Update running account balances
+        runningTaxable = Math.max(0, runningTaxable - withdrawFromTaxable);
+        runningTaxDeferred = Math.max(0, runningTaxDeferred - withdrawFromTaxDeferred);
+        runningTaxFree = Math.max(0, runningTaxFree - withdrawFromTaxFree);
         
-        // Withdraw proportionally from asset types
-        const totalForWithdrawal = runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther + runningSavings;
+        // Withdraw proportionally from asset types based on actual total withdrawal
         const actualWithdrawal = withdrawFromTaxable + withdrawFromTaxDeferred + withdrawFromTaxFree;
-        if (totalForWithdrawal > 0 && actualWithdrawal > 0) {
-          const withdrawRatio = Math.min(1, actualWithdrawal / totalForWithdrawal);
-          runningBtc -= runningBtc * withdrawRatio;
-          runningStocks -= runningStocks * withdrawRatio;
-          runningRealEstate -= runningRealEstate * withdrawRatio;
-          runningBonds -= runningBonds * withdrawRatio;
-          runningOther -= runningOther * withdrawRatio;
-          runningSavings -= runningSavings * withdrawRatio;
+        const totalAssetValue = runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther + runningSavings;
+        if (totalAssetValue > 0 && actualWithdrawal > 0) {
+          const withdrawRatio = Math.min(1, actualWithdrawal / totalAssetValue);
+          runningBtc = Math.max(0, runningBtc * (1 - withdrawRatio));
+          runningStocks = Math.max(0, runningStocks * (1 - withdrawRatio));
+          runningRealEstate = Math.max(0, runningRealEstate * (1 - withdrawRatio));
+          runningBonds = Math.max(0, runningBonds * (1 - withdrawRatio));
+          runningOther = Math.max(0, runningOther * (1 - withdrawRatio));
+          runningSavings = Math.max(0, runningSavings * (1 - withdrawRatio));
         }
       }
 
