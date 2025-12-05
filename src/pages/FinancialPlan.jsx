@@ -1480,63 +1480,6 @@ export default function FinancialPlan() {
             )}
           </div>
 
-            {/* Actionable Insights when target is too early */}
-            {earliestRetirementAge && earliestRetirementAge > retirementAge && false && (
-              <div className="mt-6 pt-6 border-t border-zinc-700/50">
-                <p className="text-sm font-medium text-zinc-300 mb-3">💡 How to reach your target age of {retirementAge}:</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-                    <p className="text-xs text-zinc-400">Increase savings by</p>
-                    <p className="text-lg font-bold text-emerald-400">
-                      +{formatNumber((() => {
-                        // Calculate additional annual savings needed using future value annuity formula
-                        const yearsToRetire = Math.max(1, retirementAge - currentAge);
-                        const shortfall = Math.max(0, requiredNestEgg - retirementValue);
-                        // Estimate blended growth rate
-                        const blendedGrowth = (effectiveBtcCagr * 0.3 + effectiveStocksCagr * 0.7) / 100;
-                        // Future value of annuity factor: ((1+r)^n - 1) / r
-                        const fvFactor = blendedGrowth > 0.001 
-                          ? (Math.pow(1 + blendedGrowth, yearsToRetire) - 1) / blendedGrowth 
-                          : yearsToRetire;
-                        return shortfall / fvFactor;
-                      })())}
-                    </p>
-                    <p className="text-xs text-zinc-500">per year</p>
-                  </div>
-                  <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20">
-                    <p className="text-xs text-zinc-400">Or reduce FI spending to</p>
-                    <p className="text-lg font-bold text-rose-400">
-                      {formatNumber((() => {
-                        // Calculate sustainable spending given projected portfolio at target age
-                        // Use projected value at retirement, not required nest egg
-                        const sustainableAtRetirement = retirementValue * effectiveWithdrawalRate;
-                        // Convert back to today's dollars
-                        const yearsToRetire = retirementAge - currentAge;
-                        const todaysDollars = sustainableAtRetirement / Math.pow(1 + inflationRate / 100, yearsToRetire);
-                        return Math.max(0, todaysDollars);
-                      })())}
-                    </p>
-                    <p className="text-xs text-zinc-500">per year (today's dollars)</p>
-                  </div>
-                  <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
-                    <p className="text-xs text-zinc-400">Need portfolio of</p>
-                    <p className="text-lg font-bold text-blue-400">
-                      {formatNumber(requiredNestEgg)}
-                    </p>
-                    <p className="text-xs text-zinc-500">at age {retirementAge} (projected: {formatNumber(retirementValue)})</p>
-                  </div>
-                  <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                    <p className="text-xs text-zinc-400">Or delay retirement to</p>
-                    <p className="text-lg font-bold text-amber-400">
-                      Age {earliestRetirementAge}
-                    </p>
-                    <p className="text-xs text-zinc-500">{earliestRetirementAge - retirementAge} years later</p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
           {/* Projection Chart */}
           <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
             <h3 className="font-semibold mb-2">Wealth Projection</h3>
