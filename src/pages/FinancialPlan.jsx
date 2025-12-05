@@ -1208,23 +1208,35 @@ export default function FinancialPlan() {
                   <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
                     <p className="text-xs text-zinc-400">Increase savings by</p>
                     <p className="text-lg font-bold text-emerald-400">
-                      +{formatNumber(Math.max(0, (requiredNestEgg - retirementValue) / Math.max(1, retirementAge - currentAge)))}
+                      +{formatNumber((() => {
+                        // Calculate how much more annual savings needed to hit requiredNestEgg by target retirement
+                        const yearsToRetire = Math.max(1, retirementAge - currentAge);
+                        const shortfall = Math.max(0, requiredNestEgg - retirementValue);
+                        // Simple annuity calculation: shortfall / years
+                        return shortfall / yearsToRetire;
+                      })())}
                     </p>
                     <p className="text-xs text-zinc-500">per year</p>
                   </div>
                   <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20">
                     <p className="text-xs text-zinc-400">Or reduce FI spending to</p>
                     <p className="text-lg font-bold text-rose-400">
-                      {formatNumber(retirementValue * effectiveWithdrawalRate / Math.pow(1 + inflationRate / 100, retirementAge - currentAge))}
+                      {formatNumber((() => {
+                        // Calculate sustainable spending given projected portfolio at target age
+                        // Convert back to today's dollars
+                        const sustainableAtRetirement = retirementValue * effectiveWithdrawalRate;
+                        const todaysDollars = sustainableAtRetirement / Math.pow(1 + inflationRate / 100, retirementAge - currentAge);
+                        return todaysDollars;
+                      })())}
                     </p>
                     <p className="text-xs text-zinc-500">per year (today's dollars)</p>
                   </div>
                   <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
-                    <p className="text-xs text-zinc-400">Or increase portfolio to</p>
+                    <p className="text-xs text-zinc-400">Need portfolio of</p>
                     <p className="text-lg font-bold text-blue-400">
                       {formatNumber(requiredNestEgg)}
                     </p>
-                    <p className="text-xs text-zinc-500">at retirement</p>
+                    <p className="text-xs text-zinc-500">at age {retirementAge} (have {formatNumber(retirementValue)})</p>
                   </div>
                   <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
                     <p className="text-xs text-zinc-400">Or delay retirement to</p>
