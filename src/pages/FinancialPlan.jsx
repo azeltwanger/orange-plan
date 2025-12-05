@@ -1371,6 +1371,57 @@ export default function FinancialPlan() {
                 Before 59½: Taxable first, then Roth contributions, then tax-deferred with 10% penalty as last resort.
               </p>
             </div>
+            
+            {/* Account Balances Over Time in Retirement */}
+            {projections.length > 0 && retirementYearIndex < projections.length && (
+              <div className="mt-4">
+                <p className="text-xs font-medium text-zinc-300 mb-3">Account Balances at Key Ages</p>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                  <div className="p-3 rounded-lg bg-zinc-900/50">
+                    <p className="text-zinc-500 mb-1">Now (Age {currentAge})</p>
+                    <div className="space-y-1">
+                      <div className="flex justify-between"><span className="text-emerald-400">Taxable:</span><span>{formatNumber(projections[0]?.taxable)}</span></div>
+                      <div className="flex justify-between"><span className="text-amber-400">Deferred:</span><span>{formatNumber(projections[0]?.taxDeferred)}</span></div>
+                      <div className="flex justify-between"><span className="text-purple-400">Tax-Free:</span><span>{formatNumber(projections[0]?.taxFree)}</span></div>
+                    </div>
+                  </div>
+                  <div className="p-3 rounded-lg bg-zinc-900/50">
+                    <p className="text-zinc-500 mb-1">Retirement (Age {retirementAge})</p>
+                    <div className="space-y-1">
+                      <div className="flex justify-between"><span className="text-emerald-400">Taxable:</span><span>{formatNumber(projections[retirementYearIndex]?.taxable)}</span></div>
+                      <div className="flex justify-between"><span className="text-amber-400">Deferred:</span><span>{formatNumber(projections[retirementYearIndex]?.taxDeferred)}</span></div>
+                      <div className="flex justify-between"><span className="text-purple-400">Tax-Free:</span><span>{formatNumber(projections[retirementYearIndex]?.taxFree)}</span></div>
+                    </div>
+                  </div>
+                  {currentAge < 60 && (
+                    <div className="p-3 rounded-lg bg-zinc-900/50">
+                      <p className="text-zinc-500 mb-1">Age 60 (Penalty-Free)</p>
+                      <div className="space-y-1">
+                        {(() => {
+                          const age60Index = Math.max(0, 60 - currentAge);
+                          const p = projections[age60Index];
+                          return p ? (
+                            <>
+                              <div className="flex justify-between"><span className="text-emerald-400">Taxable:</span><span>{formatNumber(p.taxable)}</span></div>
+                              <div className="flex justify-between"><span className="text-amber-400">Deferred:</span><span>{formatNumber(p.taxDeferred)}</span></div>
+                              <div className="flex justify-between"><span className="text-purple-400">Tax-Free:</span><span>{formatNumber(p.taxFree)}</span></div>
+                            </>
+                          ) : null;
+                        })()}
+                      </div>
+                    </div>
+                  )}
+                  <div className="p-3 rounded-lg bg-zinc-900/50">
+                    <p className="text-zinc-500 mb-1">Age {lifeExpectancy}</p>
+                    <div className="space-y-1">
+                      <div className="flex justify-between"><span className="text-emerald-400">Taxable:</span><span>{formatNumber(projections[projections.length - 1]?.taxable)}</span></div>
+                      <div className="flex justify-between"><span className="text-amber-400">Deferred:</span><span>{formatNumber(projections[projections.length - 1]?.taxDeferred)}</span></div>
+                      <div className="flex justify-between"><span className="text-purple-400">Tax-Free:</span><span>{formatNumber(projections[projections.length - 1]?.taxFree)}</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
             {retirementAge < 59.5 && (() => {
                 const yearsUntilPenaltyFree = Math.ceil(59.5 - retirementAge);
                 const annualNeedAtRetirement = retirementAnnualSpending * Math.pow(1 + inflationRate / 100, retirementAge - currentAge);
