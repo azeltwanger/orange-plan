@@ -2,9 +2,10 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
-import { TrendingUp, TrendingDown, Calendar, Bitcoin, DollarSign, BarChart3, Info, Loader2 } from 'lucide-react';
+import { TrendingUp, TrendingDown, Calendar, Bitcoin, DollarSign, BarChart3, Info, Loader2, ChevronDown, ChevronRight, Building2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { format, subMonths, subYears, differenceInDays, parseISO } from 'date-fns';
 
 // Helper to parse various date formats (M/D/YYYY or YYYY-MM-DD)
