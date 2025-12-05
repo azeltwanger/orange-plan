@@ -603,6 +603,9 @@ export default function FinancialPlan() {
       let yearWithdrawal = 0;
       let taxesPaid = 0;
       let penaltyPaid = 0;
+      let withdrawFromTaxable = 0;
+      let withdrawFromTaxDeferred = 0;
+      let withdrawFromTaxFree = 0;
       
       if (i > 0) {
         // Grow assets by their respective rates
