@@ -2095,8 +2095,8 @@ export default function FinancialPlan() {
               </div>
               <div>
                 <p className="text-sm text-zinc-400">Spending at Retirement</p>
-                <p className="text-2xl font-bold text-amber-400">{formatNumber(inflationAdjustedRetirementSpending)}/yr</p>
-                <p className="text-xs text-zinc-500">{formatNumber(inflationAdjustedRetirementSpending / 12)}/mo • {inflationRate}% inflation adj.</p>
+                <p className="text-2xl font-bold text-amber-400">{formatNumber(retirementAnnualSpending)}/yr</p>
+                <p className="text-xs text-zinc-500">{formatNumber(retirementAnnualSpending / 12)}/mo today • inflates to {formatNumber(inflationAdjustedRetirementSpending)}/yr</p>
               </div>
             </div>
           </div>
