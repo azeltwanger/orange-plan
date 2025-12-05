@@ -20,7 +20,7 @@ export default function NetWorthCard({ totalAssets, totalLiabilities, btcHolding
   const btcValue = btcHoldings * btcPrice;
   const btcPercentage = totalAssets > 0 ? (btcValue / totalAssets) * 100 : 0;
 
-  // Calculate Money-Weighted Return (IRR) - same logic as Performance page
+  // Calculate Money-Weighted Return using XIRR
   const returnData = useMemo(() => {
     const btcTxs = transactions.filter(t => t.asset_ticker === 'BTC');
     if (btcTxs.length === 0 || btcHoldings <= 0) return null;
@@ -28,53 +28,84 @@ export default function NetWorthCard({ totalAssets, totalLiabilities, btcHolding
     const now = new Date();
     const currentValue = btcHoldings * btcPrice;
     
-    // Build cash flows: negative for buys, positive for sells
+    // Build cash flows and dates for XIRR
     const cashFlows = [];
+    const dates = [];
     
     for (const tx of btcTxs) {
       const txDate = parseDate(tx.date);
       if (!txDate) continue;
       
-      const yearsAgo = differenceInDays(now, txDate) / 365;
       const amount = tx.type === 'buy' 
-        ? -(tx.cost_basis || tx.quantity * tx.price_per_unit)
-        : (tx.total_value || tx.quantity * tx.price_per_unit);
+        ? -Math.abs(tx.cost_basis || tx.quantity * tx.price_per_unit)
+        : Math.abs(tx.total_value || tx.quantity * tx.price_per_unit);
       
-      cashFlows.push({ yearsAgo, amount });
+      cashFlows.push(amount);
+      dates.push(txDate);
     }
     
-    // Add current BTC value as final positive cash flow (at time 0)
-    cashFlows.push({ yearsAgo: 0, amount: currentValue });
+    // Add current BTC value as final positive cash flow (today)
+    cashFlows.push(currentValue);
+    dates.push(now);
     
     if (cashFlows.length < 2) return null;
 
     // Get first transaction date for display
-    const sortedTxs = btcTxs
-      .filter(t => parseDate(t.date))
-      .sort((a, b) => parseDate(a.date) - parseDate(b.date));
-    const firstDate = sortedTxs.length > 0 ? parseDate(sortedTxs[0].date) : null;
-    const years = firstDate ? differenceInDays(now, firstDate) / 365 : 0;
+    const sortedDates = [...dates].sort((a, b) => a - b);
+    const firstDate = sortedDates[0];
+    const years = differenceInDays(now, firstDate) / 365;
     
     if (years < 0.01) return null; // Less than ~4 days
     
-    // Calculate simple annualized return (CAGR-style) as fallback
+    // Calculate total invested
     const totalInvested = cashFlows
-      .filter(cf => cf.amount < 0)
-      .reduce((sum, cf) => sum + Math.abs(cf.amount), 0);
+      .filter(cf => cf < 0)
+      .reduce((sum, cf) => sum + Math.abs(cf), 0);
     
     const totalReturn = totalInvested > 0 ? (currentValue - totalInvested) / totalInvested : 0;
     
-    // Use simple CAGR formula: (endValue/startValue)^(1/years) - 1
-    // This is more stable than IRR for DCA scenarios
+    // Calculate XIRR using Newton-Raphson
+    const calculateXIRR = (cfs, dts, guess = 0.1) => {
+      const daysBetween = (d1, d2) => (d2 - d1) / (1000 * 60 * 60 * 24);
+      const firstDt = dts[0];
+      const yrs = dts.map(d => daysBetween(firstDt, d) / 365);
+      
+      const npv = (rate) => cfs.reduce((sum, cf, i) => sum + cf / Math.pow(1 + rate, yrs[i]), 0);
+      const npvDeriv = (rate) => cfs.reduce((sum, cf, i) => {
+        if (yrs[i] === 0) return sum;
+        return sum - (yrs[i] * cf) / Math.pow(1 + rate, yrs[i] + 1);
+      }, 0);
+      
+      let rate = guess;
+      for (let i = 0; i < 50; i++) {
+        const npvVal = npv(rate);
+        const deriv = npvDeriv(rate);
+        if (Math.abs(deriv) < 0.0000001) break;
+        const newRate = rate - npvVal / deriv;
+        if (Math.abs(newRate - rate) < 0.0000001) return newRate;
+        rate = Math.max(-0.99, Math.min(5, newRate));
+      }
+      return rate;
+    };
+    
     let annualizedReturn;
-    if (years >= 1) {
-      annualizedReturn = (Math.pow(currentValue / totalInvested, 1 / years) - 1) * 100;
-    } else {
-      // For less than a year, just show the actual return
-      annualizedReturn = totalReturn * 100;
+    try {
+      const irr = calculateXIRR(cashFlows, dates);
+      if (isFinite(irr) && !isNaN(irr)) {
+        annualizedReturn = irr * 100;
+      } else {
+        // Fallback to CAGR
+        annualizedReturn = years >= 1 
+          ? (Math.pow(currentValue / totalInvested, 1 / years) - 1) * 100
+          : totalReturn * 100;
+      }
+    } catch {
+      annualizedReturn = years >= 1 
+        ? (Math.pow(currentValue / totalInvested, 1 / years) - 1) * 100
+        : totalReturn * 100;
     }
     
-    return { annualizedReturn, years, totalReturn: totalReturn * 100 };
+    return { annualizedReturn, years, totalReturn: totalReturn * 100, isIRR: true };
   }, [transactions, btcHoldings, btcPrice]);
 
   return (
