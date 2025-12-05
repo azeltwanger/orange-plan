@@ -1305,7 +1305,13 @@ export default function FinancialPlan() {
                     <Area type="monotone" dataKey="stocks" stackId="1" stroke="#60a5fa" fill="#60a5fa" fillOpacity={0.3} name="Stocks" yAxisId="left" />
                     <Area type="monotone" dataKey="btc" stackId="1" stroke="#F7931A" fill="#F7931A" fillOpacity={0.5} name="Bitcoin" yAxisId="left" />
                     <Line type="monotone" dataKey="total" stroke="#ffffff" strokeWidth={2} dot={false} name="Total" yAxisId="left" />
-                    <Line type="monotone" dataKey="yearWithdrawal" stroke="#ef4444" strokeWidth={2} dot={false} name="Withdrawal" yAxisId="right" strokeDasharray="5 5" />
+                    <Line type="monotone" dataKey="yearWithdrawal" stroke="#ef4444" strokeWidth={2} dot={(props) => {
+                      // Only show dots for retirement years with actual withdrawals
+                      if (props.payload?.yearWithdrawal > 0) {
+                        return <circle cx={props.cx} cy={props.cy} r={2} fill="#ef4444" />;
+                      }
+                      return null;
+                    }} name="Withdrawal" yAxisId="right" connectNulls={false} />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
