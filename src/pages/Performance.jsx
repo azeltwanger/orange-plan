@@ -519,11 +519,24 @@ export default function Performance() {
     return closest.price;
   }, [historicalPrices, stockPrices, getCurrentPrice]);
 
-  // Generate chart data using ONLY historical API prices for accuracy
+  // Track if historical prices are still loading
+  const [historicalLoading, setHistoricalLoading] = useState(true);
+
+  // Generate chart data using historical API prices for accuracy
   const chartData = useMemo(() => {
-    // Wait for historical prices to load
     const hasHistoricalData = Object.keys(historicalPrices).length > 0 || Object.keys(stockPrices).length > 0;
-    if (!hasHistoricalData && cryptoTickers.length > 0) return [];
+    
+    // If no crypto tickers, we don't need to wait for historical data
+    if (cryptoTickers.length === 0 && stockTickers.length === 0) {
+      // Just show current holdings value
+      if (holdings.length === 0) return [];
+    }
+    
+    // If we have tickers but no historical data yet, return empty (loading)
+    if (!hasHistoricalData && (cryptoTickers.length > 0 || stockTickers.length > 0)) {
+      return [];
+    }
+    
     if (transactions.length === 0 && holdings.length === 0) return [];
 
     const now = new Date();
