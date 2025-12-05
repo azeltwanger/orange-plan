@@ -82,6 +82,13 @@ const DEBT_STRATEGIES = [
   { value: 'snowball', label: 'Snowball', desc: 'Smallest balance first' },
 ];
 
+const ASSET_CLASSES = [
+  { key: 'btc', label: 'Bitcoin', color: 'orange' },
+  { key: 'stocks', label: 'Stocks', color: 'blue' },
+  { key: 'real_estate', label: 'Real Estate', color: 'emerald' },
+  { key: 'bonds', label: 'Bonds', color: 'purple' },
+];
+
 export default function Scenarios() {
   const [btcPrice, setBtcPrice] = useState(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -112,8 +119,11 @@ export default function Scenarios() {
     outperformance_gain_percent: '',
     btc_allocation_override: '',
     stocks_allocation_override: '',
+    real_estate_allocation_override: '',
+    bonds_allocation_override: '',
     rebalancing_strategy: 'none',
     debt_payoff_strategy: 'minimum',
+    extra_debt_payment: '',
     linked_life_event_ids: [],
   });
 
@@ -216,8 +226,11 @@ export default function Scenarios() {
       btcReturnModel: btcModel,
       btcAllocation: scenario?.btc_allocation_override,
       stocksAllocation: scenario?.stocks_allocation_override,
+      realEstateAllocation: scenario?.real_estate_allocation_override,
+      bondsAllocation: scenario?.bonds_allocation_override,
       rebalancingStrategy: scenario?.rebalancing_strategy || 'none',
       debtPayoffStrategy: scenario?.debt_payoff_strategy || 'minimum',
+      extraDebtPayment: scenario?.extra_debt_payment || 0,
     };
 
     const years = assumptions.lifeExpectancy - assumptions.currentAge;
@@ -293,30 +306,40 @@ export default function Scenarios() {
           runningDebt = runningDebt * (1 + avgDebtInterestRate / 100);
         }
 
-        // Rebalancing logic
-        const shouldRebalance = 
-          (assumptions.rebalancingStrategy === 'annual' && i % 1 === 0) ||
-          (assumptions.rebalancingStrategy === 'quarterly' && i % 0.25 === 0);
+        // Rebalancing logic - check if any allocation is set
+        const hasAllocations = assumptions.btcAllocation !== undefined || 
+                               assumptions.stocksAllocation !== undefined ||
+                               assumptions.realEstateAllocation !== undefined ||
+                               assumptions.bondsAllocation !== undefined;
         
-        if (shouldRebalance && assumptions.btcAllocation !== undefined && assumptions.stocksAllocation !== undefined) {
+        const shouldRebalance = hasAllocations && (
+          (assumptions.rebalancingStrategy === 'annual' && i % 1 === 0) ||
+          (assumptions.rebalancingStrategy === 'quarterly' && i % 0.25 === 0)
+        );
+        
+        if (shouldRebalance) {
           const totalAssets = runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther;
-          const targetBtc = totalAssets * (assumptions.btcAllocation / 100);
-          const targetStocks = totalAssets * (assumptions.stocksAllocation / 100);
-          const remainingAlloc = 100 - (assumptions.btcAllocation || 0) - (assumptions.stocksAllocation || 0);
-          const targetOther = totalAssets * (remainingAlloc / 100);
           
-          runningBtc = targetBtc;
-          runningStocks = targetStocks;
-          // Distribute remaining proportionally among other assets
-          const otherTotal = runningRealEstate + runningBonds + runningOther;
-          if (otherTotal > 0) {
-            const reRatio = runningRealEstate / otherTotal;
-            const bondRatio = runningBonds / otherTotal;
-            const miscRatio = runningOther / otherTotal;
-            runningRealEstate = targetOther * reRatio;
-            runningBonds = targetOther * bondRatio;
-            runningOther = targetOther * miscRatio;
-          }
+          // Calculate current allocations
+          const currentBtcPct = totalAssets > 0 ? (runningBtc / totalAssets) * 100 : 0;
+          const currentStocksPct = totalAssets > 0 ? (runningStocks / totalAssets) * 100 : 0;
+          const currentRealEstatePct = totalAssets > 0 ? (runningRealEstate / totalAssets) * 100 : 0;
+          const currentBondsPct = totalAssets > 0 ? (runningBonds / totalAssets) * 100 : 0;
+          
+          // Use override if set, otherwise keep current allocation
+          const targetBtcPct = assumptions.btcAllocation ?? currentBtcPct;
+          const targetStocksPct = assumptions.stocksAllocation ?? currentStocksPct;
+          const targetRealEstatePct = assumptions.realEstateAllocation ?? currentRealEstatePct;
+          const targetBondsPct = assumptions.bondsAllocation ?? currentBondsPct;
+          
+          runningBtc = totalAssets * (targetBtcPct / 100);
+          runningStocks = totalAssets * (targetStocksPct / 100);
+          runningRealEstate = totalAssets * (targetRealEstatePct / 100);
+          runningBonds = totalAssets * (targetBondsPct / 100);
+          
+          // Remaining goes to other
+          const usedPct = targetBtcPct + targetStocksPct + targetRealEstatePct + targetBondsPct;
+          runningOther = totalAssets * (Math.max(0, 100 - usedPct) / 100);
         }
       }
 
@@ -325,7 +348,10 @@ export default function Scenarios() {
         
         // Apply accelerated debt payoff strategies
         if (assumptions.debtPayoffStrategy !== 'minimum' && runningDebt > 0) {
-          const extraPayment = yearSavings * 0.3; // 30% of savings to debt
+          // Use specified extra payment amount, or default to 30% of savings
+          const extraPayment = assumptions.extraDebtPayment > 0 
+            ? assumptions.extraDebtPayment 
+            : yearSavings * 0.3;
           const debtPayment = Math.min(extraPayment, runningDebt);
           runningDebt = Math.max(0, runningDebt - debtPayment);
           yearSavings -= debtPayment;
@@ -442,8 +468,8 @@ export default function Scenarios() {
       withdrawal_strategy_override: '', dynamic_withdrawal_rate_override: '', btc_return_model_override: '',
       market_crash_year: '', crash_severity_percent: '',
       outperformance_year: '', outperformance_gain_percent: '',
-      btc_allocation_override: '', stocks_allocation_override: '',
-      rebalancing_strategy: 'none', debt_payoff_strategy: 'minimum',
+      btc_allocation_override: '', stocks_allocation_override: '', real_estate_allocation_override: '', bonds_allocation_override: '',
+      rebalancing_strategy: 'none', debt_payoff_strategy: 'minimum', extra_debt_payment: '',
       linked_life_event_ids: [],
     });
   };
@@ -469,8 +495,11 @@ export default function Scenarios() {
       outperformance_gain_percent: form.outperformance_gain_percent !== '' ? parseFloat(form.outperformance_gain_percent) : null,
       btc_allocation_override: form.btc_allocation_override !== '' ? parseFloat(form.btc_allocation_override) : null,
       stocks_allocation_override: form.stocks_allocation_override !== '' ? parseFloat(form.stocks_allocation_override) : null,
+      real_estate_allocation_override: form.real_estate_allocation_override !== '' ? parseFloat(form.real_estate_allocation_override) : null,
+      bonds_allocation_override: form.bonds_allocation_override !== '' ? parseFloat(form.bonds_allocation_override) : null,
       rebalancing_strategy: form.rebalancing_strategy || 'none',
       debt_payoff_strategy: form.debt_payoff_strategy || 'minimum',
+      extra_debt_payment: form.extra_debt_payment !== '' ? parseFloat(form.extra_debt_payment) : null,
       linked_life_event_ids: form.linked_life_event_ids || [],
     };
 
@@ -505,8 +534,11 @@ export default function Scenarios() {
       outperformance_gain_percent: scenario.outperformance_gain_percent ?? '',
       btc_allocation_override: scenario.btc_allocation_override ?? '',
       stocks_allocation_override: scenario.stocks_allocation_override ?? '',
+      real_estate_allocation_override: scenario.real_estate_allocation_override ?? '',
+      bonds_allocation_override: scenario.bonds_allocation_override ?? '',
       rebalancing_strategy: scenario.rebalancing_strategy || 'none',
       debt_payoff_strategy: scenario.debt_payoff_strategy || 'minimum',
+      extra_debt_payment: scenario.extra_debt_payment ?? '',
       linked_life_event_ids: scenario.linked_life_event_ids || [],
     });
     setFormOpen(true);
@@ -1045,51 +1077,70 @@ export default function Scenarios() {
             {/* Asset Allocation & Rebalancing */}
             <div className="space-y-4">
               <h4 className="text-sm font-medium text-zinc-300">Asset Allocation & Rebalancing</h4>
-              <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-zinc-400 text-xs">BTC Allocation (%)</Label>
+                  <Label className="text-zinc-400 text-xs">BTC (%)</Label>
                   <Input
                     type="number"
                     min="0"
                     max="100"
                     value={form.btc_allocation_override}
                     onChange={(e) => setForm({ ...form, btc_allocation_override: e.target.value })}
-                    placeholder="Leave empty for current"
+                    placeholder="Current"
                     className="bg-zinc-800 border-zinc-700"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-zinc-400 text-xs">Stocks Allocation (%)</Label>
+                  <Label className="text-zinc-400 text-xs">Stocks (%)</Label>
                   <Input
                     type="number"
                     min="0"
                     max="100"
                     value={form.stocks_allocation_override}
                     onChange={(e) => setForm({ ...form, stocks_allocation_override: e.target.value })}
-                    placeholder="Leave empty for current"
+                    placeholder="Current"
                     className="bg-zinc-800 border-zinc-700"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-zinc-400 text-xs">Rebalancing Strategy</Label>
+                  <Label className="text-zinc-400 text-xs">Real Estate (%)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={form.real_estate_allocation_override}
+                    onChange={(e) => setForm({ ...form, real_estate_allocation_override: e.target.value })}
+                    placeholder="Current"
+                    className="bg-zinc-800 border-zinc-700"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-zinc-400 text-xs">Bonds (%)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={form.bonds_allocation_override}
+                    onChange={(e) => setForm({ ...form, bonds_allocation_override: e.target.value })}
+                    placeholder="Current"
+                    className="bg-zinc-800 border-zinc-700"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-zinc-400 text-xs">Rebalancing</Label>
                   <Select value={form.rebalancing_strategy} onValueChange={(v) => setForm({ ...form, rebalancing_strategy: v })}>
                     <SelectTrigger className="bg-zinc-800 border-zinc-700">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="bg-zinc-900 border-zinc-700">
                       {REBALANCING_OPTIONS.map(opt => (
-                        <SelectItem key={opt.value} value={opt.value}>
-                          <div>
-                            <span className="font-medium">{opt.label}</span>
-                            <span className="text-xs text-zinc-500 ml-2">{opt.desc}</span>
-                          </div>
-                        </SelectItem>
+                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
               </div>
-              <p className="text-xs text-zinc-500">Set allocation targets and rebalancing frequency. Rebalancing will adjust holdings to maintain target percentages.</p>
+              <p className="text-xs text-zinc-500">Leave empty to use current allocation. Total should equal 100% (remainder goes to "Other").</p>
             </div>
 
             {/* Debt Payoff Strategy */}
@@ -1113,6 +1164,22 @@ export default function Scenarios() {
                   </button>
                 ))}
               </div>
+              {form.debt_payoff_strategy !== 'minimum' && (
+                <div className="p-3 rounded-lg bg-zinc-800/30 border border-zinc-700">
+                  <div className="space-y-2">
+                    <Label className="text-zinc-400 text-xs">Extra Annual Payment to Debt ($)</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={form.extra_debt_payment}
+                      onChange={(e) => setForm({ ...form, extra_debt_payment: e.target.value })}
+                      placeholder="Leave empty for 30% of savings"
+                      className="bg-zinc-800 border-zinc-700"
+                    />
+                    <p className="text-xs text-zinc-500">Specify how much extra you'll pay annually toward debt. If empty, defaults to 30% of annual savings.</p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Life Events Integration */}
