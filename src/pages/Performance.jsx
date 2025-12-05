@@ -524,6 +524,7 @@ export default function Performance() {
   ];
 
   return (
+    <TooltipProvider>
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -549,7 +550,7 @@ export default function Performance() {
       </div>
 
       {/* Stats Grid */}
-      <TooltipProvider>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {stats.map((stat, i) => (
             <div key={i} className="card-glass rounded-xl p-5">
@@ -584,7 +585,6 @@ export default function Performance() {
             </div>
           ))}
         </div>
-      </TooltipProvider>
 
       {/* IRR Calculation Panel */}
       {(irrMetrics || irrLoading) && (
@@ -808,5 +808,6 @@ export default function Performance() {
         </div>
       )}
     </div>
+    </TooltipProvider>
   );
 }
