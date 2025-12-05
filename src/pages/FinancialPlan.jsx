@@ -1454,64 +1454,70 @@ export default function FinancialPlan() {
                 <div className="card-premium rounded-xl p-4 border border-zinc-700/50">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                    <h5 className="text-xs font-semibold text-zinc-300 uppercase tracking-wide">Increase Savings By</h5>
+                    <h5 className="text-xs font-semibold text-zinc-300 uppercase tracking-wide">Increase Annual Investment By</h5>
                   </div>
                   <p className="text-2xl font-bold text-emerald-400">
                     +{formatNumber((() => {
-                      // Calculate what portfolio is needed at target retirement to sustain through life
-                      // This is based on actual simulation, not just the formula
                       const targetIndex = Math.max(0, retirementAge - currentAge);
-                      const earliestIndex = Math.max(0, earliestRetirementAge - currentAge);
-                      
                       const portfolioAtTarget = projections[targetIndex]?.total || 0;
-                      const portfolioAtEarliest = projections[earliestIndex]?.total || 0;
-                      
-                      // The gap between what we need at target age vs what we'll have
-                      const portfolioGap = Math.max(0, portfolioAtEarliest - portfolioAtTarget);
                       const yearsToWork = retirementAge - currentAge;
-                      
-                      if (yearsToWork <= 0 || portfolioGap <= 0) return 0;
-                      
+
+                      if (yearsToWork <= 0) return 0;
+
+                      // Calculate required nest egg for sustainable retirement
+                      const yearsToRetirement = Math.max(0, retirementAge - currentAge);
+                      const inflationAdjustedSpending = retirementAnnualSpending * Math.pow(1 + inflationRate / 100, yearsToRetirement);
+                      const effectiveWithdrawalRate = withdrawalStrategy === '4percent' ? 0.04 : 
+                        withdrawalStrategy === 'dynamic' ? dynamicWithdrawalRate / 100 : 
+                        Math.max(0.03, 1 / (lifeExpectancy - retirementAge));
+                      const requiredNestEgg = inflationAdjustedSpending / effectiveWithdrawalRate;
+
+                      // Gap between required and projected
+                      const portfolioGap = Math.max(0, requiredNestEgg - portfolioAtTarget);
+
+                      if (portfolioGap <= 0) return 0;
+
                       // Blended growth rate for new savings
                       const blendedGrowthRate = ((effectiveBtcCagr + stocksCagr + realEstateCagr + bondsCagr + otherCagr) / 5) / 100;
-                      
+
                       if (blendedGrowthRate === 0) {
                         return portfolioGap / yearsToWork;
                       }
-                      
+
                       // Annual savings needed using annuity formula
                       const fvFactor = (Math.pow(1 + blendedGrowthRate, yearsToWork) - 1) / blendedGrowthRate;
                       return portfolioGap / fvFactor;
                     })())}<span className="text-sm text-zinc-500">/yr</span>
                   </p>
-                  <p className="text-[10px] text-zinc-500 mt-1">to retire at age {retirementAge} instead of {earliestRetirementAge}</p>
+                  <p className="text-[10px] text-zinc-500 mt-1">invested into your portfolio to retire at age {retirementAge}</p>
                 </div>
 
-                {/* Spending Reduction Insight - only show if there's a gap */}
-                {(() => {
-                  const targetIndex = Math.max(0, retirementAge - currentAge);
-                  const portfolioAtTarget = projections[targetIndex]?.total || 0;
-                  const sustainableWithdrawal = portfolioAtTarget * effectiveWithdrawalRate;
-                  const spendingGap = inflationAdjustedRetirementSpending - sustainableWithdrawal;
-                  
-                  // Only show if planned spending exceeds what's sustainable
-                  if (spendingGap <= 0) return null;
-                  
-                  return (
-                    <div className="card-premium rounded-xl p-4 border border-zinc-700/50">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="w-1.5 h-1.5 rounded-full bg-rose-400" />
-                        <h5 className="text-xs font-semibold text-zinc-300 uppercase tracking-wide">Or Reduce Spending By</h5>
-                      </div>
-                      <p className="text-2xl font-bold text-rose-400">
-                        -{formatNumber(spendingGap)}<span className="text-sm text-zinc-500">/yr</span>
-                      </p>
-                      <p className="text-[10px] text-zinc-500 mt-1">
-                        from {formatNumber(inflationAdjustedRetirementSpending)}/yr to {formatNumber(sustainableWithdrawal)}/yr at age {retirementAge}
-                      </p>
-                    </div>
-                  );
-                })()}
+                {/* Spending Reduction Insight */}
+                <div className="card-premium rounded-xl p-4 border border-zinc-700/50">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+                    <h5 className="text-xs font-semibold text-zinc-300 uppercase tracking-wide">Or Reduce Retirement Spending By</h5>
+                  </div>
+                  <p className="text-2xl font-bold text-rose-400">
+                    -{formatNumber((() => {
+                      const targetIndex = Math.max(0, retirementAge - currentAge);
+                      const portfolioAtTarget = projections[targetIndex]?.total || 0;
+
+                      // Calculate what the portfolio can sustainably support
+                      const sustainableWithdrawal = portfolioAtTarget * effectiveWithdrawalRate;
+
+                      // Inflation-adjusted retirement spending need
+                      const yearsToRetirement = Math.max(0, retirementAge - currentAge);
+                      const inflationAdjustedSpending = retirementAnnualSpending * Math.pow(1 + inflationRate / 100, yearsToRetirement);
+
+                      // The reduction needed
+                      const reductionNeeded = Math.max(0, inflationAdjustedSpending - sustainableWithdrawal);
+
+                      return reductionNeeded;
+                    })())}<span className="text-sm text-zinc-500">/yr</span>
+                  </p>
+                  <p className="text-[10px] text-zinc-500 mt-1">to retire at age {retirementAge} with current portfolio trajectory</p>
+                </div>
 
                 {/* Alternative: Delay Retirement */}
                 <div className="card-premium rounded-xl p-4 border border-zinc-700/50">
@@ -1689,15 +1695,25 @@ export default function FinancialPlan() {
                     {goals.filter(g => g.will_be_spent && g.target_date).slice(0, 5).map((goal) => {
                       const goalYear = new Date(goal.target_date).getFullYear();
                       const goalAge = currentAge + (goalYear - new Date().getFullYear());
+                      const goalColor = (() => {
+                        switch(goal.goal_type) {
+                          case 'retirement': return '#a78bfa';
+                          case 'btc_stack': return '#fbbf24';
+                          case 'emergency_fund': return '#34d399';
+                          case 'major_purchase': return '#60a5fa';
+                          case 'debt_payoff': return '#f87171';
+                          default: return '#71717a';
+                        }
+                      })();
                       if (goalAge > currentAge && goalAge < lifeExpectancy) {
                         return (
                           <ReferenceLine 
                             key={`goal-${goal.id}`} 
                             x={goalAge} 
-                            stroke="#f87171"
+                            stroke={goalColor}
                             strokeDasharray="3 3"
                             strokeOpacity={0.7}
-                            label={{ value: `${goal.name} (${goalAge})`, fill: '#f87171', fontSize: 9, position: 'top' }}
+                            label={{ value: goal.name, fill: goalColor, fontSize: 9, position: 'insideTopLeft', offset: 10 }}
                             yAxisId="left"
                           />
                         );
