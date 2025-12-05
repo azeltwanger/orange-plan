@@ -117,7 +117,7 @@ export default function FeeAnalyzer({ transactions = [], btcPrice = 97000 }) {
     if (totalSpreadCost === 0 && totalVolume > 0) {
       // Estimate spread based on exchange rates
       Object.entries(byExchange).forEach(([key, data]) => {
-        const spreadRate = EXCHANGE_INFO[key]?.spread || 0.5;
+        const spreadRate = EXCHANGE_INFO[data.exchangeKey]?.spread ?? DEFAULT_SPREAD;
         estimatedSpreadCost += data.volume * (spreadRate / 100);
       });
     }
