@@ -785,6 +785,7 @@ export default function FinancialPlan() {
         realEstate: Math.round(runningRealEstate),
         bonds: Math.round(runningBonds),
         savings: Math.round(runningSavings),
+        yearSavingsForTooltip: isRetired ? 0 : Math.round(yearSavings),
         total: Math.round(total),
         realTotal: Math.round(realTotal),
         hasEvent: lifeEvents.some(e => e.year === year) || 
