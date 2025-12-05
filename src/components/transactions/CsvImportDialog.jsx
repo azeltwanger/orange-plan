@@ -557,12 +557,41 @@ export default function CsvImportDialog({ open, onClose }) {
         <div className="flex-1 overflow-y-auto px-1">
           {/* Step 1: Upload */}
           {step === 1 && (
-            <div className="flex flex-col items-center justify-center py-12 space-y-4">
+            <div className="flex flex-col items-center justify-center py-8 space-y-6">
               <Upload className="w-16 h-16 text-zinc-600" />
               <div className="text-center">
-                <p className="text-zinc-200 text-lg font-medium">Upload your CSV file</p>
-                <p className="text-zinc-500 text-sm mt-1">Export transactions from your exchange and import them here</p>
+                <p className="text-zinc-200 text-lg font-medium">Import Transaction Data</p>
+                <p className="text-zinc-500 text-sm mt-1">Upload a CSV file exported from your exchange or broker</p>
               </div>
+              
+              {/* Instructions */}
+              <div className="w-full max-w-md p-4 rounded-xl bg-zinc-800/50 border border-zinc-700 text-left">
+                <p className="text-sm font-medium text-zinc-300 mb-3">Required CSV columns:</p>
+                <ul className="text-xs text-zinc-400 space-y-1.5">
+                  <li className="flex items-start gap-2">
+                    <span className="text-orange-400 font-semibold">•</span>
+                    <span><strong className="text-zinc-300">Type</strong> — "buy" or "sell"</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-orange-400 font-semibold">•</span>
+                    <span><strong className="text-zinc-300">Asset Ticker</strong> — e.g., "BTC", "ETH", "AAPL"</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-orange-400 font-semibold">•</span>
+                    <span><strong className="text-zinc-300">Quantity</strong> — Amount traded</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-orange-400 font-semibold">•</span>
+                    <span><strong className="text-zinc-300">Price per Unit</strong> — Price at time of trade</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-orange-400 font-semibold">•</span>
+                    <span><strong className="text-zinc-300">Date</strong> — YYYY-MM-DD format preferred</span>
+                  </li>
+                </ul>
+                <p className="text-xs text-zinc-500 mt-3">Optional: Transaction ID, Exchange/Wallet, Trading Fee, Notes</p>
+              </div>
+
               <Input
                 type="file"
                 accept=".csv"

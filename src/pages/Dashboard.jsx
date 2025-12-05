@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, RefreshCw, Pencil, Trash2, Bitcoin, Package, Building2 } from 'lucide-react';
+import { Plus, RefreshCw, Pencil, Trash2, Bitcoin, Package, Building2, Upload } from 'lucide-react';
+import CsvImportDialog from '@/components/transactions/CsvImportDialog';
 import useAssetPrices from '@/components/shared/useAssetPrices';
 import { Button } from "@/components/ui/button";
 import NetWorthCard from '@/components/dashboard/NetWorthCard';
@@ -44,6 +45,7 @@ export default function Dashboard() {
   const [lotsDialogHolding, setLotsDialogHolding] = useState(null);
   const [showCreateAccount, setShowCreateAccount] = useState(false);
   const [editingAccount, setEditingAccount] = useState(null);
+  const [csvImportOpen, setCsvImportOpen] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: holdings = [], isLoading: holdingsLoading } = useQuery({
@@ -260,6 +262,14 @@ export default function Dashboard() {
             )}
           </div>
           <Button
+            variant="outline"
+            onClick={() => setCsvImportOpen(true)}
+            className="bg-transparent border-zinc-700"
+          >
+            <Upload className="w-4 h-4 mr-2" />
+            Import CSV
+          </Button>
+          <Button
             onClick={() => { setEditingHolding(null); setFormOpen(true); }}
             className="brand-gradient text-white font-semibold hover:opacity-90 shadow-lg shadow-orange-500/20"
           >
@@ -430,6 +440,11 @@ export default function Dashboard() {
         open={!!editingAccount}
         onClose={() => setEditingAccount(null)}
         account={editingAccount}
+      />
+
+      <CsvImportDialog 
+        open={csvImportOpen} 
+        onClose={() => setCsvImportOpen(false)} 
       />
       </div>
       );
