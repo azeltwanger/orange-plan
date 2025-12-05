@@ -910,9 +910,7 @@ export default function FinancialPlan() {
 
   // Calculate retirement status and insights
   const retirementStatus = useMemo(() => {
-    const gap = earliestRetirementAge ? earliestRetirementAge - retirementAge : null;
-
-    // Check if portfolio can support desired spending at retirement
+    // Check if portfolio can support desired spending at retirement - THIS IS THE MOST CRITICAL CHECK
     const maxSustainableSpending = retirementValue * effectiveWithdrawalRate;
     const canAffordDesiredSpending = maxSustainableSpending >= inflationAdjustedRetirementSpending * 0.95; // Within 95%
 
@@ -923,8 +921,10 @@ export default function FinancialPlan() {
         description: `Portfolio projected to run out at age ${currentAge + runOutOfMoneyAge}.`,
         icon: <AlertTriangle className="w-5 h-5" />
       };
-    } else if (!canAffordDesiredSpending) {
-      // Portfolio exists but can't support desired spending
+    }
+
+    // Check spending sustainability FIRST - even if you can retire "early", if you can't afford your spending, you're not on track
+    if (!canAffordDesiredSpending) {
       const shortfallPercent = ((inflationAdjustedRetirementSpending - maxSustainableSpending) / inflationAdjustedRetirementSpending * 100).toFixed(0);
       return {
         type: 'critical',
@@ -932,7 +932,12 @@ export default function FinancialPlan() {
         description: `Portfolio at retirement (${formatNumber(retirementValue)}) can only support ${formatNumber(maxSustainableSpending)}/yr, ${shortfallPercent}% below your ${formatNumber(inflationAdjustedRetirementSpending)}/yr target.`,
         icon: <AlertTriangle className="w-5 h-5" />
       };
-    } else if (gap === null || gap > 10) {
+    }
+
+    // Now check the timing (gap analysis)
+    const gap = earliestRetirementAge ? earliestRetirementAge - retirementAge : null;
+
+    if (gap === null || gap > 10) {
       return {
         type: 'critical',
         title: 'At Risk: Major Shortfall',
