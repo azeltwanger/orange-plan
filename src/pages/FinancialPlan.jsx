@@ -918,10 +918,72 @@ export default function FinancialPlan() {
     Math.max(0.03, 1 / yearsInRetirement);
   const requiredNestEgg = inflationAdjustedRetirementSpending / effectiveWithdrawalRate;
   
-  // Calculate max sustainable spending
-  const maxSustainableSpending = !willRunOutOfMoney && withdrawalStrategy === 'variable' 
-    ? inflationAdjustedRetirementSpending 
-    : retirementValue * effectiveWithdrawalRate;
+  // Calculate ABSOLUTE max sustainable spending using binary search
+  const maxSustainableSpending = useMemo(() => {
+    const startingPortfolio = taxableValue + taxDeferredValue + taxFreeValue;
+    if (startingPortfolio <= 0) return 0;
+    
+    // Get blended growth rate
+    const totalAssets = btcValue + stocksValue + realEstateValue + bondsValue + otherValue;
+    const btcPct = totalAssets > 0 ? btcValue / totalAssets : 0;
+    const stocksPct = totalAssets > 0 ? stocksValue / totalAssets : 0;
+    const realEstatePct = totalAssets > 0 ? realEstateValue / totalAssets : 0;
+    const bondsPct = totalAssets > 0 ? bondsValue / totalAssets : 0;
+    const otherPct = totalAssets > 0 ? otherValue / totalAssets : 0;
+    
+    // Binary search for max sustainable spending
+    let low = 0;
+    let high = startingPortfolio * 0.5; // Start with 50% of portfolio as upper bound
+    let result = 0;
+    
+    for (let iteration = 0; iteration < 30; iteration++) { // 30 iterations gives precision to ~$1
+      const testSpending = (low + high) / 2;
+      let portfolio = startingPortfolio;
+      let sustainable = true;
+      
+      // Simulate retirement with this spending level
+      for (let year = 1; year <= lifeExpectancy - currentAge; year++) {
+        const age = currentAge + year;
+        const isRetired = age >= retirementAge;
+        
+        // Growth
+        const yearBtcGrowth = getBtcGrowthRate(year);
+        const blendedGrowthRate = (
+          btcPct * (yearBtcGrowth / 100) +
+          stocksPct * (effectiveStocksCagr / 100) +
+          realEstatePct * (realEstateCagr / 100) +
+          bondsPct * (bondsCagr / 100) +
+          otherPct * (effectiveStocksCagr / 100)
+        );
+        
+        portfolio = portfolio * (1 + blendedGrowthRate);
+        
+        if (!isRetired) {
+          const yearSavings = annualSavings * Math.pow(1 + incomeGrowth / 100, year);
+          portfolio += yearSavings;
+        } else {
+          // Withdraw the test spending amount (inflation-adjusted)
+          const yearsIntoRetirement = age - retirementAge;
+          const withdrawal = testSpending * Math.pow(1 + effectiveInflation / 100, yearsIntoRetirement);
+          portfolio -= withdrawal;
+          
+          if (portfolio < 0) {
+            sustainable = false;
+            break;
+          }
+        }
+      }
+      
+      if (sustainable && portfolio >= 0) {
+        result = testSpending;
+        low = testSpending;
+      } else {
+        high = testSpending;
+      }
+    }
+    
+    return result;
+  }, [taxableValue, taxDeferredValue, taxFreeValue, btcValue, stocksValue, realEstateValue, bondsValue, otherValue, currentAge, retirementAge, lifeExpectancy, annualSavings, incomeGrowth, effectiveInflation, effectiveStocksCagr, realEstateCagr, bondsCagr, getBtcGrowthRate]);
 
   // Calculate retirement status and insights
   const retirementStatus = useMemo(() => {
