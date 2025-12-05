@@ -133,6 +133,7 @@ export default function EstateSecurity() {
     last_verified: '',
     notes: '',
     access_instructions: '',
+    linked_holding_id: '',
   });
 
   const [protocolForm, setProtocolForm] = useState({
@@ -155,6 +156,11 @@ export default function EstateSecurity() {
   const { data: holdings = [] } = useQuery({
     queryKey: ['holdings'],
     queryFn: () => base44.entities.Holding.list(),
+  });
+
+  const { data: accounts = [] } = useQuery({
+    queryKey: ['accounts'],
+    queryFn: () => base44.entities.Account.list(),
   });
 
   const { data: recoveryProtocols = [] } = useQuery({
@@ -203,6 +209,7 @@ export default function EstateSecurity() {
       item_type: 'custody_location', title: '', description: '', custody_type: 'hardware_wallet',
       asset_type: 'btc', btc_amount: '', usd_value: '', beneficiary_name: '', beneficiary_allocation_percent: '', 
       beneficiary_email: '', reminder_date: '', reminder_frequency: '', last_verified: '', notes: '', access_instructions: '',
+      linked_holding_id: '',
     });
   };
 
@@ -237,6 +244,7 @@ export default function EstateSecurity() {
         access_instructions: editingItem.description?.includes('access:') 
           ? editingItem.description.split('access:')[1] 
           : '',
+        linked_holding_id: editingItem.linked_holding_id || '',
       });
     }
   }, [editingItem]);
@@ -275,6 +283,7 @@ export default function EstateSecurity() {
       btc_amount: parseFloat(formData.btc_amount) || 0,
       security_score: securityScore,
       beneficiary_allocation_percent: parseFloat(formData.beneficiary_allocation_percent) || 0,
+      linked_holding_id: formData.linked_holding_id || null,
     };
     
     if (editingItem) {
@@ -301,10 +310,34 @@ export default function EstateSecurity() {
   // Filter by type
   const custodyLocations = estateItems.filter(i => i.item_type === 'custody_location');
   const btcCustody = custodyLocations.filter(c => !c.description?.includes('asset_type:') || c.description?.includes('asset_type:btc'));
-  const otherAssets = custodyLocations.filter(c => c.description?.includes('asset_type:') && !c.description?.includes('asset_type:btc'));
+  const manualOtherAssets = custodyLocations.filter(c => c.description?.includes('asset_type:') && !c.description?.includes('asset_type:btc'));
+  const otherAssetEstateItems = estateItems.filter(i => i.item_type === 'other_asset');
   const beneficiaries = estateItems.filter(i => i.item_type === 'beneficiary');
   const reminders = estateItems.filter(i => i.item_type === 'reminder');
   const protocols = estateItems.filter(i => i.item_type === 'security_protocol');
+
+  // Get non-BTC holdings grouped by account
+  const nonBtcHoldings = holdings.filter(h => h.ticker !== 'BTC' && h.asset_type !== 'crypto');
+  const btcHoldings = holdings.filter(h => h.ticker === 'BTC');
+  
+  // Group non-BTC holdings by account
+  const holdingsByAccount = nonBtcHoldings.reduce((acc, h) => {
+    const accountId = h.account_id || 'unassigned';
+    if (!acc[accountId]) acc[accountId] = [];
+    acc[accountId].push(h);
+    return acc;
+  }, {});
+
+  // Calculate allocated BTC from existing custody locations
+  const allocatedBtcByHolding = btcCustody.reduce((acc, c) => {
+    if (c.linked_holding_id) {
+      acc[c.linked_holding_id] = (acc[c.linked_holding_id] || 0) + (c.btc_amount || 0);
+    }
+    return acc;
+  }, {});
+
+  // Combine manual other assets with auto-synced holdings
+  const otherAssets = manualOtherAssets;
 
   // Calculate weighted security score - only for BTC custody (crypto assets that need security scoring)
   const btcCustodyForScore = custodyLocations.filter(c => 
@@ -693,6 +726,34 @@ export default function EstateSecurity() {
               })}
             </div>
 
+            {/* BTC Holdings to Allocate */}
+            {btcHoldings.length > 0 && (
+              <div className="mb-6 p-4 rounded-xl bg-orange-500/5 border border-orange-500/20">
+                <h4 className="text-sm font-medium text-orange-400 mb-3">Bitcoin Holdings to Allocate</h4>
+                <div className="space-y-2">
+                  {btcHoldings.map(h => {
+                    const account = accounts.find(a => a.id === h.account_id);
+                    const allocated = allocatedBtcByHolding[h.id] || 0;
+                    const remaining = h.quantity - allocated;
+                    return (
+                      <div key={h.id} className="flex items-center justify-between p-3 rounded-lg bg-zinc-800/50">
+                        <div>
+                          <p className="font-medium">{account?.name || h.asset_name || 'Bitcoin'}</p>
+                          <p className="text-xs text-zinc-500">{h.quantity.toFixed(8)} BTC total</p>
+                        </div>
+                        <div className="text-right">
+                          <p className={cn("font-semibold", remaining > 0 ? "text-amber-400" : "text-emerald-400")}>
+                            {remaining > 0 ? `${remaining.toFixed(8)} unallocated` : 'Fully allocated'}
+                          </p>
+                          <p className="text-xs text-zinc-500">{allocated.toFixed(8)} in custody locations</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {btcCustody.length === 0 ? (
               <div className="text-center py-12">
                 <Key className="w-12 h-12 text-zinc-700 mx-auto mb-4" />
@@ -802,21 +863,75 @@ export default function EstateSecurity() {
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h3 className="font-semibold">Other Assets</h3>
-                <p className="text-sm text-zinc-500">Stocks, real estate, bank accounts, retirement accounts, etc.</p>
+                <p className="text-sm text-zinc-500">Auto-synced from your holdings, grouped by account</p>
               </div>
               <Button size="sm" onClick={() => { resetForm(); setFormData(prev => ({ ...prev, item_type: 'custody_location', asset_type: 'stocks' })); setFormOpen(true); }} className="brand-gradient text-white">
                 <Plus className="w-4 h-4 mr-2" />
-                Add Asset
+                Add Asset Manually
               </Button>
             </div>
 
-            {otherAssets.length === 0 ? (
+            {/* Auto-synced Holdings by Account */}
+            {Object.keys(holdingsByAccount).length > 0 && (
+              <div className="mb-6">
+                <h4 className="text-sm font-medium text-zinc-400 mb-3">From Your Holdings</h4>
+                <div className="space-y-4">
+                  {Object.entries(holdingsByAccount).map(([accountId, accountHoldings]) => {
+                    const account = accounts.find(a => a.id === accountId);
+                    const accountName = account?.name || (accountId === 'unassigned' ? 'Unassigned' : 'Unknown Account');
+                    const accountType = account?.account_type?.replace(/_/g, ' ') || '';
+                    const totalValue = accountHoldings.reduce((sum, h) => sum + (h.quantity * (h.current_price || 0)), 0);
+                    
+                    return (
+                      <div key={accountId} className="p-4 rounded-xl bg-zinc-800/30 border border-zinc-800">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-blue-400/10 flex items-center justify-center">
+                              <Building2 className="w-5 h-5 text-blue-400" />
+                            </div>
+                            <div>
+                              <p className="font-medium">{accountName}</p>
+                              <p className="text-xs text-zinc-500 capitalize">{accountType}</p>
+                            </div>
+                          </div>
+                          <p className="text-lg font-semibold text-emerald-400">${totalValue.toLocaleString()}</p>
+                        </div>
+                        <div className="space-y-2">
+                          {accountHoldings.map(h => (
+                            <div key={h.id} className="flex items-center justify-between p-2 rounded-lg bg-zinc-800/50">
+                              <div className="flex items-center gap-2">
+                                {h.asset_type === 'real_estate' ? <Building2 className="w-4 h-4 text-purple-400" /> :
+                                 h.asset_type === 'stocks' ? <TrendingUp className="w-4 h-4 text-blue-400" /> :
+                                 h.asset_type === 'bonds' ? <PiggyBank className="w-4 h-4 text-amber-400" /> :
+                                 <Package className="w-4 h-4 text-zinc-400" />}
+                                <span className="text-sm">{h.asset_name}</span>
+                                <span className="text-xs text-zinc-500">{h.ticker}</span>
+                              </div>
+                              <span className="text-sm text-zinc-300">${(h.quantity * (h.current_price || 0)).toLocaleString()}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Manually Added Assets */}
+            {otherAssets.length > 0 && (
+              <div className="mb-6">
+                <h4 className="text-sm font-medium text-zinc-400 mb-3">Manually Added</h4>
+              </div>
+            )}
+
+            {otherAssets.length === 0 && Object.keys(holdingsByAccount).length === 0 ? (
               <div className="text-center py-12">
                 <Package className="w-12 h-12 text-zinc-700 mx-auto mb-4" />
-                <p className="text-zinc-500">No other assets added yet</p>
-                <p className="text-xs text-zinc-600 mt-2">Add stocks, real estate, bank accounts, etc. to create a complete estate plan</p>
+                <p className="text-zinc-500">No other assets yet</p>
+                <p className="text-xs text-zinc-600 mt-2">Add holdings in Summary or manually add assets here</p>
               </div>
-            ) : (
+            ) : otherAssets.length === 0 ? null : (
               <div className="space-y-4">
                 {otherAssets.map((asset) => {
                   const assetType = asset.description?.includes('asset_type:') 
@@ -888,11 +1003,13 @@ export default function EstateSecurity() {
             )}
 
             {/* Total Other Assets */}
-            {otherAssets.length > 0 && (
+            {(otherAssets.length > 0 || Object.keys(holdingsByAccount).length > 0) && (
               <div className="mt-6 p-4 rounded-xl bg-zinc-800/30 border border-zinc-700">
                 <div className="flex items-center justify-between">
                   <span className="text-zinc-400">Total Other Assets Value</span>
-                  <span className="text-xl font-bold text-emerald-400">${totalOtherAssetsValue.toLocaleString()}</span>
+                  <span className="text-xl font-bold text-emerald-400">
+                    ${(totalOtherAssetsValue + nonBtcHoldings.reduce((sum, h) => sum + (h.quantity * (h.current_price || 0)), 0)).toLocaleString()}
+                  </span>
                 </div>
               </div>
             )}
@@ -1283,6 +1400,34 @@ export default function EstateSecurity() {
 
                 {formData.asset_type === 'btc' ? (
                   <>
+                    {/* Link to existing BTC holding */}
+                    {btcHoldings.length > 0 && (
+                      <div className="space-y-2">
+                        <Label className="text-zinc-400">Link to Holding (Optional)</Label>
+                        <Select value={formData.linked_holding_id} onValueChange={(value) => setFormData({ ...formData, linked_holding_id: value })}>
+                          <SelectTrigger className="bg-zinc-900 border-zinc-800"><SelectValue placeholder="Select a BTC holding to allocate from" /></SelectTrigger>
+                          <SelectContent className="bg-zinc-900 border-zinc-800 text-zinc-100">
+                            <SelectItem value={null}>No link (manual entry)</SelectItem>
+                            {btcHoldings.map(h => {
+                              const account = accounts.find(a => a.id === h.account_id);
+                              const allocated = allocatedBtcByHolding[h.id] || 0;
+                              const remaining = h.quantity - allocated;
+                              return (
+                                <SelectItem key={h.id} value={h.id}>
+                                  {account?.name || h.asset_name} - {remaining.toFixed(8)} BTC available
+                                </SelectItem>
+                              );
+                            })}
+                          </SelectContent>
+                        </Select>
+                        {formData.linked_holding_id && (
+                          <p className="text-xs text-zinc-500">
+                            Linking helps track how your BTC holdings are distributed across custody locations
+                          </p>
+                        )}
+                      </div>
+                    )}
+
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label className="text-zinc-400">Custody Type</Label>
