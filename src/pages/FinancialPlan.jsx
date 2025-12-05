@@ -1982,11 +1982,16 @@ export default function FinancialPlan() {
               )}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6 p-4 rounded-xl bg-zinc-800/30">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6 p-4 rounded-xl bg-zinc-800/30">
               <div>
                 <p className="text-sm text-zinc-400">At Retirement (Age {retirementAge})</p>
                 <p className="text-2xl font-bold text-orange-400">{formatNumber(retirementValue, 2)}</p>
                 <p className="text-xs text-zinc-500">Need: {formatNumber(requiredNestEgg)}</p>
+              </div>
+              <div>
+                <p className="text-sm text-zinc-400">Max Sustainable Spending</p>
+                <p className="text-2xl font-bold text-emerald-400">{formatNumber(retirementValue * effectiveWithdrawalRate)}/yr</p>
+                <p className="text-xs text-zinc-500">{formatNumber((retirementValue * effectiveWithdrawalRate) / 12)}/mo at age {retirementAge}</p>
               </div>
               <div>
                 <p className="text-sm text-zinc-400">At Age {lifeExpectancy}</p>
