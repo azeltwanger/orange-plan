@@ -16,7 +16,7 @@ const EXCHANGE_INFO = {
   strike: { name: 'Strike', explicitFee: 0, spread: 0.3, color: '#9333ea' },
   cash_app: { name: 'Cash App', explicitFee: 0, spread: 2.2, color: '#00D632' },
   swan: { name: 'Swan Bitcoin', explicitFee: 0.99, spread: 0.2, color: '#F7931A' },
-  river: { name: 'River', explicitFee: 0, spread: 0.75, color: '#0066FF' },
+  river: { name: 'River', explicitFee: 0, spread: 0.25, color: '#0066FF' },
   robinhood: { name: 'Robinhood', explicitFee: 0, spread: 0.5, color: '#00C805' },
   other: { name: 'Other', explicitFee: 0.5, spread: 0.5, color: '#71717a' },
   unknown: { name: 'Unknown', explicitFee: 0.5, spread: 0.5, color: '#52525b' },
@@ -83,18 +83,24 @@ export default function FeeAnalyzer({ transactions = [], btcPrice = 97000 }) {
     const effectiveFeeRate = totalVolume > 0 ? (totalFriction / totalVolume) * 100 : 0;
 
     // Convert byExchange to array for charts
-    const exchangeData = Object.entries(byExchange).map(([key, data]) => ({
-      exchange: data.name,
-      exchangeKey: key,
-      total: data.tradingFees + data.withdrawalFees + data.depositFees,
-      tradingFees: data.tradingFees,
-      withdrawalFees: data.withdrawalFees,
-      depositFees: data.depositFees,
-      volume: data.volume,
-      feeRate: data.volume > 0 ? ((data.tradingFees + data.withdrawalFees + data.depositFees) / data.volume) * 100 : 0,
-      transactions: data.transactions,
-      color: EXCHANGE_INFO[key]?.color || '#71717a',
-    })).sort((a, b) => b.total - a.total);
+    const exchangeData = Object.entries(byExchange).map(([key, data]) => {
+      const explicitFeeRate = data.volume > 0 ? ((data.tradingFees + data.withdrawalFees + data.depositFees) / data.volume) * 100 : 0;
+      const spreadRate = EXCHANGE_INFO[key]?.spread || 0.5;
+      return {
+        exchange: data.name,
+        exchangeKey: key,
+        total: data.tradingFees + data.withdrawalFees + data.depositFees,
+        tradingFees: data.tradingFees,
+        withdrawalFees: data.withdrawalFees,
+        depositFees: data.depositFees,
+        volume: data.volume,
+        feeRate: explicitFeeRate,
+        spreadRate: spreadRate,
+        totalFeeRate: explicitFeeRate + spreadRate,
+        transactions: data.transactions,
+        color: EXCHANGE_INFO[key]?.color || '#71717a',
+      };
+    }).sort((a, b) => b.total - a.total);
 
     // Fee breakdown for pie chart
     const feeBreakdown = [
@@ -302,22 +308,22 @@ export default function FeeAnalyzer({ transactions = [], btcPrice = 97000 }) {
           </div>
         </div>
 
-        {/* By Exchange Chart */}
+        {/* Fee Breakdown Bar Chart */}
         <div className="card-premium rounded-xl p-6 border border-zinc-800/50">
-          <h3 className="font-semibold mb-4">Fees by Exchange</h3>
-          {analysis.exchangeData.length > 0 ? (
+          <h3 className="font-semibold mb-4">Fee Breakdown by Type</h3>
+          {analysis.feeBreakdown.length > 0 ? (
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={analysis.exchangeData} layout="vertical">
+                <BarChart data={analysis.feeBreakdown} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-                  <XAxis type="number" stroke="#71717a" fontSize={12} tickFormatter={(v) => `$${v}`} />
-                  <YAxis type="category" dataKey="exchange" stroke="#71717a" fontSize={12} width={100} />
+                  <XAxis type="number" stroke="#71717a" fontSize={12} tickFormatter={(v) => `$${v.toFixed(0)}`} />
+                  <YAxis type="category" dataKey="name" stroke="#71717a" fontSize={12} width={100} />
                   <Tooltip
                     contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '12px' }}
-                    formatter={(value, name) => [`$${value.toFixed(2)}`, name]}
+                    formatter={(value) => [`$${value.toFixed(2)}`, 'Amount']}
                   />
-                  <Bar dataKey="total" name="Total Fees" radius={[0, 4, 4, 0]}>
-                    {analysis.exchangeData.map((entry, index) => (
+                  <Bar dataKey="value" name="Amount" radius={[0, 4, 4, 0]}>
+                    {analysis.feeBreakdown.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Bar>
@@ -325,31 +331,37 @@ export default function FeeAnalyzer({ transactions = [], btcPrice = 97000 }) {
               </ResponsiveContainer>
             </div>
           ) : (
-            <p className="text-zinc-500 text-center py-12">No exchange data available</p>
+            <p className="text-zinc-500 text-center py-12">No fee data available</p>
           )}
-          <div className="flex flex-wrap justify-center gap-3 mt-4">
-            {analysis.exchangeData.map((ex, i) => (
-              <div key={i} className="flex items-center gap-1.5">
-                <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: ex.color }} />
-                <span className="text-xs text-zinc-400">{ex.exchange}</span>
+          <div className="flex flex-wrap justify-center gap-4 mt-4">
+            {analysis.feeBreakdown.map((item, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
+                <span className="text-xs text-zinc-400">{item.name}</span>
               </div>
             ))}
           </div>
         </div>
-      </div>
+        </div>
 
       {/* Exchange Comparison Table */}
       {analysis.exchangeData.length > 0 && (
         <div className="card-premium rounded-xl p-6 border border-zinc-800/50">
-          <h3 className="font-semibold mb-4">Exchange Comparison</h3>
+          <h3 className="font-semibold mb-2">Exchange Comparison</h3>
+          <p className="text-xs text-zinc-500 mb-4 flex items-center gap-1">
+            <Info className="w-3 h-3" />
+            Spread rates are estimates based on typical market conditions and may vary.
+          </p>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-zinc-800">
                   <th className="text-left py-3 px-4 text-zinc-500 font-medium">Exchange</th>
                   <th className="text-right py-3 px-4 text-zinc-500 font-medium">Volume</th>
-                  <th className="text-right py-3 px-4 text-zinc-500 font-medium">Total Fees</th>
+                  <th className="text-right py-3 px-4 text-zinc-500 font-medium">Explicit Fees</th>
                   <th className="text-right py-3 px-4 text-zinc-500 font-medium">Fee Rate</th>
+                  <th className="text-right py-3 px-4 text-zinc-500 font-medium">Spread Rate*</th>
+                  <th className="text-right py-3 px-4 text-zinc-500 font-medium">Total Rate</th>
                   <th className="text-right py-3 px-4 text-zinc-500 font-medium">Txns</th>
                 </tr>
               </thead>
@@ -368,14 +380,20 @@ export default function FeeAnalyzer({ transactions = [], btcPrice = 97000 }) {
                         ${ex.total.toFixed(2)}
                       </span>
                     </td>
+                    <td className="py-3 px-4 text-right text-zinc-400">
+                      {ex.feeRate.toFixed(2)}%
+                    </td>
+                    <td className="py-3 px-4 text-right text-zinc-400">
+                      ~{ex.spreadRate.toFixed(2)}%
+                    </td>
                     <td className="py-3 px-4 text-right">
                       <span className={cn(
                         "px-2 py-0.5 rounded text-xs font-medium",
-                        ex.feeRate > 1 ? "bg-rose-500/20 text-rose-400" :
-                        ex.feeRate > 0.5 ? "bg-amber-500/20 text-amber-400" :
+                        ex.totalFeeRate > 1.5 ? "bg-rose-500/20 text-rose-400" :
+                        ex.totalFeeRate > 0.75 ? "bg-amber-500/20 text-amber-400" :
                         "bg-emerald-500/20 text-emerald-400"
                       )}>
-                        {ex.feeRate.toFixed(2)}%
+                        {ex.totalFeeRate.toFixed(2)}%
                       </span>
                     </td>
                     <td className="py-3 px-4 text-right text-zinc-400">{ex.transactions}</td>
