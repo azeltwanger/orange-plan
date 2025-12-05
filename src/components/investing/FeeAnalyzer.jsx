@@ -48,7 +48,8 @@ const matchExchange = (exchangeName) => {
 
 // Best-in-class total cost (Kraken Pro: 0.26% fee + ~0.1% spread = ~0.36%)
 const BEST_TOTAL_COST_PERCENT = 0.36;
-const INDUSTRY_AVG_COST_PERCENT = 1.0;
+const INDUSTRY_AVG_TOTAL_COST_PERCENT = 1.5; // ~1% fee + ~0.5% spread
+const INDUSTRY_AVG_FEE_ONLY_PERCENT = 1.0;
 
 export default function FeeAnalyzer({ transactions = [], btcPrice = 97000 }) {
   const analysis = useMemo(() => {
@@ -104,8 +105,21 @@ export default function FeeAnalyzer({ transactions = [], btcPrice = 97000 }) {
     });
 
     const totalExplicitFees = totalTradingFees + totalWithdrawalFees + totalDepositFees;
-    const totalFriction = totalExplicitFees + totalSpreadCost;
+
+    // Calculate estimated spread cost from exchange spread rates if no FMV data
+    let estimatedSpreadCost = totalSpreadCost;
+    if (totalSpreadCost === 0 && totalVolume > 0) {
+      // Estimate spread based on exchange rates
+      Object.entries(byExchange).forEach(([key, data]) => {
+        const spreadRate = EXCHANGE_INFO[key]?.spread || 0.5;
+        estimatedSpreadCost += data.volume * (spreadRate / 100);
+      });
+    }
+
+    const totalFriction = totalExplicitFees + estimatedSpreadCost;
     const effectiveFeeRate = totalVolume > 0 ? (totalFriction / totalVolume) * 100 : 0;
+    const explicitFeeRate = totalVolume > 0 ? (totalExplicitFees / totalVolume) * 100 : 0;
+    const spreadFeeRate = totalVolume > 0 ? (estimatedSpreadCost / totalVolume) * 100 : 0;
 
     // Convert byExchange to array for charts
     const exchangeData = Object.entries(byExchange).map(([key, data]) => {
@@ -140,23 +154,27 @@ export default function FeeAnalyzer({ transactions = [], btcPrice = 97000 }) {
 
     // Calculate what user would have paid at best exchange vs what they paid
     const bestCaseCost = totalVolume * (BEST_TOTAL_COST_PERCENT / 100);
-    const industryAvgCost = totalVolume * (INDUSTRY_AVG_COST_PERCENT / 100);
-    const potentialSavings = Math.max(0, totalFriction - bestCaseCost);
+    const industryAvgCost = totalVolume * (INDUSTRY_AVG_TOTAL_COST_PERCENT / 100);
+    const potentialSavingsVsBest = Math.max(0, totalFriction - bestCaseCost);
+    const potentialSavingsVsIndustry = Math.max(0, totalFriction - industryAvgCost);
     const vsIndustryAvg = industryAvgCost - totalFriction;
 
     return {
       totalTradingFees,
       totalWithdrawalFees,
       totalDepositFees,
-      totalSpreadCost,
+      totalSpreadCost: estimatedSpreadCost,
       totalExplicitFees,
       totalFriction,
       totalVolume,
       totalBtcPurchased,
       effectiveFeeRate,
+      explicitFeeRate,
+      spreadFeeRate,
       exchangeData,
       feeBreakdown,
-      potentialSavings,
+      potentialSavingsVsBest,
+      potentialSavingsVsIndustry,
       bestCaseCost,
       industryAvgCost,
       vsIndustryAvg,
@@ -190,24 +208,9 @@ export default function FeeAnalyzer({ transactions = [], btcPrice = 97000 }) {
     <div className="space-y-6">
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="card-premium rounded-xl p-5 border border-rose-500/10">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs text-zinc-500 uppercase tracking-wider">Total Friction</span>
-            <div className="p-2 rounded-lg bg-rose-500/10">
-              <TrendingDown className="w-4 h-4 text-rose-400" />
-            </div>
-          </div>
-          <p className="text-2xl font-bold text-rose-400">
-            ${analysis.totalFriction.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </p>
-          <p className="text-xs text-zinc-500 mt-1">
-            {analysis.effectiveFeeRate.toFixed(2)}% of volume
-          </p>
-        </div>
-
         <div className="card-premium rounded-xl p-5 border border-amber-500/10">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs text-zinc-500 uppercase tracking-wider">Explicit Fees</span>
+            <span className="text-xs text-zinc-500 uppercase tracking-wider">Trading Fees</span>
             <div className="p-2 rounded-lg bg-amber-500/10">
               <DollarSign className="w-4 h-4 text-amber-400" />
             </div>
@@ -216,43 +219,66 @@ export default function FeeAnalyzer({ transactions = [], btcPrice = 97000 }) {
             ${analysis.totalExplicitFees.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
           <p className="text-xs text-zinc-500 mt-1">
-            Trading + Withdrawal + Deposit
+            {analysis.explicitFeeRate.toFixed(2)}% of volume
+          </p>
+        </div>
+
+        <div className="card-premium rounded-xl p-5 border border-purple-500/10">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs text-zinc-500 uppercase tracking-wider">Est. Spread Cost</span>
+            <div className="p-2 rounded-lg bg-purple-500/10">
+              <TrendingDown className="w-4 h-4 text-purple-400" />
+            </div>
+          </div>
+          <p className="text-2xl font-bold text-purple-400">
+            ${analysis.totalSpreadCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </p>
+          <p className="text-xs text-zinc-500 mt-1">
+            ~{analysis.spreadFeeRate.toFixed(2)}% estimated
+          </p>
+        </div>
+
+        <div className="card-premium rounded-xl p-5 border border-rose-500/10">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs text-zinc-500 uppercase tracking-wider">Total All-In Cost</span>
+            <div className="p-2 rounded-lg bg-rose-500/10">
+              <TrendingDown className="w-4 h-4 text-rose-400" />
+            </div>
+          </div>
+          <p className="text-2xl font-bold text-rose-400">
+            ${analysis.totalFriction.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </p>
+          <p className="text-xs text-zinc-500 mt-1">
+            {analysis.effectiveFeeRate.toFixed(2)}% total rate
           </p>
         </div>
 
         <div className="card-premium rounded-xl p-5 border border-emerald-500/10">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs text-zinc-500 uppercase tracking-wider">vs Industry Avg</span>
+            <span className="text-xs text-zinc-500 uppercase tracking-wider">
+              {analysis.potentialSavingsVsIndustry > 0 ? 'Potential Savings' : 'vs Industry Avg'}
+            </span>
             <div className="p-2 rounded-lg bg-emerald-500/10">
               <ArrowRight className="w-4 h-4 text-emerald-400" />
             </div>
           </div>
           <p className={cn("text-2xl font-bold", analysis.vsIndustryAvg >= 0 ? "text-emerald-400" : "text-rose-400")}>
-            {analysis.vsIndustryAvg >= 0 ? '-' : '+'}${Math.abs(analysis.vsIndustryAvg).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {analysis.potentialSavingsVsIndustry > 0 
+              ? `$${analysis.potentialSavingsVsIndustry.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+              : `${analysis.vsIndustryAvg >= 0 ? '-' : '+'}$${Math.abs(analysis.vsIndustryAvg).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+            }
           </p>
           <p className="text-xs text-zinc-500 mt-1">
-            vs {INDUSTRY_AVG_COST_PERCENT}% avg
-          </p>
-        </div>
-
-        <div className="card-premium rounded-xl p-5 border border-zinc-700/30">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs text-zinc-500 uppercase tracking-wider">Total Volume</span>
-            <div className="p-2 rounded-lg bg-zinc-800">
-              <Info className="w-4 h-4 text-zinc-400" />
-            </div>
-          </div>
-          <p className="text-2xl font-bold text-zinc-300">
-            ${analysis.totalVolume.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-          </p>
-          <p className="text-xs text-zinc-500 mt-1">
-            {analysis.transactionCount} transactions
+            {analysis.potentialSavingsVsIndustry > 0 
+              ? `You're ${(analysis.effectiveFeeRate - INDUSTRY_AVG_TOTAL_COST_PERCENT).toFixed(2)}% over avg`
+              : `vs ${INDUSTRY_AVG_TOTAL_COST_PERCENT}% industry avg`
+            }
           </p>
         </div>
       </div>
 
       {/* Savings Opportunity Alert */}
-      {analysis.potentialSavings > 50 && (
+      {analysis.potentialSavingsVsBest > 100 && (
         <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-start gap-4">
           <div className="p-2 rounded-lg bg-emerald-500/20">
             <AlertTriangle className="w-5 h-5 text-emerald-400" />
@@ -260,8 +286,8 @@ export default function FeeAnalyzer({ transactions = [], btcPrice = 97000 }) {
           <div>
             <h4 className="font-semibold text-emerald-400 mb-1">Optimize Your Costs</h4>
             <p className="text-sm text-zinc-400">
-              Using a low-cost exchange like Kraken Pro (~0.36% total) could save you 
-              <span className="text-emerald-400 font-semibold"> ${analysis.potentialSavings.toFixed(2)}</span> on 
+              Using a low-cost exchange like Kraken Pro (~0.36% all-in) could save you 
+              <span className="text-emerald-400 font-semibold"> ${analysis.potentialSavingsVsBest.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span> on 
               similar future purchases. Note: "Zero fee" exchanges often recoup costs through wider spreads.
             </p>
           </div>
@@ -270,24 +296,23 @@ export default function FeeAnalyzer({ transactions = [], btcPrice = 97000 }) {
 
       {/* Cost Benchmark */}
       <div className="card-premium rounded-xl p-4 border border-zinc-800/50">
-        <div className="flex items-center justify-between text-sm">
-          <div className="flex items-center gap-4">
-            <div>
-              <span className="text-zinc-500">Your avg cost:</span>
-              <span className={cn("ml-2 font-semibold", analysis.effectiveFeeRate <= BEST_TOTAL_COST_PERCENT ? "text-emerald-400" : analysis.effectiveFeeRate <= INDUSTRY_AVG_COST_PERCENT ? "text-amber-400" : "text-rose-400")}>
-                {analysis.effectiveFeeRate.toFixed(2)}%
-              </span>
-            </div>
-            <div className="text-zinc-600">|</div>
-            <div>
-              <span className="text-zinc-500">Industry avg:</span>
-              <span className="ml-2 text-zinc-400">{INDUSTRY_AVG_COST_PERCENT}%</span>
-            </div>
-            <div className="text-zinc-600">|</div>
-            <div>
-              <span className="text-zinc-500">Best-in-class:</span>
-              <span className="ml-2 text-emerald-400">{BEST_TOTAL_COST_PERCENT}%</span>
-            </div>
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+          <div>
+            <span className="text-zinc-500">Your all-in cost:</span>
+            <span className={cn("ml-2 font-semibold", analysis.effectiveFeeRate <= BEST_TOTAL_COST_PERCENT ? "text-emerald-400" : analysis.effectiveFeeRate <= INDUSTRY_AVG_TOTAL_COST_PERCENT ? "text-amber-400" : "text-rose-400")}>
+              {analysis.effectiveFeeRate.toFixed(2)}%
+            </span>
+            <span className="text-zinc-600 text-xs ml-1">({analysis.explicitFeeRate.toFixed(2)}% fee + {analysis.spreadFeeRate.toFixed(2)}% spread)</span>
+          </div>
+          <div className="text-zinc-700">|</div>
+          <div>
+            <span className="text-zinc-500">Industry avg (all-in):</span>
+            <span className="ml-2 text-zinc-400">{INDUSTRY_AVG_TOTAL_COST_PERCENT}%</span>
+          </div>
+          <div className="text-zinc-700">|</div>
+          <div>
+            <span className="text-zinc-500">Best-in-class:</span>
+            <span className="ml-2 text-emerald-400">{BEST_TOTAL_COST_PERCENT}%</span>
           </div>
         </div>
       </div>
