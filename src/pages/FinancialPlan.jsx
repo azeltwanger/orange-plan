@@ -637,6 +637,8 @@ export default function FinancialPlan() {
       let withdrawFromTaxable = 0;
       let withdrawFromTaxDeferred = 0;
       let withdrawFromTaxFree = 0;
+      let retirementSpendingOnly = 0;
+      let totalWithdrawalForTaxCalculation = 0;
       
       if (i > 0) {
         // Grow assets by their respective rates
