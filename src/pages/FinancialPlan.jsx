@@ -758,9 +758,9 @@ export default function FinancialPlan() {
         taxesPaid: isRetired ? Math.round(taxesPaid) : 0,
         netWithdrawal: isRetired ? Math.round(yearWithdrawal - taxesPaid - penaltyPaid) : 0,
         // Withdrawal breakdown by account type
-        withdrawFromTaxable: isRetired ? Math.round(taxEstimate.fromTaxable || 0) : 0,
-        withdrawFromTaxDeferred: isRetired ? Math.round(taxEstimate.fromTaxDeferred || 0) : 0,
-        withdrawFromTaxFree: isRetired ? Math.round(taxEstimate.fromTaxFree || 0) : 0,
+        withdrawFromTaxable: isRetired ? Math.round(withdrawFromTaxable) : 0,
+        withdrawFromTaxDeferred: isRetired ? Math.round(withdrawFromTaxDeferred) : 0,
+        withdrawFromTaxFree: isRetired ? Math.round(withdrawFromTaxFree) : 0,
         });
     }
     return data;
