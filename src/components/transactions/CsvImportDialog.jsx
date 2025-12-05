@@ -574,7 +574,7 @@ export default function CsvImportDialog({ open, onClose }) {
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-orange-400 font-semibold">•</span>
-                    <span><strong className="text-zinc-300">Asset Ticker</strong> — e.g., "BTC", "ETH", "AAPL"</span>
+                    <span><strong className="text-zinc-300">Asset Ticker</strong> — e.g., "BTC", "VOO", "AAPL"</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-orange-400 font-semibold">•</span>
