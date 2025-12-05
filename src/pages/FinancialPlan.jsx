@@ -554,14 +554,25 @@ export default function FinancialPlan() {
       let penaltyPaid = 0;
       
       if (i > 0) {
-        // Grow assets
+        // Grow assets by their respective rates
         runningBtc = runningBtc * (1 + yearBtcGrowth / 100);
         runningStocks = runningStocks * (1 + effectiveStocksCagr / 100);
         runningRealEstate = runningRealEstate * (1 + realEstateCagr / 100);
         runningBonds = runningBonds * (1 + bondsCagr / 100);
         runningOther = runningOther * (1 + effectiveStocksCagr / 100);
         
-        const blendedGrowthRate = (yearBtcGrowth * 0.3 + effectiveStocksCagr * 0.7) / 100;
+        // Calculate blended growth rate based on current portfolio composition
+        const totalAssets = runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther;
+        let blendedGrowthRate = 0.05; // default 5%
+        if (totalAssets > 0) {
+          blendedGrowthRate = (
+            (runningBtc / totalAssets) * (yearBtcGrowth / 100) +
+            (runningStocks / totalAssets) * (effectiveStocksCagr / 100) +
+            (runningRealEstate / totalAssets) * (realEstateCagr / 100) +
+            (runningBonds / totalAssets) * (bondsCagr / 100) +
+            (runningOther / totalAssets) * (effectiveStocksCagr / 100)
+          );
+        }
         runningSavings = runningSavings * (1 + blendedGrowthRate);
         
         // Grow account type buckets at blended rate
