@@ -922,7 +922,7 @@ export default function FinancialPlan() {
   // Calculate retirement status and insights
   const retirementStatus = useMemo(() => {
     // Compare in today's dollars - allow spending up to ~102% of max sustainable (within 2% tolerance)
-    const canAffordDesiredSpending = retirementAnnualSpending <= maxSustainableSpending / 0.98;
+    const canAffordDesiredSpending = retirementAnnualSpending <= maxSustainableSpending;
 
     if (willRunOutOfMoney) {
       return {
@@ -1008,11 +1008,13 @@ export default function FinancialPlan() {
         const testSpending = (low + high) / 2;
         let portfolio = startingPortfolio;
         let canSustain = true;
+        const currentYear = new Date().getFullYear();
 
         // Simulate from now until life expectancy
         for (let year = 1; year <= lifeExpectancy - currentAge; year++) {
           const age = currentAge + year;
           const isRetired = age >= retirementAge;
+          const simulationYear = currentYear + year;
 
           // Growth
           const yearBtcGrowth = getBtcGrowthRate(year);
@@ -1025,6 +1027,50 @@ export default function FinancialPlan() {
           );
 
           portfolio = portfolio * (1 + blendedGrowthRate);
+
+          // Apply life events and goals impacts for this year
+          let eventImpact = 0;
+          
+          lifeEvents.forEach(event => {
+            const yearsFromEventStart = simulationYear - event.year;
+            if (event.year === simulationYear || (event.is_recurring && event.year <= simulationYear && simulationYear < event.year + (event.recurring_years || 1))) {
+              const growthMultiplier = (event.affects === 'income' || event.event_type === 'income_change') 
+                ? Math.pow(1 + incomeGrowth / 100, Math.max(0, yearsFromEventStart))
+                : 1;
+
+              if (event.affects === 'assets') eventImpact += event.amount;
+              else if (event.affects === 'income') eventImpact += event.amount * growthMultiplier;
+
+              if (event.event_type === 'home_purchase' && event.year === simulationYear) {
+                eventImpact -= (event.down_payment || 0);
+              }
+            }
+          });
+          
+          // Include goals marked as "will_be_spent"
+          goals.forEach(goal => {
+            if (goal.will_be_spent && goal.target_date) {
+              const goalYear = new Date(goal.target_date).getFullYear();
+              if (goalYear === simulationYear) {
+                eventImpact -= (goal.target_amount || 0);
+              }
+            }
+          });
+
+          // Debt payoff goals
+          goals.forEach(goal => {
+            if (goal.goal_type === 'debt_payoff' && goal.linked_liability_id && goal.payoff_years > 0) {
+              const startYear = goal.target_date ? new Date(goal.target_date).getFullYear() : currentYear;
+              const endYear = startYear + goal.payoff_years;
+              
+              if (simulationYear >= startYear && simulationYear < endYear) {
+                const annualPayment = (goal.target_amount || 0) / goal.payoff_years;
+                eventImpact -= annualPayment;
+              }
+            }
+          });
+
+          portfolio += eventImpact;
 
           if (!isRetired) {
             // Add savings
@@ -1058,7 +1104,7 @@ export default function FinancialPlan() {
     };
 
     calculateMaxSpending();
-  }, [currentAge, retirementAge, lifeExpectancy, taxableValue, taxDeferredValue, taxFreeValue, btcValue, stocksValue, realEstateValue, bondsValue, otherValue, annualSavings, effectiveInflation, incomeGrowth, effectiveStocksCagr, realEstateCagr, bondsCagr, withdrawalStrategy, effectiveWithdrawalRate, retirementValue, getBtcGrowthRate]);
+  }, [currentAge, retirementAge, lifeExpectancy, taxableValue, taxDeferredValue, taxFreeValue, btcValue, stocksValue, realEstateValue, bondsValue, otherValue, annualSavings, effectiveInflation, incomeGrowth, effectiveStocksCagr, realEstateCagr, bondsCagr, withdrawalStrategy, effectiveWithdrawalRate, retirementValue, getBtcGrowthRate, lifeEvents, goals]);
 
   // Calculate earliest achievable FI age (when portfolio can sustain withdrawals to life expectancy)
   useEffect(() => {
