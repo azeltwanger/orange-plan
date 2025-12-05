@@ -236,7 +236,7 @@ export default function FinancialPlan() {
   const [priceLoading, setPriceLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('projections');
   const [showMonteCarloSettings, setShowMonteCarloSettings] = useState(false);
-  const [earliestFIAge, setEarliestFIAge] = useState(null);
+  const [earliestRetirementAge, setEarliestRetirementAge] = useState(null);
   const queryClient = useQueryClient();
 
   // Assumption states - will be loaded from UserSettings
@@ -880,7 +880,7 @@ export default function FinancialPlan() {
         // Simulate from now until life expectancy
         for (let year = 1; year <= lifeExpectancy - currentAge; year++) {
           const age = currentAge + year;
-          const isFI = age >= testAge;
+          const isRetired = age >= testAge;
           
           // Growth using actual blended rate based on portfolio composition
           const yearBtcGrowth = getBtcGrowthRate(year);
@@ -894,30 +894,30 @@ export default function FinancialPlan() {
           
           portfolio = portfolio * (1 + blendedGrowthRate);
           
-          if (!isFI) {
+          if (!isRetired) {
             // Add savings (grows with income)
             const yearSavings = annualSavings * Math.pow(1 + incomeGrowth / 100, year);
             portfolio += yearSavings;
           } else {
             // Withdraw - use the selected withdrawal strategy
             let withdrawal;
-            const yearsIntoFI = age - testAge;
+            const yearsIntoRetirement = age - testAge;
             
             if (withdrawalStrategy === '4percent') {
               // First year is 4% of portfolio at FI, then inflation-adjusted
-              if (yearsIntoFI === 0) {
+              if (yearsIntoRetirement === 0) {
                 withdrawal = portfolio * 0.04;
               } else {
                 // Need to track initial withdrawal - approximate
                 const initialPortfolioAtFI = startingPortfolio * Math.pow(1 + blendedGrowthRate, testAge - currentAge);
                 const initial4pct = initialPortfolioAtFI * 0.04;
-                withdrawal = initial4pct * Math.pow(1 + effectiveInflation / 100, yearsIntoFI);
+                withdrawal = initial4pct * Math.pow(1 + effectiveInflation / 100, yearsIntoRetirement);
               }
             } else if (withdrawalStrategy === 'dynamic') {
               withdrawal = portfolio * (dynamicWithdrawalRate / 100);
             } else {
               // Income-based
-              const yearsOfInflation = testAge - currentAge + yearsIntoFI;
+              const yearsOfInflation = testAge - currentAge + yearsIntoRetirement;
               withdrawal = retirementAnnualSpending * Math.pow(1 + effectiveInflation / 100, yearsOfInflation);
             }
             
@@ -931,11 +931,11 @@ export default function FinancialPlan() {
         }
         
         if (canSustain && portfolio > 0) {
-          setEarliestFIAge(testAge);
+          setEarliestRetirementAge(testAge);
           return;
         }
       }
-      setEarliestFIAge(null);
+      setEarliestRetirementAge(null);
     };
     
     if ((taxableValue + taxDeferredValue + taxFreeValue) > 0 || annualSavings > 0) {
@@ -1259,27 +1259,27 @@ export default function FinancialPlan() {
           <div className="card-premium rounded-2xl p-6 border border-orange-500/30 bg-gradient-to-br from-orange-500/10 to-transparent">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
               <div>
-                <p className="text-sm text-zinc-400 uppercase tracking-wider mb-2">Earliest Financial Independence</p>
+                <p className="text-sm text-zinc-400 uppercase tracking-wider mb-2">Earliest Retirement Age</p>
                 <div className="flex items-baseline gap-3">
                   <span className={cn(
                     "text-5xl font-bold",
-                    earliestFIAge && earliestFIAge <= retirementAge ? "text-emerald-400" : 
-                    earliestFIAge ? "text-orange-400" : "text-rose-400"
+                    earliestRetirementAge && earliestRetirementAge <= retirementAge ? "text-emerald-400" : 
+                    earliestRetirementAge ? "text-orange-400" : "text-rose-400"
                   )}>
-                    {earliestFIAge ? `Age ${earliestFIAge}` : "Not Yet Achievable"}
+                    {earliestRetirementAge ? `Age ${earliestRetirementAge}` : "Not Yet Achievable"}
                   </span>
-                  {earliestFIAge && (
+                  {earliestRetirementAge && (
                     <span className="text-zinc-500">
-                      ({earliestFIAge - currentAge} years from now)
+                      ({earliestRetirementAge - currentAge} years from now)
                     </span>
                   )}
                 </div>
                 <p className="text-sm text-zinc-400 mt-2">
-                  {earliestFIAge && earliestFIAge <= retirementAge 
-                    ? `You can achieve FI ${retirementAge - earliestFIAge} years earlier than your target!`
-                    : earliestFIAge 
-                      ? `Your target age ${retirementAge} is ${earliestFIAge - retirementAge} years too early based on current trajectory.`
-                      : "Increase savings or reduce spending to achieve financial independence."}
+                  {earliestRetirementAge && earliestRetirementAge <= retirementAge 
+                    ? `You can retire ${retirementAge - earliestRetirementAge} years earlier than your target!`
+                    : earliestRetirementAge 
+                      ? `Your target age ${retirementAge} is ${earliestRetirementAge - retirementAge} years too early based on current trajectory.`
+                      : "Increase savings or reduce spending to retire."}
                 </p>
               </div>
               <div className="flex flex-col gap-2 text-sm">
@@ -1290,7 +1290,7 @@ export default function FinancialPlan() {
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-amber-400" />
-                      <span className="text-zinc-400">FI Spending Need:</span>
+                      <span className="text-zinc-400">Retirement Spending:</span>
                       <span className="font-semibold text-amber-400">{formatNumber(retirementAnnualSpending)}/yr</span>
                     </div>
                     <div className="flex items-center gap-2">
@@ -1307,7 +1307,7 @@ export default function FinancialPlan() {
             </div>
             
             {/* Actionable Insights when target is too early */}
-            {earliestFIAge && earliestFIAge > retirementAge && (
+            {earliestRetirementAge && earliestRetirementAge > retirementAge && (
               <div className="mt-6 pt-6 border-t border-zinc-700/50">
                 <p className="text-sm font-medium text-zinc-300 mb-3">💡 How to reach your target age of {retirementAge}:</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -1354,9 +1354,9 @@ export default function FinancialPlan() {
                   <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
                     <p className="text-xs text-zinc-400">Or delay retirement to</p>
                     <p className="text-lg font-bold text-amber-400">
-                      Age {earliestFIAge}
+                      Age {earliestRetirementAge}
                     </p>
-                    <p className="text-xs text-zinc-500">{earliestFIAge - retirementAge} years later</p>
+                    <p className="text-xs text-zinc-500">{earliestRetirementAge - retirementAge} years later</p>
                   </div>
                 </div>
               </div>
@@ -1661,7 +1661,7 @@ export default function FinancialPlan() {
                   <Input type="number" value={currentAge} onChange={(e) => setCurrentAge(parseInt(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-zinc-400">Target FI Age</Label>
+                  <Label className="text-zinc-400">Target Retirement Age</Label>
                   <Input type="number" value={retirementAge} onChange={(e) => setRetirementAge(parseInt(e.target.value) || 65)} className="bg-zinc-900 border-zinc-800" />
                 </div>
                 <div className="space-y-2">
@@ -1673,14 +1673,14 @@ export default function FinancialPlan() {
                   <Input type="number" value={currentAnnualSpending} onChange={(e) => setCurrentAnnualSpending(parseInt(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-zinc-400">FI Annual Spending</Label>
+                  <Label className="text-zinc-400">Retirement Spending</Label>
                   <Input type="number" value={retirementAnnualSpending} onChange={(e) => setRetirementAnnualSpending(parseInt(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
                 </div>
               </div>
               
               <p className="text-xs text-zinc-500 mt-4">
                 💡 Your annual savings of <span className="text-emerald-400 font-medium">{formatNumber(annualSavings)}</span> comes from your Income & Expenses page. 
-                Increase income or reduce expenses there to accelerate your path to FI.
+                Increase income or reduce expenses there to accelerate your path to retirement.
               </p>
 
             {/* Withdrawal Strategy */}
