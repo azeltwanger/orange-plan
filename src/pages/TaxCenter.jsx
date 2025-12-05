@@ -330,8 +330,39 @@ export default function TaxCenter() {
   });
 
   const deleteTx = useMutation({
-    mutationFn: (id) => base44.entities.Transaction.delete(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['transactions'] }),
+    mutationFn: async (id) => {
+      // Get the transaction before deleting to update holdings
+      const tx = transactions.find(t => t.id === id);
+      await base44.entities.Transaction.delete(id);
+      
+      // Sync holdings - reduce quantity and cost basis
+      if (tx && tx.type === 'buy') {
+        const existingHolding = holdings.find(h => 
+          h.ticker === tx.asset_ticker && 
+          (tx.account_id ? h.account_id === tx.account_id : !h.account_id)
+        );
+        
+        if (existingHolding) {
+          const newQty = Math.max(0, (existingHolding.quantity || 0) - (tx.quantity || 0));
+          const newCostBasis = Math.max(0, (existingHolding.cost_basis_total || 0) - (tx.total_value || 0));
+          
+          if (newQty <= 0) {
+            // Delete holding if quantity is 0
+            await base44.entities.Holding.delete(existingHolding.id);
+          } else {
+            // Update holding
+            await base44.entities.Holding.update(existingHolding.id, {
+              quantity: newQty,
+              cost_basis_total: newCostBasis,
+            });
+          }
+        }
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['holdings'] });
+    },
   });
 
   const bulkDeleteTx = useMutation({
