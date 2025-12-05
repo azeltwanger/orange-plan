@@ -21,14 +21,36 @@ export default function GoalFundingCalculator({
     const target = new Date(targetDate);
     const monthsRemaining = Math.max(1, Math.ceil((target - today) / (1000 * 60 * 60 * 24 * 30)));
     
-    // Calculate weighted average return from funding sources
+    // Calculate weighted average return from funding sources (using UserSettings CAGR)
     let weightedReturn = 0;
     if (fundingSources && fundingSources.length > 0) {
       const totalPercent = fundingSources.reduce((sum, s) => sum + (s.percentage || 0), 0);
       if (totalPercent > 0) {
-        weightedReturn = fundingSources.reduce((sum, s) => {
-          const returnRate = s.expected_return ?? getDefaultReturn(s.asset_type, userSettings);
-          return sum + ((s.percentage || 0) / totalPercent) * returnRate;
+        weightedReturn = fundingSources.reduce((sum, source) => {
+          // Calculate weighted return for this account source
+          const accountPercent = (source.percentage || 0) / totalPercent;
+          const assetAllocations = source.asset_allocations || [];
+          
+          if (assetAllocations.length > 0) {
+            // Use asset allocations within the account
+            const allocTotal = assetAllocations.reduce((s, a) => s + (a.percentage || 0), 0);
+            if (allocTotal > 0) {
+              const accountReturn = assetAllocations.reduce((accSum, alloc) => {
+                const allocPercent = (alloc.percentage || 0) / allocTotal;
+                const returnRate = getDefaultReturn(alloc.asset_type, alloc.ticker, userSettings);
+                return accSum + allocPercent * returnRate;
+              }, 0);
+              return sum + accountPercent * accountReturn;
+            }
+          }
+          
+          // Fallback: use a blended rate from userSettings
+          const blendedRate = (
+            (userSettings.btc_cagr_assumption || 25) * 0.3 +
+            (userSettings.stocks_cagr || 7) * 0.5 +
+            (userSettings.bonds_cagr || 3) * 0.2
+          );
+          return sum + accountPercent * blendedRate;
         }, 0);
       }
     }
@@ -205,20 +227,35 @@ export default function GoalFundingCalculator({
   );
 }
 
-function getDefaultReturn(assetType, userSettings) {
+function getDefaultReturn(assetType, ticker, userSettings) {
   const type = (assetType || '').toLowerCase();
-  if (type === 'btc' || type === 'bitcoin' || type === 'crypto') {
+  const tickerUpper = (ticker || '').toUpperCase();
+  
+  // Check ticker first for specific assets like BTC
+  if (tickerUpper === 'BTC') {
     return userSettings.btc_cagr_assumption || 25;
   }
-  if (type === 'stocks' || type === 'etf' || type === 'stock') {
+  
+  // Then check asset type
+  if (type === 'crypto') {
+    return userSettings.btc_cagr_assumption || 25;
+  }
+  if (type === 'stocks') {
     return userSettings.stocks_cagr || 7;
   }
-  if (type === 'bonds' || type === 'bond') {
+  if (type === 'bonds') {
     return userSettings.bonds_cagr || 3;
   }
-  if (type === 'real_estate' || type === 'real estate') {
+  if (type === 'real_estate') {
     return userSettings.real_estate_cagr || 4;
   }
-  // Cash/savings
-  return 2;
+  if (type === 'cash') {
+    return userSettings.cash_cagr || 0;
+  }
+  if (type === 'other') {
+    return userSettings.other_cagr || 7;
+  }
+  
+  // Default fallback
+  return userSettings.stocks_cagr || 7;
 }
