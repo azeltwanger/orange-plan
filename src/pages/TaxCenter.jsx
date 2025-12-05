@@ -116,6 +116,7 @@ export default function TaxCenter() {
     exchange: '',
     account_type: 'taxable',
     account_id: '',
+    trading_fee: '',
     notes: '',
   });
   const [showCreateAccount, setShowCreateAccount] = useState(false);
@@ -373,7 +374,7 @@ export default function TaxCenter() {
   };
 
   const resetForm = () => {
-    setFormData({ type: 'buy', asset_ticker: 'BTC', quantity: '', price_per_unit: '', date: format(new Date(), 'yyyy-MM-dd'), exchange: '', account_type: 'taxable', account_id: '', notes: '' });
+    setFormData({ type: 'buy', asset_ticker: 'BTC', quantity: '', price_per_unit: '', date: format(new Date(), 'yyyy-MM-dd'), exchange: '', account_type: 'taxable', account_id: '', trading_fee: '', notes: '' });
     setSaleForm({ quantity: '', price_per_unit: '', date: format(new Date(), 'yyyy-MM-dd'), fee: '', lot_method: 'HIFO', selected_lots: [], exchange: '' });
     setSpecificLotQuantities({});
   };
@@ -406,6 +407,7 @@ export default function TaxCenter() {
         exchange: editingTx.exchange_or_wallet || editingTx.exchange || '',
         account_type: accountType,
         account_id: editingTx.account_id || '',
+        trading_fee: editingTx.trading_fee || '',
         notes: editingTx.notes || '',
       });
     }
@@ -417,6 +419,7 @@ export default function TaxCenter() {
       ...formData, 
       quantity: parseFloat(formData.quantity) || 0, 
       price_per_unit: parseFloat(formData.price_per_unit) || 0,
+      trading_fee: parseFloat(formData.trading_fee) || 0,
       exchange_or_wallet: formData.exchange,
       account_id: formData.account_id || null,
     };
@@ -470,10 +473,11 @@ export default function TaxCenter() {
       const daysSincePurchase = isNaN(txDate.getTime()) ? 0 : differenceInDays(new Date(), txDate);
       const isLongTerm = daysSincePurchase > 365;
       
-      // Find the holding for this transaction to get account type
-      const holding = holdings.find(h => h.ticker === tx.asset_ticker);
-      const accountType = holding?.account_type || 'taxable';
-      const taxTreatment = holding?.tax_treatment || 'taxable';
+      // Get account type and tax treatment from the transaction itself first, then fall back to holding
+      const holding = holdings.find(h => h.ticker === tx.asset_ticker && 
+        (tx.account_id ? h.account_id === tx.account_id : true));
+      const accountType = tx.account_type || holding?.account_type || 'taxable';
+      const taxTreatment = getTaxTreatment(accountType);
       
       return {
         ...tx,
@@ -686,14 +690,10 @@ export default function TaxCenter() {
   const estimatedTax = (shortTermGains > 0 ? shortTermGains * effectiveSTCGRate : 0) + (longTermGains > 0 ? longTermGains * effectiveLTCGRate : 0);
 
   // Loss/Gain harvesting opportunities - only for taxable accounts
-  // Filter to only include lots from taxable holdings
+  // Filter to only include lots from taxable holdings (exclude tax-deferred and tax-free)
   const taxableLotsForHarvest = taxLots.filter(lot => {
-    // Check if this lot's ticker belongs to a taxable holding
-    const holding = holdings.find(h => h.ticker === lot.asset_ticker);
-    if (!holding) return true; // If no holding found, assume taxable
-    return holding.tax_treatment === 'taxable' || 
-           holding.account_type === 'taxable' || 
-           (!holding.tax_treatment && !holding.account_type);
+    // Use the lot's tax treatment (already calculated in taxLots)
+    return lot.taxTreatment === 'taxable';
   });
   
   const harvestLossOpportunities = taxableLotsForHarvest.filter(lot => lot.unrealizedGain < 0);
@@ -1191,7 +1191,12 @@ export default function TaxCenter() {
                     hsa: 'HSA',
                     '529': '529',
                   };
-                  const isTaxable = lot.taxTreatment === 'taxable' || lot.accountType === 'taxable';
+                  const taxTreatmentLabels = {
+                    taxable: 'Taxable',
+                    tax_deferred: 'Tax-Deferred',
+                    tax_free: 'Tax-Free',
+                  };
+                  const isTaxable = lot.taxTreatment === 'taxable';
                   
                   return (
                   <div key={lot.id} className="p-4 rounded-xl bg-zinc-800/30 border border-zinc-800">
@@ -1205,8 +1210,14 @@ export default function TaxCenter() {
                           <Badge variant="outline" className={cn("text-xs", lot.isLongTerm ? 'border-emerald-400/50 text-emerald-400' : 'border-amber-400/50 text-amber-400')}>
                             {lot.isLongTerm ? 'Long-term' : `${lot.daysSincePurchase}d`}
                           </Badge>
-                          <Badge variant="outline" className={cn("text-xs", isTaxable ? 'border-orange-400/50 text-orange-400' : 'border-blue-400/50 text-blue-400')}>
+                          <Badge variant="outline" className={cn("text-xs", isTaxable ? 'border-orange-400/50 text-orange-400' : 'border-purple-400/50 text-purple-400')}>
                             {accountLabels[lot.accountType] || 'Taxable'}
+                          </Badge>
+                          <Badge variant="outline" className={cn("text-xs", 
+                            lot.taxTreatment === 'taxable' ? 'border-orange-400/50 text-orange-400' : 
+                            lot.taxTreatment === 'tax_deferred' ? 'border-amber-400/50 text-amber-400' : 
+                            'border-emerald-400/50 text-emerald-400')}>
+                            {taxTreatmentLabels[lot.taxTreatment] || 'Taxable'}
                           </Badge>
                           {lot.isLongTerm && lot.unrealizedGain > 0 && canHarvestGainsTaxFree && isTaxable && (
                             <Badge className="bg-emerald-400/20 text-emerald-400 border-0">0% Tax Eligible</Badge>
@@ -1334,6 +1345,7 @@ export default function TaxCenter() {
                   .map((tx) => {
                   const holding = holdings.find(h => h.ticker === tx.asset_ticker);
                   const accountType = tx.account_type || holding?.account_type || 'taxable';
+                  const taxTreatment = getTaxTreatment(accountType);
                   const accountLabels = {
                     taxable: 'Taxable',
                     traditional_401k: '401(k)',
@@ -1343,7 +1355,12 @@ export default function TaxCenter() {
                     hsa: 'HSA',
                     '529': '529',
                   };
-                  const isTaxable = accountType === 'taxable';
+                  const taxTreatmentLabels = {
+                    taxable: 'Taxable',
+                    tax_deferred: 'Tax-Deferred',
+                    tax_free: 'Tax-Free',
+                  };
+                  const isTaxable = taxTreatment === 'taxable';
                   
                   return (
                   <div key={tx.id} className={cn(
@@ -1368,8 +1385,14 @@ export default function TaxCenter() {
                               {tx.holding_period === 'long_term' ? 'Long-term' : 'Short-term'}
                             </Badge>
                           )}
-                          <Badge variant="outline" className={cn("text-xs", isTaxable ? 'border-orange-400/50 text-orange-400' : 'border-blue-400/50 text-blue-400')}>
+                          <Badge variant="outline" className={cn("text-xs", isTaxable ? 'border-orange-400/50 text-orange-400' : 'border-purple-400/50 text-purple-400')}>
                             {accountLabels[accountType] || 'Taxable'}
+                          </Badge>
+                          <Badge variant="outline" className={cn("text-xs", 
+                            taxTreatment === 'taxable' ? 'border-orange-400/50 text-orange-400' : 
+                            taxTreatment === 'tax_deferred' ? 'border-amber-400/50 text-amber-400' : 
+                            'border-emerald-400/50 text-emerald-400')}>
+                            {taxTreatmentLabels[taxTreatment] || 'Taxable'}
                           </Badge>
                         </div>
                         <p className="text-sm text-zinc-500">
@@ -1674,10 +1697,14 @@ export default function TaxCenter() {
               />
               <p className="text-xs text-zinc-500">Assign to account (e.g., Fidelity, Coinbase, Ledger)</p>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label className="text-zinc-400">Exchange/Platform (Optional)</Label>
                 <Input value={formData.exchange} onChange={(e) => setFormData({ ...formData, exchange: e.target.value })} placeholder="Coinbase, Strike..." className="bg-zinc-900 border-zinc-700 text-zinc-100 placeholder:text-zinc-500" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-zinc-400">Transaction Fee</Label>
+                <Input type="number" step="any" value={formData.trading_fee} onChange={(e) => setFormData({ ...formData, trading_fee: e.target.value })} placeholder="0.00" className="bg-zinc-900 border-zinc-700 text-zinc-100 placeholder:text-zinc-500" />
               </div>
               <div className="space-y-2">
                 <Label className="text-zinc-400">Tax Account Type</Label>
