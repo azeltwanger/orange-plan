@@ -38,6 +38,197 @@ const COINGECKO_IDS = {
   ALGO: 'algorand',
 };
 
+// Account Performance Section Component
+function AccountPerformanceSection({ holdings, transactions, accounts, getCurrentPrice, COINGECKO_IDS }) {
+  const [expandedAccounts, setExpandedAccounts] = useState({});
+
+  const toggleAccount = (accountId) => {
+    setExpandedAccounts(prev => ({ ...prev, [accountId]: !prev[accountId] }));
+  };
+
+  // Group holdings by account
+  const holdingsByAccount = useMemo(() => {
+    const grouped = {};
+    
+    // Group by account_id
+    holdings.forEach(h => {
+      const accountId = h.account_id || 'unassigned';
+      if (!grouped[accountId]) grouped[accountId] = [];
+      grouped[accountId].push(h);
+    });
+    
+    return grouped;
+  }, [holdings]);
+
+  // Calculate performance for a holding
+  const getHoldingPerformance = (holding) => {
+    const value = holding.quantity * getCurrentPrice(holding.ticker);
+    
+    // Get cost basis from transactions for this holding/account combo
+    const holdingTxs = transactions.filter(t => 
+      t.asset_ticker === holding.ticker && 
+      (t.account_id === holding.account_id || (!t.account_id && !holding.account_id))
+    );
+    
+    const tickerCostBasis = holdingTxs
+      .filter(t => t.type === 'buy')
+      .reduce((sum, t) => sum + (t.cost_basis || t.quantity * t.price_per_unit), 0);
+    const tickerSellCostBasis = holdingTxs
+      .filter(t => t.type === 'sell')
+      .reduce((sum, t) => sum + (t.cost_basis || 0), 0);
+    
+    const adjustedCostBasis = tickerCostBasis > 0 
+      ? tickerCostBasis - tickerSellCostBasis 
+      : (holding.cost_basis_total || 0);
+    
+    const gain = value - adjustedCostBasis;
+    const gainPercent = adjustedCostBasis > 0 ? (gain / adjustedCostBasis) * 100 : 0;
+
+    // Get first purchase date
+    const firstBuy = holdingTxs
+      .filter(t => t.type === 'buy' && t.date)
+      .sort((a, b) => new Date(a.date) - new Date(b.date))[0];
+    let daysHeld = 0;
+    if (firstBuy?.date) {
+      try {
+        const parsed = parseISO(firstBuy.date);
+        if (!isNaN(parsed.getTime())) {
+          daysHeld = differenceInDays(new Date(), parsed);
+        }
+      } catch {
+        daysHeld = 0;
+      }
+    }
+
+    return { value, adjustedCostBasis, gain, gainPercent, daysHeld };
+  };
+
+  // Calculate account totals
+  const getAccountTotals = (accountHoldings) => {
+    let totalValue = 0;
+    let totalCostBasis = 0;
+    
+    accountHoldings.forEach(h => {
+      const perf = getHoldingPerformance(h);
+      totalValue += perf.value;
+      totalCostBasis += perf.adjustedCostBasis;
+    });
+    
+    const totalGain = totalValue - totalCostBasis;
+    const totalGainPercent = totalCostBasis > 0 ? (totalGain / totalCostBasis) * 100 : 0;
+    
+    return { totalValue, totalCostBasis, totalGain, totalGainPercent };
+  };
+
+  const accountIds = Object.keys(holdingsByAccount);
+
+  if (holdings.length === 0) {
+    return <p className="text-center text-zinc-500 py-8">No holdings to display</p>;
+  }
+
+  return (
+    <div className="space-y-3">
+      {accountIds.map(accountId => {
+        const accountHoldings = holdingsByAccount[accountId];
+        const account = accounts.find(a => a.id === accountId);
+        const accountName = account?.name || (accountId === 'unassigned' ? 'Unassigned' : 'Unknown Account');
+        const accountType = account?.account_type || '';
+        const isExpanded = expandedAccounts[accountId] ?? true;
+        const totals = getAccountTotals(accountHoldings);
+
+        return (
+          <Collapsible key={accountId} open={isExpanded} onOpenChange={() => toggleAccount(accountId)}>
+            <CollapsibleTrigger className="w-full">
+              <div className="flex items-center justify-between p-4 rounded-xl bg-zinc-800/50 hover:bg-zinc-800/70 transition-colors cursor-pointer">
+                <div className="flex items-center gap-3">
+                  {isExpanded ? (
+                    <ChevronDown className="w-4 h-4 text-zinc-500" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4 text-zinc-500" />
+                  )}
+                  <div className="w-8 h-8 rounded-lg bg-zinc-700 flex items-center justify-center">
+                    <Building2 className="w-4 h-4 text-zinc-400" />
+                  </div>
+                  <div className="text-left">
+                    <p className="font-medium">{accountName}</p>
+                    <p className="text-xs text-zinc-500">
+                      {accountType.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())} • {accountHoldings.length} asset{accountHoldings.length !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="font-semibold">${totals.totalValue.toLocaleString()}</p>
+                  <div className="flex items-center gap-2 justify-end">
+                    {totals.totalCostBasis > 0 && (
+                      <>
+                        <span className="text-xs text-zinc-500">${totals.totalCostBasis.toLocaleString()}</span>
+                        <span className={cn(
+                          "text-sm font-medium",
+                          totals.totalGain >= 0 ? "text-emerald-400" : "text-rose-400"
+                        )}>
+                          {totals.totalGain >= 0 ? '+' : ''}{totals.totalGainPercent.toFixed(1)}%
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="ml-6 mt-2 space-y-2">
+                {accountHoldings.map((holding) => {
+                  const perf = getHoldingPerformance(holding);
+
+                  return (
+                    <div key={holding.id} className="flex items-center justify-between p-3 rounded-lg bg-zinc-800/30 hover:bg-zinc-800/40 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <div className={cn(
+                          "w-8 h-8 rounded-lg flex items-center justify-center",
+                          holding.ticker === 'BTC' ? 'bg-amber-400/10' : 
+                          COINGECKO_IDS[holding.ticker] ? 'bg-blue-500/10' : 'bg-zinc-700'
+                        )}>
+                          {holding.ticker === 'BTC' ? (
+                            <Bitcoin className="w-4 h-4 text-amber-400" />
+                          ) : (
+                            <span className={cn("text-xs font-bold", COINGECKO_IDS[holding.ticker] ? "text-blue-400" : "text-zinc-400")}>{holding.ticker?.[0]}</span>
+                          )}
+                        </div>
+                        <div>
+                          <p className="font-medium text-sm">{holding.asset_name}</p>
+                          <p className="text-xs text-zinc-500">
+                            {holding.ticker === 'BTC' ? holding.quantity.toFixed(8) : holding.quantity.toLocaleString()} {holding.ticker}
+                            {perf.daysHeld > 0 && <span className="ml-2 text-zinc-600">• {perf.daysHeld}d</span>}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-medium text-sm">${perf.value.toLocaleString()}</p>
+                        <div className="flex items-center gap-2 justify-end">
+                          {perf.adjustedCostBasis > 0 && (
+                            <>
+                              <span className="text-xs text-zinc-500">${perf.adjustedCostBasis.toLocaleString()}</span>
+                              <span className={cn(
+                                "text-xs font-medium",
+                                perf.gain >= 0 ? "text-emerald-400" : "text-rose-400"
+                              )}>
+                                {perf.gain >= 0 ? '+' : ''}{perf.gainPercent.toFixed(1)}%
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function Performance() {
   const [currentPrices, setCurrentPrices] = useState({});
   const [priceLoading, setPriceLoading] = useState(true);
@@ -61,9 +252,6 @@ export default function Performance() {
     queryKey: ['accounts'],
     queryFn: () => base44.entities.Account.list(),
   });
-
-  // Track which accounts are expanded
-  const [expandedAccounts, setExpandedAccounts] = useState({});
 
   // Get unique tickers from holdings and transactions, separated by type
   const { cryptoTickers, stockTickers } = useMemo(() => {
@@ -310,12 +498,13 @@ export default function Performance() {
     // Check crypto prices first, then stock prices
     const tickerPrices = historicalPrices[ticker] || stockPrices[ticker];
     if (!tickerPrices || tickerPrices.length === 0) {
+      // Fallback to current price if no historical data available
       return getCurrentPrice(ticker);
     }
     
     const targetTime = date.getTime();
     
-    // Find closest price point
+    // Find closest price point - use any available price point
     let closest = tickerPrices[0];
     let minDiff = Math.abs(closest.date.getTime() - targetTime);
     
@@ -326,14 +515,16 @@ export default function Performance() {
         closest = point;
       }
     }
+    
     return closest.price;
   }, [historicalPrices, stockPrices, getCurrentPrice]);
 
-  // Generate chart data with historical prices
+  // Generate chart data using ONLY historical API prices for accuracy
   const chartData = useMemo(() => {
-    // Wait for historical prices to load before generating chart
+    // Wait for historical prices to load
     const hasHistoricalData = Object.keys(historicalPrices).length > 0 || Object.keys(stockPrices).length > 0;
-    if (transactions.length === 0 && !hasHistoricalData) return [];
+    if (!hasHistoricalData && cryptoTickers.length > 0) return [];
+    if (transactions.length === 0 && holdings.length === 0) return [];
 
     const now = new Date();
     let startDate;
@@ -362,6 +553,28 @@ export default function Performance() {
         }
         break;
       default: startDate = subYears(now, 1);
+    }
+
+    // Find earliest available historical data to limit chart start
+    let earliestHistoricalDate = now;
+    for (const ticker of Object.keys(historicalPrices)) {
+      const prices = historicalPrices[ticker];
+      if (prices && prices.length > 0) {
+        const earliest = prices.reduce((min, p) => p.date < min ? p.date : min, prices[0].date);
+        if (earliest < earliestHistoricalDate) earliestHistoricalDate = earliest;
+      }
+    }
+    for (const ticker of Object.keys(stockPrices)) {
+      const prices = stockPrices[ticker];
+      if (prices && prices.length > 0) {
+        const earliest = prices.reduce((min, p) => p.date < min ? p.date : min, prices[0].date);
+        if (earliest < earliestHistoricalDate) earliestHistoricalDate = earliest;
+      }
+    }
+    
+    // Don't go before our earliest historical data
+    if (startDate < earliestHistoricalDate) {
+      startDate = earliestHistoricalDate;
     }
 
     // Build cumulative holdings from ALL transactions before start date
@@ -395,37 +608,55 @@ export default function Performance() {
       })
       .sort((a, b) => new Date(a.date) - new Date(b.date));
 
-    // Generate data points using historical prices
-    const dataPoints = [];
-    // Use more granular intervals for accurate historical charting
-    const intervalDays = 
-      timeframe === '1M' ? 1 : 
-      timeframe === '3M' ? 2 : 
-      timeframe === '6M' ? 4 : 
-      timeframe === '1Y' ? 7 :
-      timeframe === '3Y' ? 14 :
-      timeframe === '5Y' ? 21 :
-      timeframe === '10Y' ? 30 :
-      30; // ALL
-    
-    // Create a map of transaction dates for quick lookup
-    const txByDate = {};
-    for (const tx of txsInRange) {
-      const dateKey = tx.date.split('T')[0];
-      if (!txByDate[dateKey]) txByDate[dateKey] = [];
-      txByDate[dateKey].push(tx);
+    // Use the actual historical price data points for accurate charting
+    // Collect all dates where we have price data
+    const allHistoricalDates = new Set();
+    for (const ticker of Object.keys(historicalPrices)) {
+      const prices = historicalPrices[ticker];
+      if (prices) {
+        prices.forEach(p => {
+          if (p.date >= startDate && p.date <= now) {
+            allHistoricalDates.add(format(p.date, 'yyyy-MM-dd'));
+          }
+        });
+      }
     }
+    for (const ticker of Object.keys(stockPrices)) {
+      const prices = stockPrices[ticker];
+      if (prices) {
+        prices.forEach(p => {
+          if (p.date >= startDate && p.date <= now) {
+            allHistoricalDates.add(format(p.date, 'yyyy-MM-dd'));
+          }
+        });
+      }
+    }
+    
+    // Sort dates and sample for reasonable chart density
+    const sortedDates = [...allHistoricalDates].sort();
+    const maxPoints = 
+      timeframe === '1M' ? 30 : 
+      timeframe === '3M' ? 45 : 
+      timeframe === '6M' ? 60 : 
+      timeframe === '1Y' ? 52 :
+      timeframe === '3Y' ? 78 :
+      timeframe === '5Y' ? 100 :
+      timeframe === '10Y' ? 120 :
+      100;
+    
+    const step = Math.max(1, Math.floor(sortedDates.length / maxPoints));
+    const sampledDates = sortedDates.filter((_, i) => i % step === 0 || i === sortedDates.length - 1);
 
-    // Also process transactions that might fall between data points
+    // Process transactions chronologically
     let txIndex = 0;
     const sortedTxsInRange = [...txsInRange].sort((a, b) => new Date(a.date) - new Date(b.date));
 
-    // Iterate through the timeframe
-    let currentDate = new Date(startDate);
-    while (currentDate <= now) {
-      const dateKey = format(currentDate, 'yyyy-MM-dd');
+    const dataPoints = [];
+
+    for (const dateKey of sampledDates) {
+      const currentDate = new Date(dateKey);
       
-      // Apply any transactions up to and including this date
+      // Apply transactions up to this date
       while (txIndex < sortedTxsInRange.length) {
         const tx = sortedTxsInRange[txIndex];
         const txDate = new Date(tx.date);
@@ -444,21 +675,20 @@ export default function Performance() {
         txIndex++;
       }
 
-      // Calculate portfolio value using historical prices for all assets
+      // Calculate portfolio value using ONLY historical API prices
       let portfolioValue = 0;
       
       for (const [ticker, qty] of Object.entries(cumulativeQty)) {
         if (qty <= 0) continue;
         
-        // Get historical price - prioritize actual historical data
-        let priceAtDate;
+        // Get historical price from API data
         const tickerHistorical = historicalPrices[ticker] || stockPrices[ticker];
         
         if (tickerHistorical && tickerHistorical.length > 0) {
-          // Find the closest price point to this date
+          // Find closest price point (within 3 days)
           const targetTime = currentDate.getTime();
-          let closest = tickerHistorical[0];
-          let minDiff = Math.abs(closest.date.getTime() - targetTime);
+          let closest = null;
+          let minDiff = 3 * 24 * 60 * 60 * 1000;
           
           for (const point of tickerHistorical) {
             const diff = Math.abs(point.date.getTime() - targetTime);
@@ -467,20 +697,16 @@ export default function Performance() {
               closest = point;
             }
           }
-          priceAtDate = closest.price;
-        } else {
-          // Fallback to current price if no historical data
-          priceAtDate = getCurrentPrice(ticker);
+          
+          if (closest) {
+            portfolioValue += qty * closest.price;
+          }
         }
-        
-        portfolioValue += qty * priceAtDate;
       }
 
       // Format label based on timeframe
       let label;
-      if (['10Y', 'ALL'].includes(timeframe)) {
-        label = format(currentDate, "MMM ''yy");
-      } else if (['3Y', '5Y'].includes(timeframe)) {
+      if (['10Y', 'ALL', '5Y', '3Y'].includes(timeframe)) {
         label = format(currentDate, "MMM ''yy");
       } else if (['6M', '1Y'].includes(timeframe)) {
         label = format(currentDate, 'MMM d');
@@ -494,30 +720,23 @@ export default function Performance() {
         portfolio: Math.round(portfolioValue),
         costBasis: Math.round(Object.values(cumulativeCost).reduce((a, b) => a + b, 0)),
       });
-
-      // Move to next interval
-      currentDate = new Date(currentDate.getTime() + intervalDays * 24 * 60 * 60 * 1000);
     }
 
-    // Ensure we have the current point with actual current value
-    if (dataPoints.length > 0) {
-      const lastPoint = dataPoints[dataPoints.length - 1];
-      const todayKey = format(now, 'yyyy-MM-dd');
-      if (lastPoint.date !== todayKey) {
-        dataPoints.push({
-          date: todayKey,
-          name: 'Now',
-          portfolio: Math.round(currentValue),
-          costBasis: Math.round(totalCostBasis),
-        });
-      } else {
-        // Update last point with accurate current value
-        lastPoint.portfolio = Math.round(currentValue);
-      }
+    // Add current point with live price
+    const todayKey = format(now, 'yyyy-MM-dd');
+    if (dataPoints.length === 0 || dataPoints[dataPoints.length - 1].date !== todayKey) {
+      dataPoints.push({
+        date: todayKey,
+        name: 'Now',
+        portfolio: Math.round(currentValue),
+        costBasis: Math.round(totalCostBasis),
+      });
+    } else {
+      dataPoints[dataPoints.length - 1].portfolio = Math.round(currentValue);
     }
 
     return dataPoints;
-  }, [transactions, holdings, timeframe, currentValue, totalCostBasis, historicalPrices, stockPrices, currentPrices, getCurrentPrice]);
+  }, [transactions, holdings, timeframe, currentValue, totalCostBasis, historicalPrices, stockPrices, cryptoTickers]);
 
   // Use IRR metrics if available, otherwise fall back to simple calculations
   const displayMetrics = useMemo(() => {
@@ -763,246 +982,14 @@ export default function Performance() {
       {/* Asset Breakdown by Account */}
       <div className="card-glass rounded-2xl p-6">
         <h3 className="font-semibold mb-6">Asset Performance by Account</h3>
-        <div className="space-y-3">
-          {(() => {
-            // Group holdings by account
-            const holdingsByAccount = {};
-            const unassignedHoldings = [];
-            
-            for (const holding of holdings) {
-              if (holding.account_id) {
-                if (!holdingsByAccount[holding.account_id]) {
-                  holdingsByAccount[holding.account_id] = [];
-                }
-                holdingsByAccount[holding.account_id].push(holding);
-              } else {
-                unassignedHoldings.push(holding);
-              }
-            }
-            
-            // Calculate account performance with transaction-based cost basis per holding
-            const getHoldingPerformance = (holding) => {
-              const value = holding.quantity * getCurrentPrice(holding.ticker);
-              
-              // Get cost basis from transactions for this specific holding (by account_id and ticker)
-              const holdingTxs = transactions.filter(t => 
-                t.asset_ticker === holding.ticker && 
-                (holding.account_id ? t.account_id === holding.account_id : !t.account_id)
-              );
-              
-              const tickerCostBasis = holdingTxs
-                .filter(t => t.type === 'buy')
-                .reduce((sum, t) => sum + (t.cost_basis || t.quantity * t.price_per_unit), 0);
-              const tickerSellCostBasis = holdingTxs
-                .filter(t => t.type === 'sell')
-                .reduce((sum, t) => sum + (t.cost_basis || 0), 0);
-              
-              const adjustedCostBasis = tickerCostBasis > 0 
-                ? tickerCostBasis - tickerSellCostBasis 
-                : (holding.cost_basis_total || 0);
-              
-              const gain = value - adjustedCostBasis;
-              const gainPercent = adjustedCostBasis > 0 ? (gain / adjustedCostBasis) * 100 : 0;
-              
-              // Get first purchase date
-              const firstBuy = holdingTxs
-                .filter(t => t.type === 'buy' && t.date)
-                .sort((a, b) => new Date(a.date) - new Date(b.date))[0];
-              let daysHeld = 0;
-              if (firstBuy?.date) {
-                try {
-                  const parsed = parseISO(firstBuy.date);
-                  if (!isNaN(parsed.getTime())) {
-                    daysHeld = differenceInDays(new Date(), parsed);
-                  }
-                } catch { daysHeld = 0; }
-              }
-              
-              return { value, adjustedCostBasis, gain, gainPercent, daysHeld };
-            };
-            
-            const renderHolding = (holding) => {
-              const { value, adjustedCostBasis, gain, gainPercent, daysHeld } = getHoldingPerformance(holding);
-              
-              return (
-                <div key={holding.id} className="flex items-center justify-between p-3 rounded-lg bg-zinc-900/30 hover:bg-zinc-900/50 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className={cn(
-                      "w-8 h-8 rounded-lg flex items-center justify-center",
-                      holding.ticker === 'BTC' ? 'bg-amber-400/10' : 
-                      COINGECKO_IDS[holding.ticker] ? 'bg-blue-500/10' : 'bg-zinc-700'
-                    )}>
-                      {holding.ticker === 'BTC' ? (
-                        <Bitcoin className="w-4 h-4 text-amber-400" />
-                      ) : (
-                        <span className={cn("text-xs font-bold", COINGECKO_IDS[holding.ticker] ? "text-blue-400" : "text-zinc-400")}>{holding.ticker?.[0]}</span>
-                      )}
-                    </div>
-                    <div>
-                      <p className="font-medium text-sm">{holding.asset_name || holding.ticker}</p>
-                      <p className="text-xs text-zinc-500">
-                        {holding.ticker === 'BTC' ? holding.quantity.toFixed(8) : holding.quantity.toLocaleString()} {holding.ticker}
-                        {daysHeld > 0 && <span className="ml-2 text-zinc-600">• {daysHeld}d</span>}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-semibold text-sm">${value.toLocaleString()}</p>
-                    <div className="flex items-center gap-2 justify-end">
-                      {adjustedCostBasis > 0 && (
-                        <>
-                          <span className="text-xs text-zinc-500">${adjustedCostBasis.toLocaleString()}</span>
-                          <span className={cn(
-                            "text-xs font-medium",
-                            gain >= 0 ? "text-emerald-400" : "text-rose-400"
-                          )}>
-                            {gain >= 0 ? '+' : ''}{gainPercent.toFixed(1)}%
-                          </span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            };
-            
-            const accountTypeLabels = {
-              taxable_brokerage: 'Taxable Brokerage',
-              taxable_crypto: 'Crypto (Taxable)',
-              taxable_real_estate: 'Real Estate',
-              '401k_traditional': 'Traditional 401(k)',
-              '401k_roth': 'Roth 401(k)',
-              ira_traditional: 'Traditional IRA',
-              ira_roth: 'Roth IRA',
-              hsa: 'HSA',
-              '529': '529 Plan',
-            };
-            
-            return (
-              <>
-                {/* Render each account with its holdings */}
-                {accounts.map(account => {
-                  const accountHoldings = holdingsByAccount[account.id] || [];
-                  if (accountHoldings.length === 0) return null;
-                  
-                  // Calculate account totals
-                  let accountValue = 0;
-                  let accountCostBasis = 0;
-                  
-                  for (const h of accountHoldings) {
-                    const perf = getHoldingPerformance(h);
-                    accountValue += perf.value;
-                    accountCostBasis += perf.adjustedCostBasis;
-                  }
-                  
-                  const accountGain = accountValue - accountCostBasis;
-                  const accountGainPercent = accountCostBasis > 0 ? (accountGain / accountCostBasis) * 100 : 0;
-                  const isExpanded = expandedAccounts[account.id] ?? true;
-                  
-                  return (
-                    <Collapsible
-                      key={account.id}
-                      open={isExpanded}
-                      onOpenChange={(open) => setExpandedAccounts(prev => ({ ...prev, [account.id]: open }))}
-                    >
-                      <CollapsibleTrigger className="w-full">
-                        <div className="flex items-center justify-between p-4 rounded-xl bg-zinc-800/30 hover:bg-zinc-800/50 transition-colors cursor-pointer">
-                          <div className="flex items-center gap-3">
-                            {isExpanded ? (
-                              <ChevronDown className="w-4 h-4 text-zinc-500" />
-                            ) : (
-                              <ChevronRight className="w-4 h-4 text-zinc-500" />
-                            )}
-                            <div className={cn(
-                              "w-10 h-10 rounded-xl flex items-center justify-center",
-                              account.tax_treatment === 'tax_free' ? 'bg-purple-500/10' :
-                              account.tax_treatment === 'tax_deferred' ? 'bg-amber-500/10' :
-                              'bg-emerald-500/10'
-                            )}>
-                              <Building2 className={cn(
-                                "w-5 h-5",
-                                account.tax_treatment === 'tax_free' ? 'text-purple-400' :
-                                account.tax_treatment === 'tax_deferred' ? 'text-amber-400' :
-                                'text-emerald-400'
-                              )} />
-                            </div>
-                            <div className="text-left">
-                              <p className="font-medium">{account.name}</p>
-                              <p className="text-xs text-zinc-500">
-                                {accountTypeLabels[account.account_type] || account.account_type} • {accountHoldings.length} asset{accountHoldings.length !== 1 ? 's' : ''}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-semibold">${accountValue.toLocaleString()}</p>
-                            <div className="flex items-center gap-2 justify-end">
-                              {accountCostBasis > 0 && (
-                                <>
-                                  <span className="text-xs text-zinc-500">${accountCostBasis.toLocaleString()}</span>
-                                  <span className={cn(
-                                    "text-sm font-medium",
-                                    accountGain >= 0 ? "text-emerald-400" : "text-rose-400"
-                                  )}>
-                                    {accountGain >= 0 ? '+' : ''}{accountGainPercent.toFixed(1)}%
-                                  </span>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </CollapsibleTrigger>
-                      <CollapsibleContent>
-                        <div className="ml-8 mt-2 space-y-2">
-                          {accountHoldings.map(renderHolding)}
-                        </div>
-                      </CollapsibleContent>
-                    </Collapsible>
-                  );
-                })}
-                
-                {/* Unassigned holdings */}
-                {unassignedHoldings.length > 0 && (
-                  <Collapsible
-                    open={expandedAccounts['unassigned'] ?? true}
-                    onOpenChange={(open) => setExpandedAccounts(prev => ({ ...prev, unassigned: open }))}
-                  >
-                    <CollapsibleTrigger className="w-full">
-                      <div className="flex items-center justify-between p-4 rounded-xl bg-zinc-800/30 hover:bg-zinc-800/50 transition-colors cursor-pointer">
-                        <div className="flex items-center gap-3">
-                          {(expandedAccounts['unassigned'] ?? true) ? (
-                            <ChevronDown className="w-4 h-4 text-zinc-500" />
-                          ) : (
-                            <ChevronRight className="w-4 h-4 text-zinc-500" />
-                          )}
-                          <div className="w-10 h-10 rounded-xl bg-zinc-700/50 flex items-center justify-center">
-                            <DollarSign className="w-5 h-5 text-zinc-400" />
-                          </div>
-                          <div className="text-left">
-                            <p className="font-medium">Unassigned Holdings</p>
-                            <p className="text-xs text-zinc-500">{unassignedHoldings.length} asset{unassignedHoldings.length !== 1 ? 's' : ''}</p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-semibold">
-                            ${unassignedHoldings.reduce((sum, h) => sum + getHoldingPerformance(h).value, 0).toLocaleString()}
-                          </p>
-                        </div>
-                      </div>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <div className="ml-8 mt-2 space-y-2">
-                        {unassignedHoldings.map(renderHolding)}
-                      </div>
-                    </CollapsibleContent>
-                  </Collapsible>
-                )}
-                
-                {holdings.length === 0 && (
-                  <p className="text-center text-zinc-500 py-8">No holdings to display</p>
-                )}
-              </>
-            );
-          })()}
+        <div className="space-y-4">
+          <AccountPerformanceSection 
+            holdings={holdings}
+            transactions={transactions}
+            accounts={accounts}
+            getCurrentPrice={getCurrentPrice}
+            COINGECKO_IDS={COINGECKO_IDS}
+          />
         </div>
       </div>
 
