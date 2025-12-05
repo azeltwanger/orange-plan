@@ -1800,32 +1800,7 @@ export default function FinancialPlan() {
                   </div>
                 </div>
                 
-                {/* Retirement Withdrawals Summary */}
-                {(() => {
-                  const retIndex = Math.min(retirementAge - currentAge, simulationResults.length - 1);
-                  const firstRetirementYear = retIndex + 1 < simulationResults.length ? simulationResults[retIndex + 1] : simulationResults[retIndex];
-                  const lastYear = simulationResults[simulationResults.length - 1];
-                  const firstWithdrawal = firstRetirementYear?.withdrawal || 0;
-                  const lastWithdrawal = lastYear?.withdrawal || 0;
-                  
-                  return firstWithdrawal > 0 ? (
-                    <div className="mt-4 p-4 rounded-xl bg-cyan-500/10 border border-cyan-500/20">
-                      <h4 className="text-sm font-medium text-cyan-400 mb-3">Annual Withdrawals (Median Simulation)</h4>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <p className="text-xs text-zinc-500">First Year of Retirement</p>
-                          <p className="text-lg font-bold text-cyan-400">{formatNumber(firstWithdrawal)}/yr</p>
-                          <p className="text-xs text-zinc-600">{formatNumber(firstWithdrawal / 12)}/mo</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-zinc-500">At Age {lifeExpectancy}</p>
-                          <p className="text-lg font-bold text-cyan-400">{formatNumber(lastWithdrawal)}/yr</p>
-                          <p className="text-xs text-zinc-600">{formatNumber(lastWithdrawal / 12)}/mo (inflation adjusted)</p>
-                        </div>
-                      </div>
-                    </div>
-                  ) : null;
-                })()}
+
               </>
             ) : (
               <div className="text-center py-16">
