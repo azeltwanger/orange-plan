@@ -576,6 +576,9 @@ export default function FinancialPlan() {
       
       // Calculate life event impacts for this year (with income growth applied)
         let eventImpact = 0;
+        let yearGoalWithdrawal = 0; // Track goal-specific withdrawals for this year
+        const yearGoalNames = []; // Track which goals are funded this year
+        
         lifeEvents.forEach(event => {
           const yearsFromEventStart = year - event.year;
           if (event.year === year || (event.is_recurring && event.year <= year && year < event.year + (event.recurring_years || 1))) {
@@ -598,7 +601,10 @@ export default function FinancialPlan() {
         if (goal.will_be_spent && goal.target_date) {
           const goalYear = new Date(goal.target_date).getFullYear();
           if (goalYear === year) {
-            eventImpact -= (goal.target_amount || 0);
+            const goalAmount = goal.target_amount || 0;
+            eventImpact -= goalAmount;
+            yearGoalWithdrawal += goalAmount;
+            yearGoalNames.push(goal.name);
           }
         }
       });
@@ -777,8 +783,11 @@ export default function FinancialPlan() {
           goals.some(g => g.goal_type === 'debt_payoff' && g.linked_liability_id && g.payoff_years > 0 && 
             year >= (g.target_date ? new Date(g.target_date).getFullYear() : currentYear) && 
             year < (g.target_date ? new Date(g.target_date).getFullYear() : currentYear) + g.payoff_years),
+        hasGoalWithdrawal: yearGoalWithdrawal > 0,
         isRetired: isRetired,
         yearWithdrawal: isRetired ? Math.round(yearWithdrawal) : 0,
+        yearGoalWithdrawal: Math.round(yearGoalWithdrawal),
+        goalNames: yearGoalNames,
         btcGrowthRate: yearBtcGrowth,
         // Account type balances
         taxable: Math.round(runningTaxable),
@@ -1425,6 +1434,14 @@ export default function FinancialPlan() {
                                 <span className="text-purple-400">Bonds:</span>
                                 <span className="text-zinc-200">${(p.bonds || 0).toLocaleString()}</span>
                               </div>
+                              {p.yearGoalWithdrawal > 0 && (
+                                <div className="pt-2 mt-2 border-t border-zinc-700">
+                                  <p className="text-orange-400 font-medium mb-1">Goal Funding: -${(p.yearGoalWithdrawal || 0).toLocaleString()}</p>
+                                  {p.goalNames && p.goalNames.length > 0 && (
+                                    <p className="text-xs text-zinc-500">{p.goalNames.join(', ')}</p>
+                                  )}
+                                </div>
+                              )}
                               <div className="pt-2 mt-2 border-t border-zinc-700">
                                 <div className="flex justify-between gap-4">
                                   <span className="text-white font-semibold">Total:</span>
@@ -1540,6 +1557,13 @@ export default function FinancialPlan() {
                     <Area type="monotone" dataKey="stocks" stackId="1" stroke="#60a5fa" fill="#60a5fa" fillOpacity={0.3} name="Stocks" yAxisId="left" />
                     <Area type="monotone" dataKey="btc" stackId="1" stroke="#F7931A" fill="#F7931A" fillOpacity={0.5} name="Bitcoin" yAxisId="left" />
                     <Line type="monotone" dataKey="total" stroke="#ffffff" strokeWidth={2} dot={false} name="Total" yAxisId="left" />
+                    <Line type="monotone" dataKey="yearGoalWithdrawal" stroke="#fb923c" strokeWidth={2} strokeDasharray="4 4" dot={(props) => {
+                      // Show dots for years with goal withdrawals
+                      if (props.payload?.yearGoalWithdrawal > 0) {
+                        return <circle cx={props.cx} cy={props.cy} r={4} fill="#fb923c" stroke="#0a0a0b" strokeWidth={2} />;
+                      }
+                      return null;
+                    }} name="Goal Funding" yAxisId="right" connectNulls={false} />
                     <Line type="monotone" dataKey="yearWithdrawal" stroke="#ef4444" strokeWidth={2} dot={(props) => {
                       // Only show dots for retirement years with actual withdrawals
                       if (props.payload?.yearWithdrawal > 0) {
@@ -1556,6 +1580,7 @@ export default function FinancialPlan() {
               <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-400" /><span className="text-sm text-zinc-400">Real Estate</span></div>
               <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-purple-400" /><span className="text-sm text-zinc-400">Bonds</span></div>
               <div className="flex items-center gap-2"><div className="w-6 h-0.5 bg-rose-400" style={{backgroundImage: 'repeating-linear-gradient(90deg, #ef4444 0, #ef4444 5px, transparent 5px, transparent 10px)'}} /><span className="text-sm text-zinc-400">Withdrawal</span></div>
+              {goals.filter(g => g.will_be_spent).length > 0 && <div className="flex items-center gap-2"><div className="w-6 h-0.5 bg-orange-400" style={{backgroundImage: 'repeating-linear-gradient(90deg, #fb923c 0, #fb923c 4px, transparent 4px, transparent 8px)'}} /><span className="text-sm text-zinc-400">Goal Funding</span></div>}
               {lifeEvents.length > 0 && <div className="flex items-center gap-2"><div className="w-3 h-0.5 bg-rose-400/50" /><span className="text-sm text-zinc-400">Life Events</span></div>}
               {goals.length > 0 && <div className="flex items-center gap-2"><div className="w-6 h-0.5 bg-blue-400/50" style={{backgroundImage: 'repeating-linear-gradient(90deg, #60a5fa 0, #60a5fa 8px, transparent 8px, transparent 12px)'}} /><span className="text-sm text-zinc-400">Goal Targets</span></div>}
             </div>
