@@ -585,24 +585,27 @@ export default function FinancialPlan() {
         yearSavings = annualSavings * Math.pow(1 + incomeGrowth / 100, i);
         runningSavings += yearSavings;
         cumulativeSavings += yearSavings;
+        
+        // Allocate savings to taxable accounts (default for working years)
+        runningTaxable += yearSavings;
       } else {
         // Calculate withdrawal based on strategy
         const totalBeforeWithdrawal = runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther + runningSavings;
+        const accountTotalBeforeWithdrawal = runningTaxable + runningTaxDeferred + runningTaxFree;
         
         if (withdrawalStrategy === '4percent') {
           // Traditional 4% rule: fixed amount based on initial retirement portfolio
-          const retirementStartIndex = Math.max(0, retirementAge - currentAge);
           if (yearsIntoRetirement === 0) {
-            yearWithdrawal = totalBeforeWithdrawal * 0.04;
+            initial4PercentWithdrawal = accountTotalBeforeWithdrawal * 0.04;
+            yearWithdrawal = initial4PercentWithdrawal;
           } else {
             // Inflation-adjusted from initial withdrawal
-            const initialWithdrawal = data[retirementStartIndex]?.yearWithdrawal || totalBeforeWithdrawal * 0.04;
-            yearWithdrawal = initialWithdrawal * Math.pow(1 + effectiveInflation / 100, yearsIntoRetirement);
+            yearWithdrawal = initial4PercentWithdrawal * Math.pow(1 + effectiveInflation / 100, yearsIntoRetirement);
           }
         } else if (withdrawalStrategy === 'dynamic') {
           // Dynamic withdrawal: withdraw % of current portfolio (allows more when portfolio grows)
           const withdrawRate = dynamicWithdrawalRate / 100;
-          yearWithdrawal = totalBeforeWithdrawal * withdrawRate;
+          yearWithdrawal = accountTotalBeforeWithdrawal * withdrawRate;
         } else {
           // Income-based (variable): withdraw exactly what you need, inflation-adjusted
           const yearsOfInflation = Math.max(0, retirementAge - currentAge) + yearsIntoRetirement;
