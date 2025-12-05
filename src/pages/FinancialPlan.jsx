@@ -24,6 +24,19 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
+// Bitcoin volatility model - starts high and decays over time based on historical trends
+// Historical: ~80% in 2011-2013, ~60% in 2017-2018, ~40-50% in 2021-2024
+// Projects continued decline as Bitcoin matures as an asset class
+const getBtcVolatility = (yearFromNow) => {
+  const initialVolatility = 55; // Current approximate annualized volatility
+  const minimumVolatility = 20; // Floor - won't go below this (mature asset level)
+  const decayRate = 0.05; // 5% reduction per year
+  
+  // Exponential decay model: vol(t) = min + (initial - min) * e^(-decay * t)
+  const volatility = minimumVolatility + (initialVolatility - minimumVolatility) * Math.exp(-decayRate * yearFromNow);
+  return volatility;
+};
+
 // Monte Carlo simulation - uses same logic as main projections
 const runMonteCarloSimulation = (params, numSimulations = 1000) => {
   const {
@@ -33,7 +46,7 @@ const runMonteCarloSimulation = (params, numSimulations = 1000) => {
     getBtcGrowthRate, stocksCagr, realEstateCagr, bondsCagr, inflationRate,
     annualSavings, incomeGrowth, retirementAnnualSpending,
     withdrawalStrategy, dynamicWithdrawalRate,
-    btcVolatility = 50, stocksVolatility = 15
+    stocksVolatility = 15
   } = params;
   
   const results = [];
@@ -72,15 +85,18 @@ const runMonteCarloSimulation = (params, numSimulations = 1000) => {
       
       // Get expected BTC return based on model
       const expectedBtcReturn = getBtcGrowthRate(year);
-      
+
+      // Get dynamic BTC volatility for this year (decreases over time)
+      const yearBtcVolatility = getBtcVolatility(year);
+
       // Generate random returns (Box-Muller for normal distribution)
       const u1 = Math.max(0.0001, Math.random());
       const u2 = Math.random();
       const z1 = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
       const z2 = Math.sqrt(-2 * Math.log(u1)) * Math.sin(2 * Math.PI * u2);
-      
-      // Asset returns with realistic volatility
-      const btcReturn = Math.max(-60, Math.min(200, expectedBtcReturn + btcVolatility * z1));
+
+      // Asset returns with realistic volatility (BTC volatility now dynamic)
+      const btcReturn = Math.max(-60, Math.min(200, expectedBtcReturn + yearBtcVolatility * z1));
       const stocksReturn = Math.max(-40, Math.min(50, stocksCagr + stocksVolatility * z2));
       const realEstateReturn = realEstateCagr + (Math.random() * 10 - 5);
       const bondsReturn = bondsCagr + (Math.random() * 4 - 2);
@@ -741,7 +757,11 @@ export default function FinancialPlan() {
         penaltyPaid: isRetired ? Math.round(penaltyPaid) : 0,
         taxesPaid: isRetired ? Math.round(taxesPaid) : 0,
         netWithdrawal: isRetired ? Math.round(yearWithdrawal - taxesPaid - penaltyPaid) : 0,
-      });
+        // Withdrawal breakdown by account type
+        withdrawFromTaxable: isRetired ? Math.round(taxEstimate.fromTaxable || 0) : 0,
+        withdrawFromTaxDeferred: isRetired ? Math.round(taxEstimate.fromTaxDeferred || 0) : 0,
+        withdrawFromTaxFree: isRetired ? Math.round(taxEstimate.fromTaxFree || 0) : 0,
+        });
     }
     return data;
   }, [btcValue, stocksValue, realEstateValue, bondsValue, otherValue, taxableValue, taxDeferredValue, taxFreeValue, currentAge, retirementAge, lifeExpectancy, effectiveBtcCagr, effectiveStocksCagr, realEstateCagr, bondsCagr, effectiveInflation, lifeEvents, goals, annualSavings, incomeGrowth, retirementAnnualSpending, withdrawalStrategy, dynamicWithdrawalRate, btcReturnModel, filingStatus, taxableHoldings, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount]);
@@ -901,6 +921,29 @@ export default function FinancialPlan() {
   const lifetimeTaxesPaid = projections.filter(p => p.isRetired).reduce((sum, p) => sum + (p.taxesPaid || 0), 0);
   const lifetimePenaltiesPaid = projections.filter(p => p.isRetired).reduce((sum, p) => sum + (p.penaltyPaid || 0), 0);
   const avgAnnualTaxInRetirement = yearsInRetirement > 0 ? lifetimeTaxesPaid / yearsInRetirement : 0;
+
+  // Calculate projected portfolio return based on asset allocation and assumptions
+  const projectedPortfolioReturn = useMemo(() => {
+    if (totalValue <= 0) return 0;
+    const btcPct = btcValue / totalValue;
+    const stocksPct = stocksValue / totalValue;
+    const realEstatePct = realEstateValue / totalValue;
+    const bondsPct = bondsValue / totalValue;
+    const otherPct = otherValue / totalValue;
+
+    // Get year 1 BTC growth rate based on selected model
+    const btcExpectedReturn = getBtcGrowthRate(1);
+
+    const weightedReturn = (
+      btcPct * btcExpectedReturn +
+      stocksPct * effectiveStocksCagr +
+      realEstatePct * realEstateCagr +
+      bondsPct * bondsCagr +
+      otherPct * effectiveStocksCagr // Assume other assets grow like stocks
+    );
+
+    return weightedReturn;
+  }, [btcValue, stocksValue, realEstateValue, bondsValue, otherValue, totalValue, effectiveStocksCagr, realEstateCagr, bondsCagr, getBtcGrowthRate]);
 
   // Calculate when goals will be met based on projections
   const goalsWithProjections = useMemo(() => {
@@ -1214,22 +1257,27 @@ export default function FinancialPlan() {
                 </p>
               </div>
               <div className="flex flex-col gap-2 text-sm">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-emerald-400" />
-                  <span className="text-zinc-400">Annual Savings:</span>
-                  <span className="font-semibold text-emerald-400">{formatNumber(annualSavings)}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-amber-400" />
-                  <span className="text-zinc-400">FI Spending Need:</span>
-                  <span className="font-semibold text-amber-400">{formatNumber(retirementAnnualSpending)}/yr</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-blue-400" />
-                  <span className="text-zinc-400">Current Portfolio:</span>
-                  <span className="font-semibold text-blue-400">{formatNumber(totalValue)}</span>
-                </div>
-              </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                      <span className="text-zinc-400">Annual Savings:</span>
+                      <span className="font-semibold text-emerald-400">{formatNumber(annualSavings)}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-amber-400" />
+                      <span className="text-zinc-400">FI Spending Need:</span>
+                      <span className="font-semibold text-amber-400">{formatNumber(retirementAnnualSpending)}/yr</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-blue-400" />
+                      <span className="text-zinc-400">Current Portfolio:</span>
+                      <span className="font-semibold text-blue-400">{formatNumber(totalValue)}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-cyan-400" />
+                      <span className="text-zinc-400">Projected Return:</span>
+                      <span className="font-semibold text-cyan-400">{projectedPortfolioReturn.toFixed(1)}%/yr</span>
+                    </div>
+                  </div>
             </div>
             
             {/* Actionable Insights when target is too early */}
@@ -1306,23 +1354,77 @@ export default function FinancialPlan() {
                     <YAxis yAxisId="right" orientation="right" stroke="#71717a" fontSize={12} tickFormatter={(v) => `$${(v/1000).toFixed(0)}k`} />
                     <Tooltip
                       contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '12px' }}
-                      formatter={(value, name, props) => {
-                        if (name === 'Total') {
-                          const p = props.payload;
-                          let extra = '';
-                          if (p.isRetired) {
-                            extra = ` (withdrawing $${(p.yearWithdrawal/1000).toFixed(0)}k`;
-                            if (p.taxesPaid > 0) extra += `, tax: $${(p.taxesPaid/1000).toFixed(0)}k`;
-                            if (p.penaltyPaid > 0) extra += `, penalty: $${(p.penaltyPaid/1000).toFixed(0)}k`;
-                            extra += ')';
-                          }
-                          if (p.hasEvent) extra += ' 📅';
-                          return [`$${value.toLocaleString()}${extra}`, name];
-                        }
-                        if (name === 'Withdrawal') {
-                          return [`$${value.toLocaleString()}/yr`, name];
-                        }
-                        return [`$${value.toLocaleString()}`, name];
+                      content={({ active, payload, label }) => {
+                        if (!active || !payload?.length) return null;
+                        const p = payload[0]?.payload;
+                        if (!p) return null;
+
+                        return (
+                          <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-3 text-sm min-w-[200px]">
+                            <p className="font-semibold text-zinc-200 mb-2">Age {label} {p.hasEvent ? '📅' : ''}</p>
+                            <div className="space-y-1">
+                              <div className="flex justify-between gap-4">
+                                <span className="text-orange-400">Bitcoin:</span>
+                                <span className="text-zinc-200">${(p.btc || 0).toLocaleString()}</span>
+                              </div>
+                              <div className="flex justify-between gap-4">
+                                <span className="text-blue-400">Stocks:</span>
+                                <span className="text-zinc-200">${(p.stocks || 0).toLocaleString()}</span>
+                              </div>
+                              <div className="flex justify-between gap-4">
+                                <span className="text-emerald-400">Real Estate:</span>
+                                <span className="text-zinc-200">${(p.realEstate || 0).toLocaleString()}</span>
+                              </div>
+                              <div className="flex justify-between gap-4">
+                                <span className="text-purple-400">Bonds:</span>
+                                <span className="text-zinc-200">${(p.bonds || 0).toLocaleString()}</span>
+                              </div>
+                              <div className="pt-2 mt-2 border-t border-zinc-700">
+                                <div className="flex justify-between gap-4">
+                                  <span className="text-white font-semibold">Total:</span>
+                                  <span className="text-white font-semibold">${(p.total || 0).toLocaleString()}</span>
+                                </div>
+                              </div>
+                              {p.isRetired && p.yearWithdrawal > 0 && (
+                                <div className="pt-2 mt-2 border-t border-zinc-700">
+                                  <p className="text-rose-400 font-medium mb-1">Annual Withdrawal: ${(p.yearWithdrawal || 0).toLocaleString()}</p>
+                                  <div className="text-xs space-y-0.5 text-zinc-400">
+                                    {p.withdrawFromTaxable > 0 && (
+                                      <div className="flex justify-between">
+                                        <span>From Taxable:</span>
+                                        <span className="text-emerald-400">${(p.withdrawFromTaxable).toLocaleString()}</span>
+                                      </div>
+                                    )}
+                                    {p.withdrawFromTaxDeferred > 0 && (
+                                      <div className="flex justify-between">
+                                        <span>From Tax-Deferred:</span>
+                                        <span className="text-amber-400">${(p.withdrawFromTaxDeferred).toLocaleString()}</span>
+                                      </div>
+                                    )}
+                                    {p.withdrawFromTaxFree > 0 && (
+                                      <div className="flex justify-between">
+                                        <span>From Tax-Free:</span>
+                                        <span className="text-purple-400">${(p.withdrawFromTaxFree).toLocaleString()}</span>
+                                      </div>
+                                    )}
+                                    {p.taxesPaid > 0 && (
+                                      <div className="flex justify-between text-rose-400">
+                                        <span>Taxes:</span>
+                                        <span>-${(p.taxesPaid).toLocaleString()}</span>
+                                      </div>
+                                    )}
+                                    {p.penaltyPaid > 0 && (
+                                      <div className="flex justify-between text-rose-400">
+                                        <span>Early Withdrawal Penalty:</span>
+                                        <span>-${(p.penaltyPaid).toLocaleString()}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
                       }}
                       labelFormatter={(age) => {
                         const year = new Date().getFullYear() + (age - currentAge);
@@ -1697,7 +1799,7 @@ export default function FinancialPlan() {
                   </p>
                   <p className="text-xs text-zinc-400 mt-1">
                       {withdrawalStrategy === '4percent' ? '4% Rule' : 
-                       withdrawalStrategy === 'dynamic' ? `${dynamicWithdrawalRate || 5}% Dynamic` : `Income-Based ($${Math.round(inflationAdjustedRetirementSpending || 0).toLocaleString()}/yr)`} • {btcReturnModel === 'custom' ? `${btcCagr || 25}%` : btcReturnModel} BTC
+                       withdrawalStrategy === 'dynamic' ? `${dynamicWithdrawalRate || 5}% Dynamic` : `Income-Based ($${Math.round(inflationAdjustedRetirementSpending || 0).toLocaleString()}/yr)`} • {btcReturnModel === 'custom' ? `${btcCagr || 25}%` : btcReturnModel} BTC • BTC Vol: {getBtcVolatility(0).toFixed(0)}%→{getBtcVolatility(30).toFixed(0)}%
                     </p>
                   <p className="text-sm text-zinc-300 mt-2">
                     {successProbability >= 80 ? "Excellent! You're on track for your desired retirement lifestyle." :
