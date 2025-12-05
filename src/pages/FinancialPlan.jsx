@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -792,6 +791,7 @@ export default function FinancialPlan() {
           runningSavings = Math.max(0, runningSavings * (1 - withdrawRatio));
         }
       }
+
       // Apply event impacts to total (but not to individual account buckets for simplicity)
       const totalBeforeEvent = runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther + runningSavings;
       // Note: eventImpact already includes yearGoalWithdrawal as a negative value
@@ -906,16 +906,7 @@ export default function FinancialPlan() {
   const endOfLifeValue = projections[projections.length - 1]?.total || 0;
   const runOutOfMoneyAge = projections.findIndex(p => p.total <= 0 && p.isRetired);
   const willRunOutOfMoney = runOutOfMoneyAge !== -1;
-  
-  // Calculate these values early as they're needed by retirementStatus
-  const yearsToRetirement = Math.max(0, retirementAge - currentAge);
-  const inflationAdjustedRetirementSpending = retirementAnnualSpending * Math.pow(1 + inflationRate / 100, yearsToRetirement);
   const yearsInRetirement = lifeExpectancy - retirementAge;
-  
-  const effectiveWithdrawalRate = withdrawalStrategy === '4percent' ? 0.04 : 
-    withdrawalStrategy === 'dynamic' ? dynamicWithdrawalRate / 100 : 
-    Math.max(0.03, 1 / yearsInRetirement);
-  const requiredNestEgg = inflationAdjustedRetirementSpending / effectiveWithdrawalRate;
 
   // Calculate retirement status and insights
   const retirementStatus = useMemo(() => {
@@ -978,7 +969,7 @@ export default function FinancialPlan() {
         icon: <Sparkles className="w-5 h-5" />
       };
     }
-  }, [earliestRetirementAge, retirementAge, willRunOutOfMoney, runOutOfMoneyAge, currentAge, retirementValue, inflationRate, retirementAnnualSpending, lifeExpectancy, withdrawalStrategy, dynamicWithdrawalRate, effectiveWithdrawalRate, inflationAdjustedRetirementSpending]);
+  }, [earliestRetirementAge, retirementAge, willRunOutOfMoney, runOutOfMoneyAge, currentAge, retirementValue, effectiveWithdrawalRate, inflationAdjustedRetirementSpending]);
 
   // Calculate earliest achievable FI age (when portfolio can sustain withdrawals to life expectancy)
   useEffect(() => {
@@ -1178,6 +1169,18 @@ export default function FinancialPlan() {
     ? retirementYears.reduce((sum, p) => sum + p.yearWithdrawal, 0) / retirementYears.length 
     : 0;
   const totalLifetimeWithdrawals = retirementYears.reduce((sum, p) => sum + p.yearWithdrawal, 0);
+  
+  // Calculate inflation-adjusted retirement spending need at retirement
+  const yearsToRetirement = Math.max(0, retirementAge - currentAge);
+  const inflationAdjustedRetirementSpending = retirementAnnualSpending * Math.pow(1 + inflationRate / 100, yearsToRetirement);
+  
+  // Required nest egg based on withdrawal strategy
+  // For income-based, calculate based on years in retirement and expected returns
+  const effectiveWithdrawalRate = withdrawalStrategy === '4percent' ? 0.04 : 
+    withdrawalStrategy === 'dynamic' ? dynamicWithdrawalRate / 100 : 
+    // Income-based: estimate safe rate based on retirement duration (roughly 1/years for conservative)
+    Math.max(0.03, 1 / yearsInRetirement);
+  const requiredNestEgg = inflationAdjustedRetirementSpending / effectiveWithdrawalRate;
   
   // Check if retirement is feasible: portfolio at retirement meets required nest egg
   const canRetire = retirementValue >= requiredNestEgg * 0.8; // Within 80% of required
@@ -1480,16 +1483,15 @@ export default function FinancialPlan() {
                       if (yearsToWork <= 0) return 0;
 
                       // Calculate required nest egg for sustainable retirement
-                      const yearsToRetirementCalc = Math.max(0, retirementAge - currentAge);
-                      const inflationAdjustedSpendingCalc = retirementAnnualSpending * Math.pow(1 + inflationRate / 100, yearsToRetirementCalc);
-                      const yearsInRetirementCalc = lifeExpectancy - retirementAge;
-                      const effectiveWithdrawalRateCalc = withdrawalStrategy === '4percent' ? 0.04 : 
+                      const yearsToRetirement = Math.max(0, retirementAge - currentAge);
+                      const inflationAdjustedSpending = retirementAnnualSpending * Math.pow(1 + inflationRate / 100, yearsToRetirement);
+                      const effectiveWithdrawalRate = withdrawalStrategy === '4percent' ? 0.04 : 
                         withdrawalStrategy === 'dynamic' ? dynamicWithdrawalRate / 100 : 
-                        Math.max(0.03, 1 / (yearsInRetirementCalc > 0 ? yearsInRetirementCalc : 1));
-                      const requiredNestEggCalc = inflationAdjustedSpendingCalc / effectiveWithdrawalRateCalc;
+                        Math.max(0.03, 1 / (lifeExpectancy - retirementAge));
+                      const requiredNestEgg = inflationAdjustedSpending / effectiveWithdrawalRate;
 
                       // Gap between required and projected
-                      const portfolioGap = Math.max(0, requiredNestEggCalc - portfolioAtTarget);
+                      const portfolioGap = Math.max(0, requiredNestEgg - portfolioAtTarget);
 
                       if (portfolioGap <= 0) return 0;
 
@@ -1530,10 +1532,10 @@ export default function FinancialPlan() {
                       const targetIndex = Math.max(0, retirementAge - currentAge);
                       const portfolioAtTarget = projections[targetIndex]?.total || 0;
                       const sustainableWithdrawal = portfolioAtTarget * effectiveWithdrawalRate;
-                      const yearsToRetirementCalc = Math.max(0, retirementAge - currentAge);
-                      const inflationAdjustedSpendingCalc = retirementAnnualSpending * Math.pow(1 + inflationRate / 100, yearsToRetirementCalc);
-                      const reduction = Math.max(0, inflationAdjustedSpendingCalc - sustainableWithdrawal);
-                      return `${formatNumber(reduction)} less than planned ${formatNumber(inflationAdjustedSpendingCalc)}/yr at age ${retirementAge}`;
+                      const yearsToRetirement = Math.max(0, retirementAge - currentAge);
+                      const inflationAdjustedSpending = retirementAnnualSpending * Math.pow(1 + inflationRate / 100, yearsToRetirement);
+                      const reduction = Math.max(0, inflationAdjustedSpending - sustainableWithdrawal);
+                      return `${formatNumber(reduction)} less than planned ${formatNumber(inflationAdjustedSpending)}/yr at age ${retirementAge}`;
                     })()}
                   </p>
                 </div>
@@ -1845,6 +1847,7 @@ export default function FinancialPlan() {
                 const taxableBonds = taxableLiquidHoldings.filter(h => h.asset_type === 'bonds').reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
                 const taxableOther = taxableLiquidValue - taxableBtc - taxableStocks - taxableBonds;
 
+                // Weighted average growth rate based on taxable portfolio allocation
                 const avgBtcGrowthForBridge = (() => {
                   if (btcReturnModel === 'custom') return effectiveBtcCagr;
                   let totalGrowth = 0;
