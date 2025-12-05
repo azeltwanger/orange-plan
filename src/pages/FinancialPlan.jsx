@@ -1391,8 +1391,98 @@ export default function FinancialPlan() {
                   </div>
             </div>
             
+          </div>
+
+          {/* Retirement Status Indicator */}
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+            {/* Status Card */}
+            <div className={cn(
+              "lg:col-span-1 card-premium rounded-xl p-4 border flex items-start gap-3",
+              retirementStatus.type === 'optimistic' && "border-emerald-500/30 bg-emerald-500/5",
+              retirementStatus.type === 'on_track' && "border-emerald-500/30 bg-emerald-500/5",
+              retirementStatus.type === 'at_risk' && "border-amber-500/30 bg-amber-500/5",
+              retirementStatus.type === 'critical' && "border-rose-500/30 bg-rose-500/5"
+            )}>
+              <div className={cn(
+                "p-2 rounded-lg shrink-0",
+                retirementStatus.type === 'optimistic' && "bg-emerald-500/20 text-emerald-400",
+                retirementStatus.type === 'on_track' && "bg-emerald-500/20 text-emerald-400",
+                retirementStatus.type === 'at_risk' && "bg-amber-500/20 text-amber-400",
+                retirementStatus.type === 'critical' && "bg-rose-500/20 text-rose-400"
+              )}>
+                {retirementStatus.icon}
+              </div>
+              <div>
+                <h4 className={cn(
+                  "font-semibold text-sm mb-1",
+                  retirementStatus.type === 'optimistic' && "text-emerald-400",
+                  retirementStatus.type === 'on_track' && "text-emerald-400",
+                  retirementStatus.type === 'at_risk' && "text-amber-400",
+                  retirementStatus.type === 'critical' && "text-rose-400"
+                )}>{retirementStatus.title}</h4>
+                <p className="text-xs text-zinc-400">{retirementStatus.description}</p>
+              </div>
+            </div>
+
+            {/* Actionable Insights - only show if not optimistic */}
+            {retirementStatus.type !== 'optimistic' && (
+              <>
+                {/* Savings Insight */}
+                <div className="card-premium rounded-xl p-4 border border-zinc-700/50">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                    <h5 className="text-xs font-semibold text-zinc-300 uppercase tracking-wide">Increase Savings</h5>
+                  </div>
+                  <p className="text-2xl font-bold text-emerald-400">
+                    +{formatNumber((() => {
+                      const yearsToRetire = Math.max(1, retirementAge - currentAge);
+                      const shortfall = Math.max(0, requiredNestEgg - retirementValue);
+                      const blendedGrowth = (effectiveBtcCagr * 0.3 + effectiveStocksCagr * 0.7) / 100;
+                      const fvFactor = blendedGrowth > 0.001 
+                        ? (Math.pow(1 + blendedGrowth, yearsToRetire) - 1) / blendedGrowth 
+                        : yearsToRetire;
+                      return shortfall / fvFactor;
+                    })())}<span className="text-sm text-zinc-500">/yr</span>
+                  </p>
+                  <p className="text-[10px] text-zinc-500 mt-1">to retire at age {retirementAge}</p>
+                </div>
+
+                {/* Spending Reduction Insight */}
+                <div className="card-premium rounded-xl p-4 border border-zinc-700/50">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+                    <h5 className="text-xs font-semibold text-zinc-300 uppercase tracking-wide">Reduce Spending</h5>
+                  </div>
+                  <p className="text-2xl font-bold text-rose-400">
+                    {formatNumber((() => {
+                      const sustainableAtRetirement = retirementValue * effectiveWithdrawalRate;
+                      const yearsToRetire = retirementAge - currentAge;
+                      const todaysDollars = sustainableAtRetirement / Math.pow(1 + inflationRate / 100, yearsToRetire);
+                      return Math.max(0, todaysDollars);
+                    })())}<span className="text-sm text-zinc-500">/yr</span>
+                  </p>
+                  <p className="text-[10px] text-zinc-500 mt-1">sustainable at age {retirementAge}</p>
+                </div>
+
+                {/* Alternative: Delay Retirement */}
+                {earliestRetirementAge && earliestRetirementAge < lifeExpectancy && (
+                  <div className="card-premium rounded-xl p-4 border border-zinc-700/50">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                      <h5 className="text-xs font-semibold text-zinc-300 uppercase tracking-wide">Delay Retirement</h5>
+                    </div>
+                    <p className="text-2xl font-bold text-amber-400">
+                      Age {earliestRetirementAge}
+                    </p>
+                    <p className="text-[10px] text-zinc-500 mt-1">+{earliestRetirementAge - retirementAge} years keeps plan intact</p>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
             {/* Actionable Insights when target is too early */}
-            {earliestRetirementAge && earliestRetirementAge > retirementAge && (
+            {earliestRetirementAge && earliestRetirementAge > retirementAge && false && (
               <div className="mt-6 pt-6 border-t border-zinc-700/50">
                 <p className="text-sm font-medium text-zinc-300 mb-3">💡 How to reach your target age of {retirementAge}:</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
