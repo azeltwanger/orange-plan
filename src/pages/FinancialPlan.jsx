@@ -333,6 +333,11 @@ export default function FinancialPlan() {
     queryFn: () => base44.entities.BudgetItem.list(),
   });
 
+  const { data: liabilities = [] } = useQuery({
+    queryKey: ['liabilities'],
+    queryFn: () => base44.entities.Liability.list(),
+  });
+
   const { data: userSettings = [] } = useQuery({
     queryKey: ['userSettings'],
     queryFn: () => base44.entities.UserSettings.list(),
@@ -588,6 +593,20 @@ export default function FinancialPlan() {
           const goalYear = new Date(goal.target_date).getFullYear();
           if (goalYear === year) {
             eventImpact -= (goal.target_amount || 0);
+          }
+        }
+      });
+
+      // Debt payoff goals - spread payments over payoff period
+      goals.forEach(goal => {
+        if (goal.goal_type === 'debt_payoff' && goal.linked_liability_id && goal.payoff_years > 0) {
+          const startYear = goal.target_date ? new Date(goal.target_date).getFullYear() : currentYear;
+          const endYear = startYear + goal.payoff_years;
+          
+          if (year >= startYear && year < endYear) {
+            // Annual payment = total debt / payoff years
+            const annualPayment = (goal.target_amount || 0) / goal.payoff_years;
+            eventImpact -= annualPayment;
           }
         }
       });
