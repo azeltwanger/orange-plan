@@ -745,7 +745,7 @@ export default function Performance() {
     }
 
     return dataPoints;
-  }, [transactions, holdings, timeframe, currentValue, totalCostBasis, historicalPrices, stockPrices, cryptoTickers]);
+  }, [transactions, holdings, timeframe, currentValue, totalCostBasis, historicalPrices, stockPrices, cryptoTickers, stockTickers, getCurrentPrice]);
 
   // Use IRR metrics if available, otherwise fall back to simple calculations
   const displayMetrics = useMemo(() => {
