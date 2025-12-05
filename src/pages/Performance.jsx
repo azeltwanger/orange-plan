@@ -338,26 +338,30 @@ export default function Performance() {
   }, [transactionStats.firstTxDate]);
 
   // Fetch historical prices for all crypto assets based on timeframe
-  // NOTE: CoinGecko free API only provides ~90 days of granular data
-  // For longer timeframes, we fetch max available and interpolate
   useEffect(() => {
     const fetchHistoricalPrices = async () => {
       try {
-        // CoinGecko free tier: max ~365 days with daily interval, but data quality varies
-        // Request 'max' for longer timeframes to get whatever is available
         const daysMap = { '1M': 30, '3M': 90, '6M': 180, '1Y': 365, '3Y': 1095, '5Y': 1825, '10Y': 3650 };
-        const requestedDays = timeframe === 'ALL' ? daysSinceFirstTx : (daysMap[timeframe] || 365);
-        
-        // For timeframes > 90 days, use 'max' to get all available data
-        const apiDays = requestedDays > 90 ? 'max' : requestedDays;
+        const requestedDays = timeframe === 'ALL' ? Math.max(daysSinceFirstTx, 365) : (daysMap[timeframe] || 365);
         
         const priceData = {};
         
-        await Promise.all(cryptoTickers.map(async (ticker) => {
+        // Fetch with small delay between requests to avoid rate limiting
+        for (const ticker of cryptoTickers) {
           try {
             const id = COINGECKO_IDS[ticker];
-            const url = `https://api.coingecko.com/api/v3/coins/${id}/market_chart?vs_currency=usd&days=${apiDays}&interval=daily`;
+            if (!id) continue;
+            
+            // CoinGecko: use numeric days for up to 365, 'max' for longer
+            const apiDays = requestedDays > 365 ? 'max' : requestedDays;
+            const url = `https://api.coingecko.com/api/v3/coins/${id}/market_chart?vs_currency=usd&days=${apiDays}`;
+            
             const response = await fetch(url);
+            if (!response.ok) {
+              console.error(`CoinGecko error for ${ticker}: ${response.status}`);
+              continue;
+            }
+            
             const data = await response.json();
             if (data.prices && data.prices.length > 0) {
               priceData[ticker] = data.prices.map(([timestamp, price]) => ({
@@ -365,10 +369,15 @@ export default function Performance() {
                 price
               }));
             }
+            
+            // Small delay to avoid rate limiting
+            if (cryptoTickers.length > 1) {
+              await new Promise(r => setTimeout(r, 200));
+            }
           } catch (err) {
             console.error(`Failed to fetch historical prices for ${ticker}:`, err);
           }
-        }));
+        }
         
         setHistoricalPrices(priceData);
       } catch (err) {
