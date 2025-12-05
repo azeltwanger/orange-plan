@@ -499,6 +499,7 @@ export default function FinancialPlan() {
   
   // Penalty-free age for retirement accounts
   const PENALTY_FREE_AGE = 59.5;
+  const RMD_START_AGE = 73; // Required Minimum Distribution age
   
   // Calculate effective tax rates based on filing status
   const standardDeduction = STANDARD_DEDUCTION_2024[filingStatus] || STANDARD_DEDUCTION_2024.single;
@@ -702,6 +703,29 @@ export default function FinancialPlan() {
         // Smart withdrawal order based on age and account types with TAX CALCULATION
         const currentAgeInYear = currentAge + i;
         const canAccessRetirementPenaltyFree = currentAgeInYear >= PENALTY_FREE_AGE;
+        
+        // Required Minimum Distributions (RMDs) from tax-deferred accounts starting at age 73
+        let rmdAmount = 0;
+        if (currentAgeInYear >= RMD_START_AGE && runningTaxDeferred > 0) {
+          // Simplified RMD calculation using IRS Uniform Lifetime Table approximation
+          const rmdFactor = (() => {
+            if (currentAgeInYear === 73) return 26.5;
+            if (currentAgeInYear === 74) return 25.5;
+            if (currentAgeInYear === 75) return 24.6;
+            if (currentAgeInYear === 76) return 23.7;
+            if (currentAgeInYear === 77) return 22.9;
+            if (currentAgeInYear === 78) return 22.0;
+            if (currentAgeInYear === 79) return 21.1;
+            if (currentAgeInYear === 80) return 20.2;
+            if (currentAgeInYear >= 81 && currentAgeInYear <= 85) return 19.0 - ((currentAgeInYear - 81) * 0.5);
+            return Math.max(10, 16.0 - ((currentAgeInYear - 86) * 0.4)); // Conservative estimate for 86+
+          })();
+          rmdAmount = runningTaxDeferred / rmdFactor;
+          
+          // RMDs count as taxable income and must be taken regardless of spending needs
+          // If RMD > yearWithdrawal, we still need to take the full RMD
+          yearWithdrawal = Math.max(yearWithdrawal, rmdAmount);
+        }
         
         // Dynamically calculate capital gains ratio based on current value vs cost basis
         const effectiveRunningTaxableBasis = Math.min(runningTaxable, runningTaxableBasis);
@@ -1434,30 +1458,31 @@ export default function FinancialPlan() {
                   </div>
                   <p className="text-2xl font-bold text-emerald-400">
                     +{formatNumber((() => {
-                      // Simple calculation: difference in portfolio value between earliest and target retirement
                       const targetIndex = Math.max(0, retirementAge - currentAge);
-                      const earliestIndex = Math.max(0, earliestRetirementAge - currentAge);
+                      const projectedPortfolioAtTarget = projections[targetIndex]?.total || 0;
                       
-                      const portfolioAtTarget = projections[targetIndex]?.total || 0;
-                      const portfolioAtEarliest = projections[earliestIndex]?.total || 0;
+                      // Calculate the shortfall at target retirement age compared to the required nest egg
+                      const shortfallAtRetirement = Math.max(0, requiredNestEgg - projectedPortfolioAtTarget);
                       
-                      // The gap is the difference, spread over the years we're trying to gain back
-                      const portfolioGap = Math.max(0, portfolioAtEarliest - portfolioAtTarget);
-                      const yearsGap = earliestRetirementAge - retirementAge;
                       const yearsToWork = retirementAge - currentAge;
+                      if (yearsToWork <= 0 || shortfallAtRetirement <= 0) return 0;
                       
-                      if (yearsToWork <= 0) return 0;
+                      // Use a diversified blended growth rate for additional savings over the working years
+                      const blendedGrowthRateForSavings = ((effectiveBtcCagr + stocksCagr + realEstateCagr + bondsCagr + otherCagr) / 5) / 100;
                       
-                      // Additional annual savings needed, accounting for compounding
-                      const avgGrowthRate = (effectiveBtcCagr * 0.3 + effectiveStocksCagr * 0.7) / 100;
-                      const fvFactor = avgGrowthRate > 0.001
-                        ? (Math.pow(1 + avgGrowthRate, yearsToWork) - 1) / avgGrowthRate
-                        : yearsToWork;
+                      // Calculate the annual payment (additional savings) needed using FV of annuity formula
+                      // P = FV * [r / ((1 + r)^n - 1)]
+                      if (blendedGrowthRateForSavings === 0) {
+                        return shortfallAtRetirement / yearsToWork;
+                      }
                       
-                      return portfolioGap / fvFactor;
+                      const fvFactor = (Math.pow(1 + blendedGrowthRateForSavings, yearsToWork) - 1) / blendedGrowthRateForSavings;
+                      const annualAdditionalSavings = shortfallAtRetirement / fvFactor;
+                      
+                      return annualAdditionalSavings;
                     })())}<span className="text-sm text-zinc-500">/yr</span>
                   </p>
-                  <p className="text-[10px] text-zinc-500 mt-1">to retire at age {retirementAge}</p>
+                  <p className="text-[10px] text-zinc-500 mt-1">additional to reach nest egg of {formatNumber(requiredNestEgg)}</p>
                 </div>
 
                 {/* Spending Reduction Insight */}
@@ -1468,18 +1493,16 @@ export default function FinancialPlan() {
                   </div>
                   <p className="text-2xl font-bold text-rose-400">
                     {formatNumber((() => {
-                      // What the portfolio at target retirement age can actually sustain
                       const targetIndex = Math.max(0, retirementAge - currentAge);
                       const portfolioAtTarget = projections[targetIndex]?.total || 0;
                       
-                      // Sustainable withdrawal in future dollars
+                      // Sustainable withdrawal in future dollars at retirement age
                       const sustainableWithdrawal = portfolioAtTarget * effectiveWithdrawalRate;
                       
-                      // Don't convert to today's dollars - show what they can spend at retirement
                       return sustainableWithdrawal;
                     })())}<span className="text-sm text-zinc-500">/yr</span>
                   </p>
-                  <p className="text-[10px] text-zinc-500 mt-1">max sustainable at age {retirementAge}</p>
+                  <p className="text-[10px] text-zinc-500 mt-1">sustainable spending at age {retirementAge} (in future $)</p>
                 </div>
 
                 {/* Alternative: Delay Retirement */}
@@ -1656,7 +1679,7 @@ export default function FinancialPlan() {
                       }
                       return null;
                     })}
-                    {/* Goals marked as "will be spent" */}
+                    {/* Goals marked as "will be spent" - vertical lines at target age */}
                     {goals.filter(g => g.will_be_spent && g.target_date).slice(0, 5).map((goal) => {
                       const goalYear = new Date(goal.target_date).getFullYear();
                       const goalAge = currentAge + (goalYear - new Date().getFullYear());
@@ -1667,15 +1690,16 @@ export default function FinancialPlan() {
                             x={goalAge} 
                             stroke="#f87171"
                             strokeDasharray="3 3"
-                            strokeOpacity={0.5}
+                            strokeOpacity={0.7}
+                            label={{ value: `${goal.name} (${goalAge})`, fill: '#f87171', fontSize: 9, position: 'top' }}
                             yAxisId="left"
                           />
                         );
                       }
                       return null;
                     })}
-                    {/* Goal target lines */}
-                    {goalsWithProjections.filter(g => g.target_amount > 0).slice(0, 3).map((goal, i) => (
+                    {/* Goal target lines - only show for accumulation goals (not one-time spending) */}
+                    {goalsWithProjections.filter(g => g.target_amount > 0 && !g.will_be_spent).slice(0, 3).map((goal, i) => (
                       <ReferenceLine 
                         key={goal.id} 
                         y={goal.target_amount} 
@@ -1779,10 +1803,8 @@ export default function FinancialPlan() {
                 const taxableOther = taxableLiquidValue - taxableBtc - taxableStocks - taxableBonds;
 
                 // Weighted average growth rate based on taxable portfolio allocation
-                // Use average BTC growth rate over the bridge period based on selected model
                 const avgBtcGrowthForBridge = (() => {
                   if (btcReturnModel === 'custom') return effectiveBtcCagr;
-                  // Calculate average growth rate over bridge period
                   let totalGrowth = 0;
                   const yearsToRetire = retirementAge - currentAge;
                   for (let y = yearsToRetire; y < yearsToRetire + yearsUntilPenaltyFree; y++) {
@@ -1791,7 +1813,7 @@ export default function FinancialPlan() {
                   return totalGrowth / yearsUntilPenaltyFree;
                 })();
 
-                let bridgeGrowthRate = 0.05; // default 5%
+                let bridgeGrowthRate = 0.05;
                 if (taxableLiquidValue > 0) {
                   bridgeGrowthRate = (
                     (taxableBtc / taxableLiquidValue) * (avgBtcGrowthForBridge / 100) +
@@ -1803,7 +1825,10 @@ export default function FinancialPlan() {
 
                 const realReturnRate = bridgeGrowthRate - (inflationRate / 100);
 
-                // Present value of withdrawals
+                // Estimate Roth contributions (assume 50% of Roth balance is contributions, accessible penalty-free)
+                const estimatedRothContributions = taxFreeValue * 0.5;
+
+                // Present value of withdrawals needed from taxable + Roth contributions
                 let bridgeFundsNeeded;
                 if (Math.abs(realReturnRate) < 0.001) {
                   bridgeFundsNeeded = annualNeedAtRetirement * yearsUntilPenaltyFree;
@@ -1811,20 +1836,32 @@ export default function FinancialPlan() {
                   bridgeFundsNeeded = annualNeedAtRetirement * (1 - Math.pow(1 + realReturnRate, -yearsUntilPenaltyFree)) / realReturnRate;
                 }
 
-                const currentBridgeFunds = taxableLiquidValue;
+                const currentBridgeFunds = taxableLiquidValue + estimatedRothContributions;
                 const shortfall = Math.max(0, bridgeFundsNeeded - currentBridgeFunds);
 
                 return (
                   <div className="mt-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                    <p className="text-sm text-amber-400">
-                      ⚠️ Retiring at {retirementAge} means {yearsUntilPenaltyFree} years before penalty-free access to retirement accounts.
-                      You'll need <span className="font-bold">{formatNumber(bridgeFundsNeeded)}</span> in liquid taxable accounts to cover {formatNumber(annualNeedAtRetirement)}/yr for {yearsUntilPenaltyFree} years (assuming {((bridgeGrowthRate)*100).toFixed(1)}% blended growth, {inflationRate}% inflation).
-                      {shortfall > 0 ? (
-                        <span className="text-rose-400"> Current shortfall: <span className="font-bold">{formatNumber(shortfall)}</span></span>
-                      ) : (
-                        <span className="text-emerald-400"> ✓ You have {formatNumber(currentBridgeFunds)} liquid — sufficient!</span>
-                      )}
+                    <p className="text-sm text-amber-400 font-medium mb-2">
+                      ⚠️ Early Retirement Warning (Before Age 59.5)
                     </p>
+                    <p className="text-sm text-zinc-300">
+                      Retiring at {retirementAge} means {yearsUntilPenaltyFree} years before penalty-free access to retirement account earnings.
+                      You'll need <span className="font-bold text-amber-400">{formatNumber(bridgeFundsNeeded)}</span> in accessible funds (liquid taxable + Roth contributions) to cover {formatNumber(annualNeedAtRetirement)}/yr for {yearsUntilPenaltyFree} years.
+                    </p>
+                    <div className="text-xs text-zinc-400 mt-2 space-y-1">
+                      <div>• Liquid Taxable: {formatNumber(taxableLiquidValue)}</div>
+                      <div>• Est. Roth Contributions: {formatNumber(estimatedRothContributions)} (50% of Roth balance)</div>
+                      <div className="font-medium">• Total Accessible: {formatNumber(currentBridgeFunds)}</div>
+                    </div>
+                    {shortfall > 0 ? (
+                      <p className="text-sm text-rose-400 mt-2 font-semibold">
+                        Shortfall: {formatNumber(shortfall)} — You may need to withdraw Roth earnings or tax-deferred funds early (incurring penalties).
+                      </p>
+                    ) : (
+                      <p className="text-sm text-emerald-400 mt-2 font-semibold">
+                        ✓ Sufficient accessible funds for early retirement bridge period!
+                      </p>
+                    )}
                   </div>
                 );
               })()}
