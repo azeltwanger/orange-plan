@@ -797,7 +797,7 @@ export default function FinancialPlan() {
         yearWithdrawal: isRetired ? Math.round(totalWithdrawalForTaxCalculation) : 0, // Combined outflow for the red line
         yearGoalWithdrawal: Math.round(yearGoalWithdrawal), // Keep separate for tooltip breakdown
         retirementSpendingOnly: isRetired ? Math.round(retirementSpendingOnly) : 0, // New property for tooltip breakdown
-        yearSavings: !isRetired ? Math.round(yearSavings) : 0, // Savings during accumulation phase
+        yearSavings: Math.round(yearSavings), // Savings during accumulation phase
         goalNames: yearGoalNames,
         btcGrowthRate: yearBtcGrowth,
         // Account type balances
