@@ -934,7 +934,7 @@ export default function FinancialPlan() {
     }
 
     // Check spending sustainability FIRST - even if you can retire "early", if you can't afford your spending, you're not on track
-    if (!canAffordDesiredSpending) {
+    if (!canAffordDesiredSpending && maxSustainableSpending > 0) {
       const shortfallPercent = ((inflationAdjustedRetirementSpending - maxSustainableSpending) / inflationAdjustedRetirementSpending * 100).toFixed(0);
       return {
         type: 'critical',
@@ -979,7 +979,7 @@ export default function FinancialPlan() {
         icon: <Sparkles className="w-5 h-5" />
       };
     }
-  }, [earliestRetirementAge, retirementAge, willRunOutOfMoney, runOutOfMoneyAge, currentAge, retirementValue, effectiveWithdrawalRate, inflationAdjustedRetirementSpending]);
+  }, [earliestRetirementAge, retirementAge, willRunOutOfMoney, runOutOfMoneyAge, currentAge, retirementValue, maxSustainableSpending, inflationAdjustedRetirementSpending]);
 
   // Calculate maximum sustainable spending at retirement age
   useEffect(() => {
