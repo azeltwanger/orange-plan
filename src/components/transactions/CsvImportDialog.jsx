@@ -589,7 +589,7 @@ export default function CsvImportDialog({ open, onClose }) {
                     <span><strong className="text-zinc-300">Date</strong> — YYYY-MM-DD format preferred</span>
                   </li>
                 </ul>
-                <p className="text-xs text-zinc-500 mt-3">Optional: Transaction ID, Exchange/Wallet, Trading Fee, Notes</p>
+                <p className="text-xs text-zinc-500 mt-3">Recommended: Trading Fee, Exchange/Wallet | Optional: Transaction ID, Notes</p>
               </div>
 
               <Input

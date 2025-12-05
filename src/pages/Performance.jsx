@@ -804,7 +804,7 @@ export default function Performance() {
       color: displayMetrics.totalGainLoss >= 0 ? 'text-emerald-400' : 'text-rose-400',
     },
     {
-      label: displayMetrics.isIRR ? 'IRR (Annualized)' : 'Annualized Return',
+      label: 'Returns (Annualized)',
       value: `${Math.abs(displayMetrics.annualizedReturn).toFixed(1)}%`,
       prefix: displayMetrics.annualizedReturn >= 0 ? '+' : '-',
       subtext: displayMetrics.holdingYears >= 1 ? `${displayMetrics.holdingYears.toFixed(1)} years` : `${displayMetrics.holdingDays} days`,
