@@ -36,8 +36,8 @@ export default function FeeAnalysis() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">Fee Analysis</h1>
-        <p className="text-zinc-500 mt-1">Track transaction costs and find savings opportunities</p>
+        <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">Bitcoin Fee Analysis</h1>
+        <p className="text-zinc-500 mt-1">Track your BTC transaction costs, including trading fees and estimated spreads</p>
       </div>
 
       {/* Fee Analyzer Component */}
