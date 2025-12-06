@@ -116,15 +116,21 @@ const newToFeatures = [
     link: '#'
   },
   {
-    icon: DollarSign,
-    title: 'Pricing',
-    description: 'Review pricing and choose the plan that\'s right for you.',
-    link: 'Pricing'
+    icon: Scale,
+    title: 'Debt Management',
+    description: 'Highlight your liabilities and analyze debt payoff strategies.',
+    link: '#'
   },
   {
-    icon: Briefcase,
-    title: 'Advisors',
-    description: 'Explore the Pro version for financial advisors.',
+    icon: Shield,
+    title: 'Automated Inheritance Protocol',
+    description: 'Estate planning and asset security management.',
+    link: '#'
+  },
+  {
+    icon: PieChart,
+    title: 'DCA vs. Lump Sum',
+    description: 'Compare investment strategies to maximize returns.',
     link: '#'
   },
   {
@@ -185,6 +191,9 @@ export default function Landing() {
             <span className="font-semibold text-lg">Orange Plan</span>
           </div>
           <div className="flex items-center gap-6">
+            <Link to={createPageUrl('Features')} className="text-sm text-zinc-400 hover:text-white transition-colors hidden sm:block">
+              Features
+            </Link>
             <Link to={createPageUrl('Pricing')} className="text-sm text-zinc-400 hover:text-white transition-colors hidden sm:block">
               Pricing
             </Link>
@@ -441,7 +450,7 @@ export default function Landing() {
         <div className="max-w-6xl mx-auto relative z-10">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold mb-4">New to Orange Plan?</h2>
-            <p className="text-zinc-500 text-lg">Check out these links and resources to get started</p>
+            <p className="text-zinc-500 text-lg">Explore our comprehensive suite of financial tools and features</p>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -516,6 +525,7 @@ export default function Landing() {
             <span className="text-sm font-medium text-zinc-400">Orange Plan</span>
           </div>
           <div className="flex items-center gap-6 text-sm text-zinc-500">
+            <Link to={createPageUrl('Features')} className="hover:text-zinc-300 transition-colors">Features</Link>
             <Link to={createPageUrl('Pricing')} className="hover:text-zinc-300 transition-colors">Pricing</Link>
             <Link to={createPageUrl('Dashboard')} className="hover:text-zinc-300 transition-colors">Dashboard</Link>
           </div>
