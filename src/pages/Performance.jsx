@@ -268,31 +268,6 @@ export default function Performance() {
   
   const allTickers = useMemo(() => [...cryptoTickers, ...stockTickers], [cryptoTickers, stockTickers]);
 
-  // Asset allocation data for pie chart
-  const assetAllocation = useMemo(() => {
-    const allocation = {};
-    holdings.forEach(h => {
-      const value = h.quantity * getCurrentPrice(h.ticker);
-      const assetType = h.asset_type || 'other';
-      allocation[assetType] = (allocation[assetType] || 0) + value;
-    });
-    
-    return Object.entries(allocation).map(([type, value]) => ({
-      name: type.charAt(0).toUpperCase() + type.slice(1).replace('_', ' '),
-      value: value,
-      percentage: currentValue > 0 ? (value / currentValue) * 100 : 0
-    })).sort((a, b) => b.value - a.value);
-  }, [holdings, currentValue, getCurrentPrice]);
-
-  const ASSET_COLORS = {
-    'Crypto': '#F7931A',
-    'Stocks': '#60a5fa',
-    'Real estate': '#10b981',
-    'Bonds': '#a78bfa',
-    'Cash': '#22d3ee',
-    'Other': '#71717a'
-  };
-
   // Fetch current prices for all crypto assets
   useEffect(() => {
     const fetchCurrentPrices = async () => {
@@ -491,6 +466,33 @@ export default function Performance() {
   const currentValue = holdings.reduce((sum, h) => {
     return sum + (h.quantity * getCurrentPrice(h.ticker));
   }, 0);
+
+  // Asset allocation data for pie chart
+  const assetAllocation = useMemo(() => {
+    const allocation = {};
+    let total = 0;
+    holdings.forEach(h => {
+      const value = h.quantity * getCurrentPrice(h.ticker);
+      const assetType = h.asset_type || 'other';
+      allocation[assetType] = (allocation[assetType] || 0) + value;
+      total += value;
+    });
+    
+    return Object.entries(allocation).map(([type, value]) => ({
+      name: type.charAt(0).toUpperCase() + type.slice(1).replace('_', ' '),
+      value: value,
+      percentage: total > 0 ? (value / total) * 100 : 0
+    })).sort((a, b) => b.value - a.value);
+  }, [holdings, getCurrentPrice]);
+
+  const ASSET_COLORS = {
+    'Crypto': '#F7931A',
+    'Stocks': '#60a5fa',
+    'Real estate': '#10b981',
+    'Bonds': '#a78bfa',
+    'Cash': '#22d3ee',
+    'Other': '#71717a'
+  };
 
   // Use transaction-based cost basis if available, otherwise holdings
   const totalCostBasis = transactionStats.totalInvested > 0 
