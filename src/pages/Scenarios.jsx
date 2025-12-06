@@ -59,10 +59,6 @@ const BTC_RETURN_MODELS = {
     name: 'Saylor Bitcoin24', 
     getRate: (btcCagr, yearFromNow) => Math.max(15, 45 - (yearFromNow * 1.5)) 
   },
-  powerlaw: { 
-    name: 'Power Law', 
-    getRate: (btcCagr, yearFromNow) => Math.max(20, 60 - (yearFromNow * 2)) 
-  },
   conservative: { 
     name: 'Conservative', 
     getRate: () => 10 
@@ -1074,7 +1070,7 @@ export default function Scenarios() {
             {/* BTC Return Model */}
             <div className="space-y-4">
               <h4 className="text-sm font-medium text-zinc-300">BTC Return Model</h4>
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
                 {Object.entries(BTC_RETURN_MODELS).map(([key, model]) => (
                   <button
                     key={key}
