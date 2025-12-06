@@ -473,7 +473,17 @@ export default function Performance() {
     let total = 0;
     holdings.forEach(h => {
       const value = h.quantity * getCurrentPrice(h.ticker);
-      const assetType = h.asset_type || 'other';
+      
+      // Classify Bitcoin separately, other crypto goes to "other"
+      let assetType;
+      if (h.ticker === 'BTC') {
+        assetType = 'bitcoin';
+      } else if (h.asset_type === 'crypto') {
+        assetType = 'other';
+      } else {
+        assetType = h.asset_type || 'other';
+      }
+      
       allocation[assetType] = (allocation[assetType] || 0) + value;
       total += value;
     });
@@ -486,7 +496,7 @@ export default function Performance() {
   }, [holdings, getCurrentPrice]);
 
   const ASSET_COLORS = {
-    'Crypto': '#F7931A',
+    'Bitcoin': '#F7931A',
     'Stocks': '#60a5fa',
     'Real estate': '#10b981',
     'Bonds': '#a78bfa',
@@ -886,15 +896,22 @@ export default function Performance() {
         ))}
       </div>
 
-      {/* IRR Details - Simplified */}
+      {/* IRR Details */}
       {irrMetrics && (
-        <div className="card-glass rounded-2xl p-4">
-          <div className="flex flex-wrap items-center justify-between gap-4 text-xs text-zinc-500">
-            <span>First transaction: {irrMetrics.firstTransactionDate}</span>
-            <span>•</span>
-            <span>Holding period: {irrMetrics.holdingPeriodYears.toFixed(1)} years ({irrMetrics.holdingPeriodDays} days)</span>
-            <span>•</span>
-            <span>{irrMetrics.transactionCount} transactions analyzed</span>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="card-glass rounded-xl p-4">
+            <p className="text-xs text-zinc-500 mb-1">First Transaction</p>
+            <p className="text-sm font-semibold text-zinc-200">{irrMetrics.firstTransactionDate}</p>
+          </div>
+          <div className="card-glass rounded-xl p-4">
+            <p className="text-xs text-zinc-500 mb-1">Holding Period</p>
+            <p className="text-sm font-semibold text-zinc-200">
+              {irrMetrics.holdingPeriodYears.toFixed(1)} years <span className="text-zinc-500">({irrMetrics.holdingPeriodDays} days)</span>
+            </p>
+          </div>
+          <div className="card-glass rounded-xl p-4">
+            <p className="text-xs text-zinc-500 mb-1">Transactions Analyzed</p>
+            <p className="text-sm font-semibold text-zinc-200">{irrMetrics.transactionCount}</p>
           </div>
         </div>
       )}
