@@ -68,7 +68,7 @@ const newToFeatures = [
   {
     icon: Scale,
     title: 'Cash Flow',
-    description: 'Analyze cash flow with Sankey diagrams.',
+    description: 'Track your income, expenses, and monthly surplus.',
     link: '#'
   },
   {
