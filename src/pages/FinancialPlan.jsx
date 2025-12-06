@@ -519,12 +519,6 @@ export default function FinancialPlan() {
         const baseRate = 45;
         const declinePerYear = 1.5;
         return Math.max(15, baseRate - (yearFromNow * declinePerYear));
-      case 'powerlaw':
-        // Power Law model: follows log regression, higher early returns declining
-        // Approximation: starts ~60% declining to ~20% 
-        const plBase = 60;
-        const plDecline = 2;
-        return Math.max(20, plBase - (yearFromNow * plDecline));
       case 'conservative':
         // Conservative model: 10% flat
         return 10;
@@ -1405,11 +1399,10 @@ export default function FinancialPlan() {
           {/* BTC Return Model Selection */}
           <div className="mb-6 p-4 rounded-xl bg-orange-500/5 border border-orange-500/20">
             <Label className="text-zinc-300 font-medium mb-3 block">Bitcoin Return Model</Label>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
               {[
                 { value: 'custom', label: 'Custom', desc: `${btcCagr}% CAGR` },
                 { value: 'saylor24', label: 'Saylor Bitcoin24', desc: '45%→15% declining' },
-                { value: 'powerlaw', label: 'Power Law', desc: '60%→20% declining' },
                 { value: 'conservative', label: 'Conservative', desc: '10% flat' },
               ].map(model => (
                 <button
