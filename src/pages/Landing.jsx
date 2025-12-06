@@ -60,9 +60,9 @@ const features = [
 
 const newToFeatures = [
   {
-    icon: Gauge,
-    title: 'Chance of Success',
-    description: 'Gauge your chance of success with Monte Carlo simulations.',
+    icon: Target,
+    title: 'Retirement Planning',
+    description: 'Map out your path to financial independence with detailed projections.',
     link: '#'
   },
   {
@@ -81,6 +81,12 @@ const newToFeatures = [
     icon: LayoutDashboard,
     title: 'Net Worth',
     description: 'Calculate and track your net worth over time.',
+    link: '#'
+  },
+  {
+    icon: Gauge,
+    title: 'Chance of Success',
+    description: 'Gauge your chance of success with Monte Carlo simulations.',
     link: '#'
   },
   {
