@@ -24,7 +24,9 @@ import {
   Newspaper,
   Book,
   RefreshCw,
-  ArrowLeftRight
+  ArrowLeftRight,
+  Flag,
+  Upload
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 
@@ -134,15 +136,15 @@ const newToFeatures = [
     link: '#'
   },
   {
-    icon: PlayCircle,
-    title: 'Video Walkthrough',
-    description: 'Learn about Orange Plan with our Getting Started video.',
-    link: 'https://www.youtube.com'
+    icon: Flag,
+    title: 'Goal Tracking',
+    description: 'Set and track progress towards your financial goals.',
+    link: '#'
   },
   {
-    icon: Book,
-    title: 'Financial Terms',
-    description: 'Orange Plan\'s glossary of financial terms.',
+    icon: Upload,
+    title: 'Easy Transaction Upload',
+    description: 'Bulk import transactions via CSV or connect API.',
     link: '#'
   }
 ];
