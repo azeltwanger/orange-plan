@@ -269,6 +269,12 @@ export default function Performance() {
       try {
         const ids = cryptoTickers.map(t => COINGECKO_IDS[t]).join(',');
         const response = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd`);
+        
+        if (!response.ok) {
+          console.log('Price fetch failed, keeping existing prices');
+          return;
+        }
+        
         const data = await response.json();
         
         const prices = {};
@@ -278,9 +284,13 @@ export default function Performance() {
             prices[ticker] = data[id].usd;
           }
         }
-        setCurrentPrices(prev => ({ ...prev, ...prices }));
+        
+        // Only update if we got valid prices
+        if (Object.keys(prices).length > 0) {
+          setCurrentPrices(prev => ({ ...prev, ...prices }));
+        }
       } catch (err) {
-        console.error('Failed to fetch live prices:', err);
+        console.log('Failed to fetch live prices, keeping existing prices:', err.message);
       }
     };
     
