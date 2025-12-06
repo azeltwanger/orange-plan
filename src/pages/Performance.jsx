@@ -253,15 +253,42 @@ export default function Performance() {
   const stockTickers = performanceData?.stockTickers || [];
   const allTickers = useMemo(() => [...cryptoTickers, ...stockTickers], [cryptoTickers, stockTickers]);
 
-  // Use prices from backend data
+  // Use prices from backend data initially, then keep updating live
   useEffect(() => {
     if (performanceData?.currentPrices) {
       setCurrentPrices(performanceData.currentPrices);
       setPriceLoading(false);
-    } else if (cryptoTickers.length === 0) {
-      setPriceLoading(false);
     }
-  }, [performanceData, cryptoTickers.length]);
+  }, [performanceData]);
+
+  // Live price updates every 30 seconds
+  useEffect(() => {
+    const fetchLivePrices = async () => {
+      if (cryptoTickers.length === 0) return;
+      
+      try {
+        const ids = cryptoTickers.map(t => COINGECKO_IDS[t]).join(',');
+        const response = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd`);
+        const data = await response.json();
+        
+        const prices = {};
+        for (const ticker of cryptoTickers) {
+          const id = COINGECKO_IDS[ticker];
+          if (data[id]?.usd) {
+            prices[ticker] = data[id].usd;
+          }
+        }
+        setCurrentPrices(prev => ({ ...prev, ...prices }));
+      } catch (err) {
+        console.error('Failed to fetch live prices:', err);
+      }
+    };
+    
+    if (cryptoTickers.length > 0) {
+      const interval = setInterval(fetchLivePrices, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [cryptoTickers]);
 
   // Calculate cost basis from transactions (more accurate than holdings)
   const transactionStats = useMemo(() => {
