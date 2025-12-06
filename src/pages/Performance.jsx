@@ -884,116 +884,70 @@ export default function Performance() {
         ))}
       </div>
 
-      {/* IRR Calculation Panel */}
-      {(irrMetrics || irrLoading) && (
-        <div className="card-glass rounded-2xl p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold">True Annualized Return</h3>
-            {irrLoading && <Loader2 className="w-4 h-4 animate-spin text-zinc-500" />}
+      {/* IRR Details - Simplified */}
+      {irrMetrics && (
+        <div className="card-glass rounded-2xl p-4">
+          <div className="flex flex-wrap items-center justify-between gap-4 text-xs text-zinc-500">
+            <span>First transaction: {irrMetrics.firstTransactionDate}</span>
+            <span>•</span>
+            <span>Holding period: {irrMetrics.holdingPeriodYears.toFixed(1)} years ({irrMetrics.holdingPeriodDays} days)</span>
+            <span>•</span>
+            <span>{irrMetrics.transactionCount} transactions analyzed</span>
           </div>
-          
-          {irrMetrics ? (
-            <>
-              <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-                <div className="p-3 rounded-lg bg-zinc-800/30">
-                  <p className="text-xs text-zinc-500 mb-1">Total Invested</p>
-                  <p className="font-semibold">${irrMetrics.totalInvested.toLocaleString()}</p>
-                </div>
-                <div className="p-3 rounded-lg bg-zinc-800/30">
-                  <p className="text-xs text-zinc-500 mb-1">Current Value</p>
-                  <p className="font-semibold text-emerald-400">${irrMetrics.currentValue.toLocaleString()}</p>
-                </div>
-                <div className="p-3 rounded-lg bg-zinc-800/30">
-                  <p className="text-xs text-zinc-500 mb-1">Total Gain/Loss</p>
-                  <p className={cn("font-semibold", irrMetrics.totalGainLoss >= 0 ? "text-emerald-400" : "text-rose-400")}>
-                    {irrMetrics.totalGainLoss >= 0 ? '+' : ''}${irrMetrics.totalGainLoss.toLocaleString()}
-                  </p>
-                </div>
-                <div className="p-3 rounded-lg bg-zinc-800/30">
-                  <p className="text-xs text-zinc-500 mb-1">Total Return</p>
-                  <p className={cn("font-semibold", irrMetrics.totalReturnPercent >= 0 ? "text-emerald-400" : "text-rose-400")}>
-                    {irrMetrics.totalReturnPercent >= 0 ? '+' : ''}{irrMetrics.totalReturnPercent.toFixed(1)}%
-                  </p>
-                </div>
-                <div className="p-3 rounded-lg bg-orange-500/10 border border-orange-500/20">
-                  <p className="text-xs text-orange-400 mb-1 flex items-center gap-1">
-                    Annualized IRR
-                    <span className="text-[10px] px-1 py-0.5 rounded bg-orange-500/20">IRR</span>
-                  </p>
-                  <p className={cn("font-bold text-lg", 
-                    (irrMetrics.annualizedIRR ?? irrMetrics.simpleCAGR ?? 0) >= 0 ? "text-orange-400" : "text-rose-400"
-                  )}>
-                    {(irrMetrics.annualizedIRR ?? irrMetrics.simpleCAGR ?? 0) >= 0 ? '+' : ''}
-                    {(irrMetrics.annualizedIRR ?? irrMetrics.simpleCAGR ?? 0).toFixed(1)}%
-                  </p>
-                </div>
-              </div>
-              <div className="mt-4 pt-4 border-t border-zinc-800 flex flex-wrap gap-4 text-xs text-zinc-500">
-                <span>First transaction: {irrMetrics.firstTransactionDate}</span>
-                <span>•</span>
-                <span>Holding period: {irrMetrics.holdingPeriodYears.toFixed(1)} years ({irrMetrics.holdingPeriodDays} days)</span>
-                <span>•</span>
-                <span>{irrMetrics.transactionCount} transactions analyzed</span>
-              </div>
-            </>
-          ) : (
-            <div className="text-center text-zinc-500 py-4">
-              <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
-              <p className="text-sm">Calculating IRR...</p>
-            </div>
-          )}
         </div>
       )}
 
       {/* Asset Allocation Pie Chart */}
-      <div className="card-glass rounded-2xl p-6">
-        <h3 className="font-semibold mb-4">Asset Allocation</h3>
-        <div className="flex flex-col lg:flex-row items-center gap-8">
-          <div className="w-full lg:w-1/2 h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={assetAllocation}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percentage }) => `${name} ${percentage.toFixed(1)}%`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {assetAllocation.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={ASSET_COLORS[entry.name] || '#71717a'} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '12px' }}
-                  formatter={(value) => `$${value.toLocaleString('en-US', { maximumFractionDigits: 0 })}`}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="w-full lg:w-1/2 space-y-3">
-            {assetAllocation.map((asset) => (
-              <div key={asset.name} className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div 
-                    className="w-3 h-3 rounded-full" 
-                    style={{ backgroundColor: ASSET_COLORS[asset.name] || '#71717a' }}
+      {assetAllocation.length > 0 && (
+        <div className="card-glass rounded-2xl p-6">
+          <h3 className="font-semibold mb-4">Asset Allocation</h3>
+          <div className="flex flex-col lg:flex-row items-center gap-8">
+            <div className="w-full lg:w-1/2 h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={assetAllocation}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percentage }) => `${name} ${percentage.toFixed(1)}%`}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {assetAllocation.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={ASSET_COLORS[entry.name] || '#71717a'} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '12px' }}
+                    formatter={(value) => `$${value.toLocaleString('en-US', { maximumFractionDigits: 0 })}`}
                   />
-                  <span className="text-sm text-zinc-300">{asset.name}</span>
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="w-full lg:w-1/2 space-y-3">
+              {assetAllocation.map((asset) => (
+                <div key={asset.name} className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div 
+                      className="w-3 h-3 rounded-full" 
+                      style={{ backgroundColor: ASSET_COLORS[asset.name] || '#71717a' }}
+                    />
+                    <span className="text-sm text-zinc-300">{asset.name}</span>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-semibold text-zinc-200">
+                      ${asset.value.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+                    </p>
+                    <p className="text-xs text-zinc-500">{asset.percentage.toFixed(1)}%</p>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm font-semibold text-zinc-200">
-                    ${asset.value.toLocaleString('en-US', { maximumFractionDigits: 0 })}
-                  </p>
-                  <p className="text-xs text-zinc-500">{asset.percentage.toFixed(1)}%</p>
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Portfolio Chart */}
       <div className="card-glass rounded-2xl p-6">
