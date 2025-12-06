@@ -12,8 +12,18 @@ import {
   BarChart3,
   Calculator,
   Wallet,
-  Lock } from
-'lucide-react';
+  Lock,
+  Gauge,
+  Scale,
+  Receipt,
+  LayoutDashboard,
+  DollarSign,
+  Briefcase,
+  HeartPulse,
+  PlayCircle,
+  Newspaper,
+  Book
+} from 'lucide-react';
 import { Button } from "@/components/ui/button";
 
 const features = [
@@ -47,6 +57,69 @@ const features = [
   title: 'Estate Security',
   description: 'Inheritance protocols and beneficiary management.'
 }];
+
+const newToFeatures = [
+  {
+    icon: Gauge,
+    title: 'Chance of Success',
+    description: 'Gauge your chance of success with Monte Carlo simulations.',
+    link: 'FinancialPlan'
+  },
+  {
+    icon: Scale,
+    title: 'Cash Flow',
+    description: 'Analyze cash flow with Sankey diagrams.',
+    link: 'Budget'
+  },
+  {
+    icon: Receipt,
+    title: 'Tax Analytics',
+    description: 'Review detailed tax estimates and analytics.',
+    link: 'TaxCenter'
+  },
+  {
+    icon: LayoutDashboard,
+    title: 'Net Worth',
+    description: 'Calculate and track your net worth over time.',
+    link: 'Dashboard'
+  },
+  {
+    icon: DollarSign,
+    title: 'Pricing',
+    description: 'Review pricing and choose the plan that\'s right for you.',
+    link: 'Pricing'
+  },
+  {
+    icon: Briefcase,
+    title: 'Advisors',
+    description: 'Explore the Pro version for financial advisors.',
+    link: '#'
+  },
+  {
+    icon: HeartPulse,
+    title: 'Financial Wellness',
+    description: 'Share Orange Plan as a benefit for your employees.',
+    link: '#'
+  },
+  {
+    icon: PlayCircle,
+    title: 'Video Walkthrough',
+    description: 'Learn about Orange Plan with our Getting Started video.',
+    link: 'https://www.youtube.com'
+  },
+  {
+    icon: Newspaper,
+    title: 'Blog',
+    description: 'Read the latest posts, updates, and articles.',
+    link: '#'
+  },
+  {
+    icon: Book,
+    title: 'Financial Terms',
+    description: 'Orange Plan\'s glossary of financial terms.',
+    link: '#'
+  }
+];
 
 
 export default function Landing() {
@@ -336,6 +409,39 @@ export default function Landing() {
                 )}
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* New to Orange Plan? Section */}
+      <section className="py-24 px-6 bg-[#0f0f10] border-t border-white/5 relative overflow-hidden">
+        {/* Decorative background glow */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] bg-orange-500/5 blur-[100px] rounded-full pointer-events-none" />
+        
+        <div className="max-w-6xl mx-auto relative z-10">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">New to Orange Plan?</h2>
+            <p className="text-zinc-500 text-lg">Check out these links and resources to get started</p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {newToFeatures.map((item, i) => (
+              <Link
+                key={i}
+                to={item.link.startsWith('#') || item.link.startsWith('http') ? item.link : createPageUrl(item.link)}
+                target={item.link.startsWith('http') ? "_blank" : "_self"}
+                rel={item.link.startsWith('http') ? "noopener noreferrer" : ""}
+                className="group p-6 rounded-2xl bg-white/[0.03] border border-white/5 hover:border-orange-500/30 hover:bg-white/[0.06] transition-all duration-300 flex items-start gap-5 hover:-translate-y-1 hover:shadow-2xl hover:shadow-orange-500/10"
+              >
+                <div className="w-12 h-12 rounded-xl bg-orange-500/10 flex items-center justify-center flex-shrink-0 group-hover:bg-orange-500/20 group-hover:scale-110 transition-all duration-300">
+                  <item.icon className="w-6 h-6 text-orange-400" strokeWidth={1.5} />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg mb-2 text-zinc-100 group-hover:text-white transition-colors">{item.title}</h3>
+                  <p className="text-sm text-zinc-400 leading-relaxed group-hover:text-zinc-300 transition-colors">{item.description}</p>
+                </div>
+              </Link>
+            ))}
           </div>
         </div>
       </section>
