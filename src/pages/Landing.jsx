@@ -22,7 +22,9 @@ import {
   HeartPulse,
   PlayCircle,
   Newspaper,
-  Book
+  Book,
+  RefreshCw,
+  ArrowLeftRight
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 
@@ -68,13 +70,13 @@ const newToFeatures = [
   {
     icon: Scale,
     title: 'Cash Flow',
-    description: 'Track your income, expenses, and monthly surplus.',
+    description: 'Track your income, expenses, and monthly surplus or shortfall.',
     link: '#'
   },
   {
     icon: Receipt,
     title: 'Tax Analytics',
-    description: 'Review detailed tax estimates and analytics.',
+    description: 'Save on tax harvesting gains and losses.',
     link: '#'
   },
   {
@@ -90,6 +92,30 @@ const newToFeatures = [
     link: '#'
   },
   {
+    icon: BarChart3,
+    title: 'Investment Plans',
+    description: 'Create automated investment plans and DCA strategies.',
+    link: '#'
+  },
+  {
+    icon: RefreshCw,
+    title: 'Scenario Builder',
+    description: 'Compare different financial futures and assumptions.',
+    link: '#'
+  },
+  {
+    icon: TrendingUp,
+    title: 'Performance',
+    description: 'Track your portfolio growth and returns over time.',
+    link: '#'
+  },
+  {
+    icon: ArrowLeftRight,
+    title: 'Exchange Fee Analysis',
+    description: 'Save money on fees by comparing exchange rates.',
+    link: '#'
+  },
+  {
     icon: DollarSign,
     title: 'Pricing',
     description: 'Review pricing and choose the plan that\'s right for you.',
@@ -102,22 +128,10 @@ const newToFeatures = [
     link: '#'
   },
   {
-    icon: HeartPulse,
-    title: 'Financial Wellness',
-    description: 'Share Orange Plan as a benefit for your employees.',
-    link: '#'
-  },
-  {
     icon: PlayCircle,
     title: 'Video Walkthrough',
     description: 'Learn about Orange Plan with our Getting Started video.',
     link: 'https://www.youtube.com'
-  },
-  {
-    icon: Newspaper,
-    title: 'Blog',
-    description: 'Read the latest posts, updates, and articles.',
-    link: '#'
   },
   {
     icon: Book,
