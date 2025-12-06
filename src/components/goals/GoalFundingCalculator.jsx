@@ -169,12 +169,9 @@ export default function GoalFundingCalculator({
           ${calculation.monthlySaving.toLocaleString('en-US', { maximumFractionDigits: 0 })}
           <span className="text-sm font-normal text-zinc-500">/mo</span>
         </p>
-        
-        {calculation.weightedReturn > 0 && calculation.savingsFromReturns > 0 && (
-          <p className="text-xs text-emerald-400 mt-1">
-            Saves ${calculation.savingsFromReturns.toLocaleString('en-US', { maximumFractionDigits: 0 })}/mo vs. no returns ({calculation.weightedReturn.toFixed(1)}% avg return)
-          </p>
-        )}
+        <p className="text-xs text-zinc-500 mt-1">
+          Cash savings required to reach goal
+        </p>
       </div>
 
       {/* Shortfall warning and asset sale estimate */}
