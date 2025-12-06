@@ -63,25 +63,25 @@ const newToFeatures = [
     icon: Gauge,
     title: 'Chance of Success',
     description: 'Gauge your chance of success with Monte Carlo simulations.',
-    link: 'FinancialPlan'
+    link: '#'
   },
   {
     icon: Scale,
     title: 'Cash Flow',
     description: 'Analyze cash flow with Sankey diagrams.',
-    link: 'Budget'
+    link: '#'
   },
   {
     icon: Receipt,
     title: 'Tax Analytics',
     description: 'Review detailed tax estimates and analytics.',
-    link: 'TaxCenter'
+    link: '#'
   },
   {
     icon: LayoutDashboard,
     title: 'Net Worth',
     description: 'Calculate and track your net worth over time.',
-    link: 'Dashboard'
+    link: '#'
   },
   {
     icon: DollarSign,
@@ -425,23 +425,31 @@ export default function Landing() {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {newToFeatures.map((item, i) => (
-              <Link
-                key={i}
-                to={item.link.startsWith('#') || item.link.startsWith('http') ? item.link : createPageUrl(item.link)}
-                target={item.link.startsWith('http') ? "_blank" : "_self"}
-                rel={item.link.startsWith('http') ? "noopener noreferrer" : ""}
-                className="group p-6 rounded-2xl bg-white/[0.03] border border-white/5 hover:border-orange-500/30 hover:bg-white/[0.06] transition-all duration-300 flex items-start gap-5 hover:-translate-y-1 hover:shadow-2xl hover:shadow-orange-500/10"
-              >
-                <div className="w-12 h-12 rounded-xl bg-orange-500/10 flex items-center justify-center flex-shrink-0 group-hover:bg-orange-500/20 group-hover:scale-110 transition-all duration-300">
-                  <item.icon className="w-6 h-6 text-orange-400" strokeWidth={1.5} />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-lg mb-2 text-zinc-100 group-hover:text-white transition-colors">{item.title}</h3>
-                  <p className="text-sm text-zinc-400 leading-relaxed group-hover:text-zinc-300 transition-colors">{item.description}</p>
-                </div>
-              </Link>
-            ))}
+            {newToFeatures.map((item, i) => {
+              const isLink = item.link !== '#';
+              const Component = isLink ? Link : 'div';
+              const props = isLink ? {
+                to: item.link.startsWith('http') ? item.link : createPageUrl(item.link),
+                target: item.link.startsWith('http') ? "_blank" : "_self",
+                rel: item.link.startsWith('http') ? "noopener noreferrer" : ""
+              } : {};
+
+              return (
+                <Component
+                  key={i}
+                  {...props}
+                  className={`group p-6 rounded-2xl bg-white/[0.03] border border-white/5 transition-all duration-300 flex items-start gap-5 ${isLink ? 'hover:border-orange-500/30 hover:bg-white/[0.06] hover:-translate-y-1 hover:shadow-2xl hover:shadow-orange-500/10 cursor-pointer' : ''}`}
+                >
+                  <div className={`w-12 h-12 rounded-xl bg-orange-500/10 flex items-center justify-center flex-shrink-0 transition-all duration-300 ${isLink ? 'group-hover:bg-orange-500/20 group-hover:scale-110' : ''}`}>
+                    <item.icon className="w-6 h-6 text-orange-400" strokeWidth={1.5} />
+                  </div>
+                  <div>
+                    <h3 className={`font-semibold text-lg mb-2 text-zinc-100 transition-colors ${isLink ? 'group-hover:text-white' : ''}`}>{item.title}</h3>
+                    <p className={`text-sm text-zinc-400 leading-relaxed transition-colors ${isLink ? 'group-hover:text-zinc-300' : ''}`}>{item.description}</p>
+                  </div>
+                </Component>
+              );
+            })}
           </div>
         </div>
       </section>
