@@ -144,7 +144,7 @@ const newToFeatures = [
   {
     icon: Upload,
     title: 'Easy Transaction Upload',
-    description: 'Bulk import transactions via CSV or connect API.',
+    description: 'Bulk import transactions via CSV.',
     link: '#'
   }
 ];
