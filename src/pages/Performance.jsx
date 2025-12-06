@@ -238,20 +238,17 @@ export default function Performance() {
   const [irrMetrics, setIrrMetrics] = useState(null);
   const [irrLoading, setIrrLoading] = useState(false);
 
-  const { data: holdings = [] } = useQuery({
-    queryKey: ['holdings'],
-    queryFn: () => base44.entities.Holding.list(),
+  const { data: performanceData } = useQuery({
+    queryKey: ['performanceData'],
+    queryFn: async () => {
+      const response = await base44.functions.invoke('getPerformanceData');
+      return response.data;
+    },
   });
 
-  const { data: transactions = [] } = useQuery({
-    queryKey: ['transactions'],
-    queryFn: () => base44.entities.Transaction.list('-date'),
-  });
-
-  const { data: accounts = [] } = useQuery({
-    queryKey: ['accounts'],
-    queryFn: () => base44.entities.Account.list(),
-  });
+  const holdings = performanceData?.holdings || [];
+  const transactions = performanceData?.transactions || [];
+  const accounts = performanceData?.accounts || [];
 
   // Get unique tickers from holdings and transactions, separated by type
   const { cryptoTickers, stockTickers } = useMemo(() => {
