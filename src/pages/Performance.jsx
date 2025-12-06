@@ -818,26 +818,9 @@ export default function Performance() {
     <TooltipProvider>
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">Performance</h1>
-          <p className="text-zinc-500 mt-1">Track your portfolio growth</p>
-        </div>
-        <Select value={timeframe} onValueChange={setTimeframe}>
-          <SelectTrigger className="w-32 bg-zinc-800 border-zinc-700">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className="bg-zinc-800 border-zinc-700">
-            <SelectItem value="1M">1 Month</SelectItem>
-            <SelectItem value="3M">3 Months</SelectItem>
-            <SelectItem value="6M">6 Months</SelectItem>
-            <SelectItem value="1Y">1 Year</SelectItem>
-            <SelectItem value="3Y">3 Years</SelectItem>
-            <SelectItem value="5Y">5 Years</SelectItem>
-            <SelectItem value="10Y">10 Years</SelectItem>
-            <SelectItem value="ALL">All Time</SelectItem>
-          </SelectContent>
-        </Select>
+      <div>
+        <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">Performance</h1>
+        <p className="text-zinc-500 mt-1">Track your portfolio growth</p>
       </div>
 
       {/* Stats Grid */}
@@ -880,73 +863,58 @@ export default function Performance() {
       {(irrMetrics || irrLoading) && (
         <div className="card-glass rounded-2xl p-6">
           <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <h3 className="font-semibold">Performance Calculation Method</h3>
-              <UITooltip>
-                <TooltipTrigger>
-                  <Info className="w-4 h-4 text-zinc-500 hover:text-zinc-300 cursor-help" />
-                </TooltipTrigger>
-                <TooltipContent className="max-w-sm bg-zinc-900 border-zinc-700 text-zinc-200">
-                  <p className="text-xs">
-                    This return uses a money-weighted IRR (XIRR) calculation that accounts for the timing 
-                    of every deposit and investment, providing a more accurate representation of your real performance 
-                    compared to simple percentage returns.
-                  </p>
-                </TooltipContent>
-              </UITooltip>
-            </div>
+            <h3 className="font-semibold">True Annualized Return</h3>
             {irrLoading && <Loader2 className="w-4 h-4 animate-spin text-zinc-500" />}
           </div>
           
           {irrMetrics ? (
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-              <div className="p-3 rounded-lg bg-zinc-800/30">
-                <p className="text-xs text-zinc-500 mb-1">Total Invested</p>
-                <p className="font-semibold">${irrMetrics.totalInvested.toLocaleString()}</p>
+            <>
+              <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+                <div className="p-3 rounded-lg bg-zinc-800/30">
+                  <p className="text-xs text-zinc-500 mb-1">Total Invested</p>
+                  <p className="font-semibold">${irrMetrics.totalInvested.toLocaleString()}</p>
+                </div>
+                <div className="p-3 rounded-lg bg-zinc-800/30">
+                  <p className="text-xs text-zinc-500 mb-1">Current Value</p>
+                  <p className="font-semibold text-emerald-400">${irrMetrics.currentValue.toLocaleString()}</p>
+                </div>
+                <div className="p-3 rounded-lg bg-zinc-800/30">
+                  <p className="text-xs text-zinc-500 mb-1">Total Gain/Loss</p>
+                  <p className={cn("font-semibold", irrMetrics.totalGainLoss >= 0 ? "text-emerald-400" : "text-rose-400")}>
+                    {irrMetrics.totalGainLoss >= 0 ? '+' : ''}${irrMetrics.totalGainLoss.toLocaleString()}
+                  </p>
+                </div>
+                <div className="p-3 rounded-lg bg-zinc-800/30">
+                  <p className="text-xs text-zinc-500 mb-1">Total Return</p>
+                  <p className={cn("font-semibold", irrMetrics.totalReturnPercent >= 0 ? "text-emerald-400" : "text-rose-400")}>
+                    {irrMetrics.totalReturnPercent >= 0 ? '+' : ''}{irrMetrics.totalReturnPercent.toFixed(1)}%
+                  </p>
+                </div>
+                <div className="p-3 rounded-lg bg-orange-500/10 border border-orange-500/20">
+                  <p className="text-xs text-orange-400 mb-1 flex items-center gap-1">
+                    Annualized IRR
+                    <span className="text-[10px] px-1 py-0.5 rounded bg-orange-500/20">IRR</span>
+                  </p>
+                  <p className={cn("font-bold text-lg", 
+                    (irrMetrics.annualizedIRR ?? irrMetrics.simpleCAGR ?? 0) >= 0 ? "text-orange-400" : "text-rose-400"
+                  )}>
+                    {(irrMetrics.annualizedIRR ?? irrMetrics.simpleCAGR ?? 0) >= 0 ? '+' : ''}
+                    {(irrMetrics.annualizedIRR ?? irrMetrics.simpleCAGR ?? 0).toFixed(1)}%
+                  </p>
+                </div>
               </div>
-              <div className="p-3 rounded-lg bg-zinc-800/30">
-                <p className="text-xs text-zinc-500 mb-1">Current Value</p>
-                <p className="font-semibold text-emerald-400">${irrMetrics.currentValue.toLocaleString()}</p>
+              <div className="mt-4 pt-4 border-t border-zinc-800 flex flex-wrap gap-4 text-xs text-zinc-500">
+                <span>First transaction: {irrMetrics.firstTransactionDate}</span>
+                <span>•</span>
+                <span>Holding period: {irrMetrics.holdingPeriodYears.toFixed(1)} years ({irrMetrics.holdingPeriodDays} days)</span>
+                <span>•</span>
+                <span>{irrMetrics.transactionCount} transactions analyzed</span>
               </div>
-              <div className="p-3 rounded-lg bg-zinc-800/30">
-                <p className="text-xs text-zinc-500 mb-1">Total Gain/Loss</p>
-                <p className={cn("font-semibold", irrMetrics.totalGainLoss >= 0 ? "text-emerald-400" : "text-rose-400")}>
-                  {irrMetrics.totalGainLoss >= 0 ? '+' : ''}${irrMetrics.totalGainLoss.toLocaleString()}
-                </p>
-              </div>
-              <div className="p-3 rounded-lg bg-zinc-800/30">
-                <p className="text-xs text-zinc-500 mb-1">Total Return</p>
-                <p className={cn("font-semibold", irrMetrics.totalReturnPercent >= 0 ? "text-emerald-400" : "text-rose-400")}>
-                  {irrMetrics.totalReturnPercent >= 0 ? '+' : ''}{irrMetrics.totalReturnPercent.toFixed(1)}%
-                </p>
-              </div>
-              <div className="p-3 rounded-lg bg-orange-500/10 border border-orange-500/20">
-                <p className="text-xs text-orange-400 mb-1 flex items-center gap-1">
-                  True Annualized Return
-                  <span className="text-[10px] px-1 py-0.5 rounded bg-orange-500/20">IRR</span>
-                </p>
-                <p className={cn("font-bold text-lg", 
-                  (irrMetrics.annualizedIRR ?? irrMetrics.simpleCAGR ?? 0) >= 0 ? "text-orange-400" : "text-rose-400"
-                )}>
-                  {(irrMetrics.annualizedIRR ?? irrMetrics.simpleCAGR ?? 0) >= 0 ? '+' : ''}
-                  {(irrMetrics.annualizedIRR ?? irrMetrics.simpleCAGR ?? 0).toFixed(1)}%
-                </p>
-              </div>
-            </div>
+            </>
           ) : (
             <div className="text-center text-zinc-500 py-4">
               <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
               <p className="text-sm">Calculating IRR...</p>
-            </div>
-          )}
-          
-          {irrMetrics && (
-            <div className="mt-4 pt-4 border-t border-zinc-800 flex flex-wrap gap-4 text-xs text-zinc-500">
-              <span>First transaction: {irrMetrics.firstTransactionDate}</span>
-              <span>•</span>
-              <span>Holding period: {irrMetrics.holdingPeriodYears.toFixed(1)} years ({irrMetrics.holdingPeriodDays} days)</span>
-              <span>•</span>
-              <span>{irrMetrics.transactionCount} transactions analyzed</span>
             </div>
           )}
         </div>
@@ -954,8 +922,26 @@ export default function Performance() {
 
       {/* Portfolio Chart */}
       <div className="card-glass rounded-2xl p-6">
-        <div className="flex items-start justify-between mb-6">
+        <div className="flex items-start justify-between mb-4">
           <h3 className="font-semibold">Portfolio Value Over Time</h3>
+          <Select value={timeframe} onValueChange={setTimeframe}>
+            <SelectTrigger className="w-32 bg-zinc-800 border-zinc-700">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="bg-zinc-800 border-zinc-700">
+              <SelectItem value="1M">1 Month</SelectItem>
+              <SelectItem value="3M">3 Months</SelectItem>
+              <SelectItem value="6M">6 Months</SelectItem>
+              <SelectItem value="1Y">1 Year</SelectItem>
+              <SelectItem value="3Y">3 Years</SelectItem>
+              <SelectItem value="5Y">5 Years</SelectItem>
+              <SelectItem value="10Y">10 Years</SelectItem>
+              <SelectItem value="ALL">All Time</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-start justify-between mb-6">
+          <div></div>
           {chartData.length > 1 && (() => {
             const latest = chartData[chartData.length - 1].portfolio;
             const first = chartData[0].portfolio;
