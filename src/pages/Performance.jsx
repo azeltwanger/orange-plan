@@ -958,48 +958,25 @@ export default function Performance() {
           <h3 className="font-semibold">Portfolio Value Over Time</h3>
           {chartData.length > 1 && (() => {
             const latest = chartData[chartData.length - 1].portfolio;
-            const calcReturn = (months) => {
-              const daysAgo = months * 30;
-              const targetDate = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000);
-              const closest = chartData.reduce((prev, curr) => {
-                const prevDiff = Math.abs(new Date(prev.date) - targetDate);
-                const currDiff = Math.abs(new Date(curr.date) - targetDate);
-                return currDiff < prevDiff ? curr : prev;
-              });
-              if (!closest || closest.portfolio === 0) return null;
-              const ret = ((latest - closest.portfolio) / closest.portfolio) * 100;
-              return ret;
-            };
-            const ret3M = calcReturn(3);
-            const ret6M = calcReturn(6);
-            const ret1Y = calcReturn(12);
+            const first = chartData[0].portfolio;
+            if (first === 0) return null;
+            const periodReturn = ((latest - first) / first) * 100;
+            
+            const periodLabel = {
+              '1M': '1M',
+              '3M': '3M',
+              '6M': '6M',
+              '1Y': '1Y',
+            }[timeframe];
+            
+            if (!periodLabel) return null;
             
             return (
-              <div className="flex gap-3">
-                {ret3M !== null && (
-                  <div className="text-right">
-                    <p className="text-[10px] text-zinc-500 uppercase tracking-wide">3M</p>
-                    <p className={cn("text-sm font-semibold", ret3M >= 0 ? "text-emerald-400" : "text-rose-400")}>
-                      {ret3M >= 0 ? '+' : ''}{ret3M.toFixed(1)}%
-                    </p>
-                  </div>
-                )}
-                {ret6M !== null && (
-                  <div className="text-right">
-                    <p className="text-[10px] text-zinc-500 uppercase tracking-wide">6M</p>
-                    <p className={cn("text-sm font-semibold", ret6M >= 0 ? "text-emerald-400" : "text-rose-400")}>
-                      {ret6M >= 0 ? '+' : ''}{ret6M.toFixed(1)}%
-                    </p>
-                  </div>
-                )}
-                {ret1Y !== null && (
-                  <div className="text-right">
-                    <p className="text-[10px] text-zinc-500 uppercase tracking-wide">1Y</p>
-                    <p className={cn("text-sm font-semibold", ret1Y >= 0 ? "text-emerald-400" : "text-rose-400")}>
-                      {ret1Y >= 0 ? '+' : ''}{ret1Y.toFixed(1)}%
-                    </p>
-                  </div>
-                )}
+              <div className="text-right">
+                <p className="text-[10px] text-zinc-500 uppercase tracking-wide">{periodLabel} Return</p>
+                <p className={cn("text-sm font-semibold", periodReturn >= 0 ? "text-emerald-400" : "text-rose-400")}>
+                  {periodReturn >= 0 ? '+' : ''}{periodReturn.toFixed(1)}%
+                </p>
               </div>
             );
           })()}
