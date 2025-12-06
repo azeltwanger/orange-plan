@@ -34,6 +34,11 @@ export default function AccountGroup({ account, holdings, getPrice, onEditHoldin
     queryFn: () => base44.entities.Account.list(),
   });
 
+  const { data: transactions = [] } = useQuery({
+    queryKey: ['transactions'],
+    queryFn: () => base44.entities.Transaction.list(),
+  });
+
   const reassignHolding = useMutation({
     mutationFn: async ({ holdingId, newAccountId }) => {
       await base44.entities.Holding.update(holdingId, { 
@@ -46,8 +51,38 @@ export default function AccountGroup({ account, holdings, getPrice, onEditHoldin
     },
   });
 
+  // Calculate per-holding performance using transactions if available
+  const getHoldingPerformance = (holding) => {
+    const value = holding.quantity * getPrice(holding.ticker);
+    
+    // Get cost basis from transactions for this holding/account combo
+    const holdingTxs = transactions.filter(t => 
+      t.asset_ticker === holding.ticker && 
+      (t.account_id === holding.account_id || (!t.account_id && !holding.account_id))
+    );
+    
+    const tickerCostBasis = holdingTxs
+      .filter(t => t.type === 'buy')
+      .reduce((sum, t) => sum + (t.cost_basis || t.quantity * t.price_per_unit), 0);
+    const tickerSellCostBasis = holdingTxs
+      .filter(t => t.type === 'sell')
+      .reduce((sum, t) => sum + (t.cost_basis || 0), 0);
+    
+    const adjustedCostBasis = tickerCostBasis > 0 
+      ? tickerCostBasis - tickerSellCostBasis 
+      : (holding.cost_basis_total || 0);
+    
+    const gain = value - adjustedCostBasis;
+    const gainPercent = adjustedCostBasis > 0 ? (gain / adjustedCostBasis) * 100 : 0;
+    
+    return { value, adjustedCostBasis, gain, gainPercent };
+  };
+
   const totalValue = holdings.reduce((sum, h) => sum + (h.quantity * getPrice(h.ticker)), 0);
-  const totalCostBasis = holdings.reduce((sum, h) => sum + (h.cost_basis_total || 0), 0);
+  const totalCostBasis = holdings.reduce((sum, h) => {
+    const perf = getHoldingPerformance(h);
+    return sum + perf.adjustedCostBasis;
+  }, 0);
   const totalGain = totalValue - totalCostBasis;
   const gainPercent = totalCostBasis > 0 ? (totalGain / totalCostBasis) * 100 : 0;
 
@@ -127,9 +162,7 @@ export default function AccountGroup({ account, holdings, getPrice, onEditHoldin
         <div className="border-t border-zinc-800/50">
           {holdings.map((holding) => {
             const price = getPrice(holding.ticker);
-            const value = holding.quantity * price;
-            const gain = value - (holding.cost_basis_total || 0);
-            const gainPct = holding.cost_basis_total > 0 ? (gain / holding.cost_basis_total) * 100 : 0;
+            const perf = getHoldingPerformance(holding);
 
             return (
               <div
@@ -156,72 +189,72 @@ export default function AccountGroup({ account, holdings, getPrice, onEditHoldin
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  {/* Reassign dropdown */}
-                  {reassigningHoldingId === holding.id ? (
-                    <Select
-                      value={holding.account_id || '_none_'}
-                      onValueChange={(newAccountId) => {
-                        reassignHolding.mutate({ holdingId: holding.id, newAccountId });
-                      }}
+                {/* Reassign dropdown */}
+                {reassigningHoldingId === holding.id ? (
+                  <Select
+                    value={holding.account_id || '_none_'}
+                    onValueChange={(newAccountId) => {
+                      reassignHolding.mutate({ holdingId: holding.id, newAccountId });
+                    }}
+                  >
+                    <SelectTrigger className="w-40 h-8 text-xs bg-zinc-900 border-zinc-700">
+                      <SelectValue placeholder="Move to..." />
+                    </SelectTrigger>
+                    <SelectContent className="bg-zinc-900 border-zinc-700">
+                      <SelectItem value="_none_">Unassigned</SelectItem>
+                      {allAccounts.filter(a => a.id !== account?.id).map(acc => (
+                        <SelectItem key={acc.id} value={acc.id}>{acc.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setReassigningHoldingId(holding.id); }}
+                      className="p-1.5 rounded-lg bg-zinc-800/90 hover:bg-zinc-700 transition-colors"
+                      title="Move to another account"
                     >
-                      <SelectTrigger className="w-40 h-8 text-xs bg-zinc-900 border-zinc-700">
-                        <SelectValue placeholder="Move to..." />
-                      </SelectTrigger>
-                      <SelectContent className="bg-zinc-900 border-zinc-700">
-                        <SelectItem value="_none_">Unassigned</SelectItem>
-                        {allAccounts.filter(a => a.id !== account?.id).map(acc => (
-                          <SelectItem key={acc.id} value={acc.id}>{acc.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setReassigningHoldingId(holding.id); }}
-                        className="p-1.5 rounded-lg bg-zinc-800/90 hover:bg-zinc-700 transition-colors"
-                        title="Move to another account"
-                      >
-                        <ArrowRightLeft className="w-3.5 h-3.5 text-zinc-400" />
-                      </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); onManageLots?.(holding); }}
-                        className="p-1.5 rounded-lg bg-zinc-800/90 hover:bg-orange-600/50 transition-colors"
-                        title="Manage Tax Lots"
-                      >
-                        <Package className="w-3.5 h-3.5 text-zinc-400" />
-                      </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); onEditHolding?.(holding); }}
-                        className="p-1.5 rounded-lg bg-zinc-800/90 hover:bg-zinc-700 transition-colors"
-                        title="Edit"
-                      >
-                        <Pencil className="w-3.5 h-3.5 text-zinc-400" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (window.confirm(`Delete ${holding.asset_name}?`)) {
-                            onDeleteHolding?.(holding);
-                          }
-                        }}
-                        className="p-1.5 rounded-lg bg-zinc-800/90 hover:bg-rose-600/50 transition-colors"
-                        title="Delete"
-                      >
-                        <Trash2 className="w-3.5 h-3.5 text-zinc-400" />
-                      </button>
-                    </div>
-                  )}
-                  <div className="text-right min-w-[80px]">
-                    <p className="font-semibold text-sm">${value.toLocaleString()}</p>
-                    {holding.cost_basis_total > 0 && (
-                      <p className={cn(
-                        "text-xs",
-                        gain >= 0 ? "text-emerald-400" : "text-rose-400"
-                      )}>
-                        {gain >= 0 ? '+' : ''}{gainPct.toFixed(1)}%
-                      </p>
-                    )}
+                      <ArrowRightLeft className="w-3.5 h-3.5 text-zinc-400" />
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onManageLots?.(holding); }}
+                      className="p-1.5 rounded-lg bg-zinc-800/90 hover:bg-orange-600/50 transition-colors"
+                      title="Manage Tax Lots"
+                    >
+                      <Package className="w-3.5 h-3.5 text-zinc-400" />
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onEditHolding?.(holding); }}
+                      className="p-1.5 rounded-lg bg-zinc-800/90 hover:bg-zinc-700 transition-colors"
+                      title="Edit"
+                    >
+                      <Pencil className="w-3.5 h-3.5 text-zinc-400" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (window.confirm(`Delete ${holding.asset_name}?`)) {
+                          onDeleteHolding?.(holding);
+                        }
+                      }}
+                      className="p-1.5 rounded-lg bg-zinc-800/90 hover:bg-rose-600/50 transition-colors"
+                      title="Delete"
+                    >
+                      <Trash2 className="w-3.5 h-3.5 text-zinc-400" />
+                    </button>
                   </div>
+                )}
+                <div className="text-right min-w-[80px]">
+                  <p className="font-semibold text-sm">${perf.value.toLocaleString()}</p>
+                  {perf.adjustedCostBasis > 0 && (
+                    <p className={cn(
+                      "text-xs",
+                      perf.gain >= 0 ? "text-emerald-400" : "text-rose-400"
+                    )}>
+                      {perf.gain >= 0 ? '+' : ''}{perf.gainPercent.toFixed(1)}%
+                    </p>
+                  )}
+                </div>
                 </div>
               </div>
             );
