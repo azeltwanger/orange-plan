@@ -9,7 +9,8 @@ export default function GoalFundingCalculator({
   fundingSources = [],
   userSettings = {},
   monthlySavingsAvailable = 0,
-  btcPrice = 97000
+  btcPrice = 97000,
+  linkedDcaPlan = null
 }) {
   const calculation = useMemo(() => {
     if (!targetAmount || !targetDate) return null;
@@ -20,56 +21,43 @@ export default function GoalFundingCalculator({
     const today = new Date();
     const target = new Date(targetDate);
     const monthsRemaining = Math.max(1, Math.ceil((target - today) / (1000 * 60 * 60 * 24 * 30)));
+    const yearsRemaining = monthsRemaining / 12;
     
-    // Calculate weighted average return from funding sources (using UserSettings CAGR)
-    let weightedReturn = 0;
-    if (fundingSources && fundingSources.length > 0) {
-      const totalPercent = fundingSources.reduce((sum, s) => sum + (s.percentage || 0), 0);
-      if (totalPercent > 0) {
-        weightedReturn = fundingSources.reduce((sum, source) => {
-          // Calculate weighted return for this account source
-          const accountPercent = (source.percentage || 0) / totalPercent;
-          const assetAllocations = source.asset_allocations || [];
-          
-          if (assetAllocations.length > 0) {
-            // Use asset allocations within the account
-            const allocTotal = assetAllocations.reduce((s, a) => s + (a.percentage || 0), 0);
-            if (allocTotal > 0) {
-              const accountReturn = assetAllocations.reduce((accSum, alloc) => {
-                const allocPercent = (alloc.percentage || 0) / allocTotal;
-                const returnRate = getDefaultReturn(alloc.asset_type, alloc.ticker, userSettings);
-                return accSum + allocPercent * returnRate;
-              }, 0);
-              return sum + accountPercent * accountReturn;
-            }
-          }
-          
-          // Fallback: use a blended rate from userSettings
-          const blendedRate = (
-            (userSettings.btc_cagr_assumption || 25) * 0.3 +
-            (userSettings.stocks_cagr || 7) * 0.5 +
-            (userSettings.bonds_cagr || 3) * 0.2
-          );
-          return sum + accountPercent * blendedRate;
-        }, 0);
+    // Calculate projected value from linked DCA plan
+    let dcaProjectedValue = 0;
+    let dcaAssetReturn = 0;
+    let dcaAssetType = null;
+    
+    if (linkedDcaPlan && linkedDcaPlan.amount_per_period > 0) {
+      // Get return rate for the DCA plan's asset
+      dcaAssetReturn = getDefaultReturn(linkedDcaPlan.asset_type || 'crypto', linkedDcaPlan.asset_ticker, userSettings);
+      dcaAssetType = linkedDcaPlan.asset_ticker || linkedDcaPlan.asset_type || 'Investment';
+      
+      // Convert DCA frequency to monthly amount
+      const freqMultiplier = {
+        daily: 30,
+        weekly: 4.33,
+        biweekly: 2.17,
+        monthly: 1,
+      };
+      const monthlyDcaAmount = linkedDcaPlan.amount_per_period * (freqMultiplier[linkedDcaPlan.frequency] || 1);
+      
+      // Calculate future value of DCA contributions with compound growth
+      // FV = PMT * (((1 + r)^n - 1) / r)
+      const monthlyRate = (dcaAssetReturn / 100) / 12;
+      if (monthlyRate > 0) {
+        const factor = (Math.pow(1 + monthlyRate, monthsRemaining) - 1) / monthlyRate;
+        dcaProjectedValue = monthlyDcaAmount * factor;
+      } else {
+        dcaProjectedValue = monthlyDcaAmount * monthsRemaining;
       }
     }
     
-    // Calculate monthly saving needed with compound growth
-    // PMT = FV * (r/12) / ((1 + r/12)^n - 1)
-    const monthlyRate = (weightedReturn / 100) / 12;
-    let monthlySaving;
+    // Adjust remaining amount needed after DCA contributions
+    const adjustedRemaining = Math.max(0, remaining - dcaProjectedValue);
     
-    if (monthlyRate > 0) {
-      const factor = Math.pow(1 + monthlyRate, monthsRemaining) - 1;
-      monthlySaving = remaining * monthlyRate / factor;
-    } else {
-      monthlySaving = remaining / monthsRemaining;
-    }
-    
-    // Also calculate without returns for comparison
-    const monthlySavingNoReturns = remaining / monthsRemaining;
-    const savingsFromReturns = monthlySavingNoReturns - monthlySaving;
+    // Calculate monthly saving needed (simple cash savings, no returns)
+    const monthlySaving = adjustedRemaining / monthsRemaining;
     
     // Calculate shortfall if monthly savings aren't enough
     const shortfall = Math.max(0, monthlySaving - monthlySavingsAvailable);
@@ -105,18 +93,19 @@ export default function GoalFundingCalculator({
     return {
       needed: remaining,
       monthsRemaining,
-      yearsRemaining: (monthsRemaining / 12).toFixed(1),
+      yearsRemaining: yearsRemaining.toFixed(1),
       monthlySaving: Math.max(0, monthlySaving),
-      monthlySavingNoReturns,
-      savingsFromReturns: Math.max(0, savingsFromReturns),
-      weightedReturn,
-      projectedGrowth: weightedReturn > 0 ? (monthlySaving * monthsRemaining * (weightedReturn / 100) * (monthsRemaining / 24)) : 0,
       shortfall,
       totalShortfall,
       assetsToSell,
-      canAfford: monthlySavingsAvailable >= monthlySaving
+      canAfford: monthlySavingsAvailable >= monthlySaving,
+      dcaProjectedValue,
+      dcaAssetReturn,
+      dcaAssetType,
+      isShortTerm: yearsRemaining < 4,
+      usingInvestmentReturns: dcaProjectedValue > 0
     };
-  }, [targetAmount, currentAmount, targetDate, fundingSources, userSettings, monthlySavingsAvailable, btcPrice]);
+  }, [targetAmount, currentAmount, targetDate, fundingSources, userSettings, monthlySavingsAvailable, btcPrice, linkedDcaPlan]);
 
   if (!calculation) {
     return (
@@ -169,10 +158,43 @@ export default function GoalFundingCalculator({
           ${calculation.monthlySaving.toLocaleString('en-US', { maximumFractionDigits: 0 })}
           <span className="text-sm font-normal text-zinc-500">/mo</span>
         </p>
-        <p className="text-xs text-zinc-500 mt-1">
-          Cash savings required to reach goal
-        </p>
+        {calculation.usingInvestmentReturns ? (
+          <p className="text-xs text-zinc-500 mt-1">
+            Cash savings needed after {calculation.dcaAssetType} investment plan ({calculation.dcaAssetReturn.toFixed(1)}% expected return)
+          </p>
+        ) : (
+          <p className="text-xs text-zinc-500 mt-1">
+            Cash savings required to reach goal
+          </p>
+        )}
       </div>
+      
+      {calculation.dcaProjectedValue > 0 && (
+        <div className="mt-3 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+          <div className="flex items-center gap-2 mb-1">
+            <TrendingUp className="w-4 h-4 text-emerald-400" />
+            <span className="text-xs font-medium text-emerald-400">Linked Investment Plan</span>
+          </div>
+          <p className="text-xs text-zinc-400">
+            Projected value from DCA: <span className="text-emerald-400 font-semibold">${calculation.dcaProjectedValue.toLocaleString('en-US', { maximumFractionDigits: 0 })}</span>
+          </p>
+          <p className="text-xs text-zinc-500 mt-1">
+            This reduces your additional monthly savings needed
+          </p>
+        </div>
+      )}
+      
+      {calculation.isShortTerm && calculation.usingInvestmentReturns && (
+        <div className="mt-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+          <div className="flex items-center gap-2 mb-1">
+            <AlertTriangle className="w-4 h-4 text-amber-400" />
+            <span className="text-xs font-medium text-amber-400">Short-Term Goal Warning</span>
+          </div>
+          <p className="text-xs text-zinc-400">
+            This goal is less than 4 years away. Market volatility could significantly impact projected returns. Consider a more conservative approach or increase cash savings buffer.
+          </p>
+        </div>
+      )}
 
       {/* Shortfall warning and asset sale estimate */}
       {monthlySavingsAvailable > 0 && calculation.shortfall > 0 && (

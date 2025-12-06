@@ -713,6 +713,7 @@ export default function Goals() {
                 userSettings={userSettings}
                 monthlySavingsAvailable={monthlySavingsAvailable}
                 btcPrice={btcPrice}
+                linkedDcaPlan={dcaPlans.find(p => p.id === goalForm.linked_dca_plan_id)}
               />
             )}
 
