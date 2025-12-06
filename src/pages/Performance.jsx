@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell } from 'recharts';
 import { TrendingUp, TrendingDown, Calendar, Bitcoin, DollarSign, BarChart3, Info, Loader2, ChevronDown, ChevronRight, Building2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -267,6 +267,31 @@ export default function Performance() {
   }, [holdings, transactions]);
   
   const allTickers = useMemo(() => [...cryptoTickers, ...stockTickers], [cryptoTickers, stockTickers]);
+
+  // Asset allocation data for pie chart
+  const assetAllocation = useMemo(() => {
+    const allocation = {};
+    holdings.forEach(h => {
+      const value = h.quantity * getCurrentPrice(h.ticker);
+      const assetType = h.asset_type || 'other';
+      allocation[assetType] = (allocation[assetType] || 0) + value;
+    });
+    
+    return Object.entries(allocation).map(([type, value]) => ({
+      name: type.charAt(0).toUpperCase() + type.slice(1).replace('_', ' '),
+      value: value,
+      percentage: currentValue > 0 ? (value / currentValue) * 100 : 0
+    })).sort((a, b) => b.value - a.value);
+  }, [holdings, currentValue, getCurrentPrice]);
+
+  const ASSET_COLORS = {
+    'Crypto': '#F7931A',
+    'Stocks': '#60a5fa',
+    'Real estate': '#10b981',
+    'Bonds': '#a78bfa',
+    'Cash': '#22d3ee',
+    'Other': '#71717a'
+  };
 
   // Fetch current prices for all crypto assets
   useEffect(() => {
@@ -919,6 +944,56 @@ export default function Performance() {
           )}
         </div>
       )}
+
+      {/* Asset Allocation Pie Chart */}
+      <div className="card-glass rounded-2xl p-6">
+        <h3 className="font-semibold mb-4">Asset Allocation</h3>
+        <div className="flex flex-col lg:flex-row items-center gap-8">
+          <div className="w-full lg:w-1/2 h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={assetAllocation}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, percentage }) => `${name} ${percentage.toFixed(1)}%`}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {assetAllocation.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={ASSET_COLORS[entry.name] || '#71717a'} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '12px' }}
+                  formatter={(value) => `$${value.toLocaleString('en-US', { maximumFractionDigits: 0 })}`}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="w-full lg:w-1/2 space-y-3">
+            {assetAllocation.map((asset) => (
+              <div key={asset.name} className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div 
+                    className="w-3 h-3 rounded-full" 
+                    style={{ backgroundColor: ASSET_COLORS[asset.name] || '#71717a' }}
+                  />
+                  <span className="text-sm text-zinc-300">{asset.name}</span>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-semibold text-zinc-200">
+                    ${asset.value.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+                  </p>
+                  <p className="text-xs text-zinc-500">{asset.percentage.toFixed(1)}%</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
 
       {/* Portfolio Chart */}
       <div className="card-glass rounded-2xl p-6">
