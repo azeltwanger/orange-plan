@@ -12,19 +12,8 @@ import {
   BarChart3,
   Calculator,
   Wallet,
-  Lock,
-  Gauge,
-  Scale,
-  Receipt,
-  LayoutDashboard,
-  DollarSign,
-  Briefcase,
-  HeartPulse,
-  PlayCircle,
-  Newspaper,
-  Book,
-  RefreshCw
-} from 'lucide-react';
+  Lock } from
+'lucide-react';
 import { Button } from "@/components/ui/button";
 
 const features = [
@@ -58,63 +47,6 @@ const features = [
   title: 'Estate Security',
   description: 'Inheritance protocols and beneficiary management.'
 }];
-
-const newToFeatures = [
-  {
-    icon: Gauge,
-    title: 'Chance of Success',
-    description: 'Gauge your chance of success with Monte Carlo simulations.',
-    link: 'FinancialPlan'
-  },
-  {
-    icon: Scale,
-    title: 'Cash Flow',
-    description: 'Analyze cash flow with Sankey diagrams.',
-    link: 'Budget'
-  },
-  {
-    icon: Receipt,
-    title: 'Tax Analytics',
-    description: 'Review detailed tax estimates and analytics.',
-    link: 'TaxCenter'
-  },
-  {
-    icon: LayoutDashboard,
-    title: 'Pricing',
-    description: 'Review pricing and choose the plan that\'s right for you.',
-    link: 'Pricing'
-  },
-  {
-    icon: Briefcase,
-    title: 'Advisors',
-    description: 'Explore the Pro version for financial advisors.',
-    link: '#'
-  },
-  {
-    icon: HeartPulse,
-    title: 'Financial Wellness',
-    description: 'Share Orange Plan as a benefit for your employees.',
-    link: '#'
-  },
-  {
-    icon: PlayCircle,
-    title: 'Video Walkthrough',
-    description: 'Learn about Orange Plan with our Getting Started video.',
-    link: '#'
-  },
-  {
-    icon: Newspaper,
-    title: 'Blog',
-    description: 'Read the latest posts, updates, and articles.',
-    link: '#'
-  },
-  {
-    icon: Book,
-    title: 'Financial Terms',
-    description: 'Orange Plan\'s glossary of financial terms.',
-    link: '#'
-  }
-];
 
 
 export default function Landing() {
@@ -349,58 +281,6 @@ export default function Landing() {
                 <p className="text-sm text-zinc-500 leading-relaxed">{feature.description}</p>
               </div>
             )}
-          </div>
-        </div>
-      </section>
-
-      {/* New to Orange Plan? Section */}
-      <section className="py-24 px-6 bg-gradient-to-b from-[#0a0a0b] to-[#0f0f10] border-t border-white/5">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold mb-3">New to Orange Plan?</h2>
-            <p className="text-zinc-500">Check out these links and resources</p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {newToFeatures.map((item, i) => {
-              const isExternal = item.link.startsWith('http');
-              const isPlaceholder = item.link === '#';
-              
-              if (isPlaceholder) {
-                return (
-                  <div
-                    key={i}
-                    className="p-5 rounded-xl bg-white/[0.02] border border-white/5 opacity-50 cursor-not-allowed flex items-start gap-4"
-                  >
-                    <div className="w-10 h-10 rounded-lg bg-zinc-800/50 flex items-center justify-center flex-shrink-0">
-                      <item.icon className="w-5 h-5 text-zinc-600" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold mb-1.5 text-zinc-400">{item.title}</h3>
-                      <p className="text-sm text-zinc-600 leading-relaxed">{item.description}</p>
-                      <span className="text-xs text-zinc-700 mt-2 inline-block">Coming soon</span>
-                    </div>
-                  </div>
-                );
-              }
-              
-              return (
-                <Link
-                  key={i}
-                  to={isExternal ? item.link : createPageUrl(item.link)}
-                  target={isExternal ? "_blank" : "_self"}
-                  rel={isExternal ? "noopener noreferrer" : ""}
-                  className="group p-5 rounded-xl bg-white/[0.02] border border-white/5 hover:border-orange-500/20 hover:bg-white/[0.04] transition-all duration-300 flex items-start gap-4"
-                >
-                  <div className="w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center flex-shrink-0 group-hover:bg-orange-500/20 transition-colors">
-                    <item.icon className="w-5 h-5 text-orange-400" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold mb-1.5">{item.title}</h3>
-                    <p className="text-sm text-zinc-400 leading-relaxed">{item.description}</p>
-                  </div>
-                </Link>
-              );
-            })}
           </div>
         </div>
       </section>
