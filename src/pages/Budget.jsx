@@ -305,7 +305,10 @@ export default function Budget() {
                           backgroundColor: '#18181b',
                           border: '1px solid #27272a',
                           borderRadius: '12px',
+                          color: '#f4f4f5',
                         }}
+                        itemStyle={{ color: '#f4f4f5' }}
+                        labelStyle={{ color: '#f4f4f5' }}
                         formatter={(value) => [`$${value.toLocaleString()}`, '']}
                       />
                     </PieChart>
@@ -345,7 +348,10 @@ export default function Budget() {
                         backgroundColor: '#18181b',
                         border: '1px solid #27272a',
                         borderRadius: '12px',
+                        color: '#f4f4f5',
                       }}
+                      itemStyle={{ color: '#f4f4f5' }}
+                      labelStyle={{ color: '#f4f4f5' }}
                       formatter={(value) => [`$${value.toLocaleString()}`, '']}
                     />
                     <Bar dataKey="value" radius={[0, 4, 4, 0]} />
