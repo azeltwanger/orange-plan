@@ -427,18 +427,12 @@ export default function FinancialPlan() {
     .filter(b => b.type === 'expense' && b.is_active !== false)
     .reduce((sum, b) => sum + (b.amount * (freqMultiplier[b.frequency] || 12) / 12), 0);
   
-  // Calculate monthly debt payments from liabilities
+  // Calculate monthly debt payments from liabilities (only actual cash payments)
   const monthlyDebtPayments = liabilities.reduce((sum, liability) => {
-    // If monthly_payment is explicitly set and > 0, use it
+    // Only include explicit monthly payments (not estimated interest accruals)
     if (liability.monthly_payment && liability.monthly_payment > 0) {
       return sum + liability.monthly_payment;
     }
-    // Otherwise, if there's an interest rate, estimate interest-only payment
-    if (liability.interest_rate && liability.interest_rate > 0 && liability.current_balance) {
-      const annualInterest = liability.current_balance * (liability.interest_rate / 100);
-      return sum + (annualInterest / 12);
-    }
-    // No payment required for this liability
     return sum;
   }, 0);
   
@@ -584,10 +578,10 @@ export default function FinancialPlan() {
     const initialTaxableCostBasis = taxableHoldings.reduce((sum, h) => sum + (h.cost_basis_total || 0), 0);
     let runningTaxableBasis = initialTaxableCostBasis;
     
-    // Track debt balances for liabilities without payments (accruing interest)
+    // Track debt balances for all liabilities with month-by-month amortization
     const runningDebt = {};
     liabilities.forEach(liability => {
-      runningDebt[liability.id] = liability.current_balance || 0;
+    runningDebt[liability.id] = liability.current_balance || 0;
     });
     
     // Initial 4% withdrawal amount (set on first retirement year)
@@ -653,18 +647,39 @@ export default function FinancialPlan() {
         }
       });
       
-      // For liabilities WITHOUT active payoff goals, accrue interest on the balance
+      // Calculate actual debt payments for this year with month-by-month simulation
+      let actualAnnualDebtPayments = 0;
+
+      // For liabilities WITHOUT active payoff goals, process monthly
       liabilities.forEach(liability => {
         if (!liabilitiesWithPayoffGoals.has(liability.id) && runningDebt[liability.id] > 0) {
           const hasPayment = liability.monthly_payment && liability.monthly_payment > 0;
           const hasInterest = liability.interest_rate && liability.interest_rate > 0;
-          
+
           if (hasPayment) {
-            // Liability has a monthly payment - reduce balance by annual payments minus interest
-            const annualPayment = liability.monthly_payment * 12;
-            const annualInterest = runningDebt[liability.id] * (liability.interest_rate / 100);
-            const principalPayment = Math.max(0, annualPayment - annualInterest);
-            runningDebt[liability.id] = Math.max(0, runningDebt[liability.id] - principalPayment);
+            // Simulate month-by-month to track when loan is paid off
+            let remainingBalance = runningDebt[liability.id];
+            let monthsPaid = 0;
+
+            for (let month = 0; month < 12; month++) {
+              if (remainingBalance <= 0) break;
+
+              // Calculate monthly interest
+              const monthlyInterest = hasInterest 
+                ? remainingBalance * (liability.interest_rate / 100 / 12)
+                : 0;
+
+              // Principal portion of payment
+              const principalPayment = Math.max(0, liability.monthly_payment - monthlyInterest);
+
+              // Make payment and update balance
+              remainingBalance = Math.max(0, remainingBalance - principalPayment);
+              monthsPaid++;
+              actualAnnualDebtPayments += liability.monthly_payment;
+            }
+
+            // Update running debt balance for this liability
+            runningDebt[liability.id] = remainingBalance;
           } else if (hasInterest) {
             // No payment, interest accrues and is added to principal
             const annualInterest = runningDebt[liability.id] * (liability.interest_rate / 100);
@@ -893,7 +908,7 @@ export default function FinancialPlan() {
         withdrawFromTaxFree: isRetired ? Math.round(withdrawFromTaxFree) : 0,
         // Debt tracking
         totalDebt: Math.round(totalDebt),
-        debtPayments: Math.round(monthlyDebtPayments * 12), // Annual debt payments
+        debtPayments: i === 0 ? Math.round(monthlyDebtPayments * 12) : Math.round(actualAnnualDebtPayments), // Actual debt payments made this year
         });
     }
     return data;
