@@ -40,6 +40,7 @@ export default function CashFlowProjections({
         if (runningDebt[liability.id] > 0) {
           const hasPayment = liability.monthly_payment && liability.monthly_payment > 0;
           const hasInterest = liability.interest_rate && liability.interest_rate > 0;
+          const startingBalance = runningDebt[liability.id];
 
           if (hasPayment) {
             // Simulate month-by-month
@@ -60,6 +61,11 @@ export default function CashFlowProjections({
             }
 
             runningDebt[liability.id] = remainingBalance;
+
+            // Track if debt was paid off this year
+            if (startingBalance > 0 && remainingBalance <= 0.01) {
+              yearEvents.push(`✓ Paid off ${liability.name}`);
+            }
           } else if (hasInterest) {
             // No payment, interest accrues
             const annualInterest = runningDebt[liability.id] * (liability.interest_rate / 100);
