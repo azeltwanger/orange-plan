@@ -1529,7 +1529,7 @@ export default function FinancialPlan() {
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
               {[
                 { value: 'custom', label: 'Custom', desc: `${btcCagr}% CAGR` },
-                { value: 'saylor24', label: 'Saylor Bitcoin24', desc: '45%→15% declining' },
+                { value: 'saylor24', label: 'Saylor Bitcoin 24 Model', desc: '45%→15% declining' },
                 { value: 'conservative', label: 'Conservative', desc: '10% flat' },
               ].map(model => (
                 <button
