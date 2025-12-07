@@ -483,12 +483,12 @@ export default function Goals() {
 
       {/* Goal Form Dialog */}
       <Dialog open={goalFormOpen} onOpenChange={setGoalFormOpen}>
-        <DialogContent className="bg-[#0f0f10] border-zinc-800 text-zinc-100 max-w-md">
+        <DialogContent className="bg-[#0f0f10] border-zinc-800 text-zinc-100 max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{editingGoal ? 'Edit Goal' : 'Add New Goal'}</DialogTitle></DialogHeader>
-          <form onSubmit={handleSubmitGoal} className="space-y-4 mt-2">
-            <div className="space-y-2">
-              <Label className="text-zinc-400">Which bucket?</Label>
-              <div className="grid grid-cols-3 gap-2">
+          <form onSubmit={handleSubmitGoal} className="space-y-5 mt-4">
+            <div className="space-y-3">
+              <Label className="text-zinc-400 font-medium">Which bucket?</Label>
+              <div className="grid grid-cols-3 gap-3">
                 {Object.entries(BUCKET_CONFIG).map(([key, config]) => {
                   const Icon = config.icon;
                   const isSelected = goalForm.bucket === key;
@@ -498,12 +498,12 @@ export default function Goals() {
                       type="button"
                       onClick={() => setGoalForm({ ...goalForm, bucket: key })}
                       className={cn(
-                        "p-3 rounded-lg border text-center transition-all",
+                        "p-4 rounded-xl border text-center transition-all",
                         isSelected ? "bg-orange-500/20 border-orange-500/50" : "bg-zinc-800/50 border-zinc-700 hover:border-zinc-600"
                       )}
                     >
-                      <Icon className={cn("w-5 h-5 mx-auto mb-1", isSelected ? "text-orange-400" : "text-zinc-400")} />
-                      <p className={cn("text-xs font-medium", isSelected ? "text-orange-400" : "text-zinc-400")}>{config.name.split(' ')[0]}</p>
+                      <Icon className={cn("w-6 h-6 mx-auto mb-2", isSelected ? "text-orange-400" : "text-zinc-400")} />
+                      <p className={cn("text-xs font-medium leading-tight", isSelected ? "text-orange-400" : "text-zinc-400")}>{config.name}</p>
                     </button>
                   );
                 })}
@@ -559,18 +559,18 @@ export default function Goals() {
 
             {/* Emergency Fund Quick Presets */}
             {goalForm.bucket === 'emergency' && monthlyExpenses > 0 && (
-              <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 space-y-3">
+              <div className="p-5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 space-y-4">
                 <div className="flex items-center gap-2">
-                  <Shield className="w-4 h-4 text-emerald-400" />
+                  <Shield className="w-5 h-5 text-emerald-400" />
                   <Label className="text-emerald-300 font-medium">Auto-calculate based on monthly expenses</Label>
                 </div>
-                <p className="text-xs text-zinc-400">
+                <p className="text-sm text-zinc-300">
                   Your current monthly expenses: <span className="font-semibold text-emerald-400">${monthlyExpenses.toLocaleString('en-US', { maximumFractionDigits: 0 })}</span>
                   {monthlyDebtPayments > 0 && (
                     <span className="text-zinc-500"> (includes ${monthlyDebtPayments.toLocaleString('en-US', { maximumFractionDigits: 0 })} debt payments)</span>
                   )}
                 </p>
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-4 gap-3">
                   {[3, 6, 12, 24].map(months => {
                     const amount = monthlyExpenses * months;
                     const isSelected = parseFloat(goalForm.target_amount) === Math.round(amount);
@@ -584,14 +584,14 @@ export default function Goals() {
                           target_amount: Math.round(amount).toString() 
                         })}
                         className={cn(
-                          "p-2 rounded-lg border text-center transition-all",
+                          "p-3 rounded-lg border text-center transition-all",
                           isSelected 
                             ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-400" 
                             : "bg-zinc-800/50 border-zinc-700 hover:border-zinc-600 text-zinc-400"
                         )}
                       >
-                        <p className="text-sm font-semibold">{months}mo</p>
-                        <p className="text-[10px]">${(amount / 1000).toFixed(0)}k</p>
+                        <p className="text-base font-semibold">{months}mo</p>
+                        <p className="text-xs mt-1">${(amount / 1000).toFixed(0)}k</p>
                       </button>
                     );
                   })}
@@ -603,21 +603,21 @@ export default function Goals() {
             )}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-zinc-400">Target Amount ($)</Label>
-                <Input type="number" value={goalForm.target_amount} onChange={(e) => setGoalForm({ ...goalForm, target_amount: e.target.value })} placeholder="100000" className="bg-zinc-900 border-zinc-700 text-zinc-100" required />
+                <Label className="text-zinc-400 font-medium">Target Amount ($)</Label>
+                <Input type="number" value={goalForm.target_amount} onChange={(e) => setGoalForm({ ...goalForm, target_amount: e.target.value })} placeholder="100000" className="bg-zinc-900 border-zinc-700 text-zinc-100 h-11" required />
               </div>
               <div className="space-y-2">
-                <Label className="text-zinc-400">Saved So Far ($)</Label>
-                <Input type="number" value={goalForm.current_amount} onChange={(e) => setGoalForm({ ...goalForm, current_amount: e.target.value })} placeholder="25000" className="bg-zinc-900 border-zinc-700 text-zinc-100" />
+                <Label className="text-zinc-400 font-medium">Saved So Far ($)</Label>
+                <Input type="number" value={goalForm.current_amount} onChange={(e) => setGoalForm({ ...goalForm, current_amount: e.target.value })} placeholder="25000" className="bg-zinc-900 border-zinc-700 text-zinc-100 h-11" />
               </div>
             </div>
             <div className="space-y-2">
-              <Label className="text-zinc-400">Target Date (optional)</Label>
-              <Input type="date" value={goalForm.target_date} onChange={(e) => setGoalForm({ ...goalForm, target_date: e.target.value })} className="bg-zinc-900 border-zinc-700 text-zinc-100" />
+              <Label className="text-zinc-400 font-medium">Target Date (optional)</Label>
+              <Input type="date" value={goalForm.target_date} onChange={(e) => setGoalForm({ ...goalForm, target_date: e.target.value })} className="bg-zinc-900 border-zinc-700 text-zinc-100 h-11" />
             </div>
 
             {/* Will be spent toggle */}
-            <div className="p-4 rounded-xl bg-zinc-800/50 border border-zinc-700 space-y-3">
+            <div className="p-5 rounded-xl bg-zinc-800/50 border border-zinc-700 space-y-3">
               <div className="flex items-center justify-between">
                 <div>
                   <Label className="text-zinc-300">I plan to spend this</Label>
@@ -749,9 +749,9 @@ export default function Goals() {
               />
             )}
 
-            <div className="flex gap-3 pt-4">
-              <Button type="button" variant="outline" onClick={() => { setGoalFormOpen(false); setEditingGoal(null); resetGoalForm(); }} className="flex-1 bg-zinc-800 border-zinc-700 text-zinc-100 hover:bg-zinc-700">Cancel</Button>
-              <Button type="submit" className="flex-1 brand-gradient text-white font-semibold">{editingGoal ? 'Update' : 'Add'} Goal</Button>
+            <div className="flex gap-3 pt-6 border-t border-zinc-800">
+              <Button type="button" variant="outline" onClick={() => { setGoalFormOpen(false); setEditingGoal(null); resetGoalForm(); }} className="flex-1 bg-zinc-800 border-zinc-700 text-zinc-100 hover:bg-zinc-700 h-11">Cancel</Button>
+              <Button type="submit" className="flex-1 brand-gradient text-white font-semibold h-11">{editingGoal ? 'Update' : 'Add'} Goal</Button>
             </div>
           </form>
         </DialogContent>
