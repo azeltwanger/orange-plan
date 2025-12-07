@@ -70,6 +70,21 @@ export default function Budget() {
     queryFn: () => base44.entities.Liability.list(),
   });
 
+  const { data: lifeEvents = [] } = useQuery({
+    queryKey: ['lifeEvents'],
+    queryFn: () => base44.entities.LifeEvent.list(),
+  });
+
+  const { data: goals = [] } = useQuery({
+    queryKey: ['goals'],
+    queryFn: () => base44.entities.FinancialGoal.list(),
+  });
+
+  const { data: userSettings = [] } = useQuery({
+    queryKey: ['userSettings'],
+    queryFn: () => base44.entities.UserSettings.list(),
+  });
+
   const createItem = useMutation({
     mutationFn: (data) => base44.entities.BudgetItem.create(data),
     onSuccess: () => {
@@ -141,6 +156,11 @@ export default function Budget() {
   const totalMonthlyExpenses = monthlyExpenses + monthlyDebtPayments;
   const surplus = monthlyIncome - totalMonthlyExpenses;
 
+  // Annual totals
+  const annualIncome = monthlyIncome * 12;
+  const annualExpenses = totalMonthlyExpenses * 12;
+  const annualSurplus = surplus * 12;
+
   // Group expenses by category (including debt payments)
   const expensesByCategory = budgetItems
     .filter(b => b.type === 'expense' && b.is_active !== false)
@@ -204,6 +224,7 @@ export default function Budget() {
             </div>
           </div>
           <p className="text-3xl font-bold text-emerald-400">${monthlyIncome.toLocaleString()}</p>
+          <p className="text-xs text-zinc-500 mt-1">${annualIncome.toLocaleString()} / year</p>
         </div>
 
         <div className="card-glass rounded-xl p-6">
@@ -214,9 +235,10 @@ export default function Budget() {
             </div>
           </div>
           <p className="text-3xl font-bold text-rose-400">${totalMonthlyExpenses.toLocaleString()}</p>
-          {monthlyDebtPayments > 0 && (
-            <p className="text-xs text-zinc-500 mt-1">${monthlyExpenses.toLocaleString()} budget + ${monthlyDebtPayments.toLocaleString()} debt</p>
-          )}
+          <p className="text-xs text-zinc-500 mt-1">
+            ${annualExpenses.toLocaleString()} / year
+            {monthlyDebtPayments > 0 && ` (includes $${(monthlyDebtPayments * 12).toLocaleString()}/yr debt)`}
+          </p>
         </div>
 
         <div className="card-glass rounded-xl p-6 glow-amber">
@@ -229,6 +251,9 @@ export default function Budget() {
           <p className={cn("text-3xl font-bold", surplus >= 0 ? "text-amber-400" : "text-rose-400")}>
             {surplus >= 0 ? '+' : '-'}${Math.abs(surplus).toLocaleString()}
           </p>
+          <p className="text-xs text-zinc-500 mt-1">
+            {annualSurplus >= 0 ? '+' : '-'}${Math.abs(annualSurplus).toLocaleString()} / year
+          </p>
         </div>
       </div>
 
@@ -236,9 +261,21 @@ export default function Budget() {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="bg-zinc-800/50 p-1">
           <TabsTrigger value="overview" className="data-[state=active]:bg-zinc-700">Overview</TabsTrigger>
+          <TabsTrigger value="projections" className="data-[state=active]:bg-zinc-700">Cash Flow Projections</TabsTrigger>
           <TabsTrigger value="income" className="data-[state=active]:bg-zinc-700">Income</TabsTrigger>
           <TabsTrigger value="expenses" className="data-[state=active]:bg-zinc-700">Expenses</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="projections" className="space-y-6">
+          <CashFlowProjections
+            monthlyIncome={monthlyIncome}
+            monthlyExpenses={totalMonthlyExpenses}
+            lifeEvents={lifeEvents}
+            goals={goals}
+            liabilities={liabilities}
+            userSettings={userSettings[0]}
+          />
+        </TabsContent>
 
         <TabsContent value="overview" className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
