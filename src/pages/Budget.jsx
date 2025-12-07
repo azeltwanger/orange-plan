@@ -65,6 +65,11 @@ export default function Budget() {
     queryFn: () => base44.entities.BudgetItem.list(),
   });
 
+  const { data: liabilities = [] } = useQuery({
+    queryKey: ['liabilities'],
+    queryFn: () => base44.entities.Liability.list(),
+  });
+
   const createItem = useMutation({
     mutationFn: (data) => base44.entities.BudgetItem.create(data),
     onSuccess: () => {
@@ -125,9 +130,18 @@ export default function Budget() {
     .filter(b => b.type === 'expense' && b.is_active !== false)
     .reduce((sum, b) => sum + (b.amount * (freqMultiplier[b.frequency] || 1)), 0);
 
-  const surplus = monthlyIncome - monthlyExpenses;
+  // Add monthly debt payments from liabilities
+  const monthlyDebtPayments = liabilities.reduce((sum, liability) => {
+    if (liability.monthly_payment && liability.monthly_payment > 0) {
+      return sum + liability.monthly_payment;
+    }
+    return sum;
+  }, 0);
 
-  // Group expenses by category
+  const totalMonthlyExpenses = monthlyExpenses + monthlyDebtPayments;
+  const surplus = monthlyIncome - totalMonthlyExpenses;
+
+  // Group expenses by category (including debt payments)
   const expensesByCategory = budgetItems
     .filter(b => b.type === 'expense' && b.is_active !== false)
     .reduce((acc, b) => {
@@ -135,6 +149,11 @@ export default function Budget() {
       acc[b.category] = (acc[b.category] || 0) + monthly;
       return acc;
     }, {});
+
+  // Add debt payments to their own category
+  if (monthlyDebtPayments > 0) {
+    expensesByCategory['debt_payment'] = (expensesByCategory['debt_payment'] || 0) + monthlyDebtPayments;
+  }
 
   const pieData = Object.entries(expensesByCategory).map(([category, value]) => ({
     name: categoryLabels[category] || category,
@@ -194,7 +213,10 @@ export default function Budget() {
               <ArrowDownRight className="w-4 h-4 text-rose-400" />
             </div>
           </div>
-          <p className="text-3xl font-bold text-rose-400">${monthlyExpenses.toLocaleString()}</p>
+          <p className="text-3xl font-bold text-rose-400">${totalMonthlyExpenses.toLocaleString()}</p>
+          {monthlyDebtPayments > 0 && (
+            <p className="text-xs text-zinc-500 mt-1">${monthlyExpenses.toLocaleString()} budget + ${monthlyDebtPayments.toLocaleString()} debt</p>
+          )}
         </div>
 
         <div className="card-glass rounded-xl p-6 glow-amber">
@@ -271,9 +293,9 @@ export default function Budget() {
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
                     data={[
-                      { name: 'Income', value: monthlyIncome, fill: '#10b981' },
-                      { name: 'Expenses', value: monthlyExpenses, fill: '#ef4444' },
-                      { name: 'Surplus', value: Math.max(0, surplus), fill: '#F7931A' },
+                     { name: 'Income', value: monthlyIncome, fill: '#10b981' },
+                     { name: 'Expenses', value: totalMonthlyExpenses, fill: '#ef4444' },
+                     { name: 'Surplus', value: Math.max(0, surplus), fill: '#F7931A' },
                     ]}
                     layout="vertical"
                   >
@@ -314,15 +336,30 @@ export default function Budget() {
         <TabsContent value="expenses">
           <div className="card-glass rounded-2xl p-6">
             <h3 className="font-semibold mb-6">Expenses</h3>
-            {expenseItems.length === 0 ? (
-              <p className="text-center text-zinc-500 py-12">No expenses added yet</p>
-            ) : (
-              <div className="space-y-3">
-                {expenseItems.map((item) => (
-                  <BudgetItemRow key={item.id} item={item} onEdit={setEditingItem} onDelete={deleteItem.mutate} setFormOpen={setFormOpen} />
-                ))}
-              </div>
-            )}
+            <div className="space-y-3">
+              {expenseItems.length === 0 && liabilities.filter(l => l.monthly_payment > 0).length === 0 ? (
+                <p className="text-center text-zinc-500 py-12">No expenses added yet</p>
+              ) : (
+                <>
+                  {/* Budget expenses */}
+                  {expenseItems.map((item) => (
+                    <BudgetItemRow key={item.id} item={item} onEdit={setEditingItem} onDelete={deleteItem.mutate} setFormOpen={setFormOpen} />
+                  ))}
+                  
+                  {/* Debt payments from liabilities */}
+                  {liabilities.filter(l => l.monthly_payment > 0).length > 0 && (
+                    <>
+                      <div className="pt-4 pb-2 border-t border-zinc-700/50">
+                        <p className="text-xs text-zinc-500 uppercase tracking-wider">From Liabilities</p>
+                      </div>
+                      {liabilities.filter(l => l.monthly_payment > 0).map((liability) => (
+                        <DebtPaymentRow key={liability.id} liability={liability} />
+                      ))}
+                    </>
+                  )}
+                </>
+              )}
+            </div>
           </div>
         </TabsContent>
       </Tabs>
@@ -491,6 +528,33 @@ function BudgetItemRow({ item, onEdit, onDelete, setFormOpen }) {
           >
             <Trash2 className="w-3.5 h-3.5 text-zinc-400" />
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DebtPaymentRow({ liability }) {
+  return (
+    <div className="flex items-center justify-between p-4 rounded-xl bg-orange-500/5 border border-orange-500/20">
+      <div className="flex items-center gap-4">
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-orange-400/10">
+          <ArrowDownRight className="w-5 h-5 text-orange-400" />
+        </div>
+        <div>
+          <p className="font-medium">{liability.name}</p>
+          <p className="text-sm text-zinc-500">
+            Debt Payment • {liability.interest_rate ? `${liability.interest_rate}% APR` : 'No interest'}
+          </p>
+        </div>
+      </div>
+      <div className="flex items-center gap-4">
+        <div className="text-right">
+          <p className="font-semibold text-orange-400">${liability.monthly_payment.toLocaleString()}/mo</p>
+          <p className="text-xs text-zinc-500">Balance: ${(liability.current_balance || 0).toLocaleString()}</p>
+        </div>
+        <div className="px-2 py-1 rounded-lg bg-zinc-800/50 border border-zinc-700">
+          <p className="text-[10px] text-zinc-500">Auto-synced</p>
         </div>
       </div>
     </div>
