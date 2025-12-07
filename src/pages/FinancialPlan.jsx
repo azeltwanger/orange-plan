@@ -1719,39 +1719,54 @@ export default function FinancialPlan() {
                   </div>
                   <p className="text-2xl font-bold text-emerald-400">
                     +{formatNumber((() => {
-                      const targetIndex = Math.max(0, retirementAge - currentAge);
-                      const portfolioAtTarget = projections[targetIndex]?.total || 0;
                       const yearsToWork = retirementAge - currentAge;
-
                       if (yearsToWork <= 0) return 0;
 
-                      // Calculate required nest egg for sustainable retirement (using today's dollars)
+                      // Calculate shortfall based on sustainable vs desired spending (both in today's dollars)
+                      const spendingShortfall = Math.max(0, retirementAnnualSpending - maxSustainableSpending);
+                      if (spendingShortfall <= 0) return 0;
+
+                      // Required additional nest egg in today's dollars to support the shortfall
                       const effectiveWithdrawalRate = withdrawalStrategy === '4percent' ? 0.04 : 
                         withdrawalStrategy === 'dynamic' ? dynamicWithdrawalRate / 100 : 
                         Math.max(0.03, 1 / (lifeExpectancy - retirementAge));
                       
-                      // Use today's dollars for max sustainable spending comparison
-                      const requiredNestEggTodayDollars = retirementAnnualSpending / effectiveWithdrawalRate;
-                      
-                      // But we need to inflate it to retirement age for comparison with future portfolio value
-                      const yearsToRetirement = Math.max(0, retirementAge - currentAge);
-                      const requiredNestEgg = requiredNestEggTodayDollars * Math.pow(1 + inflationRate / 100, yearsToRetirement);
+                      const additionalNestEggNeeded = spendingShortfall / effectiveWithdrawalRate;
 
-                      // Gap between required and projected
-                      const portfolioGap = Math.max(0, requiredNestEgg - portfolioAtTarget);
+                      // Calculate blended growth rate for new savings
+                      const totalAssets = btcValue + stocksValue + realEstateValue + bondsValue + otherValue;
+                      const btcPct = totalAssets > 0 ? btcValue / totalAssets : 0.5;
+                      const stocksPct = totalAssets > 0 ? stocksValue / totalAssets : 0.3;
+                      const realEstatePct = totalAssets > 0 ? realEstateValue / totalAssets : 0.1;
+                      const bondsPct = totalAssets > 0 ? bondsValue / totalAssets : 0.05;
+                      const otherPct = totalAssets > 0 ? otherValue / totalAssets : 0.05;
 
-                      if (portfolioGap <= 0) return 0;
+                      // Weighted average of expected returns
+                      const avgBtcReturn = (() => {
+                        let total = 0;
+                        for (let y = 1; y <= yearsToWork; y++) {
+                          total += getBtcGrowthRate(y);
+                        }
+                        return total / yearsToWork;
+                      })();
 
-                      // Blended growth rate for new savings
-                      const blendedGrowthRate = ((effectiveBtcCagr + stocksCagr + realEstateCagr + bondsCagr + otherCagr) / 5) / 100;
+                      const blendedGrowthRate = (
+                        btcPct * (avgBtcReturn / 100) +
+                        stocksPct * (effectiveStocksCagr / 100) +
+                        realEstatePct * (realEstateCagr / 100) +
+                        bondsPct * (bondsCagr / 100) +
+                        otherPct * (otherCagr / 100)
+                      );
 
-                      if (blendedGrowthRate === 0) {
-                        return portfolioGap / yearsToWork;
+                      // Annual savings needed using future value of annuity formula
+                      // FV = PMT * [(1+r)^n - 1] / r
+                      // So: PMT = FV / {[(1+r)^n - 1] / r}
+                      if (Math.abs(blendedGrowthRate) < 0.001) {
+                        return additionalNestEggNeeded / yearsToWork;
                       }
 
-                      // Annual savings needed using annuity formula
                       const fvFactor = (Math.pow(1 + blendedGrowthRate, yearsToWork) - 1) / blendedGrowthRate;
-                      return portfolioGap / fvFactor;
+                      return additionalNestEggNeeded / fvFactor;
                     })())}<span className="text-sm text-zinc-500">/yr</span>
                   </p>
                   <p className="text-[10px] text-zinc-500 mt-1">invested into your portfolio to retire at age {retirementAge}</p>
