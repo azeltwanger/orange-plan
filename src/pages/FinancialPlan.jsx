@@ -2138,9 +2138,9 @@ export default function FinancialPlan() {
                 </p>
                 {monthlyDebtPayments > 0 && (
                   <p className="text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
-                    ⚠️ <span className="font-medium">{formatNumber(monthlyDebtPayments * 12)}/yr</span> in debt payments is automatically included in your expenses. 
-                    This accounts for minimum payments on liabilities from your Liabilities page. 
-                    Create a "Debt Payoff" goal to accelerate repayment.
+                    ⚠️ <span className="font-medium">{formatNumber(monthlyDebtPayments * 12)}/yr</span> in debt payments reduces your available savings in these projections. 
+                    This represents the actual monthly payments you're making on liabilities (from your Liabilities page). 
+                    Create a "Debt Payoff" goal to accelerate repayment and increase future savings.
                   </p>
                 )}
               </div>
