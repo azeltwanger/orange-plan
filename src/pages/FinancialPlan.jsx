@@ -1770,9 +1770,21 @@ export default function FinancialPlan() {
                               </div>
                               <div className="pt-2 mt-2 border-t border-zinc-700">
                                 <div className="flex justify-between gap-4">
-                                  <span className="text-white font-semibold">Total:</span>
+                                  <span className="text-white font-semibold">Total Assets:</span>
                                   <span className="text-white font-semibold">${(p.total || 0).toLocaleString()}</span>
                                 </div>
+                                {p.totalDebt > 0 && (
+                                  <>
+                                    <div className="flex justify-between gap-4 mt-1">
+                                      <span className="text-rose-400 font-semibold">Total Debt:</span>
+                                      <span className="text-rose-400 font-semibold">-${(p.totalDebt || 0).toLocaleString()}</span>
+                                    </div>
+                                    <div className="flex justify-between gap-4 mt-1 pt-1 border-t border-zinc-700/50">
+                                      <span className="text-emerald-400 font-semibold">Net Worth:</span>
+                                      <span className="text-emerald-400 font-semibold">${((p.total || 0) - (p.totalDebt || 0)).toLocaleString()}</span>
+                                    </div>
+                                  </>
+                                )}
                               </div>
                               {!p.isRetired && p.yearSavingsForTooltip > 0 && (
                                 <div className="pt-2 mt-2 border-t border-zinc-700">
