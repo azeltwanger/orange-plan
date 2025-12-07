@@ -27,6 +27,7 @@ export default function EditAccountDialog({ open, onClose, account }) {
     account_type: 'taxable_brokerage',
     institution: '',
     notes: '',
+    roth_contributions: '',
   });
 
   useEffect(() => {
@@ -36,6 +37,7 @@ export default function EditAccountDialog({ open, onClose, account }) {
         account_type: account.account_type || 'taxable_brokerage',
         institution: account.institution || '',
         notes: account.notes || '',
+        roth_contributions: account.roth_contributions || '',
       });
     }
   }, [account]);
@@ -79,7 +81,10 @@ export default function EditAccountDialog({ open, onClose, account }) {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!form.name.trim()) return;
-    updateAccount.mutate(form);
+    updateAccount.mutate({
+      ...form,
+      roth_contributions: parseFloat(form.roth_contributions) || 0,
+    });
   };
 
   const handleDelete = () => {
@@ -138,6 +143,23 @@ export default function EditAccountDialog({ open, onClose, account }) {
               className="bg-zinc-900 border-zinc-700"
             />
           </div>
+
+          {/* Show Roth Contributions field only for Roth accounts */}
+          {(form.account_type === '401k_roth' || form.account_type === 'ira_roth' || form.account_type === 'hsa') && (
+            <div className="space-y-2 p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
+              <Label className="text-purple-300">Total Contributions Made ($)</Label>
+              <Input
+                type="number"
+                value={form.roth_contributions}
+                onChange={(e) => setForm({ ...form, roth_contributions: e.target.value })}
+                placeholder="e.g., 50000"
+                className="bg-zinc-900 border-zinc-700"
+              />
+              <p className="text-xs text-zinc-500">
+                Your contributions (not gains) are accessible penalty-free before age 59½
+              </p>
+            </div>
+          )}
 
           <DialogFooter className="pt-4 flex justify-between">
             <Button 

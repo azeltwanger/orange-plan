@@ -342,6 +342,11 @@ export default function FinancialPlan() {
     queryFn: () => base44.entities.Liability.list(),
   });
 
+  const { data: accounts = [] } = useQuery({
+    queryKey: ['accounts'],
+    queryFn: () => base44.entities.Account.list(),
+  });
+
   const { data: userSettings = [] } = useQuery({
     queryKey: ['userSettings'],
     queryFn: () => base44.entities.UserSettings.list(),
@@ -2108,8 +2113,10 @@ export default function FinancialPlan() {
 
                 const realReturnRate = bridgeGrowthRate - (inflationRate / 100);
 
-                // Estimate Roth contributions (assume 50% of Roth balance is contributions, accessible penalty-free)
-                const estimatedRothContributions = taxFreeValue * 0.5;
+                // Get actual Roth contributions from accounts (default to 0 if not specified)
+                const totalRothContributions = accounts
+                  .filter(a => ['401k_roth', 'ira_roth', 'hsa'].includes(a.account_type))
+                  .reduce((sum, a) => sum + (a.roth_contributions || 0), 0);
 
                 // Present value of withdrawals needed from taxable + Roth contributions
                 let bridgeFundsNeeded;
@@ -2119,7 +2126,7 @@ export default function FinancialPlan() {
                   bridgeFundsNeeded = annualNeedAtRetirement * (1 - Math.pow(1 + realReturnRate, -yearsUntilPenaltyFree)) / realReturnRate;
                 }
 
-                const currentBridgeFunds = taxableLiquidValue + estimatedRothContributions;
+                const currentBridgeFunds = taxableLiquidValue + totalRothContributions;
                 const shortfall = Math.max(0, bridgeFundsNeeded - currentBridgeFunds);
 
                 return (
@@ -2133,8 +2140,11 @@ export default function FinancialPlan() {
                     </p>
                     <div className="text-xs text-zinc-400 mt-2 space-y-1">
                       <div>• Liquid Taxable: {formatNumber(taxableLiquidValue)}</div>
-                      <div>• Est. Roth Contributions: {formatNumber(estimatedRothContributions)} (50% of Roth balance)</div>
+                      <div>• Roth Contributions: {formatNumber(totalRothContributions)}</div>
                       <div className="font-medium">• Total Accessible: {formatNumber(currentBridgeFunds)}</div>
+                      {totalRothContributions === 0 && taxFreeValue > 0 && (
+                        <div className="text-amber-400 mt-1">⚠️ Set Roth contributions in Account settings for accurate early retirement planning</div>
+                      )}
                     </div>
                     {shortfall > 0 ? (
                       <p className="text-sm text-rose-400 mt-2 font-semibold">
