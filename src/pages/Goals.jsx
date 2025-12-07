@@ -171,12 +171,8 @@ export default function Goals() {
         target: bucketGoals.reduce((sum, g) => sum + (g.target_amount || 0), 0),
         goalCount: bucketGoals.length,
       };
-    });
-    // Emergency fund special: target is 6 months expenses
-    if (totals.emergency.target === 0) {
-      totals.emergency.target = monthlyExpenses * 6;
-    }
-    return totals;
+      });
+      return totals;
   }, [goalsByBucket, monthlyExpenses]);
 
   // Life events sorted by year
