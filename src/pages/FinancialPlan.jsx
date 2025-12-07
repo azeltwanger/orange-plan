@@ -421,9 +421,29 @@ export default function FinancialPlan() {
   const monthlyIncome = budgetItems
     .filter(b => b.type === 'income' && b.is_active !== false)
     .reduce((sum, b) => sum + (b.amount * (freqMultiplier[b.frequency] || 12) / 12), 0);
-  const monthlyExpenses = budgetItems
+  
+  // Calculate base monthly expenses from budget items
+  const monthlyBudgetExpenses = budgetItems
     .filter(b => b.type === 'expense' && b.is_active !== false)
     .reduce((sum, b) => sum + (b.amount * (freqMultiplier[b.frequency] || 12) / 12), 0);
+  
+  // Calculate monthly debt payments from liabilities
+  const monthlyDebtPayments = liabilities.reduce((sum, liability) => {
+    // If monthly_payment is explicitly set and > 0, use it
+    if (liability.monthly_payment && liability.monthly_payment > 0) {
+      return sum + liability.monthly_payment;
+    }
+    // Otherwise, if there's an interest rate, estimate interest-only payment
+    if (liability.interest_rate && liability.interest_rate > 0 && liability.current_balance) {
+      const annualInterest = liability.current_balance * (liability.interest_rate / 100);
+      return sum + (annualInterest / 12);
+    }
+    // No payment required for this liability
+    return sum;
+  }, 0);
+  
+  // Total monthly expenses = budget expenses + debt payments
+  const monthlyExpenses = monthlyBudgetExpenses + monthlyDebtPayments;
   const annualSavings = Math.max(0, (monthlyIncome - monthlyExpenses) * 12);
 
 
@@ -564,6 +584,12 @@ export default function FinancialPlan() {
     const initialTaxableCostBasis = taxableHoldings.reduce((sum, h) => sum + (h.cost_basis_total || 0), 0);
     let runningTaxableBasis = initialTaxableCostBasis;
     
+    // Track debt balances for liabilities without payments (accruing interest)
+    const runningDebt = {};
+    liabilities.forEach(liability => {
+      runningDebt[liability.id] = liability.current_balance || 0;
+    });
+    
     // Initial 4% withdrawal amount (set on first retirement year)
     let initial4PercentWithdrawal = 0;
 
@@ -606,6 +632,8 @@ export default function FinancialPlan() {
       });
 
       // Debt payoff goals - spread payments over payoff period
+      // Track which liabilities have active payoff goals this year
+      const liabilitiesWithPayoffGoals = new Set();
       goals.forEach(goal => {
         if (goal.goal_type === 'debt_payoff' && goal.linked_liability_id && goal.payoff_years > 0) {
           const startYear = goal.target_date ? new Date(goal.target_date).getFullYear() : currentYear;
@@ -615,7 +643,34 @@ export default function FinancialPlan() {
             // Annual payment = total debt / payoff years
             const annualPayment = (goal.target_amount || 0) / goal.payoff_years;
             eventImpact -= annualPayment;
+            liabilitiesWithPayoffGoals.add(goal.linked_liability_id);
+            
+            // Reduce the debt balance for this liability
+            if (runningDebt[goal.linked_liability_id]) {
+              runningDebt[goal.linked_liability_id] = Math.max(0, runningDebt[goal.linked_liability_id] - annualPayment);
+            }
           }
+        }
+      });
+      
+      // For liabilities WITHOUT active payoff goals, accrue interest on the balance
+      liabilities.forEach(liability => {
+        if (!liabilitiesWithPayoffGoals.has(liability.id) && runningDebt[liability.id] > 0) {
+          const hasPayment = liability.monthly_payment && liability.monthly_payment > 0;
+          const hasInterest = liability.interest_rate && liability.interest_rate > 0;
+          
+          if (hasPayment) {
+            // Liability has a monthly payment - reduce balance by annual payments minus interest
+            const annualPayment = liability.monthly_payment * 12;
+            const annualInterest = runningDebt[liability.id] * (liability.interest_rate / 100);
+            const principalPayment = Math.max(0, annualPayment - annualInterest);
+            runningDebt[liability.id] = Math.max(0, runningDebt[liability.id] - principalPayment);
+          } else if (hasInterest) {
+            // No payment, interest accrues and is added to principal
+            const annualInterest = runningDebt[liability.id] * (liability.interest_rate / 100);
+            runningDebt[liability.id] += annualInterest;
+          }
+          // If no payment and no interest, debt stays constant
         }
       });
 
@@ -790,6 +845,10 @@ export default function FinancialPlan() {
       // Apply event impacts to total (but not to individual account buckets for simplicity)
       const totalBeforeEvent = runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther + runningSavings;
       // Note: eventImpact already includes yearGoalWithdrawal as a negative value
+      
+      // Calculate total debt (net worth impact)
+      const totalDebt = Object.values(runningDebt).reduce((sum, balance) => sum + balance, 0);
+      
       const total = Math.max(0, totalBeforeEvent + eventImpact);
       const realTotal = total / Math.pow(1 + effectiveInflation / 100, i);
 
@@ -832,10 +891,13 @@ export default function FinancialPlan() {
         withdrawFromTaxable: isRetired ? Math.round(withdrawFromTaxable) : 0,
         withdrawFromTaxDeferred: isRetired ? Math.round(withdrawFromTaxDeferred) : 0,
         withdrawFromTaxFree: isRetired ? Math.round(withdrawFromTaxFree) : 0,
+        // Debt tracking
+        totalDebt: Math.round(totalDebt),
+        debtPayments: Math.round(monthlyDebtPayments * 12), // Annual debt payments
         });
     }
     return data;
-  }, [btcValue, stocksValue, realEstateValue, bondsValue, otherValue, taxableValue, taxDeferredValue, taxFreeValue, currentAge, retirementAge, lifeExpectancy, effectiveBtcCagr, effectiveStocksCagr, realEstateCagr, bondsCagr, effectiveInflation, lifeEvents, goals, annualSavings, incomeGrowth, retirementAnnualSpending, withdrawalStrategy, dynamicWithdrawalRate, btcReturnModel, filingStatus, taxableHoldings, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, liabilities]);
+  }, [btcValue, stocksValue, realEstateValue, bondsValue, otherValue, taxableValue, taxDeferredValue, taxFreeValue, currentAge, retirementAge, lifeExpectancy, effectiveBtcCagr, effectiveStocksCagr, realEstateCagr, bondsCagr, effectiveInflation, lifeEvents, goals, annualSavings, incomeGrowth, retirementAnnualSpending, withdrawalStrategy, dynamicWithdrawalRate, btcReturnModel, filingStatus, taxableHoldings, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, liabilities, monthlyDebtPayments]);
 
   // Run Monte Carlo when button clicked
   const handleRunSimulation = () => {
@@ -2042,10 +2104,19 @@ export default function FinancialPlan() {
                 </div>
               </div>
               
-              <p className="text-xs text-zinc-500 mt-4">
-                💡 Your annual savings of <span className="text-emerald-400 font-medium">{formatNumber(annualSavings)}</span> comes from your Income & Expenses page. 
-                Increase income or reduce expenses there to accelerate your path to retirement.
-              </p>
+              <div className="mt-4 space-y-2">
+                <p className="text-xs text-zinc-500">
+                  💡 Your annual savings of <span className="text-emerald-400 font-medium">{formatNumber(annualSavings)}</span> is calculated from your Income & Expenses page. 
+                  Increase income or reduce expenses there to accelerate your path to retirement.
+                </p>
+                {monthlyDebtPayments > 0 && (
+                  <p className="text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
+                    ⚠️ <span className="font-medium">{formatNumber(monthlyDebtPayments * 12)}/yr</span> in debt payments is automatically included in your expenses. 
+                    This accounts for minimum payments on liabilities from your Liabilities page. 
+                    Create a "Debt Payoff" goal to accelerate repayment.
+                  </p>
+                )}
+              </div>
 
             {/* Withdrawal Strategy */}
             <div className="mt-6 p-4 rounded-xl bg-zinc-800/30">
