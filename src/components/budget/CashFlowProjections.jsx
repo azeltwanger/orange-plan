@@ -336,7 +336,7 @@ export default function CashFlowProjections({
                 <th className="text-left py-3 px-4 text-zinc-400 font-medium">Year</th>
                 <th className="text-right py-3 px-4 text-zinc-400 font-medium">Income</th>
                 <th className="text-right py-3 px-4 text-zinc-400 font-medium">Budgeted Expenses</th>
-                <th className="text-right py-3 px-4 text-zinc-400 font-medium">Debt</th>
+                <th className="text-right py-3 px-4 text-zinc-400 font-medium">Debt Payments</th>
                 <th className="text-right py-3 px-4 text-zinc-400 font-medium">Net Cash Flow</th>
                 <th className="text-left py-3 px-4 text-zinc-400 font-medium">Events</th>
               </tr>
