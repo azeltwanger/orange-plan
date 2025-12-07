@@ -126,9 +126,18 @@ export default function Goals() {
 
   // Calculate monthly expenses for emergency fund target
   const freqMultiplier = { monthly: 12, weekly: 52, biweekly: 26, quarterly: 4, annual: 1, one_time: 0 };
-  const monthlyExpenses = budgetItems
+  const monthlyBudgetExpenses = budgetItems
     .filter(b => b.type === 'expense' && b.is_active !== false)
     .reduce((sum, b) => sum + (b.amount * (freqMultiplier[b.frequency] || 12) / 12), 0);
+  
+  const monthlyDebtPayments = liabilities.reduce((sum, liability) => {
+    if (liability.monthly_payment && liability.monthly_payment > 0) {
+      return sum + liability.monthly_payment;
+    }
+    return sum;
+  }, 0);
+  
+  const monthlyExpenses = monthlyBudgetExpenses + monthlyDebtPayments;
   
   const monthlyIncome = budgetItems
     .filter(b => b.type === 'income' && b.is_active !== false)
@@ -554,8 +563,17 @@ export default function Goals() {
 
             {/* Emergency Fund Quick Presets */}
             {goalForm.bucket === 'emergency' && monthlyExpenses > 0 && (
-              <div className="space-y-2">
-                <Label className="text-zinc-400 text-xs">Quick presets based on ${monthlyExpenses.toLocaleString('en-US', { maximumFractionDigits: 0 })}/mo expenses</Label>
+              <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-emerald-400" />
+                  <Label className="text-emerald-300 font-medium">Auto-calculate based on monthly expenses</Label>
+                </div>
+                <p className="text-xs text-zinc-400">
+                  Your current monthly expenses: <span className="font-semibold text-emerald-400">${monthlyExpenses.toLocaleString('en-US', { maximumFractionDigits: 0 })}</span>
+                  {monthlyDebtPayments > 0 && (
+                    <span className="text-zinc-500"> (includes ${monthlyDebtPayments.toLocaleString('en-US', { maximumFractionDigits: 0 })} debt payments)</span>
+                  )}
+                </p>
                 <div className="grid grid-cols-4 gap-2">
                   {[3, 6, 12, 24].map(months => {
                     const amount = monthlyExpenses * months;
@@ -582,6 +600,9 @@ export default function Goals() {
                     );
                   })}
                 </div>
+                <p className="text-xs text-zinc-500">
+                  Click a preset to auto-fill your target amount. You can adjust it after.
+                </p>
               </div>
             )}
             <div className="grid grid-cols-2 gap-4">
