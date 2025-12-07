@@ -534,11 +534,12 @@ export default function FinancialPlan() {
   const getBtcGrowthRate = (yearFromNow) => {
     switch (btcReturnModel) {
       case 'saylor24':
-        // Saylor's Bitcoin24 model: ~29% CAGR declining over time
-        // Starts at ~45% and declines to ~15% over 20 years
-        const baseRate = 45;
-        const declinePerYear = 1.5;
-        return Math.max(15, baseRate - (yearFromNow * declinePerYear));
+        // Saylor's Bitcoin 24 Model: Starts at 50% in 2025
+        // Declines 2.5% per year until leveling off at 20% in 2037 (12 years)
+        const baseRate = 50;
+        const declinePerYear = 2.5;
+        const minimumRate = 20;
+        return Math.max(minimumRate, baseRate - (yearFromNow * declinePerYear));
       case 'conservative':
         // Conservative model: 10% flat
         return 10;
@@ -1529,7 +1530,7 @@ export default function FinancialPlan() {
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
               {[
                 { value: 'custom', label: 'Custom', desc: `${btcCagr}% CAGR` },
-                { value: 'saylor24', label: 'Saylor Bitcoin 24 Model', desc: '45%→15% declining' },
+                { value: 'saylor24', label: 'Saylor Bitcoin 24 Model', desc: '50%→20% declining' },
                 { value: 'conservative', label: 'Conservative', desc: '10% flat' },
               ].map(model => (
                 <button
