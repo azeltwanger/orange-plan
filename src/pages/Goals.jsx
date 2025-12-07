@@ -73,6 +73,7 @@ export default function Goals() {
   const [eventForm, setEventForm] = useState({
     name: '', event_type: 'major_expense', year: new Date().getFullYear() + 1, amount: '', is_recurring: false, recurring_years: '', affects: 'assets', notes: '',
     monthly_expense_impact: '', liability_amount: '', down_payment: '', interest_rate: '', loan_term_years: '',
+    allocation_method: 'proportionate', btc_allocation: 0, stocks_allocation: 0, real_estate_allocation: 0, bonds_allocation: 0, cash_allocation: 0, other_allocation: 0,
   });
 
   // Queries
@@ -206,7 +207,7 @@ export default function Goals() {
   });
 
   const resetGoalForm = () => setGoalForm({ name: '', target_amount: '', current_amount: '', target_date: '', goal_type: 'major_purchase', priority: 'medium', notes: '', bucket: 'goals', will_be_spent: false, funding_sources: [], linked_dca_plan_id: '', linked_liability_id: '', payoff_years: '' });
-  const resetEventForm = () => setEventForm({ name: '', event_type: 'major_expense', year: new Date().getFullYear() + 1, amount: '', is_recurring: false, recurring_years: '', affects: 'assets', notes: '', monthly_expense_impact: '', liability_amount: '', down_payment: '', interest_rate: '', loan_term_years: '' });
+  const resetEventForm = () => setEventForm({ name: '', event_type: 'major_expense', year: new Date().getFullYear() + 1, amount: '', is_recurring: false, recurring_years: '', affects: 'assets', notes: '', monthly_expense_impact: '', liability_amount: '', down_payment: '', interest_rate: '', loan_term_years: '', allocation_method: 'proportionate', btc_allocation: 0, stocks_allocation: 0, real_estate_allocation: 0, bonds_allocation: 0, cash_allocation: 0, other_allocation: 0 });
 
   useEffect(() => {
     if (editingGoal) {
@@ -244,6 +245,13 @@ export default function Goals() {
         down_payment: editingEvent.down_payment || '',
         interest_rate: editingEvent.interest_rate || '',
         loan_term_years: editingEvent.loan_term_years || '',
+        allocation_method: editingEvent.allocation_method || 'proportionate',
+        btc_allocation: editingEvent.btc_allocation || 0,
+        stocks_allocation: editingEvent.stocks_allocation || 0,
+        real_estate_allocation: editingEvent.real_estate_allocation || 0,
+        bonds_allocation: editingEvent.bonds_allocation || 0,
+        cash_allocation: editingEvent.cash_allocation || 0,
+        other_allocation: editingEvent.other_allocation || 0,
       });
     }
   }, [editingEvent]);
@@ -283,6 +291,13 @@ export default function Goals() {
       interest_rate: parseFloat(eventForm.interest_rate) || 0,
       loan_term_years: parseInt(eventForm.loan_term_years) || 0,
       affects: eventForm.event_type === 'home_purchase' ? 'multiple' : eventForm.affects,
+      allocation_method: eventForm.allocation_method || 'proportionate',
+      btc_allocation: parseFloat(eventForm.btc_allocation) || 0,
+      stocks_allocation: parseFloat(eventForm.stocks_allocation) || 0,
+      real_estate_allocation: parseFloat(eventForm.real_estate_allocation) || 0,
+      bonds_allocation: parseFloat(eventForm.bonds_allocation) || 0,
+      cash_allocation: parseFloat(eventForm.cash_allocation) || 0,
+      other_allocation: parseFloat(eventForm.other_allocation) || 0,
     };
     editingEvent ? updateEvent.mutate({ id: editingEvent.id, data }) : createEvent.mutate(data);
   };
@@ -788,6 +803,94 @@ export default function Goals() {
                 )}
               </div>
             </div>
+
+            {/* Investment Allocation - Only show for positive asset impacts (inheritance, windfall, etc.) */}
+            {eventForm.affects === 'assets' && parseFloat(eventForm.amount) > 0 && (
+              <div className="p-4 rounded-xl bg-orange-500/10 border border-orange-500/20 space-y-4">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-orange-400" />
+                  <Label className="text-orange-300 font-medium">How will you invest this capital?</Label>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setEventForm({ ...eventForm, allocation_method: 'proportionate' })}
+                    className={cn(
+                      "flex-1 p-3 rounded-lg border text-left transition-all",
+                      eventForm.allocation_method === 'proportionate'
+                        ? "bg-orange-500/20 border-orange-500/50"
+                        : "bg-zinc-800/50 border-zinc-700 hover:border-zinc-600"
+                    )}
+                  >
+                    <p className={cn("font-medium text-sm", eventForm.allocation_method === 'proportionate' ? "text-orange-400" : "text-zinc-200")}>
+                      Match Current Portfolio
+                    </p>
+                    <p className="text-xs text-zinc-400 mt-1">Invest proportional to existing assets</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEventForm({ ...eventForm, allocation_method: 'custom' })}
+                    className={cn(
+                      "flex-1 p-3 rounded-lg border text-left transition-all",
+                      eventForm.allocation_method === 'custom'
+                        ? "bg-orange-500/20 border-orange-500/50"
+                        : "bg-zinc-800/50 border-zinc-700 hover:border-zinc-600"
+                    )}
+                  >
+                    <p className={cn("font-medium text-sm", eventForm.allocation_method === 'custom' ? "text-orange-400" : "text-zinc-200")}>
+                      Custom Allocation
+                    </p>
+                    <p className="text-xs text-zinc-400 mt-1">Specify exactly where to invest</p>
+                  </button>
+                </div>
+
+                {eventForm.allocation_method === 'custom' && (
+                  <div className="space-y-3 pt-3 border-t border-zinc-700">
+                    {[
+                      { key: 'btc_allocation', label: 'Bitcoin', color: 'text-orange-400' },
+                      { key: 'stocks_allocation', label: 'Stocks', color: 'text-blue-400' },
+                      { key: 'real_estate_allocation', label: 'Real Estate', color: 'text-emerald-400' },
+                      { key: 'bonds_allocation', label: 'Bonds', color: 'text-purple-400' },
+                      { key: 'cash_allocation', label: 'Cash', color: 'text-cyan-400' },
+                      { key: 'other_allocation', label: 'Other', color: 'text-zinc-400' },
+                    ].map(({ key, label, color }) => (
+                      <div key={key} className="flex items-center gap-3">
+                        <Label className={cn("w-24 text-sm", color)}>{label}</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={eventForm[key]}
+                          onChange={(e) => setEventForm({ ...eventForm, [key]: e.target.value })}
+                          placeholder="0"
+                          className="flex-1 bg-zinc-900 border-zinc-700 text-zinc-100"
+                        />
+                        <span className="text-xs text-zinc-500 w-8">%</span>
+                      </div>
+                    ))}
+                    {(() => {
+                      const total = 
+                        (parseFloat(eventForm.btc_allocation) || 0) +
+                        (parseFloat(eventForm.stocks_allocation) || 0) +
+                        (parseFloat(eventForm.real_estate_allocation) || 0) +
+                        (parseFloat(eventForm.bonds_allocation) || 0) +
+                        (parseFloat(eventForm.cash_allocation) || 0) +
+                        (parseFloat(eventForm.other_allocation) || 0);
+                      const isValid = Math.abs(total - 100) < 0.01;
+                      return (
+                        <div className={cn(
+                          "p-2 rounded-lg text-sm font-medium text-center",
+                          isValid ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"
+                        )}>
+                          Total: {total.toFixed(1)}% {isValid ? '✓' : '(must equal 100%)'}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="flex gap-3 pt-4">
               <Button type="button" variant="outline" onClick={() => { setEventFormOpen(false); setEditingEvent(null); resetEventForm(); }} className="flex-1 bg-zinc-800 border-zinc-700 text-zinc-100 hover:bg-zinc-700">Cancel</Button>

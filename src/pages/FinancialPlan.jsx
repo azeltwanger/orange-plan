@@ -293,6 +293,7 @@ export default function FinancialPlan() {
   const [eventForm, setEventForm] = useState({
     name: '', event_type: 'expense_change', year: new Date().getFullYear() + 1, amount: '', is_recurring: false, recurring_years: '', affects: 'expenses', notes: '',
     monthly_expense_impact: '', liability_amount: '', down_payment: '', interest_rate: '', loan_term_years: '',
+    allocation_method: 'proportionate', btc_allocation: 0, stocks_allocation: 0, real_estate_allocation: 0, bonds_allocation: 0, cash_allocation: 0, other_allocation: 0,
   });
 
 
@@ -603,8 +604,28 @@ export default function FinancialPlan() {
               ? Math.pow(1 + incomeGrowth / 100, Math.max(0, yearsFromEventStart))
               : 1;
 
-            if (event.affects === 'assets') eventImpact += event.amount;
-            else if (event.affects === 'income') eventImpact += event.amount * growthMultiplier;
+            if (event.affects === 'assets') {
+              const eventAmount = event.amount;
+              eventImpact += eventAmount;
+              
+              // Apply custom allocation if specified and amount is positive
+              if (eventAmount > 0 && event.allocation_method === 'custom') {
+                const btcAlloc = (event.btc_allocation || 0) / 100;
+                const stocksAlloc = (event.stocks_allocation || 0) / 100;
+                const realEstateAlloc = (event.real_estate_allocation || 0) / 100;
+                const bondsAlloc = (event.bonds_allocation || 0) / 100;
+                const cashAlloc = (event.cash_allocation || 0) / 100;
+                const otherAlloc = (event.other_allocation || 0) / 100;
+                
+                runningBtc += eventAmount * btcAlloc;
+                runningStocks += eventAmount * stocksAlloc;
+                runningRealEstate += eventAmount * realEstateAlloc;
+                runningBonds += eventAmount * bondsAlloc;
+                runningOther += eventAmount * (cashAlloc + otherAlloc);
+              }
+            } else if (event.affects === 'income') {
+              eventImpact += event.amount * growthMultiplier;
+            }
 
             if (event.event_type === 'home_purchase' && event.year === year) {
               eventImpact -= (event.down_payment || 0);
@@ -857,14 +878,24 @@ export default function FinancialPlan() {
         }
       }
 
-      // Apply event impacts to total (but not to individual account buckets for simplicity)
+      // Apply event impacts to total
+      // For proportionate allocation or non-asset impacts, apply to total
+      // Custom allocations were already applied directly to asset buckets above
       const totalBeforeEvent = runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther + runningSavings;
-      // Note: eventImpact already includes yearGoalWithdrawal as a negative value
+      
+      // Only add eventImpact if it wasn't a custom-allocated positive asset event
+      let adjustedEventImpact = eventImpact;
+      lifeEvents.forEach(event => {
+        if (event.year === year && event.affects === 'assets' && event.amount > 0 && event.allocation_method === 'custom') {
+          // Subtract it back out since we already added it to individual buckets
+          adjustedEventImpact -= event.amount;
+        }
+      });
       
       // Calculate total debt (net worth impact)
       const totalDebt = Object.values(runningDebt).reduce((sum, balance) => sum + balance, 0);
       
-      const total = Math.max(0, totalBeforeEvent + eventImpact);
+      const total = Math.max(0, totalBeforeEvent + adjustedEventImpact);
       const realTotal = total / Math.pow(1 + effectiveInflation / 100, i);
 
       // Verify account totals match asset totals (they should track together)
@@ -1417,6 +1448,13 @@ export default function FinancialPlan() {
         affects: editingEvent.affects || 'expenses', notes: editingEvent.notes || '',
         monthly_expense_impact: editingEvent.monthly_expense_impact || '', liability_amount: editingEvent.liability_amount || '',
         down_payment: editingEvent.down_payment || '', interest_rate: editingEvent.interest_rate || '', loan_term_years: editingEvent.loan_term_years || '',
+        allocation_method: editingEvent.allocation_method || 'proportionate',
+        btc_allocation: editingEvent.btc_allocation || 0,
+        stocks_allocation: editingEvent.stocks_allocation || 0,
+        real_estate_allocation: editingEvent.real_estate_allocation || 0,
+        bonds_allocation: editingEvent.bonds_allocation || 0,
+        cash_allocation: editingEvent.cash_allocation || 0,
+        other_allocation: editingEvent.other_allocation || 0,
       });
     }
   }, [editingEvent]);
@@ -1442,6 +1480,13 @@ export default function FinancialPlan() {
       interest_rate: parseFloat(eventForm.interest_rate) || 0,
       loan_term_years: parseInt(eventForm.loan_term_years) || 0,
       affects: eventForm.event_type === 'home_purchase' ? 'multiple' : eventForm.affects,
+      allocation_method: eventForm.allocation_method || 'proportionate',
+      btc_allocation: parseFloat(eventForm.btc_allocation) || 0,
+      stocks_allocation: parseFloat(eventForm.stocks_allocation) || 0,
+      real_estate_allocation: parseFloat(eventForm.real_estate_allocation) || 0,
+      bonds_allocation: parseFloat(eventForm.bonds_allocation) || 0,
+      cash_allocation: parseFloat(eventForm.cash_allocation) || 0,
+      other_allocation: parseFloat(eventForm.other_allocation) || 0,
     };
     editingEvent ? updateEvent.mutate({ id: editingEvent.id, data }) : createEvent.mutate(data);
   };
@@ -1449,7 +1494,7 @@ export default function FinancialPlan() {
 
 
   const resetGoalForm = () => setGoalForm({ name: '', target_amount: '', current_amount: '', target_date: '', goal_type: 'other', priority: 'medium', notes: '' });
-  const resetEventForm = () => setEventForm({ name: '', event_type: 'expense_change', year: new Date().getFullYear() + 1, amount: '', is_recurring: false, recurring_years: '', affects: 'expenses', notes: '', monthly_expense_impact: '', liability_amount: '', down_payment: '', interest_rate: '', loan_term_years: '' });
+  const resetEventForm = () => setEventForm({ name: '', event_type: 'expense_change', year: new Date().getFullYear() + 1, amount: '', is_recurring: false, recurring_years: '', affects: 'expenses', notes: '', monthly_expense_impact: '', liability_amount: '', down_payment: '', interest_rate: '', loan_term_years: '', allocation_method: 'proportionate', btc_allocation: 0, stocks_allocation: 0, real_estate_allocation: 0, bonds_allocation: 0, cash_allocation: 0, other_allocation: 0 });
 
 
   return (
