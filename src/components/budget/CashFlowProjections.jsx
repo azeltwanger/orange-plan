@@ -33,9 +33,14 @@ export default function CashFlowProjections({
       const yearIncome = monthlyIncome * 12 * Math.pow(1 + incomeGrowthRate / 100, i);
       const yearBaseExpenses = monthlyBudgetExpenses * 12 * Math.pow(1 + inflationRate / 100, i);
       
+      // Life event impacts for this year
+      let lifeEventIncome = 0;
+      let lifeEventExpenses = 0;
+      const yearEvents = [];
+
       // Calculate debt payments for this year with month-by-month amortization
       let yearDebtPayments = 0;
-      
+
       liabilities.forEach(liability => {
         if (runningDebt[liability.id] > 0) {
           const hasPayment = liability.monthly_payment && liability.monthly_payment > 0;
@@ -73,11 +78,6 @@ export default function CashFlowProjections({
           }
         }
       });
-
-      // Life event impacts for this year
-      let lifeEventIncome = 0;
-      let lifeEventExpenses = 0;
-      const yearEvents = [];
       
       lifeEvents.forEach(event => {
         const yearsFromEventStart = year - event.year;
