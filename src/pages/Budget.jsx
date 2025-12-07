@@ -270,7 +270,7 @@ export default function Budget() {
         <TabsContent value="projections" className="space-y-6">
           <CashFlowProjections
             monthlyIncome={monthlyIncome}
-            monthlyExpenses={totalMonthlyExpenses}
+            monthlyBudgetExpenses={monthlyExpenses}
             lifeEvents={lifeEvents}
             goals={goals}
             liabilities={liabilities}

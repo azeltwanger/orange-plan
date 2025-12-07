@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 
 export default function CashFlowProjections({ 
   monthlyIncome, 
-  monthlyExpenses, 
+  monthlyBudgetExpenses, 
   lifeEvents = [], 
   goals = [], 
   liabilities = [],
@@ -31,7 +31,7 @@ export default function CashFlowProjections({
       
       // Base income and expenses with growth
       const yearIncome = monthlyIncome * 12 * Math.pow(1 + incomeGrowthRate / 100, i);
-      const yearBaseExpenses = monthlyExpenses * 12 * Math.pow(1 + inflationRate / 100, i);
+      const yearBaseExpenses = monthlyBudgetExpenses * 12 * Math.pow(1 + inflationRate / 100, i);
       
       // Calculate debt payments for this year with month-by-month amortization
       let yearDebtPayments = 0;
@@ -146,7 +146,7 @@ export default function CashFlowProjections({
     }
     
     return data;
-  }, [monthlyIncome, monthlyExpenses, lifeEvents, goals, liabilities, inflationRate, incomeGrowthRate, currentYear]);
+  }, [monthlyIncome, monthlyBudgetExpenses, lifeEvents, goals, liabilities, inflationRate, incomeGrowthRate, currentYear]);
 
   const formatCurrency = (value) => {
     if (Math.abs(value) >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
@@ -225,11 +225,17 @@ export default function CashFlowProjections({
                           <span className="text-rose-400">Expenses:</span>
                           <span className="text-zinc-200">${data.totalExpenses.toLocaleString()}</span>
                         </div>
+                        {data.baseExpenses > 0 && (
+                         <div className="flex justify-between gap-4 text-xs">
+                           <span className="text-zinc-500">• Budgeted Expenses:</span>
+                           <span className="text-zinc-400">${data.baseExpenses.toLocaleString()}</span>
+                         </div>
+                        )}
                         {data.debtPayments > 0 && (
-                          <div className="flex justify-between gap-4 text-xs">
-                            <span className="text-zinc-500">• Debt Payments:</span>
-                            <span className="text-zinc-400">${data.debtPayments.toLocaleString()}</span>
-                          </div>
+                         <div className="flex justify-between gap-4 text-xs">
+                           <span className="text-zinc-500">• Debt Payments:</span>
+                           <span className="text-zinc-400">${data.debtPayments.toLocaleString()}</span>
+                         </div>
                         )}
                         {data.lifeEventExpenses > 0 && (
                           <div className="flex justify-between gap-4 text-xs">
@@ -311,7 +317,7 @@ export default function CashFlowProjections({
               />
               <Legend />
               <Bar dataKey="totalIncome" fill="#10b981" name="Income" />
-              <Bar dataKey="baseExpenses" stackId="expenses" fill="#ef4444" name="Base Expenses" />
+              <Bar dataKey="baseExpenses" stackId="expenses" fill="#ef4444" name="Budgeted Expenses" />
               <Bar dataKey="debtPayments" stackId="expenses" fill="#f97316" name="Debt Payments" />
               <Bar dataKey="lifeEventExpenses" stackId="expenses" fill="#a78bfa" name="Life Events" />
               <Bar dataKey="goalExpenses" stackId="expenses" fill="#F7931A" name="Goals" />
@@ -329,7 +335,7 @@ export default function CashFlowProjections({
               <tr className="border-b border-zinc-800">
                 <th className="text-left py-3 px-4 text-zinc-400 font-medium">Year</th>
                 <th className="text-right py-3 px-4 text-zinc-400 font-medium">Income</th>
-                <th className="text-right py-3 px-4 text-zinc-400 font-medium">Expenses</th>
+                <th className="text-right py-3 px-4 text-zinc-400 font-medium">Budgeted Expenses</th>
                 <th className="text-right py-3 px-4 text-zinc-400 font-medium">Debt</th>
                 <th className="text-right py-3 px-4 text-zinc-400 font-medium">Net Cash Flow</th>
                 <th className="text-left py-3 px-4 text-zinc-400 font-medium">Events</th>
@@ -340,7 +346,7 @@ export default function CashFlowProjections({
                 <tr key={i} className={cn("border-b border-zinc-800/50", row.hasEvents && "bg-orange-500/5")}>
                   <td className="py-3 px-4">{row.year}</td>
                   <td className="text-right py-3 px-4 text-emerald-400">${row.totalIncome.toLocaleString()}</td>
-                  <td className="text-right py-3 px-4 text-rose-400">${(row.baseExpenses + row.lifeEventExpenses + row.goalExpenses).toLocaleString()}</td>
+                  <td className="text-right py-3 px-4 text-rose-400">${row.baseExpenses.toLocaleString()}</td>
                   <td className="text-right py-3 px-4 text-orange-400">${row.debtPayments.toLocaleString()}</td>
                   <td className={cn("text-right py-3 px-4 font-semibold", row.netCashFlow >= 0 ? "text-cyan-400" : "text-rose-400")}>
                     {row.netCashFlow >= 0 ? '+' : ''}${row.netCashFlow.toLocaleString()}
