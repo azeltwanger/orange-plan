@@ -1173,7 +1173,7 @@ export default function FinancialPlan() {
           const simulationYear = currentYear + year;
 
           // Growth
-          const yearBtcGrowth = getBtcGrowthRate(year);
+          const yearBtcGrowth = getBtcGrowthRate(year, effectiveInflation);
           const blendedGrowthRate = (
             btcPct * (yearBtcGrowth / 100) +
             stocksPct * (effectiveStocksCagr / 100) +
@@ -1794,7 +1794,7 @@ export default function FinancialPlan() {
                       const avgBtcReturn = (() => {
                         let total = 0;
                         for (let y = 1; y <= yearsToWork; y++) {
-                          total += getBtcGrowthRate(y);
+                          total += getBtcGrowthRate(y, effectiveInflation);
                         }
                         return total / yearsToWork;
                       })();
