@@ -1237,11 +1237,22 @@ export default function FinancialPlan() {
             const yearNetCashFlow = annualSavings * Math.pow(1 + incomeGrowth / 100, year);
             portfolio += yearNetCashFlow;
           } else {
-            // Withdraw test amount (inflation-adjusted from today's dollars)
+            // Calculate withdrawal based on strategy
             const yearsIntoRetirement = age - retirementAge;
-            // Inflate to retirement age once, then from that nominal base inflate each year in retirement
-            const nominalTestSpendingAtRetirement = testSpending * Math.pow(1 + effectiveInflation / 100, Math.max(0, retirementAge - currentAge));
-            const withdrawal = nominalTestSpendingAtRetirement * Math.pow(1 + effectiveInflation / 100, yearsIntoRetirement);
+            let withdrawal;
+            
+            if (withdrawalStrategy === '4percent') {
+              // 4% Rule: testSpending represents initial withdrawal, then inflation-adjusted
+              const nominalInitialWithdrawal = testSpending * Math.pow(1 + effectiveInflation / 100, Math.max(0, retirementAge - currentAge));
+              withdrawal = nominalInitialWithdrawal * Math.pow(1 + effectiveInflation / 100, yearsIntoRetirement);
+            } else if (withdrawalStrategy === 'dynamic') {
+              // Dynamic %: Withdraw percentage of current portfolio each year
+              withdrawal = portfolio * (dynamicWithdrawalRate / 100);
+            } else {
+              // Income-based: Withdraw exact testSpending amount, inflation-adjusted
+              const nominalTestSpendingAtRetirement = testSpending * Math.pow(1 + effectiveInflation / 100, Math.max(0, retirementAge - currentAge));
+              withdrawal = nominalTestSpendingAtRetirement * Math.pow(1 + effectiveInflation / 100, yearsIntoRetirement);
+            }
 
             if (portfolio < withdrawal) {
               canSustain = false;
