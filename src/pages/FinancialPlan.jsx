@@ -1239,10 +1239,26 @@ export default function FinancialPlan() {
             const yearNetCashFlow = annualSavings * Math.pow(1 + incomeGrowth / 100, year);
             portfolio += yearNetCashFlow;
           } else {
-            // Income-based: Withdraw exact testSpending amount, inflation-adjusted
+            // Calculate withdrawal based on strategy
             const yearsIntoRetirement = age - retirementAge;
-            const nominalTestSpendingAtRetirement = testSpending * Math.pow(1 + effectiveInflation / 100, Math.max(0, retirementAge - currentAge));
-            const withdrawal = nominalTestSpendingAtRetirement * Math.pow(1 + effectiveInflation / 100, yearsIntoRetirement);
+            let withdrawal;
+            
+            if (withdrawalStrategy === '4percent') {
+              // 4% Rule: First year is 4% of portfolio at retirement, then inflation-adjusted
+              if (yearsIntoRetirement === 0) {
+                storedInitialWithdrawal = portfolio * 0.04;
+                withdrawal = storedInitialWithdrawal;
+              } else {
+                withdrawal = storedInitialWithdrawal * Math.pow(1 + effectiveInflation / 100, yearsIntoRetirement);
+              }
+            } else if (withdrawalStrategy === 'dynamic') {
+              // Dynamic %: Withdraw percentage of current portfolio each year
+              withdrawal = portfolio * (dynamicWithdrawalRate / 100);
+            } else {
+              // Income-based: Withdraw exact testSpending amount, inflation-adjusted
+              const nominalTestSpendingAtRetirement = testSpending * Math.pow(1 + effectiveInflation / 100, Math.max(0, retirementAge - currentAge));
+              withdrawal = nominalTestSpendingAtRetirement * Math.pow(1 + effectiveInflation / 100, yearsIntoRetirement);
+            }
 
             if (portfolio < withdrawal) {
               canSustain = false;
@@ -1256,13 +1272,59 @@ export default function FinancialPlan() {
         if (canSustain && portfolio >= 0) {
           maxSpending = testSpending;
           low = testSpending;
+          if (withdrawalStrategy === '4percent' || withdrawalStrategy === 'dynamic') {
+            initialWithdrawalAtRetirement = storedInitialWithdrawal;
+          }
         } else {
           high = testSpending;
         }
       }
 
-      // maxSpending is already in today's dollars from binary search
-      setMaxSustainableSpending(Math.round(maxSpending));
+      // Convert result to today's dollars based on strategy
+      if (withdrawalStrategy === '4percent' || withdrawalStrategy === 'dynamic') {
+        // For these strategies, run one more time with the final maxSpending to get actual first-year withdrawal
+        let finalPortfolio = startingPortfolio;
+        const currentYear = new Date().getFullYear();
+        
+        for (let year = 1; year <= retirementAge - currentAge; year++) {
+          const yearBtcGrowth = getBtcGrowthRate(year, effectiveInflation);
+          const blendedGrowthRate = (
+            btcPct * (yearBtcGrowth / 100) +
+            stocksPct * (effectiveStocksCagr / 100) +
+            realEstatePct * (realEstateCagr / 100) +
+            bondsPct * (bondsCagr / 100) +
+            otherPct * (otherCagr / 100)
+          );
+          finalPortfolio = finalPortfolio * (1 + blendedGrowthRate);
+          const yearNetCashFlow = annualSavings * Math.pow(1 + incomeGrowth / 100, year);
+          finalPortfolio += yearNetCashFlow;
+          
+          // Apply major life events
+          const simulationYear = currentYear + year;
+          lifeEvents.forEach(event => {
+            if (event.year === simulationYear && event.affects === 'assets') {
+              finalPortfolio += event.amount;
+            }
+          });
+          goals.forEach(goal => {
+            if (goal.will_be_spent && goal.target_date && new Date(goal.target_date).getFullYear() === simulationYear) {
+              finalPortfolio -= (goal.target_amount || 0);
+            }
+          });
+        }
+        
+        // Calculate first-year withdrawal
+        const firstYearWithdrawal = withdrawalStrategy === '4percent' 
+          ? finalPortfolio * 0.04 
+          : finalPortfolio * (dynamicWithdrawalRate / 100);
+        
+        // Convert to today's dollars
+        const maxSpendingTodayDollars = firstYearWithdrawal / Math.pow(1 + effectiveInflation / 100, retirementAge - currentAge);
+        setMaxSustainableSpending(Math.round(maxSpendingTodayDollars));
+      } else {
+        // Income-based: maxSpending is already in today's dollars
+        setMaxSustainableSpending(Math.round(maxSpending));
+      }
     };
 
     calculateMaxSpending();
