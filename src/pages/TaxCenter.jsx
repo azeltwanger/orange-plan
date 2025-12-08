@@ -89,6 +89,7 @@ export default function TaxCenter() {
   const [lotSortOrder, setLotSortOrder] = useState('asc'); // 'asc' (oldest first), 'desc' (newest first)
   const [selectedTxIds, setSelectedTxIds] = useState([]);
   const [bulkAccountType, setBulkAccountType] = useState('taxable');
+  const [assetTypeFilter, setAssetTypeFilter] = useState('all');
   const queryClient = useQueryClient();
 
   // Tax planning settings
@@ -1340,6 +1341,19 @@ export default function TaxCenter() {
                 )}
               </div>
               <div className="flex items-center gap-2 flex-wrap">
+                <Select value={assetTypeFilter} onValueChange={setAssetTypeFilter}>
+                  <SelectTrigger className="w-36 bg-zinc-800 border-zinc-700 h-9 text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-zinc-900 border-zinc-700">
+                    <SelectItem value="all">All Assets</SelectItem>
+                    <SelectItem value="crypto">Crypto</SelectItem>
+                    <SelectItem value="stocks">Stocks</SelectItem>
+                    <SelectItem value="real_estate">Real Estate</SelectItem>
+                    <SelectItem value="bonds">Bonds</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
                 {selectedTxIds.length > 0 && (
                   <>
                     <Select value={bulkAccountType} onValueChange={setBulkAccountType}>
@@ -1411,6 +1425,12 @@ export default function TaxCenter() {
             ) : (
               <div className="space-y-3">
                 {[...transactions]
+                  .filter(tx => {
+                    if (assetTypeFilter === 'all') return true;
+                    const holding = holdings.find(h => h.ticker === tx.asset_ticker);
+                    const assetType = holding?.asset_type || (COINGECKO_IDS[tx.asset_ticker] ? 'crypto' : 'stocks');
+                    return assetType === assetTypeFilter;
+                  })
                   .sort((a, b) => {
                     const dateA = new Date(a.date);
                     const dateB = new Date(b.date);
@@ -1453,7 +1473,22 @@ export default function TaxCenter() {
                       </div>
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
-                          <p className="font-medium">{tx.type === 'buy' ? 'Bought' : 'Sold'} {tx.quantity} {tx.asset_ticker}</p>
+                          <p className="font-medium">
+                            {tx.type === 'buy' ? 'Bought' : 'Sold'} {(() => {
+                              const holding = holdings.find(h => h.ticker === tx.asset_ticker);
+                              const assetName = holding?.asset_name || tx.asset_ticker;
+                              const qty = tx.quantity || 0;
+                              
+                              // Format based on asset type
+                              if (holding?.asset_type === 'real_estate') {
+                                return assetName; // Just the name, no quantity (e.g., "Bought Home")
+                              } else if (holding?.asset_type === 'crypto' || COINGECKO_IDS[tx.asset_ticker]) {
+                                return `${qty.toFixed(qty < 1 ? 8 : 2)} ${tx.asset_ticker}`; // Crypto precision
+                              } else {
+                                return `${qty} ${assetName !== tx.asset_ticker ? assetName : `shares of ${tx.asset_ticker}`}`; // Stocks
+                              }
+                            })()}
+                          </p>
                           {tx.holding_period && tx.type === 'sell' && (
                             <Badge variant="outline" className={cn("text-xs", tx.holding_period === 'long_term' ? 'border-emerald-400/50 text-emerald-400' : 'border-amber-400/50 text-amber-400')}>
                               {tx.holding_period === 'long_term' ? 'Long-term' : 'Short-term'}
