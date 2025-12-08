@@ -1926,9 +1926,9 @@ export default function FinancialPlan() {
                               {!p.isRetired && p.yearSavingsForTooltip !== 0 && (
                                 <div className="pt-2 mt-2 border-t border-zinc-700">
                                   <p className={`font-medium ${p.yearSavingsForTooltip > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                    Annual {p.yearSavingsForTooltip > 0 ? 'Inflow' : 'Outflow'}: ${Math.abs(p.yearSavingsForTooltip).toLocaleString()}
+                                    Net Cash Flow: ${Math.abs(p.yearSavingsForTooltip).toLocaleString()}
                                   </p>
-                                  <p className="text-[10px] text-zinc-500 mt-1">{p.yearSavingsForTooltip > 0 ? 'From surplus income & expenses' : 'Portfolio drawdown (expenses exceed income)'}</p>
+                                  <p className="text-[10px] text-zinc-500 mt-1">Income - (Lifestyle Expenses + Debt Payments)</p>
                                 </div>
                               )}
                               {p.isRetired && (p.yearWithdrawal > 0 || p.yearGoalWithdrawal > 0) && (
