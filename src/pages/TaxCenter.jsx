@@ -697,40 +697,42 @@ export default function TaxCenter() {
   const sellTxs = transactions.filter(t => t.type === 'sell');
   const shortTermGains = sellTxs.filter(t => t.holding_period === 'short_term').reduce((sum, t) => sum + (t.realized_gain_loss || 0), 0);
   const longTermGains = sellTxs.filter(t => t.holding_period === 'long_term').reduce((sum, t) => sum + (t.realized_gain_loss || 0), 0);
+  const totalRealized = shortTermGains + longTermGains;
   
   // Total BTC from holdings
   const totalBtcHeld = taxLots.reduce((sum, lot) => sum + lot.remainingQuantity, 0);
 
-  // Get brackets based on filing status
-  const currentBrackets = TAX_BRACKETS_2025[filingStatus];
+  // Get brackets based on filing status and selected year
+  const { brackets: currentBrackets, standardDeductions } = getTaxDataForYear(selectedYear);
+  const yearBrackets = currentBrackets[filingStatus];
 
-  const getLTCGRate = (income) => {
-    for (const bracket of currentBrackets.ltcg) {
+  const getLTCGRateForYear = (income) => {
+    for (const bracket of yearBrackets.ltcg) {
       if (income <= bracket.max) return bracket.rate;
     }
     return 0.20;
   };
 
-  const getSTCGRate = (income) => {
-    for (const bracket of currentBrackets.income) {
+  const getSTCGRateForYear = (income) => {
+    for (const bracket of yearBrackets.income) {
       if (income <= bracket.max) return bracket.rate;
     }
     return 0.37;
   };
 
-  const effectiveLTCGRate = getLTCGRate(annualIncome);
-  const effectiveSTCGRate = getSTCGRate(annualIncome);
+  const effectiveLTCGRate = getLTCGRateForYear(annualIncome);
+  const effectiveSTCGRate = getSTCGRateForYear(annualIncome);
   
   // Standard deduction effectively increases the 0% LTCG bracket
   // Taxable income = Gross income - Standard deduction
   // So if gross income is $0, you can realize gains up to (standard deduction + 0% bracket max) at 0%
-  const standardDeduction = STANDARD_DEDUCTION_2025[filingStatus];
+  const standardDeduction = standardDeductions[filingStatus];
   const taxableIncome = Math.max(0, annualIncome - standardDeduction);
   
   // 0% LTCG bracket room is based on taxable income, not gross income
   // If taxable income is below the 0% threshold, you have room
-  const ltcgBracketRoom = Math.max(0, currentBrackets.ltcg[0].max - taxableIncome);
-  const canHarvestGainsTaxFree = taxableIncome < currentBrackets.ltcg[0].max;
+  const ltcgBracketRoom = Math.max(0, yearBrackets.ltcg[0].max - taxableIncome);
+  const canHarvestGainsTaxFree = taxableIncome < yearBrackets.ltcg[0].max;
 
   const estimatedTax = (shortTermGains > 0 ? shortTermGains * effectiveSTCGRate : 0) + (longTermGains > 0 ? longTermGains * effectiveLTCGRate : 0);
 
@@ -750,7 +752,7 @@ export default function TaxCenter() {
 
 
   // Tax bracket visualization data - include all brackets up to 37%
-  const bracketChartData = currentBrackets.income.map(bracket => ({
+  const bracketChartData = yearBrackets.income.map(bracket => ({
     name: bracket.label,
     max: bracket.max === Infinity ? (filingStatus === 'married' ? 900000 : 800000) : bracket.max,
     rate: bracket.rate * 100,
@@ -1204,7 +1206,7 @@ export default function TaxCenter() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Tax Bracket Chart */}
             <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
-              <h3 className="font-semibold mb-4">Income Tax Brackets (2025)</h3>
+              <h3 className="font-semibold mb-4">Income Tax Brackets ({selectedYear})</h3>
               <div className="h-48">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={bracketChartData} layout="vertical">
@@ -1231,9 +1233,9 @@ export default function TaxCenter() {
               <h3 className="font-semibold mb-4">{selectedYear} Summary</h3>
               <div className="space-y-4">
                 <div className="flex justify-between items-center p-3 rounded-lg bg-zinc-800/30">
-                  <span className="text-zinc-400">Total Realized Gains</span>
-                  <span className={cn("font-semibold", (shortTermGains + longTermGains) >= 0 ? "text-emerald-400" : "text-rose-400")}>
-                    ${(shortTermGains + longTermGains).toLocaleString()}
+                  <span className="text-zinc-400">{totalRealized >= 0 ? 'Total Realized Gains' : 'Total Realized Losses'}</span>
+                  <span className={cn("font-semibold", totalRealized >= 0 ? "text-emerald-400" : "text-rose-400")}>
+                    {totalRealized >= 0 ? '' : '-'}${Math.abs(totalRealized).toLocaleString()}
                   </span>
                 </div>
                 <div className="flex justify-between items-center p-3 rounded-lg bg-zinc-800/30">
