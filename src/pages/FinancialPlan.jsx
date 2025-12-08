@@ -1930,12 +1930,17 @@ export default function FinancialPlan() {
                                   </div>
                                 )}
                               </div>
-                              {!p.isRetired && p.yearSavingsForTooltip !== 0 && (
+                              {!p.isRetired && (
                                 <div className="pt-2 mt-2 border-t border-zinc-700">
-                                  <p className={`font-medium ${p.yearSavingsForTooltip > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                    Annual Net Cash Flow: ${p.yearSavingsForTooltip.toLocaleString()}
+                                  <div className="text-xs space-y-0.5 text-zinc-400 mb-1">
+                                    <div className="flex justify-between">
+                                      <span>• Current Spending:</span>
+                                      <span className="text-zinc-300">${currentAnnualSpending.toLocaleString()}</span>
+                                    </div>
+                                  </div>
+                                  <p className={`font-medium ${p.yearSavingsForTooltip >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                    Total Annual {p.yearSavingsForTooltip >= 0 ? 'Inflow' : 'Outflow'}: ${Math.abs(p.yearSavingsForTooltip).toLocaleString()}
                                   </p>
-                                  <p className="text-[10px] text-zinc-500 mt-1">From income minus current spending</p>
                                 </div>
                               )}
                               {p.isRetired && (p.yearWithdrawal > 0 || p.yearGoalWithdrawal > 0) && (
