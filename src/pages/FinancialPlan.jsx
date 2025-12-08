@@ -599,9 +599,11 @@ export default function FinancialPlan() {
     const runningDebt = {};
     const encumberedBtc = {}; // Track BTC locked as collateral
     const releasedBtc = {}; // Track BTC released when LTV drops below threshold
+    const debtPaidOffYears = {}; // Track when each debt is paid off
 
     liabilities.forEach(liability => {
       runningDebt[liability.id] = liability.current_balance || 0;
+      debtPaidOffYears[liability.id] = null;
       if (liability.type === 'btc_collateralized' && liability.collateral_btc_amount) {
         encumberedBtc[liability.id] = liability.collateral_btc_amount;
         releasedBtc[liability.id] = 0;
@@ -726,6 +728,11 @@ export default function FinancialPlan() {
 
             // Update running debt balance for this liability
             runningDebt[liability.id] = remainingBalance;
+            
+            // Track if this debt was paid off this year
+            if (remainingBalance <= 0 && debtPaidOffYears[liability.id] === null) {
+              debtPaidOffYears[liability.id] = year;
+            }
           } else if (hasInterest) {
             // No payment specified: interest accrues annually and is added to principal
             const annualInterest = runningDebt[liability.id] * (liability.interest_rate / 100);
@@ -984,6 +991,10 @@ export default function FinancialPlan() {
         encumberedBtc: totalEncumberedBtc,
         releasedBtc: totalReleasedBtc,
         liquidBtc: Math.max(0, (runningBtc / (btcPrice || 97000)) - totalEncumberedBtc),
+        debtPaidOffThisYear: Object.entries(debtPaidOffYears)
+          .filter(([id, payoffYear]) => payoffYear === year)
+          .map(([id]) => liabilities.find(l => l.id === id)?.name)
+          .filter(Boolean),
         });
     }
     return data;
@@ -1909,6 +1920,12 @@ export default function FinancialPlan() {
                                     </div>
                                   </>
                                 )}
+                                {p.debtPaidOffThisYear && p.debtPaidOffThisYear.length > 0 && (
+                                  <div className="pt-2 mt-2 border-t border-zinc-700">
+                                    <p className="text-emerald-400 font-semibold text-xs">✓ Debt Paid Off!</p>
+                                    <p className="text-[10px] text-zinc-500">{p.debtPaidOffThisYear.join(', ')}</p>
+                                  </div>
+                                )}
                               </div>
                               {!p.isRetired && p.yearSavingsForTooltip !== 0 && (
                                 <div className="pt-2 mt-2 border-t border-zinc-700">
@@ -2064,7 +2081,8 @@ export default function FinancialPlan() {
                     <Area type="monotone" dataKey="realEstate" stackId="1" stroke="#10b981" fill="#10b981" fillOpacity={0.3} name="Real Estate" yAxisId="left" />
                     <Area type="monotone" dataKey="stocks" stackId="1" stroke="#60a5fa" fill="#60a5fa" fillOpacity={0.3} name="Stocks" yAxisId="left" />
                     <Area type="monotone" dataKey="btc" stackId="1" stroke="#F7931A" fill="#F7931A" fillOpacity={0.5} name="Bitcoin" yAxisId="left" />
-                    <Line type="monotone" dataKey="total" stroke="#ffffff" strokeWidth={2} dot={false} name="Total" yAxisId="left" />
+                    <Line type="monotone" dataKey="total" stroke="#ffffff" strokeWidth={2} dot={false} name="Total Assets" yAxisId="left" />
+                    <Line type="monotone" dataKey="totalDebt" stroke="#dc2626" strokeWidth={2} strokeDasharray="5 5" dot={false} name="Total Debt" yAxisId="left" />
                     <Line type="monotone" dataKey="yearGoalWithdrawal" stroke="#fb923c" strokeWidth={2} strokeDasharray="4 4" dot={(props) => {
                       // Show dots for years with goal withdrawals
                       if (props.payload?.yearGoalWithdrawal > 0) {
@@ -2079,6 +2097,18 @@ export default function FinancialPlan() {
                       }
                       return null;
                     }} name="Withdrawal" yAxisId="right" connectNulls={false} />
+                    {/* Mark debt payoffs */}
+                    {projections.filter(p => p.debtPaidOffThisYear && p.debtPaidOffThisYear.length > 0).map((p) => (
+                      <ReferenceLine 
+                        key={`debt-${p.age}`}
+                        x={p.age} 
+                        stroke="#22c55e"
+                        strokeDasharray="3 3"
+                        strokeOpacity={0.6}
+                        label={{ value: '✓ Debt Free', fill: '#22c55e', fontSize: 9, position: 'top' }}
+                        yAxisId="left"
+                      />
+                    ))}
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
