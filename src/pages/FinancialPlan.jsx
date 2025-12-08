@@ -1142,6 +1142,7 @@ export default function FinancialPlan() {
   useEffect(() => {
     const calculateMaxSpending = () => {
       const startingPortfolio = taxableValue + taxDeferredValue + taxFreeValue;
+      console.log('[Max Spending Debug] Starting portfolio:', startingPortfolio, 'Annual savings:', annualSavings, 'Retirement age:', retirementAge);
       if (startingPortfolio <= 0 && annualSavings <= 0) {
         setMaxSustainableSpending(0);
         return;
@@ -1230,9 +1231,12 @@ export default function FinancialPlan() {
           portfolio += eventImpact;
 
           if (!isRetired) {
-            // Add savings
+            // Add savings (can be negative if drawing down)
             const yearSavings = annualSavings * Math.pow(1 + incomeGrowth / 100, year);
             portfolio += yearSavings;
+            if (year <= 5) {
+              console.log(`[Max Spending Debug] Year ${year} (Age ${age}): Portfolio after growth: ${portfolio.toFixed(0)}, yearSavings: ${yearSavings.toFixed(0)}, portfolio after savings: ${(portfolio + yearSavings).toFixed(0)}`);
+            }
           } else {
             // Withdraw test amount (inflation-adjusted from today's dollars)
             const yearsIntoRetirement = age - retirementAge;
@@ -1258,6 +1262,7 @@ export default function FinancialPlan() {
       }
 
       // maxSpending is already in today's dollars from binary search
+      console.log('[Max Spending Debug] Final max sustainable spending:', Math.round(maxSpending));
       setMaxSustainableSpending(Math.round(maxSpending));
     };
 
@@ -1918,12 +1923,12 @@ export default function FinancialPlan() {
                                   </>
                                 )}
                               </div>
-                              {!p.isRetired && p.yearSavingsForTooltip > 0 && (
+                              {!p.isRetired && p.yearSavingsForTooltip !== 0 && (
                                 <div className="pt-2 mt-2 border-t border-zinc-700">
-                                  <p className={`font-medium text-emerald-400`}>
-                                    Annual Inflow: ${p.yearSavingsForTooltip.toLocaleString()}
+                                  <p className={`font-medium ${p.yearSavingsForTooltip > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                    Annual {p.yearSavingsForTooltip > 0 ? 'Inflow' : 'Outflow'}: ${Math.abs(p.yearSavingsForTooltip).toLocaleString()}
                                   </p>
-                                  <p className="text-[10px] text-zinc-500 mt-1">From surplus income & expenses</p>
+                                  <p className="text-[10px] text-zinc-500 mt-1">{p.yearSavingsForTooltip > 0 ? 'From surplus income & expenses' : 'Portfolio drawdown (expenses exceed income)'}</p>
                                 </div>
                               )}
                               {p.isRetired && (p.yearWithdrawal > 0 || p.yearGoalWithdrawal > 0) && (
