@@ -1157,8 +1157,8 @@ export default function FinancialPlan() {
       const bondsPct = totalAssets > 0 ? bondsValue / totalAssets : 0;
       const otherPct = totalAssets > 0 ? otherValue / totalAssets : 0;
 
-      // For 4% Rule: calculate first-year withdrawal in today's dollars
-      if (withdrawalStrategy === '4percent') {
+      // For 4% Rule and Dynamic %: calculate first-year withdrawal in today's dollars
+      if (withdrawalStrategy === '4percent' || withdrawalStrategy === 'dynamic') {
         let portfolioAtRetirement = startingPortfolio;
         const currentYear = new Date().getFullYear();
         
@@ -1187,73 +1187,16 @@ export default function FinancialPlan() {
           });
         }
         
-        const firstYearWithdrawal = portfolioAtRetirement * 0.04;
+        const firstYearWithdrawal = withdrawalStrategy === '4percent'
+          ? portfolioAtRetirement * 0.04
+          : portfolioAtRetirement * (dynamicWithdrawalRate / 100);
+        
         const maxSpendingTodayDollars = firstYearWithdrawal / Math.pow(1 + effectiveInflation / 100, retirementAge - currentAge);
         setMaxSustainableSpending(Math.round(maxSpendingTodayDollars));
         return;
       }
 
-      // For Dynamic %: simulate actual withdrawals and find minimum (guaranteed floor)
-      if (withdrawalStrategy === 'dynamic') {
-        let portfolio = startingPortfolio;
-        const currentYear = new Date().getFullYear();
-        const withdrawals = [];
-        
-        // Grow to retirement
-        for (let year = 1; year <= retirementAge - currentAge; year++) {
-          const yearBtcGrowth = getBtcGrowthRate(year, effectiveInflation);
-          const blendedGrowthRate = (
-            btcPct * (yearBtcGrowth / 100) +
-            stocksPct * (effectiveStocksCagr / 100) +
-            realEstatePct * (realEstateCagr / 100) +
-            bondsPct * (bondsCagr / 100) +
-            otherPct * (otherCagr / 100)
-          );
-          portfolio *= (1 + blendedGrowthRate);
-          portfolio += annualSavings * Math.pow(1 + incomeGrowth / 100, year);
-          
-          const simulationYear = currentYear + year;
-          lifeEvents.forEach(event => {
-            if (event.year === simulationYear && event.affects === 'assets') {
-              portfolio += event.amount;
-            }
-          });
-          goals.forEach(goal => {
-            if (goal.will_be_spent && goal.target_date && new Date(goal.target_date).getFullYear() === simulationYear) {
-              portfolio -= (goal.target_amount || 0);
-            }
-          });
-        }
-        
-        // Simulate retirement years with dynamic withdrawal
-        for (let year = retirementAge - currentAge + 1; year <= lifeExpectancy - currentAge; year++) {
-          const yearBtcGrowth = getBtcGrowthRate(year, effectiveInflation);
-          const blendedGrowthRate = (
-            btcPct * (yearBtcGrowth / 100) +
-            stocksPct * (effectiveStocksCagr / 100) +
-            realEstatePct * (realEstateCagr / 100) +
-            bondsPct * (bondsCagr / 100) +
-            otherPct * (otherCagr / 100)
-          );
-          portfolio *= (1 + blendedGrowthRate);
-          
-          // Dynamic withdrawal: take percentage of current portfolio
-          const withdrawal = portfolio * (dynamicWithdrawalRate / 100);
-          withdrawals.push(withdrawal);
-          portfolio -= withdrawal;
-          
-          if (portfolio < 0) break;
-        }
-        
-        // Find minimum withdrawal (worst year) and convert to today's dollars
-        const minWithdrawal = withdrawals.length > 0 ? Math.min(...withdrawals) : 0;
-        const avgYearInRetirement = (retirementAge - currentAge + lifeExpectancy - currentAge) / 2;
-        const minWithdrawalTodayDollars = minWithdrawal / Math.pow(1 + effectiveInflation / 100, avgYearInRetirement - currentAge);
-        setMaxSustainableSpending(Math.round(minWithdrawalTodayDollars));
-        return;
-      }
-
-      // For Income-based (variable): binary search to find max sustainable spending
+      // For Income-based: binary search to find max sustainable spending
       let low = 0;
       let high = 1000000;
       let maxSpending = 0;
@@ -1317,8 +1260,21 @@ export default function FinancialPlan() {
             portfolio += annualSavings * Math.pow(1 + incomeGrowth / 100, year);
           } else {
             const yearsIntoRetirement = age - retirementAge;
-            const nominalTestSpendingAtRetirement = testSpending * Math.pow(1 + effectiveInflation / 100, Math.max(0, retirementAge - currentAge));
-            const withdrawal = nominalTestSpendingAtRetirement * Math.pow(1 + effectiveInflation / 100, yearsIntoRetirement);
+            const nominalSpendingRequired = testSpending * Math.pow(1 + effectiveInflation / 100, yearsIntoRetirement);
+            
+            let withdrawal;
+            if (withdrawalStrategy === 'dynamic') {
+              // Dynamic: withdraw % of portfolio, but must meet minimum spending
+              const dynamicAmount = portfolio * (dynamicWithdrawalRate / 100);
+              if (dynamicAmount < nominalSpendingRequired) {
+                canSustain = false;
+                break;
+              }
+              withdrawal = dynamicAmount;
+            } else {
+              // Income-based: withdraw exactly the nominal spending needed
+              withdrawal = nominalSpendingRequired;
+            }
 
             if (portfolio < withdrawal) {
               canSustain = false;
