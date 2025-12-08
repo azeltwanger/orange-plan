@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { Plus, Trash2, Package, Calendar, DollarSign } from 'lucide-react';
+import { Plus, Trash2, Package, Calendar, DollarSign, Pencil } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 export default function ManageLotsDialog({ open, onClose, holding, btcPrice }) {
   const queryClient = useQueryClient();
   const [addingLot, setAddingLot] = useState(false);
+  const [editingLot, setEditingLot] = useState(null);
   const [newLot, setNewLot] = useState({
     quantity: '',
     price_per_unit: '',
@@ -72,6 +73,34 @@ export default function ManageLotsDialog({ open, onClose, holding, btcPrice }) {
     },
   });
 
+  const updateLot = useMutation({
+    mutationFn: async ({ lot, data }) => {
+      const total = data.quantity * data.price_per_unit;
+      const oldTotal = lot.total_value || 0;
+      
+      await base44.entities.Transaction.update(lot.id, {
+        quantity: data.quantity,
+        price_per_unit: data.price_per_unit,
+        total_value: total,
+        date: data.date,
+        cost_basis: total,
+        exchange_or_wallet: data.exchange_or_wallet,
+      });
+
+      // Update holding cost basis
+      const newCostBasis = (holding.cost_basis_total || 0) - oldTotal + total;
+      await base44.entities.Holding.update(holding.id, {
+        cost_basis_total: newCostBasis,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['holdings'] });
+      setEditingLot(null);
+      setNewLot({ quantity: '', price_per_unit: '', date: format(new Date(), 'yyyy-MM-dd'), exchange_or_wallet: '' });
+    },
+  });
+
   const deleteLot = useMutation({
     mutationFn: async (lot) => {
       await base44.entities.Transaction.delete(lot.id);
@@ -90,11 +119,39 @@ export default function ManageLotsDialog({ open, onClose, holding, btcPrice }) {
 
   const handleAddLot = (e) => {
     e.preventDefault();
-    createLot.mutate({
-      ...newLot,
-      quantity: parseFloat(newLot.quantity),
-      price_per_unit: parseFloat(newLot.price_per_unit),
+    if (editingLot) {
+      updateLot.mutate({
+        lot: editingLot,
+        data: {
+          ...newLot,
+          quantity: parseFloat(newLot.quantity),
+          price_per_unit: parseFloat(newLot.price_per_unit),
+        },
+      });
+    } else {
+      createLot.mutate({
+        ...newLot,
+        quantity: parseFloat(newLot.quantity),
+        price_per_unit: parseFloat(newLot.price_per_unit),
+      });
+    }
+  };
+
+  const handleEditLot = (lot) => {
+    setEditingLot(lot);
+    setNewLot({
+      quantity: lot.quantity.toString(),
+      price_per_unit: lot.price_per_unit.toString(),
+      date: lot.date || format(new Date(), 'yyyy-MM-dd'),
+      exchange_or_wallet: lot.exchange_or_wallet || '',
     });
+    setAddingLot(true);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingLot(null);
+    setAddingLot(false);
+    setNewLot({ quantity: '', price_per_unit: '', date: format(new Date(), 'yyyy-MM-dd'), exchange_or_wallet: '' });
   };
 
   if (!holding) return null;
@@ -174,13 +231,19 @@ export default function ManageLotsDialog({ open, onClose, holding, btcPrice }) {
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
                       <div className="text-right">
                         <p className="font-semibold">${(lot.total_value || 0).toLocaleString()}</p>
                         {lot.exchange_or_wallet && (
                           <p className="text-xs text-zinc-500">{lot.exchange_or_wallet}</p>
                         )}
                       </div>
+                      <button
+                        onClick={() => handleEditLot(lot)}
+                        className="p-1.5 rounded-lg hover:bg-orange-600/30 transition-colors"
+                      >
+                        <Pencil className="w-4 h-4 text-zinc-500 hover:text-orange-400" />
+                      </button>
                       <button
                         onClick={() => deleteLot.mutate(lot)}
                         className="p-1.5 rounded-lg hover:bg-rose-600/30 transition-colors"
@@ -194,12 +257,12 @@ export default function ManageLotsDialog({ open, onClose, holding, btcPrice }) {
             )}
           </div>
 
-          {/* Add Lot Form */}
+          {/* Add/Edit Lot Form */}
           {addingLot && (
             <form onSubmit={handleAddLot} className="p-4 rounded-xl bg-zinc-800/50 border border-zinc-700 space-y-4">
               <h4 className="font-semibold flex items-center gap-2">
-                <Plus className="w-4 h-4 text-orange-400" />
-                Add Purchase Lot
+                {editingLot ? <Pencil className="w-4 h-4 text-orange-400" /> : <Plus className="w-4 h-4 text-orange-400" />}
+                {editingLot ? 'Edit Purchase Lot' : 'Add Purchase Lot'}
               </h4>
               
               <div className="grid grid-cols-2 gap-4">
@@ -265,15 +328,15 @@ export default function ManageLotsDialog({ open, onClose, holding, btcPrice }) {
               )}
 
               <div className="flex gap-3">
-                <Button type="button" variant="outline" onClick={() => setAddingLot(false)} className="flex-1 bg-transparent border-zinc-700">
+                <Button type="button" variant="outline" onClick={handleCancelEdit} className="flex-1 bg-transparent border-zinc-700">
                   Cancel
                 </Button>
                 <Button 
                   type="submit" 
                   className="flex-1 brand-gradient text-white"
-                  disabled={unallocated > 0 && parseFloat(newLot.quantity) > unallocated}
+                  disabled={!editingLot && unallocated > 0 && parseFloat(newLot.quantity) > unallocated}
                 >
-                  Add Lot
+                  {editingLot ? 'Update Lot' : 'Add Lot'}
                 </Button>
               </div>
             </form>
