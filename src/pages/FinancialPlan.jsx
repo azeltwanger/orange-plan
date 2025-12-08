@@ -84,7 +84,7 @@ const runMonteCarloSimulation = (params, numSimulations = 1000) => {
       const yearsIntoRetirement = isRetired ? year - yearsToRetirement : 0;
       
       // Get expected BTC return based on model
-      const expectedBtcReturn = getBtcGrowthRate(year);
+      const expectedBtcReturn = getBtcGrowthRate(year, inflationRate);
 
       // Get dynamic BTC volatility for this year (decreases over time)
       const yearBtcVolatility = getBtcVolatility(year);
@@ -531,15 +531,35 @@ export default function FinancialPlan() {
   const effectiveInflation = inflationRate;
 
   // BTC growth models - now based on btcReturnModel, not withdrawalStrategy
-  const getBtcGrowthRate = (yearFromNow) => {
+  const getBtcGrowthRate = (yearFromNow, inflationRate) => {
     switch (btcReturnModel) {
       case 'saylor24':
-        // Saylor's Bitcoin 24 Model: Starts at 50% in 2025
-        // Declines 2.5% per year until leveling off at 20% in 2037 (12 years)
-        const baseRate = 50;
-        const declinePerYear = 2.5;
-        const minimumRate = 20;
-        return Math.max(minimumRate, baseRate - (yearFromNow * declinePerYear));
+        // Saylor's Bitcoin 24 Model with extended phases:
+        // Phase 1 (2025-2037): 50% declining to 20%
+        // Phase 2 (2038-2045): Plateau at 20%
+        // Phase 3 (2046-2075): Decline from 20% to inflation + 3%
+        // Phase 4 (Beyond 2075): Terminal rate of inflation + 2%
+        const currentYear = new Date().getFullYear();
+        const absoluteYear = currentYear + yearFromNow;
+
+        if (absoluteYear <= 2037) {
+          // Phase 1: Linear decline from 50% to 20%
+          const yearsFromStart = absoluteYear - 2025;
+          return Math.max(20, 50 - (yearsFromStart * 2.5));
+        } else if (absoluteYear <= 2045) {
+          // Phase 2: Plateau at 20%
+          return 20;
+        } else if (absoluteYear <= 2075) {
+          // Phase 3: Decline from 20% to inflation + 3%
+          const yearsIntoDecline = absoluteYear - 2045;
+          const totalDeclineYears = 2075 - 2045; // 30 years
+          const targetRate = inflationRate + 3; // Mid-point of 2-4% above inflation
+          const declineAmount = 20 - targetRate;
+          return 20 - (declineAmount * (yearsIntoDecline / totalDeclineYears));
+        } else {
+          // Phase 4: Terminal rate (2% above inflation for long-term real returns)
+          return inflationRate + 2;
+        }
       case 'conservative':
         // Conservative model: 10% flat
         return 10;
@@ -720,7 +740,7 @@ export default function FinancialPlan() {
       const yearsIntoRetirement = isRetired ? currentAge + i - retirementAge : 0;
 
       // Get BTC growth rate based on return model (not withdrawal strategy)
-      const yearBtcGrowth = getBtcGrowthRate(i);
+      const yearBtcGrowth = getBtcGrowthRate(i, effectiveInflation);
       
       // Pre-retirement: save and grow. Post-retirement: grow then withdraw
       let yearSavings = 0;
@@ -965,7 +985,7 @@ export default function FinancialPlan() {
       currentAge,
       retirementAge,
       lifeExpectancy,
-      getBtcGrowthRate,
+      getBtcGrowthRate: (year) => getBtcGrowthRate(year, effectiveInflation),
       stocksCagr: effectiveStocksCagr,
       realEstateCagr,
       bondsCagr,
@@ -1239,7 +1259,7 @@ export default function FinancialPlan() {
           const isRetired = age >= testAge;
           
           // Growth using actual blended rate based on portfolio composition
-          const yearBtcGrowth = getBtcGrowthRate(year);
+          const yearBtcGrowth = getBtcGrowthRate(year, effectiveInflation);
           const blendedGrowthRate = (
             btcPct * (yearBtcGrowth / 100) +
             stocksPct * (effectiveStocksCagr / 100) +
@@ -1314,7 +1334,7 @@ export default function FinancialPlan() {
     const otherPct = otherValue / totalValue;
 
     // Get year 1 BTC growth rate based on selected model
-    const btcExpectedReturn = getBtcGrowthRate(1);
+    const btcExpectedReturn = getBtcGrowthRate(1, effectiveInflation);
 
     const weightedReturn = (
       btcPct * btcExpectedReturn +
@@ -2112,7 +2132,7 @@ export default function FinancialPlan() {
                   let totalGrowth = 0;
                   const yearsToRetire = retirementAge - currentAge;
                   for (let y = yearsToRetire; y < yearsToRetire + yearsUntilPenaltyFree; y++) {
-                    totalGrowth += getBtcGrowthRate(y);
+                    totalGrowth += getBtcGrowthRate(y, effectiveInflation);
                   }
                   return totalGrowth / yearsUntilPenaltyFree;
                 })();
