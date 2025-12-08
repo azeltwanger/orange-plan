@@ -1323,8 +1323,9 @@ export default function FinancialPlan() {
               withdrawal = portfolio * (dynamicWithdrawalRate / 100);
             } else {
               // Income-based
-              const yearsOfInflation = testAge - currentAge + yearsIntoRetirement;
-              withdrawal = retirementAnnualSpending * Math.pow(1 + effectiveInflation / 100, yearsOfInflation);
+              // Inflate to retirement age once, then from that nominal base inflate each year in retirement
+              const nominalRetirementSpendingAtTestAge = retirementAnnualSpending * Math.pow(1 + effectiveInflation / 100, Math.max(0, testAge - currentAge));
+              withdrawal = nominalRetirementSpendingAtTestAge * Math.pow(1 + effectiveInflation / 100, yearsIntoRetirement);
             }
             
             if (portfolio < withdrawal) {
