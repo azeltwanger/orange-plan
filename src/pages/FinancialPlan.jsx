@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -120,10 +119,10 @@ const runMonteCarloSimulation = (params, numSimulations = 1000) => {
       let yearWithdrawal = 0;
       
       if (!isRetired) {
-        // Add annual net cash flow to taxable (can be positive or negative)
-        const yearNetCashFlow = annualSavings * Math.pow(1 + incomeGrowth / 100, year);
-        runningSavings += yearNetCashFlow;
-        runningTaxable += yearNetCashFlow;
+        // Add annual savings to taxable (same as main projection)
+        const yearSavings = annualSavings * Math.pow(1 + incomeGrowth / 100, year);
+        runningSavings += yearSavings;
+        runningTaxable += yearSavings;
       } else {
         // Retirement withdrawals - use account total for withdrawal calculation
         const accountTotal = runningTaxable + runningTaxDeferred + runningTaxFree;
@@ -423,21 +422,31 @@ export default function FinancialPlan() {
     return () => clearTimeout(timeoutId);
   }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, otherCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, withdrawalStrategy, dynamicWithdrawalRate, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount]);
 
-  // Calculate annual net cash flow: income - currentAnnualSpending (can be negative)
+  // Calculate annual savings from Income & Expenses (single source of truth)
   const freqMultiplier = { monthly: 12, weekly: 52, biweekly: 26, quarterly: 4, annual: 1, one_time: 0 };
   const monthlyIncome = budgetItems
     .filter(b => b.type === 'income' && b.is_active !== false)
     .reduce((sum, b) => sum + (b.amount * (freqMultiplier[b.frequency] || 12) / 12), 0);
   
+  // Calculate base monthly expenses from budget items
+  const monthlyBudgetExpenses = budgetItems
+    .filter(b => b.type === 'expense' && b.is_active !== false)
+    .reduce((sum, b) => sum + (b.amount * (freqMultiplier[b.frequency] || 12) / 12), 0);
+  
+  // Calculate monthly debt payments from liabilities (only actual cash payments)
   const monthlyDebtPayments = liabilities.reduce((sum, liability) => {
+    // Only include explicit monthly payments (not estimated interest accruals)
     if (liability.monthly_payment && liability.monthly_payment > 0) {
       return sum + liability.monthly_payment;
     }
     return sum;
   }, 0);
+  
+  // Total monthly expenses = budget expenses + debt payments
+  const monthlyExpenses = monthlyBudgetExpenses + monthlyDebtPayments;
+  const annualSavings = Math.max(0, (monthlyIncome - monthlyExpenses) * 12);
 
-  // Annual net cash flow = income - currentAnnualSpending (CAN be negative)
-  const annualSavings = (monthlyIncome * 12) - currentAnnualSpending;
+
 
   // Mutations
   const createGoal = useMutation({
@@ -798,7 +807,7 @@ export default function FinancialPlan() {
         runningSavings += yearSavings;
         cumulativeSavings += yearSavings;
         
-        // Allocate net cash flow to taxable accounts (can be negative = drawdown)
+        // Allocate savings to taxable accounts (default for working years)
         runningTaxable += yearSavings;
       } else {
         // Calculate withdrawal based on strategy
@@ -886,9 +895,9 @@ export default function FinancialPlan() {
           otherIncome: totalOtherIncome,
         });
         
-        withdrawFromTaxable = taxEstimate.fromTaxable || 0;
-        withdrawFromTaxDeferred = taxEstimate.fromTaxDeferred || 0;
-        withdrawFromTaxFree = taxEstimate.fromTaxFree || 0;
+        const withdrawFromTaxable = taxEstimate.fromTaxable || 0;
+        const withdrawFromTaxDeferred = taxEstimate.fromTaxDeferred || 0;
+        const withdrawFromTaxFree = taxEstimate.fromTaxFree || 0;
         taxesPaid = taxEstimate.totalTax || 0;
         penaltyPaid = taxEstimate.totalPenalty || 0;
         
@@ -1221,9 +1230,9 @@ export default function FinancialPlan() {
           portfolio += eventImpact;
 
           if (!isRetired) {
-            // Add savings (now net cash flow)
-            const yearNetCashFlow = annualSavings * Math.pow(1 + incomeGrowth / 100, year);
-            portfolio += yearNetCashFlow;
+            // Add savings
+            const yearSavings = annualSavings * Math.pow(1 + incomeGrowth / 100, year);
+            portfolio += yearSavings;
           } else {
             // Withdraw test amount (inflation-adjusted from today's dollars)
             const yearsIntoRetirement = age - retirementAge;
@@ -1293,8 +1302,8 @@ export default function FinancialPlan() {
           
           if (!isRetired) {
             // Add savings (grows with income)
-            const yearNetCashFlow = annualSavings * Math.pow(1 + incomeGrowth / 100, year);
-            portfolio += yearNetCashFlow;
+            const yearSavings = annualSavings * Math.pow(1 + incomeGrowth / 100, year);
+            portfolio += yearSavings;
           } else {
             // Withdraw - use the selected withdrawal strategy
             let withdrawal;
@@ -1302,15 +1311,13 @@ export default function FinancialPlan() {
             
             if (withdrawalStrategy === '4percent') {
               // First year is 4% of portfolio at FI, then inflation-adjusted
-              // Need to get initial portfolio value at FI age correctly
-              const simulatedRetirementYearIndex = testAge - currentAge;
-              const initialPortfolioAtFI = (projections[simulatedRetirementYearIndex]?.total || 0);
               if (yearsIntoRetirement === 0) {
-                withdrawal = initialPortfolioAtFI * 0.04;
+                withdrawal = portfolio * 0.04;
               } else {
-                // Approximate initial withdrawal for calculation if not exact
-                const baseWithdrawal = (simulatedRetirementYearIndex > 0 ? projections[simulatedRetirementYearIndex - 1]?.total || 0 : startingPortfolio) * 0.04; // Use portfolio one year prior to FI age for 4% calculation
-                withdrawal = baseWithdrawal * Math.pow(1 + effectiveInflation / 100, yearsIntoRetirement);
+                // Need to track initial withdrawal - approximate
+                const initialPortfolioAtFI = startingPortfolio * Math.pow(1 + blendedGrowthRate, testAge - currentAge);
+                const initial4pct = initialPortfolioAtFI * 0.04;
+                withdrawal = initial4pct * Math.pow(1 + effectiveInflation / 100, yearsIntoRetirement);
               }
             } else if (withdrawalStrategy === 'dynamic') {
               withdrawal = portfolio * (dynamicWithdrawalRate / 100);
@@ -1338,11 +1345,10 @@ export default function FinancialPlan() {
       setEarliestRetirementAge(null);
     };
     
-    // Only calculate if there's a portfolio or ongoing savings (positive or negative)
-    if ((taxableValue + taxDeferredValue + taxFreeValue) > 0 || annualSavings !== 0) {
+    if ((taxableValue + taxDeferredValue + taxFreeValue) > 0 || annualSavings > 0) {
       calculateEarliestFI();
     }
-  }, [currentAge, lifeExpectancy, taxableValue, taxDeferredValue, taxFreeValue, btcValue, stocksValue, realEstateValue, bondsValue, otherValue, annualSavings, retirementAnnualSpending, effectiveInflation, incomeGrowth, effectiveStocksCagr, realEstateCagr, bondsCagr, withdrawalStrategy, dynamicWithdrawalRate, getBtcGrowthRate, projections]);
+  }, [currentAge, lifeExpectancy, taxableValue, taxDeferredValue, taxFreeValue, btcValue, stocksValue, realEstateValue, bondsValue, otherValue, annualSavings, retirementAnnualSpending, effectiveInflation, incomeGrowth, effectiveStocksCagr, realEstateCagr, bondsCagr, withdrawalStrategy, dynamicWithdrawalRate, getBtcGrowthRate]);
   
   // Calculate lifetime tax burden in retirement
   const lifetimeTaxesPaid = projections.filter(p => p.isRetired).reduce((sum, p) => sum + (p.taxesPaid || 0), 0);
@@ -1701,7 +1707,7 @@ export default function FinancialPlan() {
               <div className="flex flex-col gap-2 text-sm">
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-emerald-400" />
-                      <span className="text-zinc-400">Annual Net Cash Flow:</span>
+                      <span className="text-zinc-400">Annual Savings:</span>
                       <span className="font-semibold text-emerald-400">{formatNumber(annualSavings)}</span>
                     </div>
                     <div className="flex items-center gap-2">
@@ -1912,12 +1918,12 @@ export default function FinancialPlan() {
                                   </>
                                 )}
                               </div>
-                              {!p.isRetired && p.yearSavingsForTooltip !== 0 && (
+                              {!p.isRetired && p.yearSavingsForTooltip > 0 && (
                                 <div className="pt-2 mt-2 border-t border-zinc-700">
-                                  <p className={`font-medium ${p.yearSavingsForTooltip > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                    Annual Net Cash Flow: ${p.yearSavingsForTooltip.toLocaleString()}
+                                  <p className={`font-medium text-emerald-400`}>
+                                    Annual Inflow: ${p.yearSavingsForTooltip.toLocaleString()}
                                   </p>
-                                  <p className="text-[10px] text-zinc-500 mt-1">From income minus current spending</p>
+                                  <p className="text-[10px] text-zinc-500 mt-1">From surplus income & expenses</p>
                                 </div>
                               )}
                               {p.isRetired && (p.yearWithdrawal > 0 || p.yearGoalWithdrawal > 0) && (
@@ -2259,8 +2265,8 @@ export default function FinancialPlan() {
               
               <div className="mt-4 space-y-2">
                 <p className="text-xs text-zinc-500">
-                  💡 Your annual net cash flow of <span className="text-emerald-400 font-medium">{formatNumber(annualSavings)}</span> is calculated from your total income (from Budget) minus your current annual spending (from Settings).
-                  A positive value means you are saving. A negative value means you are drawing down.
+                  💡 Your annual savings of <span className="text-emerald-400 font-medium">{formatNumber(annualSavings)}</span> is calculated from your Income & Expenses page. 
+                  Increase income or reduce expenses there to accelerate your path to retirement.
                 </p>
                 {monthlyDebtPayments > 0 && (
                   <p className="text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
