@@ -1260,16 +1260,8 @@ export default function FinancialPlan() {
             portfolio += annualSavings * Math.pow(1 + incomeGrowth / 100, year);
           } else {
             const yearsIntoRetirement = age - retirementAge;
-            
-            let withdrawal;
-            if (withdrawalStrategy === 'dynamic') {
-              // Dynamic: withdraw dynamicWithdrawalRate% of current portfolio
-              withdrawal = portfolio * (dynamicWithdrawalRate / 100);
-            } else {
-              // Income-based: inflation-adjusted spending
-              const nominalTestSpendingAtRetirement = testSpending * Math.pow(1 + effectiveInflation / 100, Math.max(0, retirementAge - currentAge));
-              withdrawal = nominalTestSpendingAtRetirement * Math.pow(1 + effectiveInflation / 100, yearsIntoRetirement);
-            }
+            const nominalTestSpendingAtRetirement = testSpending * Math.pow(1 + effectiveInflation / 100, Math.max(0, retirementAge - currentAge));
+            const withdrawal = nominalTestSpendingAtRetirement * Math.pow(1 + effectiveInflation / 100, yearsIntoRetirement);
 
             if (portfolio < withdrawal) {
               canSustain = false;
