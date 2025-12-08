@@ -829,8 +829,9 @@ export default function FinancialPlan() {
           yearWithdrawal = accountTotalBeforeWithdrawal * withdrawRate;
         } else {
           // Income-based (variable): withdraw exactly what you need, inflation-adjusted
-          const yearsOfInflation = Math.max(0, retirementAge - currentAge) + yearsIntoRetirement;
-          yearWithdrawal = retirementAnnualSpending * Math.pow(1 + effectiveInflation / 100, yearsOfInflation);
+          // Inflate to retirement age once, then from that nominal base inflate each year in retirement
+          const nominalSpendingAtRetirement = retirementAnnualSpending * Math.pow(1 + effectiveInflation / 100, Math.max(0, retirementAge - currentAge));
+          yearWithdrawal = nominalSpendingAtRetirement * Math.pow(1 + effectiveInflation / 100, yearsIntoRetirement);
         }
         
         // Smart withdrawal order based on age and account types with TAX CALCULATION
