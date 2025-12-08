@@ -1157,8 +1157,8 @@ export default function FinancialPlan() {
       const bondsPct = totalAssets > 0 ? bondsValue / totalAssets : 0;
       const otherPct = totalAssets > 0 ? otherValue / totalAssets : 0;
 
-      // For Dynamic % and 4%: calculate first-year withdrawal in today's dollars
-      if (withdrawalStrategy === 'dynamic' || withdrawalStrategy === '4percent') {
+      // For 4% Rule: calculate first-year withdrawal in today's dollars
+      if (withdrawalStrategy === '4percent') {
         let portfolioAtRetirement = startingPortfolio;
         const currentYear = new Date().getFullYear();
         
@@ -1187,14 +1187,108 @@ export default function FinancialPlan() {
           });
         }
         
-        const firstYearWithdrawal = withdrawalStrategy === '4percent' 
-          ? portfolioAtRetirement * 0.04 
-          : portfolioAtRetirement * (dynamicWithdrawalRate / 100);
-        
+        const firstYearWithdrawal = portfolioAtRetirement * 0.04;
         const maxSpendingTodayDollars = firstYearWithdrawal / Math.pow(1 + effectiveInflation / 100, retirementAge - currentAge);
         setMaxSustainableSpending(Math.round(maxSpendingTodayDollars));
         return;
       }
+
+      // For Dynamic % and Income-based: binary search to find max sustainable spending
+      let low = 0;
+      let high = 1000000;
+      let maxSpending = 0;
+      const tolerance = 0.01;
+
+      while (high - low > tolerance) {
+        const testSpending = (low + high) / 2;
+        let portfolio = startingPortfolio;
+        let canSustain = true;
+        const currentYear = new Date().getFullYear();
+        let initial4PercentWithdrawal = 0;
+
+        for (let year = 1; year <= lifeExpectancy - currentAge; year++) {
+          const age = currentAge + year;
+          const isRetired = age >= retirementAge;
+          const simulationYear = currentYear + year;
+
+          const yearBtcGrowth = getBtcGrowthRate(year, effectiveInflation);
+          const blendedGrowthRate = (
+            btcPct * (yearBtcGrowth / 100) +
+            stocksPct * (effectiveStocksCagr / 100) +
+            realEstatePct * (realEstateCagr / 100) +
+            bondsPct * (bondsCagr / 100) +
+            otherPct * (otherCagr / 100)
+          );
+
+          portfolio *= (1 + blendedGrowthRate);
+
+          let eventImpact = 0;
+          lifeEvents.forEach(event => {
+            const yearsFromEventStart = simulationYear - event.year;
+            if (event.year === simulationYear || (event.is_recurring && event.year <= simulationYear && simulationYear < event.year + (event.recurring_years || 1))) {
+              const growthMultiplier = (event.affects === 'income' || event.event_type === 'income_change') 
+                ? Math.pow(1 + incomeGrowth / 100, Math.max(0, yearsFromEventStart))
+                : 1;
+
+              if (event.affects === 'assets') eventImpact += event.amount;
+              else if (event.affects === 'income') eventImpact += event.amount * growthMultiplier;
+              if (event.event_type === 'home_purchase' && event.year === simulationYear) {
+                eventImpact -= (event.down_payment || 0);
+              }
+            }
+          });
+          
+          goals.forEach(goal => {
+            if (goal.will_be_spent && goal.target_date && new Date(goal.target_date).getFullYear() === simulationYear) {
+              eventImpact -= (goal.target_amount || 0);
+            }
+            if (goal.goal_type === 'debt_payoff' && goal.linked_liability_id && goal.payoff_years > 0) {
+              const startYear = goal.target_date ? new Date(goal.target_date).getFullYear() : currentYear;
+              const endYear = startYear + goal.payoff_years;
+              if (simulationYear >= startYear && simulationYear < endYear) {
+                eventImpact -= (goal.target_amount || 0) / goal.payoff_years;
+              }
+            }
+          });
+
+          portfolio += eventImpact;
+
+          if (!isRetired) {
+            portfolio += annualSavings * Math.pow(1 + incomeGrowth / 100, year);
+          } else {
+            const yearsIntoRetirement = age - retirementAge;
+            
+            let withdrawal;
+            if (withdrawalStrategy === 'dynamic') {
+              // Dynamic: withdraw dynamicWithdrawalRate% of current portfolio
+              withdrawal = portfolio * (dynamicWithdrawalRate / 100);
+            } else {
+              // Income-based: inflation-adjusted spending
+              const nominalTestSpendingAtRetirement = testSpending * Math.pow(1 + effectiveInflation / 100, Math.max(0, retirementAge - currentAge));
+              withdrawal = nominalTestSpendingAtRetirement * Math.pow(1 + effectiveInflation / 100, yearsIntoRetirement);
+            }
+
+            if (portfolio < withdrawal) {
+              canSustain = false;
+              break;
+            }
+            portfolio -= withdrawal;
+          }
+        }
+
+        if (canSustain && portfolio >= 0) {
+          maxSpending = testSpending;
+          low = testSpending;
+        } else {
+          high = testSpending;
+        }
+      }
+
+      setMaxSustainableSpending(Math.round(maxSpending));
+    };
+
+    calculateMaxSpending();
+  }, [currentAge, retirementAge, lifeExpectancy, taxableValue, taxDeferredValue, taxFreeValue, btcValue, stocksValue, realEstateValue, bondsValue, otherValue, annualSavings, effectiveInflation, incomeGrowth, effectiveStocksCagr, realEstateCagr, bondsCagr, otherCagr, withdrawalStrategy, dynamicWithdrawalRate, getBtcGrowthRate, lifeEvents, goals]);
 
       // Income-based: binary search
       let low = 0;
