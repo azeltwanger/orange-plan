@@ -442,9 +442,9 @@ export default function FinancialPlan() {
     return sum;
   }, 0);
   
-  // Total monthly expenses = budget expenses + debt payments
-  const monthlyExpenses = monthlyBudgetExpenses + monthlyDebtPayments;
-  const annualSavings = Math.max(0, (monthlyIncome - monthlyExpenses) * 12);
+  // For Financial Plan projections, use currentAnnualSpending directly (allows accurate drawdown modeling)
+  const monthlyExpenses = currentAnnualSpending / 12;
+  const annualSavings = (monthlyIncome - monthlyExpenses) * 12;
 
 
 
