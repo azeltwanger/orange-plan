@@ -2175,7 +2175,9 @@ export default function FinancialPlan() {
                   );
                 }
 
-                const realReturnRate = bridgeGrowthRate - (inflationRate / 100);
+                // Use growing annuity formula: payments grow with inflation, discounted by nominal growth
+                const nominalBridgeGrowthRate = bridgeGrowthRate;
+                const inflationRateDecimal = inflationRate / 100;
 
                 // Get actual Roth contributions from accounts (default to 0 if not specified)
                 const totalRothContributions = accounts
@@ -2183,11 +2185,17 @@ export default function FinancialPlan() {
                   .reduce((sum, a) => sum + (a.roth_contributions || 0), 0);
 
                 // Present value of withdrawals needed from taxable + Roth contributions
+                // Using growing annuity: annualNeedAtRetirement inflates each year during bridge
                 let bridgeFundsNeeded;
-                if (Math.abs(realReturnRate) < 0.001) {
+                if (Math.abs(nominalBridgeGrowthRate - inflationRateDecimal) < 0.000001) {
+                  // When growth rate equals inflation rate
                   bridgeFundsNeeded = annualNeedAtRetirement * yearsUntilPenaltyFree;
                 } else {
-                  bridgeFundsNeeded = annualNeedAtRetirement * (1 - Math.pow(1 + realReturnRate, -yearsUntilPenaltyFree)) / realReturnRate;
+                  // Growing annuity present value formula
+                  bridgeFundsNeeded = annualNeedAtRetirement * (
+                    (1 - Math.pow((1 + inflationRateDecimal) / (1 + nominalBridgeGrowthRate), yearsUntilPenaltyFree)) /
+                    (nominalBridgeGrowthRate - inflationRateDecimal)
+                  );
                 }
 
                 const currentBridgeFunds = taxableLiquidValue + totalRothContributions;
