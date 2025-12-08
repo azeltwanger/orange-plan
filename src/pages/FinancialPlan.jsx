@@ -1157,8 +1157,8 @@ export default function FinancialPlan() {
       const bondsPct = totalAssets > 0 ? bondsValue / totalAssets : 0;
       const otherPct = totalAssets > 0 ? otherValue / totalAssets : 0;
 
-      // For 4% Rule: calculate first-year withdrawal in today's dollars
-      if (withdrawalStrategy === '4percent') {
+      // For 4% Rule and Dynamic %: calculate first-year withdrawal in today's dollars
+      if (withdrawalStrategy === '4percent' || withdrawalStrategy === 'dynamic') {
         let portfolioAtRetirement = startingPortfolio;
         const currentYear = new Date().getFullYear();
         
@@ -1187,13 +1187,16 @@ export default function FinancialPlan() {
           });
         }
         
-        const firstYearWithdrawal = portfolioAtRetirement * 0.04;
+        const firstYearWithdrawal = withdrawalStrategy === '4percent'
+          ? portfolioAtRetirement * 0.04
+          : portfolioAtRetirement * (dynamicWithdrawalRate / 100);
+        
         const maxSpendingTodayDollars = firstYearWithdrawal / Math.pow(1 + effectiveInflation / 100, retirementAge - currentAge);
         setMaxSustainableSpending(Math.round(maxSpendingTodayDollars));
         return;
       }
 
-      // For Dynamic % and Income-based: binary search to find max sustainable spending
+      // For Income-based: binary search to find max sustainable spending
       let low = 0;
       let high = 1000000;
       let maxSpending = 0;
