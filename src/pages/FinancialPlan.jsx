@@ -444,7 +444,7 @@ export default function FinancialPlan() {
   
   // For Financial Plan projections, use currentAnnualSpending directly (allows accurate drawdown modeling)
   const monthlyExpenses = currentAnnualSpending / 12;
-  const annualSavings = (monthlyIncome - monthlyExpenses) * 12;
+  const annualSavings = (monthlyIncome - monthlyExpenses - monthlyDebtPayments) * 12;
 
 
 
@@ -2259,11 +2259,11 @@ export default function FinancialPlan() {
                   <Input type="number" value={lifeExpectancy} onChange={(e) => setLifeExpectancy(parseInt(e.target.value) || 90)} className="bg-zinc-900 border-zinc-800" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-zinc-400">Current Spending</Label>
+                  <Label className="text-zinc-400">Current Lifestyle Spending</Label>
                   <Input type="number" value={currentAnnualSpending} onChange={(e) => setCurrentAnnualSpending(parseInt(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-zinc-400">Retirement Spending</Label>
+                  <Label className="text-zinc-400">Retirement Lifestyle Spending</Label>
                   <Input type="number" value={retirementAnnualSpending} onChange={(e) => setRetirementAnnualSpending(parseInt(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
                 </div>
               </div>
