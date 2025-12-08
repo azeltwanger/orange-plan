@@ -721,10 +721,11 @@ export default function FinancialPlan() {
               // Add interest to balance first
               remainingBalance += monthlyInterest;
 
-              // Deduct the total monthly payment (base + extra from debt payoff goal)
-              remainingBalance = Math.max(0, remainingBalance - totalMonthlyPayment);
+              // Deduct the payment - but only pay what's actually owed if less than scheduled payment
+              const actualPayment = Math.min(totalMonthlyPayment, remainingBalance);
+              remainingBalance = Math.max(0, remainingBalance - actualPayment);
 
-              actualAnnualDebtPayments += totalMonthlyPayment;
+              actualAnnualDebtPayments += actualPayment;
             }
 
             // Update running debt balance for this liability

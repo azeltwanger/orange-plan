@@ -83,9 +83,16 @@ export default function CashFlowProjections({
               
               remainingBalance += monthlyInterest;
 
-              // Then deduct the full payment
-              remainingBalance = Math.max(0, remainingBalance - totalMonthlyPayment);
-              yearDebtPayments += totalMonthlyPayment;
+              // Deduct payment - but only pay what's actually owed if less than scheduled payment
+              const actualPayment = Math.min(totalMonthlyPayment, remainingBalance);
+              remainingBalance = Math.max(0, remainingBalance - actualPayment);
+              
+              // Only add base monthly payment to yearDebtPayments (not extra goal payments)
+              // Goal payments are tracked separately in goalExpenses
+              if (hasPayment) {
+                const actualBasePayment = Math.min(baseMonthlyPayment, actualPayment);
+                yearDebtPayments += actualBasePayment;
+              }
             }
 
             runningDebt[liability.id] = remainingBalance;
