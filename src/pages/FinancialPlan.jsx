@@ -624,6 +624,9 @@ export default function FinancialPlan() {
     for (let i = 0; i <= years; i++) {
       const year = currentYear + i;
       
+      // Get BTC growth rate for this year (needed early for collateral calculations)
+      const yearBtcGrowth = getBtcGrowthRate(i, effectiveInflation);
+      
       // Calculate life event impacts for this year (with income growth applied)
         let eventImpact = 0;
         let yearGoalWithdrawal = 0; // Track goal-specific withdrawals for this year
@@ -759,9 +762,6 @@ export default function FinancialPlan() {
 
       const isRetired = currentAge + i >= retirementAge;
       const yearsIntoRetirement = isRetired ? currentAge + i - retirementAge : 0;
-
-      // Get BTC growth rate based on return model (not withdrawal strategy)
-      const yearBtcGrowth = getBtcGrowthRate(i, effectiveInflation);
       
       // Pre-retirement: save and grow. Post-retirement: grow then withdraw
       let yearSavings = 0;
