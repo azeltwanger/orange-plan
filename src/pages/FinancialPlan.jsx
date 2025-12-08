@@ -707,8 +707,10 @@ export default function FinancialPlan() {
             const baseMonthlyPayment = liability.monthly_payment || 0;
             const extraMonthlyPayment = debtPayoffGoalMonthlyPayments[liability.id] || 0;
             const totalMonthlyPayment = baseMonthlyPayment + extraMonthlyPayment;
+            const currentMonth = new Date().getMonth(); // 0-indexed (Jan=0, Dec=11)
+            const startMonth = i === 0 ? currentMonth : 0; // Start from current month in current year
 
-            for (let month = 0; month < 12; month++) {
+            for (let month = startMonth; month < 12; month++) {
               if (remainingBalance <= 0) break;
 
               // Calculate monthly interest
