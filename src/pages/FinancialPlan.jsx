@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -32,7 +33,7 @@ const getBtcVolatility = (yearFromNow) => {
   const minimumVolatility = 20; // Floor - won't go below this (mature asset level)
   const decayRate = 0.05; // 5% reduction per year
   
-  // Exponential decay model: vol(t) = min + (initial - min) * e^(-decay * t)
+  // Exponential decay model: vol(t) = min + (initial - min) * Math.exp(-decay * t)
   const volatility = minimumVolatility + (initialVolatility - minimumVolatility) * Math.exp(-decayRate * yearFromNow);
   return volatility;
 };
@@ -422,29 +423,22 @@ export default function FinancialPlan() {
     return () => clearTimeout(timeoutId);
   }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, otherCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, withdrawalStrategy, dynamicWithdrawalRate, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount]);
 
-  // Calculate annual savings from Income & Expenses (single source of truth)
+  // Calculate annual net cash flow from Income vs Current Spending
   const freqMultiplier = { monthly: 12, weekly: 52, biweekly: 26, quarterly: 4, annual: 1, one_time: 0 };
   const monthlyIncome = budgetItems
     .filter(b => b.type === 'income' && b.is_active !== false)
     .reduce((sum, b) => sum + (b.amount * (freqMultiplier[b.frequency] || 12) / 12), 0);
   
-  // Calculate base monthly expenses from budget items
-  const monthlyBudgetExpenses = budgetItems
-    .filter(b => b.type === 'expense' && b.is_active !== false)
-    .reduce((sum, b) => sum + (b.amount * (freqMultiplier[b.frequency] || 12) / 12), 0);
-  
-  // Calculate monthly debt payments from liabilities (only actual cash payments)
+  // Calculate debt payments for informational purposes
   const monthlyDebtPayments = liabilities.reduce((sum, liability) => {
-    // Only include explicit monthly payments (not estimated interest accruals)
     if (liability.monthly_payment && liability.monthly_payment > 0) {
       return sum + liability.monthly_payment;
     }
     return sum;
   }, 0);
-  
-  // Total monthly expenses = budget expenses + debt payments
-  const monthlyExpenses = monthlyBudgetExpenses + monthlyDebtPayments;
-  const annualSavings = Math.max(0, (monthlyIncome - monthlyExpenses) * 12);
+
+  // Annual net cash flow = income - currentAnnualSpending (can be negative)
+  const annualSavings = (monthlyIncome * 12) - currentAnnualSpending;
 
 
 
@@ -895,9 +889,9 @@ export default function FinancialPlan() {
           otherIncome: totalOtherIncome,
         });
         
-        const withdrawFromTaxable = taxEstimate.fromTaxable || 0;
-        const withdrawFromTaxDeferred = taxEstimate.fromTaxDeferred || 0;
-        const withdrawFromTaxFree = taxEstimate.fromTaxFree || 0;
+        withdrawFromTaxable = taxEstimate.fromTaxable || 0;
+        withdrawFromTaxDeferred = taxEstimate.fromTaxDeferred || 0;
+        withdrawFromTaxFree = taxEstimate.fromTaxFree || 0;
         taxesPaid = taxEstimate.totalTax || 0;
         penaltyPaid = taxEstimate.totalPenalty || 0;
         
