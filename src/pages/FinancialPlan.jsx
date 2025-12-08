@@ -839,8 +839,18 @@ export default function FinancialPlan() {
           yearWithdrawal = nominalSpendingAtRetirement * Math.pow(1 + effectiveInflation / 100, yearsIntoRetirement);
         }
         
-        // Smart withdrawal order based on age and account types with TAX CALCULATION
+        // Calculate Social Security income for this year (inflation-adjusted from start age)
         const currentAgeInYear = currentAge + i;
+        let socialSecurityIncome = 0;
+        if (currentAgeInYear >= socialSecurityStartAge && socialSecurityAmount > 0) {
+          const yearsOfSSInflation = currentAgeInYear - socialSecurityStartAge;
+          socialSecurityIncome = socialSecurityAmount * Math.pow(1 + effectiveInflation / 100, yearsOfSSInflation);
+        }
+
+        // Total other income = other retirement income + Social Security (if eligible)
+        const totalOtherIncome = otherRetirementIncome + socialSecurityIncome;
+        
+        // Smart withdrawal order based on age and account types with TAX CALCULATION
         const canAccessRetirementPenaltyFree = currentAgeInYear >= PENALTY_FREE_AGE;
         
         // Required Minimum Distributions (RMDs) from tax-deferred accounts starting at age 73
@@ -870,16 +880,7 @@ export default function FinancialPlan() {
         const effectiveRunningTaxableBasis = Math.min(runningTaxable, runningTaxableBasis);
         const estimatedCurrentGainRatio = runningTaxable > 0 ? Math.max(0, (runningTaxable - effectiveRunningTaxableBasis) / runningTaxable) : 0;
         
-        // Calculate Social Security income for this year (inflation-adjusted from start age)
-        const currentAgeInYearForSS = currentAge + i;
-        let socialSecurityIncome = 0;
-        if (currentAgeInYearForSS >= socialSecurityStartAge && socialSecurityAmount > 0) {
-          const yearsOfSSInflation = currentAgeInYearForSS - socialSecurityStartAge;
-          socialSecurityIncome = socialSecurityAmount * Math.pow(1 + effectiveInflation / 100, yearsOfSSInflation);
-        }
 
-        // Total other income = other retirement income + Social Security (if eligible)
-        const totalOtherIncome = otherRetirementIncome + socialSecurityIncome;
 
         // Store original retirement spending for tooltip breakdown
         retirementSpendingOnly = yearWithdrawal;
@@ -967,7 +968,9 @@ export default function FinancialPlan() {
         bonds: Math.round(runningBonds),
         savings: Math.round(runningSavings),
         yearSavingsForTooltip: isRetired ? 0 : Math.round(yearSavings),
-        yearIncome: !isRetired ? Math.round(monthlyIncome * 12 * Math.pow(1 + incomeGrowth / 100, i)) : 0,
+        yearIncome: !isRetired 
+          ? Math.round(monthlyIncome * 12 * Math.pow(1 + incomeGrowth / 100, i)) 
+          : Math.round(totalOtherIncome || 0),
         yearLifestyleExpenses: !isRetired ? Math.round(currentAnnualSpending * Math.pow(1 + incomeGrowth / 100, i)) : 0,
         yearDebtPayments: !isRetired ? (i === 0 ? Math.round(monthlyDebtPayments * 12) : Math.round(actualAnnualDebtPayments)) : 0,
         total: Math.round(total),
@@ -1958,27 +1961,33 @@ export default function FinancialPlan() {
                               )}
                               {p.isRetired && (p.yearWithdrawal > 0 || p.yearGoalWithdrawal > 0) && (
                                 <div className="pt-2 mt-2 border-t border-zinc-700">
-                                  {p.retirementSpendingOnly > 0 && (
-                                    <div className="text-xs space-y-0.5 text-zinc-400 mb-1">
+                                  <div className="text-xs space-y-0.5 text-zinc-400 mb-1">
+                                    {p.yearIncome > 0 && (
+                                      <div className="flex justify-between">
+                                        <span>• Income:</span>
+                                        <span className="text-emerald-400">${(p.yearIncome || 0).toLocaleString()}</span>
+                                      </div>
+                                    )}
+                                    {p.retirementSpendingOnly > 0 && (
                                       <div className="flex justify-between">
                                         <span>• Retirement Spending:</span>
-                                        <span className="text-zinc-300">${(p.retirementSpendingOnly).toLocaleString()}</span>
+                                        <span className="text-rose-400">-${(p.retirementSpendingOnly).toLocaleString()}</span>
                                       </div>
-                                    </div>
-                                  )}
-                                  {p.yearGoalWithdrawal > 0 && (
-                                    <div className="text-xs space-y-0.5 text-zinc-400 mb-2">
-                                      <div className="flex justify-between">
-                                        <span>• Goal Funding:</span>
-                                        <span className="text-orange-400">${(p.yearGoalWithdrawal).toLocaleString()}</span>
-                                      </div>
-                                      {p.goalNames && p.goalNames.length > 0 && (
-                                        <p className="text-[10px] text-zinc-500 ml-2">{p.goalNames.join(', ')}</p>
-                                      )}
-                                    </div>
-                                  )}
+                                    )}
+                                    {p.yearGoalWithdrawal > 0 && (
+                                      <>
+                                        <div className="flex justify-between">
+                                          <span>• Goal Funding:</span>
+                                          <span className="text-rose-400">-${(p.yearGoalWithdrawal).toLocaleString()}</span>
+                                        </div>
+                                        {p.goalNames && p.goalNames.length > 0 && (
+                                          <p className="text-[10px] text-zinc-500 ml-2">{p.goalNames.join(', ')}</p>
+                                        )}
+                                      </>
+                                    )}
+                                  </div>
                                   <p className={`font-medium ${p.yearWithdrawal > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
-                                    Total Annual {p.yearWithdrawal > 0 ? 'Outflow' : 'Inflow'}: ${(p.yearWithdrawal || 0).toLocaleString()}
+                                    Total Annual {p.yearWithdrawal > 0 ? 'Outflow' : 'Inflow'}: ${Math.abs(p.yearWithdrawal || 0).toLocaleString()}
                                   </p>
                                   <div className="text-xs space-y-0.5 text-zinc-400 mt-2 pt-2 border-t border-zinc-700/50">
                                     {p.withdrawFromTaxable > 0 && (
