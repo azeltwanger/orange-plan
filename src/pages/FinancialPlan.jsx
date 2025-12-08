@@ -674,40 +674,39 @@ export default function FinancialPlan() {
         }
       });
 
-      // Debt payoff goals - spread payments over payoff period
-      // Track which liabilities have active payoff goals this year
-      const liabilitiesWithPayoffGoals = new Set();
+      // Calculate debt payoff goal extra monthly payments for this year
+      const debtPayoffGoalMonthlyPayments = {}; // liability_id -> extra monthly payment
       goals.forEach(goal => {
         if (goal.goal_type === 'debt_payoff' && goal.linked_liability_id && goal.payoff_years > 0) {
           const startYear = goal.target_date ? new Date(goal.target_date).getFullYear() : currentYear;
           const endYear = startYear + goal.payoff_years;
-          
+
           if (year >= startYear && year < endYear) {
-            // Annual payment = total debt / payoff years
+            // Monthly extra payment = (total debt / payoff years) / 12
             const annualPayment = (goal.target_amount || 0) / goal.payoff_years;
-            eventImpact -= annualPayment;
-            liabilitiesWithPayoffGoals.add(goal.linked_liability_id);
-            
-            // Reduce the debt balance for this liability
-            if (runningDebt[goal.linked_liability_id]) {
-              runningDebt[goal.linked_liability_id] = Math.max(0, runningDebt[goal.linked_liability_id] - annualPayment);
-            }
+            const monthlyExtraPayment = annualPayment / 12;
+            debtPayoffGoalMonthlyPayments[goal.linked_liability_id] = monthlyExtraPayment;
+            eventImpact -= annualPayment; // Still track total annual impact
           }
         }
       });
-      
+
       // Calculate actual debt payments for this year with month-by-month simulation
       let actualAnnualDebtPayments = 0;
 
-      // For liabilities WITHOUT active payoff goals, process monthly
+      // Process ALL liabilities monthly (including those with debt payoff goals)
       liabilities.forEach(liability => {
-        if (!liabilitiesWithPayoffGoals.has(liability.id) && runningDebt[liability.id] > 0) {
+        if (runningDebt[liability.id] > 0) {
           const hasPayment = liability.monthly_payment && liability.monthly_payment > 0;
           const hasInterest = liability.interest_rate && liability.interest_rate > 0;
+          const hasExtraPayment = debtPayoffGoalMonthlyPayments[liability.id] > 0;
 
-          if (hasPayment) {
+          if (hasPayment || hasExtraPayment) {
             // Standard amortization: month-by-month simulation
             let remainingBalance = runningDebt[liability.id];
+            const baseMonthlyPayment = liability.monthly_payment || 0;
+            const extraMonthlyPayment = debtPayoffGoalMonthlyPayments[liability.id] || 0;
+            const totalMonthlyPayment = baseMonthlyPayment + extraMonthlyPayment;
 
             for (let month = 0; month < 12; month++) {
               if (remainingBalance <= 0) break;
@@ -720,15 +719,15 @@ export default function FinancialPlan() {
               // Add interest to balance first
               remainingBalance += monthlyInterest;
 
-              // Deduct the monthly payment
-              remainingBalance = Math.max(0, remainingBalance - liability.monthly_payment);
-              
-              actualAnnualDebtPayments += liability.monthly_payment;
+              // Deduct the total monthly payment (base + extra from debt payoff goal)
+              remainingBalance = Math.max(0, remainingBalance - totalMonthlyPayment);
+
+              actualAnnualDebtPayments += totalMonthlyPayment;
             }
 
             // Update running debt balance for this liability
             runningDebt[liability.id] = remainingBalance;
-            
+
             // Track if this debt was paid off this year
             if (remainingBalance <= 0 && debtPaidOffYears[liability.id] === null) {
               debtPaidOffYears[liability.id] = year;
@@ -739,7 +738,7 @@ export default function FinancialPlan() {
             runningDebt[liability.id] += annualInterest;
           }
           // If no payment and no interest, debt stays constant
-        }
+          }
 
         // Check for BTC collateral release based on LTV
         if (liability.type === 'btc_collateralized' && encumberedBtc[liability.id] > 0) {
