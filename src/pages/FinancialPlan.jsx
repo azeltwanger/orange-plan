@@ -1237,28 +1237,11 @@ export default function FinancialPlan() {
             const yearNetCashFlow = annualSavings * Math.pow(1 + incomeGrowth / 100, year);
             portfolio += yearNetCashFlow;
           } else {
-            // Calculate withdrawal based on strategy
+            // Withdraw test amount (inflation-adjusted from today's dollars)
             const yearsIntoRetirement = age - retirementAge;
-            let withdrawal;
-            
-            if (withdrawalStrategy === '4percent') {
-              // 4% Rule: Initial 4% of portfolio at retirement, then inflation-adjusted
-              if (yearsIntoRetirement === 0) {
-                // First year: testSpending is the target initial withdrawal amount
-                withdrawal = testSpending * Math.pow(1 + effectiveInflation / 100, Math.max(0, retirementAge - currentAge));
-              } else {
-                // Subsequent years: inflate the initial withdrawal
-                const initialWithdrawal = testSpending * Math.pow(1 + effectiveInflation / 100, Math.max(0, retirementAge - currentAge));
-                withdrawal = initialWithdrawal * Math.pow(1 + effectiveInflation / 100, yearsIntoRetirement);
-              }
-            } else if (withdrawalStrategy === 'dynamic') {
-              // Dynamic %: Withdraw dynamicWithdrawalRate% of current portfolio each year
-              withdrawal = portfolio * (dynamicWithdrawalRate / 100);
-            } else {
-              // Income-based (variable): Withdraw exact amount needed, inflation-adjusted
-              const nominalTestSpendingAtRetirement = testSpending * Math.pow(1 + effectiveInflation / 100, Math.max(0, retirementAge - currentAge));
-              withdrawal = nominalTestSpendingAtRetirement * Math.pow(1 + effectiveInflation / 100, yearsIntoRetirement);
-            }
+            // Inflate to retirement age once, then from that nominal base inflate each year in retirement
+            const nominalTestSpendingAtRetirement = testSpending * Math.pow(1 + effectiveInflation / 100, Math.max(0, retirementAge - currentAge));
+            const withdrawal = nominalTestSpendingAtRetirement * Math.pow(1 + effectiveInflation / 100, yearsIntoRetirement);
 
             if (portfolio < withdrawal) {
               canSustain = false;
