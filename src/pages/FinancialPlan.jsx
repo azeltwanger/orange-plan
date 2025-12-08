@@ -803,8 +803,9 @@ export default function FinancialPlan() {
         runningSavings += yearSavings;
         cumulativeSavings += yearSavings;
         
-        // Allocate net cash flow to taxable accounts (can be negative = drawdown)
-        runningTaxable += yearSavings;
+        // Subtract debt payments from portfolio (comes out of taxable/savings)
+        const netCashFlowAfterDebt = yearSavings - actualAnnualDebtPayments;
+        runningTaxable += netCashFlowAfterDebt;
       } else {
         // Calculate withdrawal based on strategy
         const totalBeforeWithdrawal = runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther + runningSavings;
