@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -423,22 +422,31 @@ export default function FinancialPlan() {
     return () => clearTimeout(timeoutId);
   }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, otherCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, withdrawalStrategy, dynamicWithdrawalRate, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount]);
 
-  // Calculate annual net cash flow from Income vs Current Spending
+  // Calculate annual savings from Income & Expenses (single source of truth)
   const freqMultiplier = { monthly: 12, weekly: 52, biweekly: 26, quarterly: 4, annual: 1, one_time: 0 };
   const monthlyIncome = budgetItems
     .filter(b => b.type === 'income' && b.is_active !== false)
     .reduce((sum, b) => sum + (b.amount * (freqMultiplier[b.frequency] || 12) / 12), 0);
   
-  // Calculate debt payments for informational purposes
+  // Calculate base monthly expenses from budget items
+  const monthlyBudgetExpenses = budgetItems
+    .filter(b => b.type === 'expense' && b.is_active !== false)
+    .reduce((sum, b) => sum + (b.amount * (freqMultiplier[b.frequency] || 12) / 12), 0);
+  
+  // Calculate monthly debt payments from liabilities (only actual cash payments)
   const monthlyDebtPayments = liabilities.reduce((sum, liability) => {
+    // Only include explicit monthly payments (not estimated interest accruals)
     if (liability.monthly_payment && liability.monthly_payment > 0) {
       return sum + liability.monthly_payment;
     }
     return sum;
   }, 0);
+  
+  // Total monthly expenses = budget expenses + debt payments
+  const monthlyExpenses = monthlyBudgetExpenses + monthlyDebtPayments;
+  const annualSavings = Math.max(0, (monthlyIncome - monthlyExpenses) * 12);
 
-  // Annual net cash flow = income - currentAnnualSpending (can be negative)
-  const annualSavings = (monthlyIncome * 12) - currentAnnualSpending;
+
 
   // Mutations
   const createGoal = useMutation({
