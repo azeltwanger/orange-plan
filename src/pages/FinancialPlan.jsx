@@ -809,6 +809,11 @@ export default function FinancialPlan() {
         
         // Allocate savings to taxable accounts (default for working years)
         runningTaxable += yearSavings;
+        
+        // Calculate breakdown for tooltip
+        const yearIncome = monthlyIncome * 12 * Math.pow(1 + incomeGrowth / 100, i);
+        const yearLifestyleExpenses = currentAnnualSpending * Math.pow(1 + incomeGrowth / 100, i);
+        const yearDebtPayments = i === 0 ? monthlyDebtPayments * 12 : actualAnnualDebtPayments;
       } else {
         // Calculate withdrawal based on strategy
         const totalBeforeWithdrawal = runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther + runningSavings;
@@ -962,6 +967,9 @@ export default function FinancialPlan() {
         bonds: Math.round(runningBonds),
         savings: Math.round(runningSavings),
         yearSavingsForTooltip: isRetired ? 0 : Math.round(yearSavings),
+        yearIncome: !isRetired ? Math.round(monthlyIncome * 12 * Math.pow(1 + incomeGrowth / 100, i)) : 0,
+        yearLifestyleExpenses: !isRetired ? Math.round(currentAnnualSpending * Math.pow(1 + incomeGrowth / 100, i)) : 0,
+        yearDebtPayments: !isRetired ? (i === 0 ? Math.round(monthlyDebtPayments * 12) : Math.round(actualAnnualDebtPayments)) : 0,
         total: Math.round(total),
         realTotal: Math.round(realTotal),
         hasEvent: lifeEvents.some(e => e.year === year) || 
@@ -1923,12 +1931,27 @@ export default function FinancialPlan() {
                                   </>
                                 )}
                               </div>
-                              {!p.isRetired && p.yearSavingsForTooltip !== 0 && (
+                              {!p.isRetired && (
                                 <div className="pt-2 mt-2 border-t border-zinc-700">
+                                  <div className="text-xs space-y-0.5 text-zinc-400 mb-1">
+                                    <div className="flex justify-between">
+                                      <span>• Income:</span>
+                                      <span className="text-emerald-400">${(p.yearIncome || 0).toLocaleString()}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span>• Lifestyle Expenses:</span>
+                                      <span className="text-rose-400">-${(p.yearLifestyleExpenses || 0).toLocaleString()}</span>
+                                    </div>
+                                    {p.yearDebtPayments > 0 && (
+                                      <div className="flex justify-between">
+                                        <span>• Debt Payments:</span>
+                                        <span className="text-rose-400">-${(p.yearDebtPayments || 0).toLocaleString()}</span>
+                                      </div>
+                                    )}
+                                  </div>
                                   <p className={`font-medium ${p.yearSavingsForTooltip > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                    Net Cash Flow: ${Math.abs(p.yearSavingsForTooltip).toLocaleString()}
+                                    Net Cash Flow: {p.yearSavingsForTooltip > 0 ? '+' : ''}${(p.yearSavingsForTooltip || 0).toLocaleString()}
                                   </p>
-                                  <p className="text-[10px] text-zinc-500 mt-1">Income - (Lifestyle Expenses + Debt Payments)</p>
                                 </div>
                               )}
                               {p.isRetired && (p.yearWithdrawal > 0 || p.yearGoalWithdrawal > 0) && (
