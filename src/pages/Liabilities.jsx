@@ -51,7 +51,9 @@ export default function Liabilities() {
     interest_rate: '',
     monthly_payment: '',
     collateral_btc_amount: '',
+    collateral_asset_id: '',
     liquidation_price: '',
+    collateral_release_ltv: '30',
     lender: '',
     due_date: '',
     notes: '',
@@ -100,7 +102,9 @@ export default function Liabilities() {
       interest_rate: '',
       monthly_payment: '',
       collateral_btc_amount: '',
+      collateral_asset_id: '',
       liquidation_price: '',
+      collateral_release_ltv: '30',
       lender: '',
       due_date: '',
       notes: '',
@@ -117,7 +121,9 @@ export default function Liabilities() {
         interest_rate: editingLiability.interest_rate || '',
         monthly_payment: editingLiability.monthly_payment || '',
         collateral_btc_amount: editingLiability.collateral_btc_amount || '',
+        collateral_asset_id: editingLiability.collateral_asset_id || '',
         liquidation_price: editingLiability.liquidation_price || '',
+        collateral_release_ltv: editingLiability.collateral_release_ltv || '30',
         lender: editingLiability.lender || '',
         due_date: editingLiability.due_date || '',
         notes: editingLiability.notes || '',
@@ -154,6 +160,7 @@ export default function Liabilities() {
       monthly_payment: parseFloat(formData.monthly_payment) || 0,
       collateral_btc_amount: parseFloat(formData.collateral_btc_amount) || 0,
       liquidation_price: parseFloat(formData.liquidation_price) || 0,
+      collateral_release_ltv: parseFloat(formData.collateral_release_ltv) || 30,
     };
     if (editingLiability) {
       updateLiability.mutate({ id: editingLiability.id, data });
@@ -609,6 +616,7 @@ export default function Liabilities() {
                     <SelectItem value="secured">Secured</SelectItem>
                     <SelectItem value="unsecured">Unsecured</SelectItem>
                     <SelectItem value="btc_collateralized">BTC Collateralized</SelectItem>
+                    <SelectItem value="real_estate_collateralized">Real Estate Collateralized</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -693,7 +701,38 @@ export default function Liabilities() {
                     <p className="text-[10px] text-zinc-600">Auto-calculated at 80% LTV</p>
                   </div>
                 </div>
+                <div className="space-y-2">
+                  <Label className="text-zinc-400 text-xs uppercase tracking-wider">Collateral Release LTV (%)</Label>
+                  <Input
+                    type="number"
+                    step="1"
+                    value={formData.collateral_release_ltv}
+                    onChange={(e) => setFormData({ ...formData, collateral_release_ltv: e.target.value })}
+                    placeholder="30"
+                    className="bg-zinc-900 border-zinc-800"
+                  />
+                  <p className="text-[10px] text-zinc-500">LTV threshold at which collateral becomes liquid again (typically 30%)</p>
+                </div>
               </>
+            )}
+            {formData.type === 'real_estate_collateralized' && (
+              <div className="space-y-2">
+                <Label className="text-zinc-400 text-xs uppercase tracking-wider">Collateralized Asset</Label>
+                <Select
+                  value={formData.collateral_asset_id}
+                  onValueChange={(value) => setFormData({ ...formData, collateral_asset_id: value })}
+                >
+                  <SelectTrigger className="bg-zinc-900 border-zinc-800">
+                    <SelectValue placeholder="Select asset..." />
+                  </SelectTrigger>
+                  <SelectContent className="bg-zinc-900 border-zinc-800">
+                    {holdings.filter(h => h.asset_type === 'real_estate').map(h => (
+                      <SelectItem key={h.id} value={h.id}>{h.asset_name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[10px] text-zinc-500">Link the real estate asset used as collateral</p>
+              </div>
             )}
             <div className="space-y-2">
               <Label className="text-zinc-400 text-xs uppercase tracking-wider">Notes</Label>

@@ -607,8 +607,15 @@ export default function FinancialPlan() {
     
     // Track debt balances for all liabilities with month-by-month amortization
     const runningDebt = {};
+    const encumberedBtc = {}; // Track BTC locked as collateral
+    const releasedBtc = {}; // Track BTC released when LTV drops below threshold
+
     liabilities.forEach(liability => {
-    runningDebt[liability.id] = liability.current_balance || 0;
+      runningDebt[liability.id] = liability.current_balance || 0;
+      if (liability.type === 'btc_collateralized' && liability.collateral_btc_amount) {
+        encumberedBtc[liability.id] = liability.collateral_btc_amount;
+        releasedBtc[liability.id] = 0;
+      }
     });
     
     // Initial 4% withdrawal amount (set on first retirement year)
@@ -733,6 +740,20 @@ export default function FinancialPlan() {
             runningDebt[liability.id] += annualInterest;
           }
           // If no payment and no interest, debt stays constant
+        }
+
+        // Check for BTC collateral release based on LTV
+        if (liability.type === 'btc_collateralized' && encumberedBtc[liability.id] > 0) {
+          const yearBtcPrice = btcPrice * Math.pow(1 + yearBtcGrowth / 100, year - currentAge);
+          const collateralValue = encumberedBtc[liability.id] * yearBtcPrice;
+          const currentLTV = runningDebt[liability.id] / collateralValue;
+          const releaseLTV = (liability.collateral_release_ltv || 30) / 100;
+
+          // If LTV drops below release threshold, collateral becomes liquid
+          if (currentLTV <= releaseLTV && releasedBtc[liability.id] === 0) {
+            releasedBtc[liability.id] = encumberedBtc[liability.id];
+            encumberedBtc[liability.id] = 0;
+          }
         }
       });
 
@@ -920,6 +941,10 @@ export default function FinancialPlan() {
       
       // Calculate total debt (net worth impact)
       const totalDebt = Object.values(runningDebt).reduce((sum, balance) => sum + balance, 0);
+
+      // Calculate total encumbered BTC (illiquid)
+      const totalEncumberedBtc = Object.values(encumberedBtc).reduce((sum, amount) => sum + amount, 0);
+      const totalReleasedBtc = Object.values(releasedBtc).reduce((sum, amount) => sum + amount, 0);
       
       const total = Math.max(0, totalBeforeEvent + adjustedEventImpact);
       const realTotal = total / Math.pow(1 + effectiveInflation / 100, i);
@@ -966,6 +991,9 @@ export default function FinancialPlan() {
         // Debt tracking
         totalDebt: Math.round(totalDebt),
         debtPayments: i === 0 ? Math.round(monthlyDebtPayments * 12) : Math.round(actualAnnualDebtPayments), // Actual debt payments made this year
+        encumberedBtc: totalEncumberedBtc,
+        releasedBtc: totalReleasedBtc,
+        liquidBtc: Math.max(0, (runningBtc / (btcPrice || 97000)) - totalEncumberedBtc),
         });
     }
     return data;
