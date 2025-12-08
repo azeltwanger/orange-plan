@@ -1950,7 +1950,7 @@ export default function FinancialPlan() {
                                     )}
                                   </div>
                                   <p className={`font-medium ${p.yearSavingsForTooltip > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                    Net Cash Flow: {p.yearSavingsForTooltip > 0 ? '+' : ''}${(p.yearSavingsForTooltip || 0).toLocaleString()}
+                                    Total Annual {p.yearSavingsForTooltip > 0 ? 'Inflow' : 'Outflow'}: ${Math.abs(p.yearSavingsForTooltip || 0).toLocaleString()}
                                   </p>
                                 </div>
                               )}
