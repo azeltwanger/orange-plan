@@ -2213,9 +2213,9 @@ export default function FinancialPlan() {
                       You'll need <span className="font-bold text-amber-400">{formatNumber(bridgeFundsNeeded)}</span> in accessible funds (liquid taxable + Roth contributions) to cover {formatNumber(annualNeedAtRetirement)}/yr for {yearsUntilPenaltyFree} years.
                     </p>
                     <div className="text-xs text-zinc-400 mt-2 space-y-1">
-                      <div>• Liquid Taxable: {formatNumber(taxableLiquidValue)}</div>
-                      <div>• Roth Contributions: {formatNumber(totalRothContributions)}</div>
-                      <div className="font-medium">• Total Accessible: {formatNumber(currentBridgeFunds)}</div>
+                      <div>• Liquid Taxable (today): {formatNumber(taxableLiquidValue)}</div>
+                      <div>• Roth Contributions (today): {formatNumber(totalRothContributions)}</div>
+                      <div className="font-medium">• Projected Accessible at {retirementAge}: {formatNumber(projectedAccessibleFunds)}</div>
                       {totalRothContributions === 0 && taxFreeValue > 0 && (
                         <div className="text-amber-400 mt-1">⚠️ Set Roth contributions in Account settings for accurate early retirement planning</div>
                       )}
