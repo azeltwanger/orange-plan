@@ -1158,20 +1158,19 @@ export default function FinancialPlan() {
       const bondsPct = totalAssets > 0 ? bondsValue / totalAssets : 0;
       const otherPct = totalAssets > 0 ? otherValue / totalAssets : 0;
 
-      // For ALL strategies: binary search to find max sustainable spending
-      // For dynamic and 4%: we're finding the max initial amount that sustains throughout life
-
-      // For income-based strategy: binary search for max spending
+      // Binary search for max sustainable spending (all strategies)
       let low = 0;
       let high = 1000000; // $1M max test
       let maxSpending = 0;
-      const tolerance = 0.01; // $0.01 precision for maximum accuracy
+      const tolerance = 0.01; // $0.01 precision
+      let initialWithdrawalAtRetirement = 0; // For 4% and dynamic strategies
 
       while (high - low > tolerance) {
         const testSpending = (low + high) / 2;
         let portfolio = startingPortfolio;
         let canSustain = true;
         const currentYear = new Date().getFullYear();
+        let storedInitialWithdrawal = 0; // For 4% rule consistency
 
         // Simulate from now until life expectancy
         for (let year = 1; year <= lifeExpectancy - currentAge; year++) {
