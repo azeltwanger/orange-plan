@@ -442,9 +442,9 @@ export default function FinancialPlan() {
     return sum;
   }, 0);
   
-  // For Financial Plan projections, use currentAnnualSpending directly (allows accurate drawdown modeling)
-  const monthlyExpenses = currentAnnualSpending / 12;
-  const annualSavings = (monthlyIncome - monthlyExpenses - monthlyDebtPayments) * 12;
+  // Total monthly expenses = budget expenses + debt payments
+  const monthlyExpenses = monthlyBudgetExpenses + monthlyDebtPayments;
+  const annualSavings = Math.max(0, (monthlyIncome - monthlyExpenses) * 12);
 
 
 
@@ -809,11 +809,6 @@ export default function FinancialPlan() {
         
         // Allocate savings to taxable accounts (default for working years)
         runningTaxable += yearSavings;
-        
-        // Calculate breakdown for tooltip
-        const yearIncome = monthlyIncome * 12 * Math.pow(1 + incomeGrowth / 100, i);
-        const yearLifestyleExpenses = currentAnnualSpending * Math.pow(1 + incomeGrowth / 100, i);
-        const yearDebtPayments = i === 0 ? monthlyDebtPayments * 12 : actualAnnualDebtPayments;
       } else {
         // Calculate withdrawal based on strategy
         const totalBeforeWithdrawal = runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther + runningSavings;
@@ -839,18 +834,8 @@ export default function FinancialPlan() {
           yearWithdrawal = nominalSpendingAtRetirement * Math.pow(1 + effectiveInflation / 100, yearsIntoRetirement);
         }
         
-        // Calculate Social Security income for this year (inflation-adjusted from start age)
-        const currentAgeInYear = currentAge + i;
-        let socialSecurityIncome = 0;
-        if (currentAgeInYear >= socialSecurityStartAge && socialSecurityAmount > 0) {
-          const yearsOfSSInflation = currentAgeInYear - socialSecurityStartAge;
-          socialSecurityIncome = socialSecurityAmount * Math.pow(1 + effectiveInflation / 100, yearsOfSSInflation);
-        }
-
-        // Total other income = other retirement income + Social Security (if eligible)
-        const totalOtherIncome = otherRetirementIncome + socialSecurityIncome;
-        
         // Smart withdrawal order based on age and account types with TAX CALCULATION
+        const currentAgeInYear = currentAge + i;
         const canAccessRetirementPenaltyFree = currentAgeInYear >= PENALTY_FREE_AGE;
         
         // Required Minimum Distributions (RMDs) from tax-deferred accounts starting at age 73
@@ -880,7 +865,16 @@ export default function FinancialPlan() {
         const effectiveRunningTaxableBasis = Math.min(runningTaxable, runningTaxableBasis);
         const estimatedCurrentGainRatio = runningTaxable > 0 ? Math.max(0, (runningTaxable - effectiveRunningTaxableBasis) / runningTaxable) : 0;
         
+        // Calculate Social Security income for this year (inflation-adjusted from start age)
+        const currentAgeInYearForSS = currentAge + i;
+        let socialSecurityIncome = 0;
+        if (currentAgeInYearForSS >= socialSecurityStartAge && socialSecurityAmount > 0) {
+          const yearsOfSSInflation = currentAgeInYearForSS - socialSecurityStartAge;
+          socialSecurityIncome = socialSecurityAmount * Math.pow(1 + effectiveInflation / 100, yearsOfSSInflation);
+        }
 
+        // Total other income = other retirement income + Social Security (if eligible)
+        const totalOtherIncome = otherRetirementIncome + socialSecurityIncome;
 
         // Store original retirement spending for tooltip breakdown
         retirementSpendingOnly = yearWithdrawal;
@@ -968,11 +962,6 @@ export default function FinancialPlan() {
         bonds: Math.round(runningBonds),
         savings: Math.round(runningSavings),
         yearSavingsForTooltip: isRetired ? 0 : Math.round(yearSavings),
-        yearIncome: !isRetired 
-          ? Math.round(monthlyIncome * 12 * Math.pow(1 + incomeGrowth / 100, i)) 
-          : Math.round(totalOtherIncome || 0),
-        yearLifestyleExpenses: !isRetired ? Math.round(currentAnnualSpending * Math.pow(1 + incomeGrowth / 100, i)) : 0,
-        yearDebtPayments: !isRetired ? (i === 0 ? Math.round(monthlyDebtPayments * 12) : Math.round(actualAnnualDebtPayments)) : 0,
         total: Math.round(total),
         realTotal: Math.round(realTotal),
         hasEvent: lifeEvents.some(e => e.year === year) || 
@@ -1153,7 +1142,6 @@ export default function FinancialPlan() {
   useEffect(() => {
     const calculateMaxSpending = () => {
       const startingPortfolio = taxableValue + taxDeferredValue + taxFreeValue;
-      console.log('[Max Spending Debug] Starting portfolio:', startingPortfolio, 'Annual savings:', annualSavings, 'Retirement age:', retirementAge);
       if (startingPortfolio <= 0 && annualSavings <= 0) {
         setMaxSustainableSpending(0);
         return;
@@ -1242,12 +1230,9 @@ export default function FinancialPlan() {
           portfolio += eventImpact;
 
           if (!isRetired) {
-            // Add savings (can be negative if drawing down)
+            // Add savings
             const yearSavings = annualSavings * Math.pow(1 + incomeGrowth / 100, year);
             portfolio += yearSavings;
-            if (year <= 5) {
-              console.log(`[Max Spending Debug] Year ${year} (Age ${age}): Portfolio after growth: ${portfolio.toFixed(0)}, yearSavings: ${yearSavings.toFixed(0)}, portfolio after savings: ${(portfolio + yearSavings).toFixed(0)}`);
-            }
           } else {
             // Withdraw test amount (inflation-adjusted from today's dollars)
             const yearsIntoRetirement = age - retirementAge;
@@ -1273,7 +1258,6 @@ export default function FinancialPlan() {
       }
 
       // maxSpending is already in today's dollars from binary search
-      console.log('[Max Spending Debug] Final max sustainable spending:', Math.round(maxSpending));
       setMaxSustainableSpending(Math.round(maxSpending));
     };
 
@@ -1934,60 +1918,37 @@ export default function FinancialPlan() {
                                   </>
                                 )}
                               </div>
-                              {!p.isRetired && (
+                              {!p.isRetired && p.yearSavingsForTooltip > 0 && (
                                 <div className="pt-2 mt-2 border-t border-zinc-700">
-                                  <div className="text-xs space-y-0.5 text-zinc-400 mb-1">
-                                    {p.yearIncome > 0 && (
-                                      <div className="flex justify-between">
-                                        <span>• Income:</span>
-                                        <span className="text-emerald-400">${(p.yearIncome || 0).toLocaleString()}</span>
-                                      </div>
-                                    )}
-                                    <div className="flex justify-between">
-                                      <span>• Lifestyle Expenses:</span>
-                                      <span className="text-rose-400">-${(p.yearLifestyleExpenses || 0).toLocaleString()}</span>
-                                    </div>
-                                    {p.yearDebtPayments > 0 && (
-                                      <div className="flex justify-between">
-                                        <span>• Debt Payments:</span>
-                                        <span className="text-rose-400">-${(p.yearDebtPayments || 0).toLocaleString()}</span>
-                                      </div>
-                                    )}
-                                  </div>
-                                  <p className={`font-medium ${p.yearSavingsForTooltip > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                    Total Annual {p.yearSavingsForTooltip > 0 ? 'Inflow' : 'Outflow'}: ${Math.abs(p.yearSavingsForTooltip || 0).toLocaleString()}
+                                  <p className={`font-medium text-emerald-400`}>
+                                    Annual Inflow: ${p.yearSavingsForTooltip.toLocaleString()}
                                   </p>
+                                  <p className="text-[10px] text-zinc-500 mt-1">From surplus income & expenses</p>
                                 </div>
                               )}
                               {p.isRetired && (p.yearWithdrawal > 0 || p.yearGoalWithdrawal > 0) && (
                                 <div className="pt-2 mt-2 border-t border-zinc-700">
-                                  <div className="text-xs space-y-0.5 text-zinc-400 mb-1">
-                                    {p.yearIncome > 0 && (
-                                      <div className="flex justify-between">
-                                        <span>• Income:</span>
-                                        <span className="text-emerald-400">${(p.yearIncome || 0).toLocaleString()}</span>
-                                      </div>
-                                    )}
-                                    {p.retirementSpendingOnly > 0 && (
+                                  {p.retirementSpendingOnly > 0 && (
+                                    <div className="text-xs space-y-0.5 text-zinc-400 mb-1">
                                       <div className="flex justify-between">
                                         <span>• Retirement Spending:</span>
-                                        <span className="text-rose-400">-${(p.retirementSpendingOnly).toLocaleString()}</span>
+                                        <span className="text-zinc-300">${(p.retirementSpendingOnly).toLocaleString()}</span>
                                       </div>
-                                    )}
-                                    {p.yearGoalWithdrawal > 0 && (
-                                      <>
-                                        <div className="flex justify-between">
-                                          <span>• Goal Funding:</span>
-                                          <span className="text-rose-400">-${(p.yearGoalWithdrawal).toLocaleString()}</span>
-                                        </div>
-                                        {p.goalNames && p.goalNames.length > 0 && (
-                                          <p className="text-[10px] text-zinc-500 ml-2">{p.goalNames.join(', ')}</p>
-                                        )}
-                                      </>
-                                    )}
-                                  </div>
+                                    </div>
+                                  )}
+                                  {p.yearGoalWithdrawal > 0 && (
+                                    <div className="text-xs space-y-0.5 text-zinc-400 mb-2">
+                                      <div className="flex justify-between">
+                                        <span>• Goal Funding:</span>
+                                        <span className="text-orange-400">${(p.yearGoalWithdrawal).toLocaleString()}</span>
+                                      </div>
+                                      {p.goalNames && p.goalNames.length > 0 && (
+                                        <p className="text-[10px] text-zinc-500 ml-2">{p.goalNames.join(', ')}</p>
+                                      )}
+                                    </div>
+                                  )}
                                   <p className={`font-medium ${p.yearWithdrawal > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
-                                    Total Annual {p.yearWithdrawal > 0 ? 'Outflow' : 'Inflow'}: ${Math.abs(p.yearWithdrawal || 0).toLocaleString()}
+                                    Total Annual {p.yearWithdrawal > 0 ? 'Outflow' : 'Inflow'}: ${(p.yearWithdrawal || 0).toLocaleString()}
                                   </p>
                                   <div className="text-xs space-y-0.5 text-zinc-400 mt-2 pt-2 border-t border-zinc-700/50">
                                     {p.withdrawFromTaxable > 0 && (
@@ -2293,11 +2254,11 @@ export default function FinancialPlan() {
                   <Input type="number" value={lifeExpectancy} onChange={(e) => setLifeExpectancy(parseInt(e.target.value) || 90)} className="bg-zinc-900 border-zinc-800" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-zinc-400">Current Lifestyle Spending</Label>
+                  <Label className="text-zinc-400">Current Spending</Label>
                   <Input type="number" value={currentAnnualSpending} onChange={(e) => setCurrentAnnualSpending(parseInt(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-zinc-400">Retirement Lifestyle Spending</Label>
+                  <Label className="text-zinc-400">Retirement Spending</Label>
                   <Input type="number" value={retirementAnnualSpending} onChange={(e) => setRetirementAnnualSpending(parseInt(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
                 </div>
               </div>
