@@ -90,6 +90,8 @@ export default function TaxCenter() {
   const [selectedTxIds, setSelectedTxIds] = useState([]);
   const [bulkAccountType, setBulkAccountType] = useState('taxable');
   const [assetTypeFilter, setAssetTypeFilter] = useState('all');
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [exportingYear, setExportingYear] = useState(false);
   const queryClient = useQueryClient();
 
   // Tax planning settings
@@ -115,7 +117,6 @@ export default function TaxCenter() {
     price_per_unit: '',
     date: format(new Date(), 'yyyy-MM-dd'),
     exchange: '',
-    account_type: 'taxable',
     account_id: '',
     trading_fee: '',
     notes: '',
@@ -187,10 +188,19 @@ export default function TaxCenter() {
     return () => clearInterval(interval);
   }, []);
 
-  const { data: transactions = [] } = useQuery({
+  const { data: allTransactions = [] } = useQuery({
     queryKey: ['transactions'],
     queryFn: () => base44.entities.Transaction.list('-date'),
   });
+
+  // Filter transactions by selected year
+  const transactions = allTransactions.filter(t => {
+    const txDate = new Date(t.date);
+    return txDate.getFullYear() === selectedYear;
+  });
+
+  // Get available years from all transactions
+  const availableYears = [...new Set(allTransactions.map(t => new Date(t.date).getFullYear()))].sort((a, b) => b - a);
 
   const { data: holdings = [] } = useQuery({
     queryKey: ['holdings'],
@@ -217,7 +227,7 @@ export default function TaxCenter() {
       const lotId = `${data.asset_ticker}-${Date.now()}`;
       
       // Check for duplicate transaction
-      const existingDuplicate = transactions.find(t => 
+      const existingDuplicate = allTransactions.find(t => 
         t.type === data.type &&
         t.asset_ticker === data.asset_ticker &&
         t.quantity === data.quantity &&
@@ -230,7 +240,7 @@ export default function TaxCenter() {
       }
 
       // Get proper account type from selected account if account_id is set
-      let finalAccountType = data.account_type || 'taxable';
+      let finalAccountType = 'taxable';
       if (data.account_id) {
         const selectedAccount = await base44.entities.Account.list();
         const account = selectedAccount.find(a => a.id === data.account_id);
@@ -406,7 +416,7 @@ export default function TaxCenter() {
   };
 
   const resetForm = () => {
-    setFormData({ type: 'buy', asset_ticker: 'BTC', quantity: '', price_per_unit: '', date: format(new Date(), 'yyyy-MM-dd'), exchange: '', account_type: 'taxable', account_id: '', trading_fee: '', notes: '' });
+    setFormData({ type: 'buy', asset_ticker: 'BTC', quantity: '', price_per_unit: '', date: format(new Date(), 'yyyy-MM-dd'), exchange: '', account_id: '', trading_fee: '', notes: '' });
     setSaleForm({ quantity: '', price_per_unit: '', date: format(new Date(), 'yyyy-MM-dd'), fee: '', lot_method: 'HIFO', selected_lots: [], exchange: '' });
     setSpecificLotQuantities({});
   };
@@ -437,7 +447,6 @@ export default function TaxCenter() {
         price_per_unit: editingTx.price_per_unit || '',
         date: formattedDate,
         exchange: editingTx.exchange_or_wallet || editingTx.exchange || '',
-        account_type: accountType,
         account_id: editingTx.account_id || '',
         trading_fee: editingTx.trading_fee || '',
         notes: editingTx.notes || '',
@@ -482,8 +491,8 @@ export default function TaxCenter() {
   // Build tax lots from buy transactions, accounting for sales
   // Only include transactions from TAXABLE accounts (exclude 401k, IRA, etc.)
   const taxLots = useMemo(() => {
-    const buyTxs = transactions.filter(t => t.type === 'buy' && t.asset_ticker === 'BTC' && isTaxableTransaction(t));
-    const sellTxs = transactions.filter(t => t.type === 'sell' && t.asset_ticker === 'BTC' && isTaxableTransaction(t));
+    const buyTxs = allTransactions.filter(t => t.type === 'buy' && t.asset_ticker === 'BTC' && isTaxableTransaction(t));
+    const sellTxs = allTransactions.filter(t => t.type === 'sell' && t.asset_ticker === 'BTC' && isTaxableTransaction(t));
     
     // Calculate total sold quantity
     const totalSold = sellTxs.reduce((sum, t) => sum + (t.quantity || 0), 0);
@@ -532,7 +541,7 @@ export default function TaxCenter() {
         taxTreatment,
       };
     }).filter(lot => lot.remainingQuantity > 0);
-  }, [transactions, currentPrice, holdings]);
+  }, [allTransactions, currentPrice, holdings]);
 
   // Sort lots by different methods
   const sortLotsByMethod = (lots, method) => {
@@ -684,13 +693,10 @@ export default function TaxCenter() {
     });
   };
 
-  // Tax calculations - YTD only
-  const currentYear = new Date().getFullYear();
-  const ytdSellTxs = transactions.filter(t => t.type === 'sell' && new Date(t.date).getFullYear() === currentYear);
-  const allSellTxs = transactions.filter(t => t.type === 'sell');
-  const sellTxs = allSellTxs;
-  const shortTermGains = ytdSellTxs.filter(t => t.holding_period === 'short_term').reduce((sum, t) => sum + (t.realized_gain_loss || 0), 0);
-  const longTermGains = ytdSellTxs.filter(t => t.holding_period === 'long_term').reduce((sum, t) => sum + (t.realized_gain_loss || 0), 0);
+  // Tax calculations - filtered by selected year
+  const sellTxs = transactions.filter(t => t.type === 'sell');
+  const shortTermGains = sellTxs.filter(t => t.holding_period === 'short_term').reduce((sum, t) => sum + (t.realized_gain_loss || 0), 0);
+  const longTermGains = sellTxs.filter(t => t.holding_period === 'long_term').reduce((sum, t) => sum + (t.realized_gain_loss || 0), 0);
   
   // Total BTC from holdings
   const totalBtcHeld = taxLots.reduce((sum, lot) => sum + lot.remainingQuantity, 0);
@@ -822,7 +828,7 @@ export default function TaxCenter() {
   // Calculate all-in fee percentage (explicit fees + estimated spread) matching Fee Analysis
   const avgFeePercent = useMemo(() => {
     // Filter to BTC buy transactions only (same as Fee Analysis)
-    const btcBuyTxs = transactions.filter(t => t.asset_ticker === 'BTC' && t.type === 'buy');
+    const btcBuyTxs = allTransactions.filter(t => t.asset_ticker === 'BTC' && t.type === 'buy');
     if (btcBuyTxs.length === 0) return DEFAULT_ROUND_TRIP_FEE_PERCENT;
     
     // Exchange spread estimates (matching FeeAnalyzer component)
@@ -863,7 +869,7 @@ export default function TaxCenter() {
     // For round trip (sell + rebuy), multiply by 2
     const allInRate = ((totalExplicitFees + totalSpreadCost) / totalVolume) * 100;
     return allInRate * 2; // Round trip
-  }, [transactions]);
+  }, [allTransactions]);
 
   const washTradeAnalysis = useMemo(() => calculateWashTradeAnalysis(taxableLotsForHarvest, avgFeePercent), [taxableLotsForHarvest, avgFeePercent, effectiveSTCGRate, ltcgBracketRoom, canHarvestGainsTaxFree, filingStatus]);
 
@@ -911,13 +917,50 @@ export default function TaxCenter() {
           <p className="text-zinc-500 mt-1">Cost basis optimization and tax planning</p>
         </div>
         <div className="flex gap-2 flex-wrap">
+          <Select value={selectedYear.toString()} onValueChange={(val) => setSelectedYear(parseInt(val))}>
+            <SelectTrigger className="w-32 bg-zinc-900 border-zinc-700">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="bg-zinc-900 border-zinc-700">
+              {availableYears.length > 0 ? (
+                availableYears.map(year => (
+                  <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
+                ))
+              ) : (
+                <SelectItem value={new Date().getFullYear().toString()}>{new Date().getFullYear()}</SelectItem>
+              )}
+            </SelectContent>
+          </Select>
+          <Button 
+            variant="outline" 
+            onClick={async () => {
+              setExportingYear(true);
+              try {
+                const response = await base44.functions.invoke('exportForm8949', { year: selectedYear });
+                const blob = new Blob([response.data], { type: 'text/csv' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `Form8949_${selectedYear}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                a.remove();
+              } catch (error) {
+                console.error('Export error:', error);
+              } finally {
+                setExportingYear(false);
+              }
+            }}
+            disabled={exportingYear}
+            className="bg-transparent border-zinc-700"
+          >
+            <Download className="w-4 h-4 mr-2" />
+            {exportingYear ? 'Exporting...' : 'Export 8949'}
+          </Button>
           <Button variant="outline" onClick={() => setCsvImportOpen(true)} className="bg-transparent border-zinc-700">
             <Upload className="w-4 h-4 mr-2" />
-            Transaction CSV Import
-          </Button>
-          <Button variant="outline" onClick={handleDownloadReport} className="bg-transparent border-zinc-700">
-            <Download className="w-4 h-4 mr-2" />
-            Export 8949
+            Import CSV
           </Button>
           <Button onClick={() => setSaleFormOpen(true)} className="brand-gradient text-white font-semibold shadow-lg shadow-orange-500/20">
             <Calculator className="w-4 h-4 mr-2" />
@@ -1059,41 +1102,42 @@ export default function TaxCenter() {
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="card-premium rounded-xl p-5 border border-zinc-800/50">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs text-zinc-500 uppercase tracking-wider">YTD Short-Term Realized</span>
-            <div className={cn("p-1.5 rounded-lg", shortTermGains >= 0 ? "bg-emerald-400/10" : "bg-rose-400/10")}>
-              {shortTermGains >= 0 ? <TrendingUp className="w-4 h-4 text-emerald-400" /> : <TrendingDown className="w-4 h-4 text-rose-400" />}
-            </div>
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-xs text-zinc-500 uppercase tracking-wider">{selectedYear} Short-Term Realized</span>
+          <div className={cn("p-1.5 rounded-lg", shortTermGains >= 0 ? "bg-emerald-400/10" : "bg-rose-400/10")}>
+            {shortTermGains >= 0 ? <TrendingUp className="w-4 h-4 text-emerald-400" /> : <TrendingDown className="w-4 h-4 text-rose-400" />}
           </div>
-          <p className={cn("text-2xl font-bold", shortTermGains >= 0 ? "text-emerald-400" : "text-rose-400")}>
-            {shortTermGains >= 0 ? '+' : '-'}${Math.abs(shortTermGains).toLocaleString()}
-          </p>
-          <p className="text-xs text-zinc-500 mt-1">{shortTermGains === 0 ? 'No ST sales this year' : `Taxed at ${(effectiveSTCGRate * 100).toFixed(0)}%`}</p>
+        </div>
+        <p className={cn("text-2xl font-bold", shortTermGains >= 0 ? "text-emerald-400" : "text-rose-400")}>
+          {shortTermGains >= 0 ? '+' : '-'}${Math.abs(shortTermGains).toLocaleString()}
+        </p>
+        <p className="text-xs text-zinc-500 mt-1">{shortTermGains === 0 ? 'No ST sales this year' : `Taxed at ${(effectiveSTCGRate * 100).toFixed(0)}%`}</p>
         </div>
 
         <div className="card-premium rounded-xl p-5 border border-zinc-800/50">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs text-zinc-500 uppercase tracking-wider">YTD Long-Term Realized</span>
-            <div className={cn("p-1.5 rounded-lg", longTermGains >= 0 ? "bg-emerald-400/10" : "bg-rose-400/10")}>
-              {longTermGains >= 0 ? <TrendingUp className="w-4 h-4 text-emerald-400" /> : <TrendingDown className="w-4 h-4 text-rose-400" />}
-            </div>
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-xs text-zinc-500 uppercase tracking-wider">{selectedYear} Long-Term Realized</span>
+          <div className={cn("p-1.5 rounded-lg", longTermGains >= 0 ? "bg-emerald-400/10" : "bg-rose-400/10")}>
+            {longTermGains >= 0 ? <TrendingUp className="w-4 h-4 text-emerald-400" /> : <TrendingDown className="w-4 h-4 text-rose-400" />}
           </div>
-          <p className={cn("text-2xl font-bold", longTermGains >= 0 ? "text-emerald-400" : "text-rose-400")}>
-            {longTermGains >= 0 ? '+' : '-'}${Math.abs(longTermGains).toLocaleString()}
-          </p>
-          <p className={cn("text-xs mt-1", longTermGains === 0 ? "text-zinc-500" : effectiveLTCGRate === 0 ? "text-emerald-400" : "text-zinc-500")}>
-            {longTermGains === 0 ? 'No LT sales this year' : effectiveLTCGRate === 0 ? '0% TAX!' : `Taxed at ${(effectiveLTCGRate * 100).toFixed(0)}%`}
-          </p>
+        </div>
+        <p className={cn("text-2xl font-bold", longTermGains >= 0 ? "text-emerald-400" : "text-rose-400")}>
+          {longTermGains >= 0 ? '+' : '-'}${Math.abs(longTermGains).toLocaleString()}
+        </p>
+        <p className={cn("text-xs mt-1", longTermGains === 0 ? "text-zinc-500" : effectiveLTCGRate === 0 ? "text-emerald-400" : "text-zinc-500")}>
+          {longTermGains === 0 ? 'No LT sales this year' : effectiveLTCGRate === 0 ? '0% TAX!' : `Taxed at ${(effectiveLTCGRate * 100).toFixed(0)}%`}
+        </p>
         </div>
 
         <div className="card-premium rounded-xl p-5 border border-zinc-800/50">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs text-zinc-500 uppercase tracking-wider">Estimated Tax</span>
-            <div className="p-1.5 rounded-lg bg-orange-400/10">
-              <Receipt className="w-4 h-4 text-orange-400" />
-            </div>
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-xs text-zinc-500 uppercase tracking-wider">Estimated Tax</span>
+          <div className="p-1.5 rounded-lg bg-orange-400/10">
+            <Receipt className="w-4 h-4 text-orange-400" />
           </div>
-          <p className="text-2xl font-bold text-orange-400">${estimatedTax.toLocaleString()}</p>
+        </div>
+        <p className="text-2xl font-bold text-orange-400">${estimatedTax.toLocaleString()}</p>
+        <p className="text-xs text-zinc-500 mt-1">For {selectedYear}</p>
         </div>
 
         <div className="card-premium rounded-xl p-5 border border-zinc-800/50">
@@ -1123,11 +1167,11 @@ export default function TaxCenter() {
 
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-6">
-          {/* YTD Tax Liability Summary */}
+          {/* Tax Liability Summary */}
           <div className="card-premium rounded-2xl p-6 border border-orange-500/20">
             <h3 className="font-semibold mb-4 flex items-center gap-2">
               <Receipt className="w-5 h-5 text-orange-400" />
-              {currentYear} Tax Liability Summary
+              {selectedYear} Tax Liability Summary
             </h3>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="p-4 rounded-xl bg-zinc-800/30">
@@ -1147,7 +1191,7 @@ export default function TaxCenter() {
               <div className="p-4 rounded-xl bg-orange-500/10 border border-orange-500/20">
                 <p className="text-sm text-zinc-500">Est. Total Tax</p>
                 <p className="text-xl font-bold text-orange-400">${estimatedTax.toLocaleString()}</p>
-                <p className="text-xs text-zinc-500">On {ytdSellTxs.length} sales</p>
+                <p className="text-xs text-zinc-500">On {sellTxs.length} sales</p>
               </div>
               <div className="p-4 rounded-xl bg-zinc-800/30">
                 <p className="text-sm text-zinc-500">BTC Holdings</p>
@@ -1182,9 +1226,9 @@ export default function TaxCenter() {
               <p className="text-xs text-zinc-500 mt-2">Your current bracket is highlighted in orange</p>
             </div>
 
-            {/* YTD Summary */}
+            {/* Year Summary */}
             <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
-              <h3 className="font-semibold mb-4">Year-to-Date Summary</h3>
+              <h3 className="font-semibold mb-4">{selectedYear} Summary</h3>
               <div className="space-y-4">
                 <div className="flex justify-between items-center p-3 rounded-lg bg-zinc-800/30">
                   <span className="text-zinc-400">Total Realized Gains</span>
@@ -1808,26 +1852,9 @@ export default function TaxCenter() {
               />
               <p className="text-xs text-zinc-500">Assign to account (e.g., Fidelity, Coinbase, Ledger)</p>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-zinc-400">Transaction Fee</Label>
-                <Input type="number" step="any" value={formData.trading_fee} onChange={(e) => setFormData({ ...formData, trading_fee: e.target.value })} placeholder="0.00" className="bg-zinc-900 border-zinc-700 text-zinc-100 placeholder:text-zinc-500" />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-zinc-400">Tax Account Type</Label>
-                <Select value={formData.account_type} onValueChange={(value) => setFormData({ ...formData, account_type: value })}>
-                  <SelectTrigger className="bg-zinc-900 border-zinc-700 text-zinc-100"><SelectValue /></SelectTrigger>
-                  <SelectContent className="bg-zinc-900 border-zinc-700 text-zinc-100">
-                    <SelectItem value="taxable" className="text-zinc-100">Taxable</SelectItem>
-                    <SelectItem value="traditional_401k" className="text-zinc-100">Traditional 401(k)</SelectItem>
-                    <SelectItem value="roth_401k" className="text-zinc-100">Roth 401(k)</SelectItem>
-                    <SelectItem value="traditional_ira" className="text-zinc-100">Traditional IRA</SelectItem>
-                    <SelectItem value="roth_ira" className="text-zinc-100">Roth IRA</SelectItem>
-                    <SelectItem value="hsa" className="text-zinc-100">HSA</SelectItem>
-                    <SelectItem value="529" className="text-zinc-100">529 Plan</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="space-y-2">
+              <Label className="text-zinc-400">Transaction Fee</Label>
+              <Input type="number" step="any" value={formData.trading_fee} onChange={(e) => setFormData({ ...formData, trading_fee: e.target.value })} placeholder="0.00" className="bg-zinc-900 border-zinc-700 text-zinc-100 placeholder:text-zinc-500" />
             </div>
             <div className="space-y-2">
               <Label className="text-zinc-400">Exchange/Platform (Optional)</Label>
