@@ -1934,10 +1934,12 @@ export default function FinancialPlan() {
                               {!p.isRetired && (
                                 <div className="pt-2 mt-2 border-t border-zinc-700">
                                   <div className="text-xs space-y-0.5 text-zinc-400 mb-1">
-                                    <div className="flex justify-between">
-                                      <span>• Income:</span>
-                                      <span className="text-emerald-400">${(p.yearIncome || 0).toLocaleString()}</span>
-                                    </div>
+                                    {p.yearIncome > 0 && (
+                                      <div className="flex justify-between">
+                                        <span>• Income:</span>
+                                        <span className="text-emerald-400">${(p.yearIncome || 0).toLocaleString()}</span>
+                                      </div>
+                                    )}
                                     <div className="flex justify-between">
                                       <span>• Lifestyle Expenses:</span>
                                       <span className="text-rose-400">-${(p.yearLifestyleExpenses || 0).toLocaleString()}</span>
