@@ -46,6 +46,7 @@ export default function Dashboard() {
   const [showCreateAccount, setShowCreateAccount] = useState(false);
   const [editingAccount, setEditingAccount] = useState(null);
   const [csvImportOpen, setCsvImportOpen] = useState(false);
+  const [showAllLiabilities, setShowAllLiabilities] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: holdings = [], isLoading: holdingsLoading } = useQuery({
@@ -381,7 +382,7 @@ export default function Dashboard() {
             <span className="text-sm text-zinc-500">{liabilities.length} position{liabilities.length !== 1 ? 's' : ''}</span>
           </div>
           <div className="space-y-3">
-            {liabilities.slice(0, 5).map((liability) => (
+            {liabilities.slice(0, showAllLiabilities ? liabilities.length : 5).map((liability) => (
               <div key={liability.id} className="flex items-center justify-between p-3 rounded-xl bg-zinc-800/30">
                 <div className="flex items-center gap-3">
                   <div className={`w-2 h-2 rounded-full ${
@@ -405,7 +406,12 @@ export default function Dashboard() {
               </div>
             ))}
             {liabilities.length > 5 && (
-              <p className="text-sm text-zinc-500 text-center pt-2">+{liabilities.length - 5} more</p>
+              <button
+                onClick={() => setShowAllLiabilities(!showAllLiabilities)}
+                className="text-sm text-orange-400 hover:text-orange-300 transition-colors pt-2 block w-full text-center font-medium"
+              >
+                {showAllLiabilities ? 'Show Less' : `+${liabilities.length - 5} more`}
+              </button>
             )}
           </div>
           <div className="mt-4 pt-4 border-t border-zinc-800 flex justify-between items-center">
