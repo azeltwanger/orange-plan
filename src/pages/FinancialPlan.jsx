@@ -2198,8 +2198,10 @@ export default function FinancialPlan() {
                   );
                 }
 
-                const currentBridgeFunds = taxableLiquidValue + totalRothContributions;
-                const shortfall = Math.max(0, bridgeFundsNeeded - currentBridgeFunds);
+                // Project today's accessible funds forward to retirement age
+                const yearsToRetirement = Math.max(0, retirementAge - currentAge);
+                const projectedAccessibleFunds = (taxableLiquidValue + totalRothContributions) * Math.pow(1 + bridgeGrowthRate, yearsToRetirement);
+                const shortfall = Math.max(0, bridgeFundsNeeded - projectedAccessibleFunds);
 
                 return (
                   <div className="mt-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
