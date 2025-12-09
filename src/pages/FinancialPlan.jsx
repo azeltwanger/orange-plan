@@ -1256,7 +1256,7 @@ export default function FinancialPlan() {
     };
 
     calculateMaxSpending();
-  }, [currentAge, retirementAge, lifeExpectancy, taxableValue, taxDeferredValue, taxFreeValue, btcValue, stocksValue, realEstateValue, bondsValue, otherValue, annualSavings, effectiveInflation, incomeGrowth, effectiveStocksCagr, realEstateCagr, bondsCagr, withdrawalStrategy, effectiveWithdrawalRate, retirementValue, getBtcGrowthRate, lifeEvents, goals]);
+  }, [currentAge, retirementAge, lifeExpectancy, taxableValue, taxDeferredValue, taxFreeValue, btcValue, stocksValue, realEstateValue, bondsValue, otherValue, annualSavings, effectiveInflation, incomeGrowth, effectiveStocksCagr, realEstateCagr, bondsCagr, withdrawalStrategy, dynamicWithdrawalRate, getBtcGrowthRate, lifeEvents, goals, liabilities, btcPrice]);
 
   // Calculate earliest achievable FI age (when portfolio can sustain withdrawals to life expectancy)
   useEffect(() => {
@@ -1295,7 +1295,7 @@ export default function FinancialPlan() {
           portfolio = portfolio * (1 + blendedGrowthRate);
           
           if (!isRetired) {
-            // Add savings (grows with income)
+            // Add net cash flow (can be negative)
             const yearNetCashFlow = annualSavings * Math.pow(1 + incomeGrowth / 100, year);
             portfolio += yearNetCashFlow;
           } else {
@@ -1341,11 +1341,11 @@ export default function FinancialPlan() {
       setEarliestRetirementAge(null);
     };
     
-    // Only calculate if there's a portfolio or ongoing savings (positive or negative)
+    // Only calculate if there's a portfolio or ongoing cash flow (positive or negative)
     if ((taxableValue + taxDeferredValue + taxFreeValue) > 0 || annualSavings !== 0) {
       calculateEarliestFI();
     }
-  }, [currentAge, lifeExpectancy, taxableValue, taxDeferredValue, taxFreeValue, btcValue, stocksValue, realEstateValue, bondsValue, otherValue, annualSavings, retirementAnnualSpending, effectiveInflation, incomeGrowth, effectiveStocksCagr, realEstateCagr, bondsCagr, withdrawalStrategy, dynamicWithdrawalRate, getBtcGrowthRate, projections]);
+  }, [currentAge, lifeExpectancy, taxableValue, taxDeferredValue, taxFreeValue, btcValue, stocksValue, realEstateValue, bondsValue, otherValue, annualSavings, retirementAnnualSpending, effectiveInflation, incomeGrowth, effectiveStocksCagr, realEstateCagr, bondsCagr, withdrawalStrategy, dynamicWithdrawalRate, getBtcGrowthRate]);
   
   // Calculate lifetime tax burden in retirement
   const lifetimeTaxesPaid = projections.filter(p => p.isRetired).reduce((sum, p) => sum + (p.taxesPaid || 0), 0);
@@ -2262,8 +2262,8 @@ export default function FinancialPlan() {
               
               <div className="mt-4 space-y-2">
                 <p className="text-xs text-zinc-500">
-                  💡 Your annual net cash flow of <span className="text-emerald-400 font-medium">{formatNumber(annualSavings)}</span> is calculated from your total income (from Budget) minus your current annual spending (from Settings).
-                  A positive value means you are saving. A negative value means you are drawing down.
+                  💡 Your annual net cash flow of <span className={cn("font-medium", annualSavings >= 0 ? "text-emerald-400" : "text-rose-400")}>{annualSavings >= 0 ? '+' : ''}{formatNumber(annualSavings)}</span> is calculated from your total income (from Budget) minus your current annual spending (from Settings).
+                  A positive value means you are saving. A negative value means you are drawing down your portfolio.
                 </p>
                 {monthlyDebtPayments > 0 && (
                   <p className="text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
