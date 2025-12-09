@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -2261,13 +2260,6 @@ export default function FinancialPlan() {
                   💡 Your annual net cash flow of <span className={cn("font-medium", annualSavings >= 0 ? "text-emerald-400" : "text-rose-400")}>{annualSavings >= 0 ? '+' : ''}{formatNumber(annualSavings)}</span> is calculated from your total income (from Budget) minus your current annual spending (from Settings).
                   A positive value means you are saving. A negative value means you are drawing down your portfolio.
                 </p>
-                {monthlyDebtPayments > 0 && (
-                  <p className="text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
-                    ⚠️ <span className="font-medium">{formatNumber(monthlyDebtPayments * 12)}/yr</span> in debt payments reduces your available savings in these projections. 
-                    This represents the actual monthly payments you're making on liabilities (from your Liabilities page). 
-                    Create a "Debt Payoff" goal to accelerate repayment and increase future savings.
-                  </p>
-                )}
               </div>
 
 
