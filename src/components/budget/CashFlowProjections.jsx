@@ -21,10 +21,14 @@ export default function CashFlowProjections({
   const projections = useMemo(() => {
     const data = [];
     
-    // Track debt balances for amortization
-    const runningDebt = {};
+    // Track debt balances with month-by-month amortization - persist across years
+    const tempRunningDebt = {};
     liabilities.forEach(liability => {
-      runningDebt[liability.id] = liability.current_balance || 0;
+      tempRunningDebt[liability.id] = { 
+        ...liability, 
+        current_balance: liability.current_balance || 0,
+        paid_off: false,
+      };
     });
 
     for (let i = 0; i <= projectionYears; i++) {
@@ -43,31 +47,33 @@ export default function CashFlowProjections({
       let yearDebtPayments = 0;
       const debtPayoffMonths = {}; // Track which month each debt is paid off
 
-      liabilities.forEach(liability => {
-        if (runningDebt[liability.id] > 0) {
+      Object.values(tempRunningDebt).forEach(liability => {
+        if (!liability.paid_off) {
           const hasPayment = liability.monthly_payment && liability.monthly_payment > 0;
           const hasInterest = liability.interest_rate && liability.interest_rate > 0;
-          const startingBalance = runningDebt[liability.id];
+          const startingBalance = liability.current_balance;
 
           if (hasPayment) {
             // Simulate month-by-month
-            let remainingBalance = runningDebt[liability.id];
-            let monthsPaid = 0;
+            let remainingBalance = liability.current_balance;
             
             // For current year, start from current month; for future years, start from January
             const startMonth = (i === 0) ? currentMonth : 0;
 
             for (let month = startMonth; month < 12; month++) {
-              if (remainingBalance <= 0) break;
+              if (remainingBalance <= 0) {
+                liability.paid_off = true;
+                break;
+              }
 
               const monthlyInterest = hasInterest 
                 ? remainingBalance * (liability.interest_rate / 100 / 12)
                 : 0;
 
               const principalPayment = Math.max(0, liability.monthly_payment - monthlyInterest);
+              const paymentThisMonth = Math.min(remainingBalance + monthlyInterest, liability.monthly_payment);
               remainingBalance = Math.max(0, remainingBalance - principalPayment);
-              monthsPaid++;
-              yearDebtPayments += liability.monthly_payment;
+              yearDebtPayments += paymentThisMonth;
               
               // Track payoff month
               if (remainingBalance <= 0.01 && !debtPayoffMonths[liability.id]) {
@@ -75,17 +81,18 @@ export default function CashFlowProjections({
               }
             }
 
-            runningDebt[liability.id] = remainingBalance;
+            liability.current_balance = remainingBalance;
 
             // Track if debt was paid off this year
             if (startingBalance > 0 && remainingBalance <= 0.01) {
               const monthName = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][debtPayoffMonths[liability.id] - 1];
               yearEvents.push(`✓ Paid off ${liability.name} (${monthName})`);
+              liability.paid_off = true;
             }
           } else if (hasInterest) {
             // No payment, interest accrues
-            const annualInterest = runningDebt[liability.id] * (liability.interest_rate / 100);
-            runningDebt[liability.id] += annualInterest;
+            const annualInterest = liability.current_balance * (liability.interest_rate / 100);
+            liability.current_balance += annualInterest;
           }
         }
       });
@@ -163,7 +170,7 @@ export default function CashFlowProjections({
     }
     
     return data;
-  }, [monthlyIncome, monthlyBudgetExpenses, lifeEvents, goals, liabilities, inflationRate, incomeGrowthRate, currentYear]);
+  }, [monthlyIncome, monthlyBudgetExpenses, lifeEvents, goals, liabilities, inflationRate, incomeGrowthRate, currentYear, currentMonth]);
 
   const formatCurrency = (value) => {
     if (Math.abs(value) >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
