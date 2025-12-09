@@ -2271,7 +2271,7 @@ export default function FinancialPlan() {
               <div>
                 <p className="text-sm text-zinc-400">At Retirement (Age {retirementAge})</p>
                 <p className="text-2xl font-bold text-orange-400">{formatNumber(retirementValue, 2)}</p>
-                <p className="text-xs text-zinc-500">Minimum need: {formatNumber(requiredNestEgg)}</p>
+                <p className="text-xs text-zinc-500">Need: {formatNumber(requiredNestEgg)}</p>
               </div>
               <div>
                 <p className="text-sm text-zinc-400">Max Sustainable Spending</p>
