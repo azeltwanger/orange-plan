@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -24,14 +25,18 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
+// Bitcoin volatility model - starts high and decays over time based on historical trends
 const getBtcVolatility = (yearFromNow) => {
-  const initialVolatility = 55;
-  const minimumVolatility = 20;
-  const decayRate = 0.05;
+  const initialVolatility = 55; // Current approximate annualized volatility
+  const minimumVolatility = 20; // Floor - won't go below this (mature asset level)
+  const decayRate = 0.05; // 5% reduction per year
+  
+  // Exponential decay model: vol(t) = min + (initial - min) * e^(-decay * t)
   const volatility = minimumVolatility + (initialVolatility - minimumVolatility) * Math.exp(-decayRate * yearFromNow);
   return volatility;
 };
 
+// Monte Carlo simulation
 const runMonteCarloSimulation = (params, numSimulations = 1000) => {
   const {
     btcValue, stocksValue, realEstateValue, bondsValue, otherValue,
@@ -45,14 +50,16 @@ const runMonteCarloSimulation = (params, numSimulations = 1000) => {
   
   const results = [];
   const successResults = [];
-  const withdrawalPaths = [];
+  const withdrawalPaths = []; // Track withdrawals per simulation
   const years = Math.max(1, lifeExpectancy - currentAge);
   const yearsToRetirement = Math.max(0, retirementAge - currentAge);
   const totalStartingAssets = btcValue + stocksValue + realEstateValue + bondsValue + otherValue;
   const totalStartingAccounts = taxableValue + taxDeferredValue + taxFreeValue;
   
+  // Use account totals if available, otherwise use asset totals
   const startingPortfolio = totalStartingAccounts > 0 ? totalStartingAccounts : totalStartingAssets;
   
+  // Calculate portfolio allocation percentages for growth rates
   const btcPct = totalStartingAssets > 0 ? btcValue / totalStartingAssets : 0;
   const stocksPct = totalStartingAssets > 0 ? stocksValue / totalStartingAssets : 0;
   const realEstatePct = totalStartingAssets > 0 ? realEstateValue / totalStartingAssets : 0;
@@ -60,6 +67,7 @@ const runMonteCarloSimulation = (params, numSimulations = 1000) => {
   const otherPct = totalStartingAssets > 0 ? otherValue / totalStartingAssets : 0;
   
   for (let sim = 0; sim < numSimulations; sim++) {
+    // Track by account type (same as main projections)
     let runningTaxable = taxableValue;
     let runningTaxDeferred = taxDeferredValue;
     let runningTaxFree = taxFreeValue;
@@ -74,19 +82,25 @@ const runMonteCarloSimulation = (params, numSimulations = 1000) => {
       const isRetired = year > yearsToRetirement;
       const yearsIntoRetirement = isRetired ? year - yearsToRetirement : 0;
       
+      // Get expected BTC return based on model
       const expectedBtcReturn = getBtcGrowthRate(year, inflationRate);
+
+      // Get dynamic BTC volatility for this year (decreases over time)
       const yearBtcVolatility = getBtcVolatility(year);
 
+      // Generate random returns (Box-Muller for normal distribution)
       const u1 = Math.max(0.0001, Math.random());
       const u2 = Math.random();
       const z1 = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
       const z2 = Math.sqrt(-2 * Math.log(u1)) * Math.sin(2 * Math.PI * u2);
 
+      // Asset returns with realistic volatility (BTC volatility now dynamic)
       const btcReturn = Math.max(-60, Math.min(200, expectedBtcReturn + yearBtcVolatility * z1));
       const stocksReturn = Math.max(-40, Math.min(50, stocksCagr + stocksVolatility * z2));
       const realEstateReturn = realEstateCagr + (Math.random() * 10 - 5);
       const bondsReturn = bondsCagr + (Math.random() * 4 - 2);
       
+      // Calculate blended portfolio return based on allocation
       const portfolioReturn = (
         btcPct * btcReturn +
         stocksPct * stocksReturn +
@@ -95,6 +109,7 @@ const runMonteCarloSimulation = (params, numSimulations = 1000) => {
         otherPct * stocksReturn
       ) / 100;
       
+      // Grow all account buckets
       runningTaxable = Math.max(0, runningTaxable * (1 + portfolioReturn));
       runningTaxDeferred = Math.max(0, runningTaxDeferred * (1 + portfolioReturn));
       runningTaxFree = Math.max(0, runningTaxFree * (1 + portfolioReturn));
@@ -103,10 +118,12 @@ const runMonteCarloSimulation = (params, numSimulations = 1000) => {
       let yearWithdrawal = 0;
       
       if (!isRetired) {
+        // Add annual net cash flow to taxable (can be positive or negative)
         const yearNetCashFlow = annualSavings * Math.pow(1 + incomeGrowth / 100, year);
         runningSavings += yearNetCashFlow;
         runningTaxable += yearNetCashFlow;
       } else {
+        // Retirement withdrawals - use account total for withdrawal calculation
         const accountTotal = runningTaxable + runningTaxDeferred + runningTaxFree;
         
         if (withdrawalStrategy === '4percent') {
@@ -117,29 +134,36 @@ const runMonteCarloSimulation = (params, numSimulations = 1000) => {
         } else if (withdrawalStrategy === 'dynamic') {
           yearWithdrawal = accountTotal * (dynamicWithdrawalRate / 100);
         } else {
+          // Income-based withdrawal (same formula as main projection)
           yearWithdrawal = retirementAnnualSpending * Math.pow(1 + inflationRate / 100, yearsToRetirement + yearsIntoRetirement);
         }
         
+        // Withdraw in priority order: Taxable -> Tax-Deferred -> Tax-Free
         let remaining = yearWithdrawal;
         
+        // 1. Taxable first
         const fromTaxable = Math.min(remaining, runningTaxable);
         runningTaxable -= fromTaxable;
         remaining -= fromTaxable;
         
+        // 2. Tax-Deferred second  
         const fromTaxDeferred = Math.min(remaining, runningTaxDeferred);
         runningTaxDeferred -= fromTaxDeferred;
         remaining -= fromTaxDeferred;
         
+        // 3. Tax-Free last
         const fromTaxFree = Math.min(remaining, runningTaxFree);
         runningTaxFree -= fromTaxFree;
         remaining -= fromTaxFree;
         
+        // Also reduce savings proportionally
         const totalBeforeWithdraw = runningTaxable + runningTaxDeferred + runningTaxFree + runningSavings + yearWithdrawal;
         if (totalBeforeWithdraw > 0 && runningSavings > 0) {
           const savingsRatio = runningSavings / totalBeforeWithdraw;
           runningSavings = Math.max(0, runningSavings - yearWithdrawal * savingsRatio);
         }
         
+        // Check if ran out of money
         if (runningTaxable + runningTaxDeferred + runningTaxFree <= 0) {
           ranOutOfMoney = true;
         }
@@ -158,11 +182,13 @@ const runMonteCarloSimulation = (params, numSimulations = 1000) => {
   return { paths: results, successResults, withdrawalPaths };
 };
 
+// Calculate success probability (percentage of simulations that didn't run out of money)
 const calculateSuccessProbability = (successResults) => {
   const successCount = successResults.filter(s => s).length;
   return (successCount / successResults.length) * 100;
 };
 
+// Calculate percentiles from simulation results
 const calculatePercentiles = (simulations, percentiles = [10, 25, 50, 75, 90]) => {
   const years = simulations[0].length;
   const result = [];
@@ -182,6 +208,7 @@ const calculatePercentiles = (simulations, percentiles = [10, 25, 50, 75, 90]) =
   return result;
 };
 
+// Calculate withdrawal amounts by year for Monte Carlo
 const calculateWithdrawals = (params) => {
   const { currentAge, retirementAge, lifeExpectancy, inflationRate, retirementAnnualSpending, withdrawalStrategy, dynamicWithdrawalRate } = params;
   const years = Math.max(1, lifeExpectancy - currentAge);
@@ -194,6 +221,7 @@ const calculateWithdrawals = (params) => {
       withdrawals.push(0);
     } else {
       const yearsIntoRetirement = i - yearsToRetirement;
+      // For display purposes, show income-based withdrawal (inflation-adjusted)
       const yearsOfInflation = yearsToRetirement + yearsIntoRetirement;
       const withdrawal = retirementAnnualSpending * Math.pow(1 + inflationRate / 100, yearsOfInflation);
       withdrawals.push(Math.round(withdrawal));
@@ -211,6 +239,7 @@ export default function FinancialPlan() {
   const [maxSustainableSpending, setMaxSustainableSpending] = useState(0);
   const queryClient = useQueryClient();
 
+  // Assumption states - will be loaded from UserSettings
   const [btcCagr, setBtcCagr] = useState(25);
   const [stocksCagr, setStocksCagr] = useState(7);
   const [stocksVolatility, setStocksVolatility] = useState(15);
@@ -221,31 +250,40 @@ export default function FinancialPlan() {
   const [inflationRate, setInflationRate] = useState(3);
   const [incomeGrowth, setIncomeGrowth] = useState(3);
   
+  // Retirement settings - will be loaded from UserSettings
   const [retirementAge, setRetirementAge] = useState(65);
   const [currentAge, setCurrentAge] = useState(35);
   const [lifeExpectancy, setLifeExpectancy] = useState(90);
   const [currentAnnualSpending, setCurrentAnnualSpending] = useState(80000);
   const [retirementAnnualSpending, setRetirementAnnualSpending] = useState(100000);
   
+  // Withdrawal strategy - separate from return model
   const [withdrawalStrategy, setWithdrawalStrategy] = useState('dynamic');
   const [dynamicWithdrawalRate, setDynamicWithdrawalRate] = useState(5);
+  
+  // BTC return model (separate from withdrawal)
   const [btcReturnModel, setBtcReturnModel] = useState('custom');
   
+  // Tax settings
   const [filingStatus, setFilingStatus] = useState('single');
   const [otherRetirementIncome, setOtherRetirementIncome] = useState(0);
   const [socialSecurityStartAge, setSocialSecurityStartAge] = useState(67);
-  const [socialSecurityAmount, setSocialSecurityAmount] = useState(0);
+  const [socialSecurityAmount, setSocialSecurityAmount] = useState(0); // Other income in retirement (social security, pension, etc.)
   
+  // Settings loaded flag
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   
+  // Monte Carlo
   const [runSimulation, setRunSimulation] = useState(false);
   const [simulationResults, setSimulationResults] = useState(null);
   const [successProbability, setSuccessProbability] = useState(null);
   
+  // Forms
   const [goalFormOpen, setGoalFormOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState(null);
   const [eventFormOpen, setEventFormOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null);
+
 
   const [goalForm, setGoalForm] = useState({
     name: '', target_amount: '', current_amount: '', target_date: '', goal_type: 'other', priority: 'medium', notes: '',
@@ -257,6 +295,9 @@ export default function FinancialPlan() {
     allocation_method: 'proportionate', btc_allocation: 0, stocks_allocation: 0, real_estate_allocation: 0, bonds_allocation: 0, cash_allocation: 0, other_allocation: 0,
   });
 
+
+
+  // Fetch BTC price
   useEffect(() => {
     const fetchPrice = async () => {
       try {
@@ -274,6 +315,7 @@ export default function FinancialPlan() {
 
   const currentPrice = btcPrice || 97000;
 
+  // Queries
   const { data: holdings = [] } = useQuery({
     queryKey: ['holdings'],
     queryFn: () => base44.entities.Holding.list(),
@@ -309,6 +351,7 @@ export default function FinancialPlan() {
     queryFn: () => base44.entities.UserSettings.list(),
   });
 
+  // Load settings from UserSettings entity
   useEffect(() => {
     if (userSettings.length > 0 && !settingsLoaded) {
       const settings = userSettings[0];
@@ -336,6 +379,7 @@ export default function FinancialPlan() {
     }
   }, [userSettings, settingsLoaded]);
 
+  // Save settings mutation
   const saveSettings = useMutation({
     mutationFn: async (data) => {
       if (userSettings.length > 0) {
@@ -347,6 +391,7 @@ export default function FinancialPlan() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['userSettings'] }),
   });
 
+  // Auto-save settings when they change
   useEffect(() => {
     if (!settingsLoaded) return;
     const timeoutId = setTimeout(() => {
@@ -372,10 +417,11 @@ export default function FinancialPlan() {
         social_security_start_age: socialSecurityStartAge || 67,
         social_security_amount: socialSecurityAmount || 0,
       });
-    }, 1000);
+    }, 1000); // Debounce 1 second
     return () => clearTimeout(timeoutId);
   }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, otherCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, withdrawalStrategy, dynamicWithdrawalRate, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount]);
 
+  // Calculate annual net cash flow: income - currentAnnualSpending (can be negative)
   const freqMultiplier = { monthly: 12, weekly: 52, biweekly: 26, quarterly: 4, annual: 1, one_time: 0 };
   const monthlyIncome = budgetItems
     .filter(b => b.type === 'income' && b.is_active !== false)
@@ -388,8 +434,10 @@ export default function FinancialPlan() {
     return sum;
   }, 0);
 
+  // Annual net cash flow = income - currentAnnualSpending (CAN be negative)
   const annualSavings = (monthlyIncome * 12) - currentAnnualSpending;
 
+  // Mutations
   const createGoal = useMutation({
     mutationFn: (data) => base44.entities.FinancialGoal.create(data),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['goals'] }); setGoalFormOpen(false); },
@@ -420,27 +468,38 @@ export default function FinancialPlan() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['lifeEvents'] }),
   });
 
+
+
+  // Calculate portfolio values by tax treatment
   const getHoldingValue = (h) => h.ticker === 'BTC' ? h.quantity * currentPrice : h.quantity * (h.current_price || 0);
   
+  // Helper to determine tax treatment from account_type or tax_treatment field
   const getTaxTreatmentFromHolding = (h) => {
+    // Check explicit tax_treatment first
     if (h.tax_treatment) return h.tax_treatment;
+    
+    // Derive from account_type
     const accountType = h.account_type || 'taxable';
     if (['traditional_401k', 'traditional_ira'].includes(accountType)) return 'tax_deferred';
     if (['roth_401k', 'roth_ira', 'hsa', '529'].includes(accountType)) return 'tax_free';
     return 'taxable';
   };
   
+  // Taxable accounts (accessible anytime) - exclude real estate for liquidity
   const taxableHoldings = holdings.filter(h => getTaxTreatmentFromHolding(h) === 'taxable');
   const taxableValue = taxableHoldings.reduce((sum, h) => sum + getHoldingValue(h), 0);
   const taxableLiquidHoldings = taxableHoldings.filter(h => h.asset_type !== 'real_estate');
   const taxableLiquidValue = taxableLiquidHoldings.reduce((sum, h) => sum + getHoldingValue(h), 0);
   
+  // Tax-deferred accounts (401k, Traditional IRA) - 10% penalty before 59½
   const taxDeferredHoldings = holdings.filter(h => getTaxTreatmentFromHolding(h) === 'tax_deferred');
   const taxDeferredValue = taxDeferredHoldings.reduce((sum, h) => sum + getHoldingValue(h), 0);
   
+  // Tax-free accounts (Roth, HSA) - contributions accessible, gains after 59½
   const taxFreeHoldings = holdings.filter(h => getTaxTreatmentFromHolding(h) === 'tax_free');
   const taxFreeValue = taxFreeHoldings.reduce((sum, h) => sum + getHoldingValue(h), 0);
   
+  // By asset type for projections
   const btcValue = holdings.filter(h => h.ticker === 'BTC').reduce((sum, h) => sum + h.quantity * currentPrice, 0);
   const stocksValue = holdings.filter(h => h.asset_type === 'stocks').reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
   const realEstateValue = holdings.filter(h => h.asset_type === 'real_estate').reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
@@ -448,42 +507,57 @@ export default function FinancialPlan() {
   const otherValue = holdings.filter(h => !['BTC'].includes(h.ticker) && !['stocks', 'real_estate', 'bonds'].includes(h.asset_type)).reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
   const totalValue = btcValue + stocksValue + realEstateValue + bondsValue + otherValue;
   
+  // Penalty-free age for retirement accounts
   const PENALTY_FREE_AGE = 59.5;
-  const RMD_START_AGE = 73;
+  const RMD_START_AGE = 73; // Required Minimum Distribution age
   
+  // Calculate effective tax rates based on filing status
   const standardDeduction = STANDARD_DEDUCTION_2024[filingStatus] || STANDARD_DEDUCTION_2024.single;
 
+  // Use slider values directly (scenarios removed)
   const effectiveBtcCagr = btcCagr;
   const effectiveStocksCagr = stocksCagr;
   const effectiveInflation = inflationRate;
 
+  // BTC growth models - now based on btcReturnModel, not withdrawalStrategy
   const getBtcGrowthRate = (yearFromNow, inflationRate) => {
     switch (btcReturnModel) {
       case 'saylor24':
+        // Saylor's Bitcoin 24 Model with extended phases:
+        // Phase 1 (2025-2037): 50% declining to 20%
+        // Phase 2 (2038-2045): Plateau at 20%
+        // Phase 3 (2046-2075): Decline from 20% to inflation + 3%
+        // Phase 4 (Beyond 2075): Terminal rate of inflation + 2%
         const currentYear = new Date().getFullYear();
         const absoluteYear = currentYear + yearFromNow;
 
         if (absoluteYear <= 2037) {
+          // Phase 1: Linear decline from 50% to 20%
           const yearsFromStart = absoluteYear - 2025;
           return Math.max(20, 50 - (yearsFromStart * 2.5));
         } else if (absoluteYear <= 2045) {
+          // Phase 2: Plateau at 20%
           return 20;
         } else if (absoluteYear <= 2075) {
+          // Phase 3: Decline from 20% to inflation + 3%
           const yearsIntoDecline = absoluteYear - 2045;
-          const totalDeclineYears = 2075 - 2045;
-          const targetRate = inflationRate + 3;
+          const totalDeclineYears = 2075 - 2045; // 30 years
+          const targetRate = inflationRate + 3; // Mid-point of 2-4% above inflation
           const declineAmount = 20 - targetRate;
           return 20 - (declineAmount * (yearsIntoDecline / totalDeclineYears));
         } else {
+          // Phase 4: Terminal rate (2% above inflation for long-term real returns)
           return inflationRate + 2;
         }
       case 'conservative':
+        // Conservative model: 10% flat
         return 10;
       default:
         return effectiveBtcCagr;
     }
   };
   
+  // Number formatting helper
   const formatNumber = (num, decimals = 0) => {
     if (num == null || isNaN(num)) return '$0';
     if (num >= 1e9) return `$${(num / 1e9).toFixed(decimals)}B`;
@@ -497,33 +571,37 @@ export default function FinancialPlan() {
     return `$${num.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
   };
 
+  // Generate projection data with dynamic withdrawal based on portfolio growth and account types
   const projections = useMemo(() => {
     const years = lifeExpectancy - currentAge;
     const data = [];
     const currentYear = new Date().getFullYear();
 
-    // Calculate initial asset allocation percentages
+    let cumulativeSavings = 0;
+    
+    // Calculate initial asset allocation percentages (FIXED)
     const totalInitialAssets = btcValue + stocksValue + realEstateValue + bondsValue + otherValue;
     const btcAllocationPct = totalInitialAssets > 0 ? btcValue / totalInitialAssets : 0;
     const stocksAllocationPct = totalInitialAssets > 0 ? stocksValue / totalInitialAssets : 0;
     const realEstateAllocationPct = totalInitialAssets > 0 ? realEstateValue / totalInitialAssets : 0;
     const bondsAllocationPct = totalInitialAssets > 0 ? bondsValue / totalInitialAssets : 0;
     const otherAllocationPct = totalInitialAssets > 0 ? otherValue / totalInitialAssets : 0;
-
-    let cumulativeSavings = 0;
     
-    // Track by account type - this is the source of truth
+    // Track by account type only
     let runningTaxable = taxableValue;
     let runningTaxDeferred = taxDeferredValue;
     let runningTaxFree = taxFreeValue;
+    let runningSavings = 0; // This runningSavings is now separate from the asset allocation percentages.
     
+    // Track cost basis for taxable accounts to dynamically estimate capital gains
     const initialTaxableCostBasis = taxableHoldings.reduce((sum, h) => sum + (h.cost_basis_total || 0), 0);
     let runningTaxableBasis = initialTaxableCostBasis;
     
+    // Track debt balances for all liabilities with month-by-month amortization
     const runningDebt = {};
-    const encumberedBtc = {};
-    const releasedBtc = {};
-    const debtPaidOffYears = {};
+    const encumberedBtc = {}; // Track BTC locked as collateral
+    const releasedBtc = {}; // Track BTC released when LTV drops below threshold
+    const debtPaidOffYears = {}; // Track when each debt is paid off
 
     liabilities.forEach(liability => {
       runningDebt[liability.id] = liability.current_balance || 0;
@@ -534,65 +612,75 @@ export default function FinancialPlan() {
       }
     });
     
+    // Initial 4% withdrawal amount (set on first retirement year)
     let initial4PercentWithdrawal = 0;
 
     for (let i = 0; i <= years; i++) {
       const year = currentYear + i;
       
+      // Get BTC growth rate for this year (needed early for collateral calculations)
       const yearBtcGrowth = getBtcGrowthRate(i, effectiveInflation);
       
-      let eventImpact = 0;
-      let yearGoalWithdrawal = 0;
-      const yearGoalNames = [];
-      
+      // Calculate life event impacts for this year (with income growth applied)
+      // eventImpact now accumulates net cash flow changes affecting the taxable account
+      let eventImpact = 0; 
+      let yearGoalWithdrawal = 0; // Track goal-specific withdrawals for this year
+      const yearGoalNames = []; // Track which goals are funded this year
+        
       lifeEvents.forEach(event => {
         const yearsFromEventStart = year - event.year;
         if (event.year === year || (event.is_recurring && event.year <= year && year < event.year + (event.recurring_years || 1))) {
+          // Apply income growth to income-related events
           const growthMultiplier = (event.affects === 'income' || event.event_type === 'income_change') 
             ? Math.pow(1 + incomeGrowth / 100, Math.max(0, yearsFromEventStart))
             : 1;
 
           if (event.affects === 'assets') {
-            eventImpact += event.amount;
+            eventImpact += event.amount; // All asset changes from events are treated as cash flow affecting the taxable account
           } else if (event.affects === 'income') {
             eventImpact += event.amount * growthMultiplier;
           }
 
           if (event.event_type === 'home_purchase' && event.year === year) {
-            eventImpact -= (event.down_payment || 0);
+            eventImpact -= (event.down_payment || 0); // Down payment is a cash outflow
           }
         }
       });
       
+      // Include goals marked as "will_be_spent" at their target date
       goals.forEach(goal => {
         if (goal.will_be_spent && goal.target_date) {
           const goalYear = new Date(goal.target_date).getFullYear();
           if (goalYear === year) {
             const goalAmount = goal.target_amount || 0;
-            eventImpact -= goalAmount;
+            eventImpact -= goalAmount; // Goal spending is a cash outflow
             yearGoalWithdrawal += goalAmount;
             yearGoalNames.push(goal.name);
           }
         }
       });
 
-      const debtPayoffGoalMonthlyPayments = {};
+      // Calculate debt payoff goal extra monthly payments for this year
+      const debtPayoffGoalMonthlyPayments = {}; // liability_id -> extra monthly payment
       goals.forEach(goal => {
         if (goal.goal_type === 'debt_payoff' && goal.linked_liability_id && goal.payoff_years > 0) {
           const startYear = goal.target_date ? new Date(goal.target_date).getFullYear() : currentYear;
           const endYear = startYear + goal.payoff_years;
 
           if (year >= startYear && year < endYear) {
+            // Monthly extra payment = (total debt / payoff years) / 12
             const annualPayment = (goal.target_amount || 0) / goal.payoff_years;
             const monthlyExtraPayment = annualPayment / 12;
             debtPayoffGoalMonthlyPayments[goal.linked_liability_id] = monthlyExtraPayment;
-            eventImpact -= annualPayment;
+            eventImpact -= annualPayment; // Deduct the annual extra payment from overall cash flow
           }
         }
       });
 
+      // Calculate actual debt payments for this year with month-by-month simulation
       let actualAnnualDebtPayments = 0;
 
+      // Process ALL liabilities monthly (including those with debt payoff goals)
       liabilities.forEach(liability => {
         if (runningDebt[liability.id] > 0) {
           const hasPayment = liability.monthly_payment && liability.monthly_payment > 0;
@@ -600,43 +688,55 @@ export default function FinancialPlan() {
           const hasExtraPayment = debtPayoffGoalMonthlyPayments[liability.id] > 0;
 
           if (hasPayment || hasExtraPayment) {
+            // Standard amortization: month-by-month simulation
             let remainingBalance = runningDebt[liability.id];
             const baseMonthlyPayment = liability.monthly_payment || 0;
             const extraMonthlyPayment = debtPayoffGoalMonthlyPayments[liability.id] || 0;
             const totalMonthlyPayment = baseMonthlyPayment + extraMonthlyPayment;
-            const currentMonth = new Date().getMonth();
-            const startMonth = i === 0 ? currentMonth : 0;
+            const currentMonth = new Date().getMonth(); // 0-indexed (Jan=0, Dec=11)
+            const startMonth = i === 0 ? currentMonth : 0; // Start from current month in current year
 
             for (let month = startMonth; month < 12; month++) {
               if (remainingBalance <= 0) break;
 
+              // Calculate monthly interest
               const monthlyInterest = hasInterest 
                 ? remainingBalance * (liability.interest_rate / 100 / 12)
                 : 0;
 
+              // Add interest to balance first
               remainingBalance += monthlyInterest;
+
+              // Deduct the payment - but only pay what's actually owed if less than scheduled payment
               const actualPayment = Math.min(totalMonthlyPayment, remainingBalance);
               remainingBalance = Math.max(0, remainingBalance - actualPayment);
+
               actualAnnualDebtPayments += actualPayment;
             }
 
+            // Update running debt balance for this liability
             runningDebt[liability.id] = remainingBalance;
 
+            // Track if this debt was paid off this year
             if (remainingBalance <= 0 && debtPaidOffYears[liability.id] === null) {
               debtPaidOffYears[liability.id] = year;
             }
           } else if (hasInterest) {
+            // No payment specified: interest accrues annually and is added to principal
             const annualInterest = runningDebt[liability.id] * (liability.interest_rate / 100);
             runningDebt[liability.id] += annualInterest;
           }
-        }
+          // If no payment and no interest, debt stays constant
+          }
 
+        // Check for BTC collateral release based on LTV
         if (liability.type === 'btc_collateralized' && encumberedBtc[liability.id] > 0) {
-          const yearBtcPrice = btcPrice * Math.pow(1 + yearBtcGrowth / 100, i);
+          const yearBtcPrice = btcPrice * Math.pow(1 + yearBtcGrowth / 100, year - currentAge);
           const collateralValue = encumberedBtc[liability.id] * yearBtcPrice;
           const currentLTV = runningDebt[liability.id] / collateralValue;
           const releaseLTV = (liability.collateral_release_ltv || 30) / 100;
 
+          // If LTV drops below release threshold, collateral becomes liquid
           if (currentLTV <= releaseLTV && releasedBtc[liability.id] === 0) {
             releasedBtc[liability.id] = encumberedBtc[liability.id];
             encumberedBtc[liability.id] = 0;
@@ -647,6 +747,7 @@ export default function FinancialPlan() {
       const isRetired = currentAge + i >= retirementAge;
       const yearsIntoRetirement = isRetired ? currentAge + i - retirementAge : 0;
       
+      // Pre-retirement: save and grow. Post-retirement: grow then withdraw
       let yearSavings = 0;
       let yearWithdrawal = 0;
       let taxesPaid = 0;
@@ -657,54 +758,63 @@ export default function FinancialPlan() {
       let retirementSpendingOnly = 0;
       let totalWithdrawalForTaxCalculation = 0;
       
-      // Step 1: Add cash flow (pre-retirement) or calculate withdrawal need (post-retirement)
-      if (!isRetired) {
-        yearSavings = annualSavings * Math.pow(1 + incomeGrowth / 100, i);
-        cumulativeSavings += yearSavings;
-        const netCashFlowAfterDebt = yearSavings - actualAnnualDebtPayments;
-        runningTaxable += netCashFlowAfterDebt;
-      }
-      
-      // Step 2: Apply growth to all account buckets
       if (i > 0) {
-        const yearBtcGrowthForBlend = getBtcGrowthRate(i, effectiveInflation);
+        // Calculate blended growth rate based on INITIAL allocation
         const blendedGrowthRate = (
-          btcAllocationPct * (yearBtcGrowthForBlend / 100) +
+          btcAllocationPct * (yearBtcGrowth / 100) +
           stocksAllocationPct * (effectiveStocksCagr / 100) +
           realEstateAllocationPct * (realEstateCagr / 100) +
           bondsAllocationPct * (bondsCagr / 100) +
           otherAllocationPct * (otherCagr / 100)
         );
         
+        // Grow account type buckets at blended rate
         runningTaxable = runningTaxable * (1 + blendedGrowthRate);
         runningTaxDeferred = runningTaxDeferred * (1 + blendedGrowthRate);
         runningTaxFree = runningTaxFree * (1 + blendedGrowthRate);
+        runningSavings = runningSavings * (1 + blendedGrowthRate); // Treat runningSavings as another account type
       }
-      
-      // Step 3: Calculate and apply retirement withdrawals
-      if (isRetired) {
+
+      if (!isRetired) {
+        yearSavings = annualSavings * Math.pow(1 + incomeGrowth / 100, i);
+        runningSavings += yearSavings;
+        cumulativeSavings += yearSavings;
+        
+        // Subtract debt payments from portfolio (comes out of taxable/savings)
+        const netCashFlowAfterDebt = yearSavings - actualAnnualDebtPayments;
+        runningTaxable += netCashFlowAfterDebt;
+      } else {
+        // Calculate withdrawal based on strategy
         const accountTotalBeforeWithdrawal = runningTaxable + runningTaxDeferred + runningTaxFree;
         
         if (withdrawalStrategy === '4percent') {
+          // Traditional 4% rule: fixed amount based on initial retirement portfolio
           if (yearsIntoRetirement === 0) {
             initial4PercentWithdrawal = accountTotalBeforeWithdrawal * 0.04;
             yearWithdrawal = initial4PercentWithdrawal;
           } else {
+            // Inflation-adjusted from initial withdrawal
             yearWithdrawal = initial4PercentWithdrawal * Math.pow(1 + effectiveInflation / 100, yearsIntoRetirement);
           }
         } else if (withdrawalStrategy === 'dynamic') {
+          // Dynamic withdrawal: withdraw % of current portfolio (allows more when portfolio grows)
           const withdrawRate = dynamicWithdrawalRate / 100;
           yearWithdrawal = accountTotalBeforeWithdrawal * withdrawRate;
         } else {
+          // Income-based (variable): withdraw exactly what you need, inflation-adjusted
+          // Inflate to retirement age once, then from that nominal base inflate each year in retirement
           const nominalSpendingAtRetirement = retirementAnnualSpending * Math.pow(1 + effectiveInflation / 100, Math.max(0, retirementAge - currentAge));
           yearWithdrawal = nominalSpendingAtRetirement * Math.pow(1 + effectiveInflation / 100, yearsIntoRetirement);
         }
         
+        // Smart withdrawal order based on age and account types with TAX CALCULATION
         const currentAgeInYear = currentAge + i;
         const canAccessRetirementPenaltyFree = currentAgeInYear >= PENALTY_FREE_AGE;
         
+        // Required Minimum Distributions (RMDs) from tax-deferred accounts starting at age 73
         let rmdAmount = 0;
         if (currentAgeInYear >= RMD_START_AGE && runningTaxDeferred > 0) {
+          // Simplified RMD calculation using IRS Uniform Lifetime Table approximation
           const rmdFactor = (() => {
             if (currentAgeInYear === 73) return 26.5;
             if (currentAgeInYear === 74) return 25.5;
@@ -715,15 +825,20 @@ export default function FinancialPlan() {
             if (currentAgeInYear === 79) return 21.1;
             if (currentAgeInYear === 80) return 20.2;
             if (currentAgeInYear >= 81 && currentAgeInYear <= 85) return 19.0 - ((currentAgeInYear - 81) * 0.5);
-            return Math.max(10, 16.0 - ((currentAgeInYear - 86) * 0.4));
+            return Math.max(10, 16.0 - ((currentAgeInYear - 86) * 0.4)); // Conservative estimate for 86+
           })();
           rmdAmount = runningTaxDeferred / rmdFactor;
+          
+          // RMDs count as taxable income and must be taken regardless of spending needs
+          // If RMD > yearWithdrawal, we still need to take the full RMD
           yearWithdrawal = Math.max(yearWithdrawal, rmdAmount);
         }
         
+        // Dynamically calculate capital gains ratio based on current value vs cost basis
         const effectiveRunningTaxableBasis = Math.min(runningTaxable, runningTaxableBasis);
         const estimatedCurrentGainRatio = runningTaxable > 0 ? Math.max(0, (runningTaxable - effectiveRunningTaxableBasis) / runningTaxable) : 0;
         
+        // Calculate Social Security income for this year (inflation-adjusted from start age)
         const currentAgeInYearForSS = currentAge + i;
         let socialSecurityIncome = 0;
         if (currentAgeInYearForSS >= socialSecurityStartAge && socialSecurityAmount > 0) {
@@ -731,17 +846,23 @@ export default function FinancialPlan() {
           socialSecurityIncome = socialSecurityAmount * Math.pow(1 + effectiveInflation / 100, yearsOfSSInflation);
         }
 
+        // Total other income = other retirement income + Social Security (if eligible)
         const totalOtherIncome = otherRetirementIncome + socialSecurityIncome;
+
+        // Store original retirement spending for tooltip breakdown
         retirementSpendingOnly = yearWithdrawal;
+
+        // Combine retirement withdrawal and goal withdrawal for tax estimation
         totalWithdrawalForTaxCalculation = retirementSpendingOnly + yearGoalWithdrawal;
 
+        // Use tax calculation utility for accurate withdrawal taxes
         const taxEstimate = estimateRetirementWithdrawalTaxes({
           withdrawalNeeded: totalWithdrawalForTaxCalculation,
           taxableBalance: runningTaxable,
           taxDeferredBalance: runningTaxDeferred,
           taxFreeBalance: runningTaxFree,
           taxableGainPercent: estimatedCurrentGainRatio,
-          isLongTermGain: true,
+          isLongTermGain: true, // Assume long-term for projections
           filingStatus,
           age: currentAgeInYear,
           otherIncome: totalOtherIncome,
@@ -753,34 +874,43 @@ export default function FinancialPlan() {
         taxesPaid = taxEstimate.totalTax || 0;
         penaltyPaid = taxEstimate.totalPenalty || 0;
         
+        // Adjust cost basis after taxable withdrawal (proportionally reduce basis)
         if (withdrawFromTaxable > 0 && runningTaxable > 0) {
           const basisRatio = runningTaxableBasis / runningTaxable;
           runningTaxableBasis = Math.max(0, runningTaxableBasis - (withdrawFromTaxable * basisRatio));
         }
         
+        // Update running account balances
         runningTaxable = Math.max(0, runningTaxable - withdrawFromTaxable);
         runningTaxDeferred = Math.max(0, runningTaxDeferred - withdrawFromTaxDeferred);
         runningTaxFree = Math.max(0, runningTaxFree - withdrawFromTaxFree);
       }
 
-      // Step 4: Apply event impacts
+      // Apply net event impacts to taxable account (including asset changes, goals, extra debt payments)
       runningTaxable += eventImpact;
 
+      // Calculate total debt (net worth impact)
       const totalDebt = Object.values(runningDebt).reduce((sum, balance) => sum + balance, 0);
+
+      // Calculate total encumbered BTC (illiquid)
       const totalEncumberedBtc = Object.values(encumberedBtc).reduce((sum, amount) => sum + amount, 0);
       const totalReleasedBtc = Object.values(releasedBtc).reduce((sum, amount) => sum + amount, 0);
       
-      // Step 5: Calculate total and derive individual assets
-      const total = Math.max(0, runningTaxable + runningTaxDeferred + runningTaxFree);
+      // The total portfolio value from all accounts
+      const totalPortfolio = runningTaxable + runningTaxDeferred + runningTaxFree + runningSavings;
+      
+      // Calculate individual asset values based on initial allocation percentages
+      // These are illustrative of the portfolio's composition, not independently growing assets
+      const runningBtc = totalPortfolio * btcAllocationPct;
+      const runningStocks = totalPortfolio * stocksAllocationPct;
+      const runningRealEstate = totalPortfolio * realEstateAllocationPct;
+      const runningBonds = totalPortfolio * bondsAllocationPct;
+      const runningOther = totalPortfolio * otherAllocationPct;
+      
+      const total = Math.max(0, totalPortfolio);
       const realTotal = total / Math.pow(1 + effectiveInflation / 100, i);
 
-      const runningBtc = total * btcAllocationPct;
-      const runningStocks = total * stocksAllocationPct;
-      const runningRealEstate = total * realEstateAllocationPct;
-      const runningBonds = total * bondsAllocationPct;
-      const runningOther = total * otherAllocationPct;
-
-      const accountTotal = runningTaxable + runningTaxDeferred + runningTaxFree;
+      // Check for portfolio failure
       const portfolioFailed = total <= 0 && isRetired;
       const btcRunsOut = runningBtc <= 0 && isRetired;
 
@@ -791,7 +921,7 @@ export default function FinancialPlan() {
         stocks: Math.round(runningStocks),
         realEstate: Math.round(runningRealEstate),
         bonds: Math.round(runningBonds),
-        savings: 0,
+        savings: Math.round(runningSavings),
         yearSavingsForTooltip: isRetired ? 0 : Math.round(yearSavings),
         total: Math.round(total),
         realTotal: Math.round(realTotal),
@@ -802,24 +932,27 @@ export default function FinancialPlan() {
             year < (g.target_date ? new Date(g.target_date).getFullYear() : currentYear) + g.payoff_years),
         hasGoalWithdrawal: yearGoalWithdrawal > 0,
         isRetired: isRetired,
-        yearWithdrawal: isRetired ? Math.round(totalWithdrawalForTaxCalculation) : 0,
-        yearGoalWithdrawal: Math.round(yearGoalWithdrawal),
-        retirementSpendingOnly: isRetired ? Math.round(retirementSpendingOnly) : 0,
+        yearWithdrawal: isRetired ? Math.round(totalWithdrawalForTaxCalculation) : 0, // Combined outflow for the red line
+        yearGoalWithdrawal: Math.round(yearGoalWithdrawal), // Keep separate for tooltip breakdown
+        retirementSpendingOnly: isRetired ? Math.round(retirementSpendingOnly) : 0, // New property for tooltip breakdown
         goalNames: yearGoalNames,
         btcGrowthRate: yearBtcGrowth,
+        // Account type balances
         taxable: Math.round(runningTaxable),
         taxDeferred: Math.round(runningTaxDeferred),
         taxFree: Math.round(runningTaxFree),
-        accountTotal: Math.round(accountTotal),
+        accountTotal: Math.round(runningTaxable + runningTaxDeferred + runningTaxFree), // Recalculate for accuracy after withdrawal
         canAccessPenaltyFree: currentAge + i >= PENALTY_FREE_AGE,
         penaltyPaid: isRetired ? Math.round(penaltyPaid) : 0,
         taxesPaid: isRetired ? Math.round(taxesPaid) : 0,
         netWithdrawal: isRetired ? Math.round(totalWithdrawalForTaxCalculation - taxesPaid - penaltyPaid) : 0,
+        // Withdrawal breakdown by account type
         withdrawFromTaxable: isRetired ? Math.round(withdrawFromTaxable) : 0,
         withdrawFromTaxDeferred: isRetired ? Math.round(withdrawFromTaxDeferred) : 0,
         withdrawFromTaxFree: isRetired ? Math.round(withdrawFromTaxFree) : 0,
+        // Debt tracking
         totalDebt: Math.round(totalDebt),
-        debtPayments: i === 0 ? Math.round(monthlyDebtPayments * 12) : Math.round(actualAnnualDebtPayments),
+        debtPayments: i === 0 ? Math.round(monthlyDebtPayments * 12) : Math.round(actualAnnualDebtPayments), // Actual debt payments made this year
         encumberedBtc: totalEncumberedBtc,
         releasedBtc: totalReleasedBtc,
         liquidBtc: Math.max(0, (runningBtc / (btcPrice || 97000)) - totalEncumberedBtc),
@@ -827,13 +960,15 @@ export default function FinancialPlan() {
           .filter(([id, payoffYear]) => payoffYear === year)
           .map(([id]) => liabilities.find(l => l.id === id)?.name)
           .filter(Boolean),
+        // Failure indicators
         portfolioFailed,
         btcRunsOut,
-      });
+        });
     }
     return data;
-  }, [btcValue, stocksValue, realEstateValue, bondsValue, otherValue, taxableValue, taxDeferredValue, taxFreeValue, currentAge, retirementAge, lifeExpectancy, effectiveBtcCagr, effectiveStocksCagr, realEstateCagr, bondsCagr, effectiveInflation, lifeEvents, goals, annualSavings, incomeGrowth, retirementAnnualSpending, withdrawalStrategy, dynamicWithdrawalRate, btcReturnModel, filingStatus, taxableHoldings, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, liabilities, monthlyDebtPayments, btcPrice]);
+  }, [btcValue, stocksValue, realEstateValue, bondsValue, otherValue, taxableValue, taxDeferredValue, taxFreeValue, currentAge, retirementAge, lifeExpectancy, effectiveBtcCagr, effectiveStocksCagr, realEstateCagr, bondsCagr, cashCagr, otherCagr, effectiveInflation, lifeEvents, goals, annualSavings, incomeGrowth, retirementAnnualSpending, withdrawalStrategy, dynamicWithdrawalRate, btcReturnModel, filingStatus, taxableHoldings, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, liabilities, monthlyDebtPayments, currentPrice]);
 
+  // Run Monte Carlo when button clicked
   const handleRunSimulation = () => {
     const { paths: simulations, successResults, withdrawalPaths } = runMonteCarloSimulation({
       btcValue,
@@ -863,6 +998,7 @@ export default function FinancialPlan() {
     
     const percentiles = calculatePercentiles(simulations);
     
+    // Calculate median withdrawal per year from simulations
     const medianWithdrawals = [];
     const years = Math.max(1, lifeExpectancy - currentAge);
     for (let i = 0; i <= years; i++) {
@@ -871,6 +1007,7 @@ export default function FinancialPlan() {
       medianWithdrawals.push(yearWithdrawals[medianIndex] || 0);
     }
     
+    // Calculate success probability - did you NOT run out of money through life expectancy?
     const probability = calculateSuccessProbability(successResults);
     setSuccessProbability(probability);
     
@@ -897,14 +1034,17 @@ export default function FinancialPlan() {
   const willRunOutOfMoney = runOutOfMoneyAge !== -1;
   const yearsInRetirement = lifeExpectancy - retirementAge;
 
+  // Calculate inflation-adjusted retirement spending need at retirement
   const yearsToRetirement = Math.max(0, retirementAge - currentAge);
   const inflationAdjustedRetirementSpending = retirementAnnualSpending * Math.pow(1 + inflationRate / 100, yearsToRetirement);
   
+  // Required nest egg and withdrawal rate based on withdrawal strategy
   const effectiveWithdrawalRate = withdrawalStrategy === '4percent' ? 0.04 : 
     withdrawalStrategy === 'dynamic' ? dynamicWithdrawalRate / 100 : 
     Math.max(0.03, 1 / yearsInRetirement);
   const requiredNestEgg = inflationAdjustedRetirementSpending / effectiveWithdrawalRate;
 
+  // Calculate retirement status and insights
   const retirementStatus = useMemo(() => {
     const canAffordDesiredSpending = retirementAnnualSpending <= maxSustainableSpending;
 
@@ -963,6 +1103,7 @@ export default function FinancialPlan() {
     }
   }, [earliestRetirementAge, retirementAge, willRunOutOfMoney, runOutOfMoneyAge, currentAge, retirementValue, maxSustainableSpending, retirementAnnualSpending, inflationRate]);
 
+  // Calculate maximum sustainable spending - binary search for all strategies
   useEffect(() => {
     const calculateMaxSpending = () => {
       const startingPortfolio = taxableValue + taxDeferredValue + taxFreeValue;
@@ -978,6 +1119,7 @@ export default function FinancialPlan() {
       const bondsPct = totalAssets > 0 ? bondsValue / totalAssets : 0;
       const otherPct = totalAssets > 0 ? otherValue / totalAssets : 0;
 
+      // For 4% Rule and Dynamic %: calculate first-year withdrawal in today's dollars
       if (withdrawalStrategy === '4percent' || withdrawalStrategy === 'dynamic') {
         let portfolioAtRetirement = startingPortfolio;
         const currentYear = new Date().getFullYear();
@@ -1016,6 +1158,7 @@ export default function FinancialPlan() {
         return;
       }
 
+      // For Income-based: binary search to find max sustainable spending
       let low = 0;
       let high = 1000000;
       let maxSpending = 0;
@@ -1083,6 +1226,7 @@ export default function FinancialPlan() {
             
             let withdrawal;
             if (withdrawalStrategy === 'dynamic') {
+              // Dynamic: withdraw % of portfolio, but must meet minimum spending
               const dynamicAmount = portfolio * (dynamicWithdrawalRate / 100);
               if (dynamicAmount < nominalSpendingRequired) {
                 canSustain = false;
@@ -1090,6 +1234,7 @@ export default function FinancialPlan() {
               }
               withdrawal = dynamicAmount;
             } else {
+              // Income-based: withdraw exactly the nominal spending needed
               withdrawal = nominalSpendingRequired;
             }
 
@@ -1115,10 +1260,13 @@ export default function FinancialPlan() {
     calculateMaxSpending();
   }, [currentAge, retirementAge, lifeExpectancy, taxableValue, taxDeferredValue, taxFreeValue, btcValue, stocksValue, realEstateValue, bondsValue, otherValue, annualSavings, effectiveInflation, incomeGrowth, effectiveStocksCagr, realEstateCagr, bondsCagr, otherCagr, withdrawalStrategy, dynamicWithdrawalRate, getBtcGrowthRate, lifeEvents, goals]);
 
+  // Calculate earliest achievable FI age (when portfolio can sustain withdrawals to life expectancy)
   useEffect(() => {
     const calculateEarliestFI = () => {
+      // Use account totals (same as projections) - this is the actual portfolio value
       const startingPortfolio = taxableValue + taxDeferredValue + taxFreeValue;
       
+      // Calculate actual blended growth rate based on asset allocation
       const totalAssets = btcValue + stocksValue + realEstateValue + bondsValue + otherValue;
       const btcPct = totalAssets > 0 ? btcValue / totalAssets : 0;
       const stocksPct = totalAssets > 0 ? stocksValue / totalAssets : 0;
@@ -1126,14 +1274,17 @@ export default function FinancialPlan() {
       const bondsPct = totalAssets > 0 ? bondsValue / totalAssets : 0;
       const otherPct = totalAssets > 0 ? otherValue / totalAssets : 0;
       
+      // Try each potential FI age from current age to life expectancy
       for (let testAge = currentAge + 1; testAge <= lifeExpectancy - 5; testAge++) {
         let portfolio = startingPortfolio;
         let canSustain = true;
         
+        // Simulate from now until life expectancy
         for (let year = 1; year <= lifeExpectancy - currentAge; year++) {
           const age = currentAge + year;
           const isRetired = age >= testAge;
           
+          // Growth using actual blended rate based on portfolio composition
           const yearBtcGrowth = getBtcGrowthRate(year, effectiveInflation);
           const blendedGrowthRate = (
             btcPct * (yearBtcGrowth / 100) +
@@ -1146,24 +1297,31 @@ export default function FinancialPlan() {
           portfolio = portfolio * (1 + blendedGrowthRate);
           
           if (!isRetired) {
+            // Add savings (grows with income)
             const yearNetCashFlow = annualSavings * Math.pow(1 + incomeGrowth / 100, year);
             portfolio += yearNetCashFlow;
           } else {
+            // Withdraw - use the selected withdrawal strategy
             let withdrawal;
             const yearsIntoRetirement = age - testAge;
             
             if (withdrawalStrategy === '4percent') {
+              // First year is 4% of portfolio at FI, then inflation-adjusted
+              // Need to get initial portfolio value at FI age correctly
               const simulatedRetirementYearIndex = testAge - currentAge;
               const initialPortfolioAtFI = (projections[simulatedRetirementYearIndex]?.total || 0);
               if (yearsIntoRetirement === 0) {
                 withdrawal = initialPortfolioAtFI * 0.04;
               } else {
-                const baseWithdrawal = (simulatedRetirementYearIndex > 0 ? projections[simulatedRetirementYearIndex - 1]?.total || 0 : startingPortfolio) * 0.04;
+                // Approximate initial withdrawal for calculation if not exact
+                const baseWithdrawal = (simulatedRetirementYearIndex > 0 ? projections[simulatedRetirementYearIndex - 1]?.total || 0 : startingPortfolio) * 0.04; // Use portfolio one year prior to FI age for 4% calculation
                 withdrawal = baseWithdrawal * Math.pow(1 + effectiveInflation / 100, yearsIntoRetirement);
               }
             } else if (withdrawalStrategy === 'dynamic') {
               withdrawal = portfolio * (dynamicWithdrawalRate / 100);
             } else {
+              // Income-based
+              // Inflate to retirement age once, then from that nominal base inflate each year in retirement
               const nominalRetirementSpendingAtTestAge = retirementAnnualSpending * Math.pow(1 + effectiveInflation / 100, Math.max(0, testAge - currentAge));
               withdrawal = nominalRetirementSpendingAtTestAge * Math.pow(1 + effectiveInflation / 100, yearsIntoRetirement);
             }
@@ -1185,15 +1343,18 @@ export default function FinancialPlan() {
       setEarliestRetirementAge(null);
     };
     
+    // Only calculate if there's a portfolio or ongoing savings (positive or negative)
     if ((taxableValue + taxDeferredValue + taxFreeValue) > 0 || annualSavings !== 0) {
       calculateEarliestFI();
     }
   }, [currentAge, lifeExpectancy, taxableValue, taxDeferredValue, taxFreeValue, btcValue, stocksValue, realEstateValue, bondsValue, otherValue, annualSavings, retirementAnnualSpending, effectiveInflation, incomeGrowth, effectiveStocksCagr, realEstateCagr, bondsCagr, withdrawalStrategy, dynamicWithdrawalRate, getBtcGrowthRate, projections]);
   
+  // Calculate lifetime tax burden in retirement
   const lifetimeTaxesPaid = projections.filter(p => p.isRetired).reduce((sum, p) => sum + (p.taxesPaid || 0), 0);
   const lifetimePenaltiesPaid = projections.filter(p => p.isRetired).reduce((sum, p) => sum + (p.penaltyPaid || 0), 0);
   const avgAnnualTaxInRetirement = yearsInRetirement > 0 ? lifetimeTaxesPaid / yearsInRetirement : 0;
 
+  // Calculate projected portfolio return based on asset allocation and assumptions
   const projectedPortfolioReturn = useMemo(() => {
     if (totalValue <= 0) return 0;
     const btcPct = btcValue / totalValue;
@@ -1202,6 +1363,7 @@ export default function FinancialPlan() {
     const bondsPct = bondsValue / totalValue;
     const otherPct = otherValue / totalValue;
 
+    // Get year 1 BTC growth rate based on selected model
     const btcExpectedReturn = getBtcGrowthRate(1, effectiveInflation);
 
     const weightedReturn = (
@@ -1215,15 +1377,18 @@ export default function FinancialPlan() {
     return weightedReturn;
   }, [btcValue, stocksValue, realEstateValue, bondsValue, otherValue, totalValue, effectiveStocksCagr, realEstateCagr, bondsCagr, getBtcGrowthRate]);
 
+  // Calculate when goals will be met based on projections
   const goalsWithProjections = useMemo(() => {
     return goals.map(goal => {
       const targetAmount = goal.target_amount || 0;
       const currentAmount = goal.current_amount || 0;
       
+      // Find when portfolio reaches goal amount
       const meetYearIndex = projections.findIndex(p => p.total >= targetAmount);
       const meetYear = meetYearIndex >= 0 ? projections[meetYearIndex]?.year : null;
       const meetAge = meetYearIndex >= 0 ? projections[meetYearIndex]?.age : null;
       
+      // Calculate if on track for target date
       let onTrackForDate = true;
       let projectedAtTargetDate = null;
       if (goal.target_date) {
@@ -1235,6 +1400,7 @@ export default function FinancialPlan() {
         }
       }
       
+      // For savings goals, calculate monthly contribution needed
       const yearsToTarget = goal.target_date 
         ? Math.max(0, (new Date(goal.target_date).getFullYear() - new Date().getFullYear()))
         : 5;
@@ -1254,6 +1420,7 @@ export default function FinancialPlan() {
     });
   }, [goals, projections]);
 
+  // Calculate life events impact on cash flow
   const lifeEventsWithImpact = useMemo(() => {
     const currentYear = new Date().getFullYear();
     return lifeEvents.map(event => {
@@ -1261,6 +1428,7 @@ export default function FinancialPlan() {
       const projectionAtEvent = projections.find(p => p.year === event.year);
       const portfolioAtEvent = projectionAtEvent?.total || 0;
       
+      // Calculate if event is affordable
       let isAffordable = true;
       let impactPercent = 0;
       if (event.affects === 'assets' && event.amount < 0) {
@@ -1268,6 +1436,7 @@ export default function FinancialPlan() {
         impactPercent = portfolioAtEvent > 0 ? (Math.abs(event.amount) / portfolioAtEvent) * 100 : 100;
       }
       
+      // For home purchases, calculate total impact
       let totalCashNeeded = 0;
       if (event.event_type === 'home_purchase') {
         totalCashNeeded = (event.down_payment || 0);
@@ -1286,6 +1455,7 @@ export default function FinancialPlan() {
     }).sort((a, b) => a.year - b.year);
   }, [lifeEvents, projections]);
   
+  // Calculate first year withdrawal and average withdrawal in retirement
   const firstRetirementWithdrawal = projections[retirementYearIndex]?.yearWithdrawal || 0;
   const retirementYears = projections.filter(p => p.isRetired);
   const avgRetirementWithdrawal = retirementYears.length > 0 
@@ -1293,7 +1463,8 @@ export default function FinancialPlan() {
     : 0;
   const totalLifetimeWithdrawals = retirementYears.reduce((sum, p) => sum + p.yearWithdrawal, 0);
   
-  const canRetire = retirementValue >= requiredNestEgg * 0.8;
+  // Check if retirement is feasible: portfolio at retirement meets required nest egg
+  const canRetire = retirementValue >= requiredNestEgg * 0.8; // Within 80% of required
 
   const eventIcons = {
     income_change: Briefcase,
@@ -1344,6 +1515,8 @@ export default function FinancialPlan() {
     }
   }, [editingEvent]);
 
+
+
   const handleSubmitGoal = (e) => {
     e.preventDefault();
     const data = { ...goalForm, target_amount: parseFloat(goalForm.target_amount) || 0, current_amount: parseFloat(goalForm.current_amount) || 0 };
@@ -1374,11 +1547,15 @@ export default function FinancialPlan() {
     editingEvent ? updateEvent.mutate({ id: editingEvent.id, data }) : createEvent.mutate(data);
   };
 
+
+
   const resetGoalForm = () => setGoalForm({ name: '', target_amount: '', current_amount: '', target_date: '', goal_type: 'other', priority: 'medium', notes: '' });
   const resetEventForm = () => setEventForm({ name: '', event_type: 'expense_change', year: new Date().getFullYear() + 1, amount: '', is_recurring: false, recurring_years: '', affects: 'expenses', notes: '', monthly_expense_impact: '', liability_amount: '', down_payment: '', interest_rate: '', loan_term_years: '', allocation_method: 'proportionate', btc_allocation: 0, stocks_allocation: 0, real_estate_allocation: 0, bonds_allocation: 0, cash_allocation: 0, other_allocation: 0 });
 
+
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">Retirement Planning</h1>
@@ -1390,12 +1567,14 @@ export default function FinancialPlan() {
         </Button>
       </div>
 
+      {/* Assumptions Panel */}
       {showMonteCarloSettings && (
         <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
           <h3 className="font-semibold mb-6 flex items-center gap-2">
             <Settings className="w-5 h-5 text-orange-400" />
             Rate Assumptions
           </h3>
+          {/* BTC Return Model Selection */}
           <div className="mb-6 p-4 rounded-xl bg-orange-500/5 border border-orange-500/20">
             <Label className="text-zinc-300 font-medium mb-3 block">Bitcoin Return Model</Label>
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
@@ -1483,17 +1662,21 @@ export default function FinancialPlan() {
               </div>
               <Slider value={[incomeGrowth]} onValueChange={([v]) => setIncomeGrowth(v)} min={0} max={10} step={0.5} />
             </div>
+
           </div>
         </div>
       )}
 
+      {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="bg-zinc-800/50 p-1 flex-wrap">
           <TabsTrigger value="projections" className="data-[state=active]:bg-zinc-700">Retirement Planning</TabsTrigger>
           <TabsTrigger value="montecarlo" className="data-[state=active]:bg-zinc-700">Monte Carlo</TabsTrigger>
         </TabsList>
 
+        {/* Projections Tab */}
         <TabsContent value="projections" className="space-y-6">
+          {/* Earliest FI Age - Hero Card - NOW AT TOP */}
           <div className="card-premium rounded-2xl p-6 border border-orange-500/30 bg-gradient-to-br from-orange-500/10 to-transparent">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
               <div>
@@ -1521,31 +1704,33 @@ export default function FinancialPlan() {
                 </p>
               </div>
               <div className="flex flex-col gap-2 text-sm">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-emerald-400" />
-                  <span className="text-zinc-400">Annual Net Cash Flow:</span>
-                  <span className="font-semibold text-emerald-400">{formatNumber(annualSavings)}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-amber-400" />
-                  <span className="text-zinc-400">Retirement Spending:</span>
-                  <span className="font-semibold text-amber-400">{formatNumber(retirementAnnualSpending)}/yr</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-blue-400" />
-                  <span className="text-zinc-400">Current Portfolio:</span>
-                  <span className="font-semibold text-blue-400">{formatNumber(totalValue)}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-cyan-400" />
-                  <span className="text-zinc-400">Projected Return:</span>
-                  <span className="font-semibold text-cyan-400">{projectedPortfolioReturn.toFixed(1)}%/yr</span>
-                </div>
-              </div>
-            </div>
-          </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                      <span className="text-zinc-400">Annual Net Cash Flow:</span>
+                      <span className="font-semibold text-emerald-400">{formatNumber(annualSavings)}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-amber-400" />
+                      <span className="text-zinc-400">Retirement Spending:</span>
+                      <span className="font-semibold text-amber-400">{formatNumber(retirementAnnualSpending)}/yr</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-blue-400" />
+                      <span className="text-zinc-400">Current Portfolio:</span>
+                      <span className="font-semibold text-blue-400">{formatNumber(totalValue)}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-cyan-400" />
+                      <span className="text-zinc-400">Projected Return:</span>
+                      <span className="font-semibold text-cyan-400">{projectedPortfolioReturn.toFixed(1)}%/yr</span>
+                    </div>
+                  </div>
+                  </div>
+                  </div>
 
+                  {/* Retirement Status Indicator */}
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+            {/* Status Card */}
             <div className={cn(
               "lg:col-span-1 card-premium rounded-xl p-4 border flex items-start gap-3",
               retirementStatus.type === 'optimistic' && "border-emerald-500/30 bg-emerald-500/5",
@@ -1574,8 +1759,10 @@ export default function FinancialPlan() {
               </div>
             </div>
 
+            {/* Actionable Insights - Show when behind schedule or plan not sustainable */}
             {(!earliestRetirementAge || earliestRetirementAge > retirementAge || willRunOutOfMoney || retirementStatus.type === 'critical' || retirementStatus.type === 'at_risk') && (
               <>
+                {/* Savings Insight */}
                 <div className="card-premium rounded-xl p-4 border border-zinc-700/50">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
@@ -1586,15 +1773,18 @@ export default function FinancialPlan() {
                       const yearsToWork = retirementAge - currentAge;
                       if (yearsToWork <= 0) return 0;
 
+                      // Calculate shortfall based on sustainable vs desired spending (both in today's dollars)
                       const spendingShortfall = Math.max(0, retirementAnnualSpending - maxSustainableSpending);
                       if (spendingShortfall <= 0) return 0;
 
+                      // Required additional nest egg in today's dollars to support the shortfall
                       const effectiveWithdrawalRate = withdrawalStrategy === '4percent' ? 0.04 : 
                         withdrawalStrategy === 'dynamic' ? dynamicWithdrawalRate / 100 : 
                         Math.max(0.03, 1 / (lifeExpectancy - retirementAge));
                       
                       const additionalNestEggNeeded = spendingShortfall / effectiveWithdrawalRate;
 
+                      // Calculate blended growth rate for new savings
                       const totalAssets = btcValue + stocksValue + realEstateValue + bondsValue + otherValue;
                       const btcPct = totalAssets > 0 ? btcValue / totalAssets : 0.5;
                       const stocksPct = totalAssets > 0 ? stocksValue / totalAssets : 0.3;
@@ -1602,6 +1792,7 @@ export default function FinancialPlan() {
                       const bondsPct = totalAssets > 0 ? bondsValue / totalAssets : 0.05;
                       const otherPct = totalAssets > 0 ? otherValue / totalAssets : 0.05;
 
+                      // Weighted average of expected returns
                       const avgBtcReturn = (() => {
                         let total = 0;
                         for (let y = 1; y <= yearsToWork; y++) {
@@ -1618,6 +1809,9 @@ export default function FinancialPlan() {
                         otherPct * (otherCagr / 100)
                       );
 
+                      // Annual savings needed using future value of annuity formula
+                      // FV = PMT * [(1+r)^n - 1] / r
+                      // So: PMT = FV / {[(1+r)^n - 1] / r}
                       if (Math.abs(blendedGrowthRate) < 0.001) {
                         return additionalNestEggNeeded / yearsToWork;
                       }
@@ -1629,6 +1823,7 @@ export default function FinancialPlan() {
                   <p className="text-[10px] text-zinc-500 mt-1">invested into your portfolio to retire at age {retirementAge}</p>
                 </div>
 
+                {/* Spending Reduction Insight */}
                 <div className="card-premium rounded-xl p-4 border border-zinc-700/50">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-rose-400" />
@@ -1645,6 +1840,7 @@ export default function FinancialPlan() {
                   </p>
                 </div>
 
+                {/* Alternative: Delay Retirement */}
                 {earliestRetirementAge && (
                   <div className="card-premium rounded-xl p-4 border border-zinc-700/50">
                     <div className="flex items-center gap-2 mb-2">
@@ -1661,6 +1857,7 @@ export default function FinancialPlan() {
             )}
           </div>
 
+          {/* Projection Chart */}
           <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
             <h3 className="font-semibold mb-2">Wealth Projection</h3>
             <p className="text-sm text-zinc-400 mb-4">
@@ -1669,288 +1866,299 @@ export default function FinancialPlan() {
               {goals.length > 0 && `${goals.length} goal${goals.length !== 1 ? 's' : ''} tracked`}
             </p>
             <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={projections}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-                  <XAxis dataKey="age" stroke="#71717a" fontSize={12} />
-                  <YAxis yAxisId="left" stroke="#71717a" fontSize={12} tickFormatter={(v) => `$${(v/1000000).toFixed(1)}M`} />
-                  <YAxis yAxisId="right" orientation="right" stroke="#71717a" fontSize={12} tickFormatter={(v) => `$${(v/1000).toFixed(0)}k`} />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '12px' }}
-                    content={({ active, payload, label }) => {
-                      if (!active || !payload?.length) return null;
-                      const p = payload[0]?.payload;
-                      if (!p) return null;
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={projections}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+                    <XAxis dataKey="age" stroke="#71717a" fontSize={12} />
+                    <YAxis yAxisId="left" stroke="#71717a" fontSize={12} tickFormatter={(v) => `$${(v/1000000).toFixed(1)}M`} />
+                    <YAxis yAxisId="right" orientation="right" stroke="#71717a" fontSize={12} tickFormatter={(v) => `$${(v/1000).toFixed(0)}k`} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '12px' }}
+                      content={({ active, payload, label }) => {
+                        if (!active || !payload?.length) return null;
+                        const p = payload[0]?.payload;
+                        if (!p) return null;
 
-                      return (
-                        <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-3 text-sm min-w-[200px]">
-                          <p className="font-semibold text-zinc-200 mb-2">Age {label} {p.hasEvent ? '📅' : ''}</p>
-                          <div className="space-y-1">
-                            <div className="flex justify-between gap-4">
-                              <span className="text-orange-400">Bitcoin:</span>
-                              <span className="text-zinc-200">${(p.btc || 0).toLocaleString()}</span>
-                            </div>
-                            <div className="flex justify-between gap-4">
-                              <span className="text-blue-400">Stocks:</span>
-                              <span className="text-zinc-200">${(p.stocks || 0).toLocaleString()}</span>
-                            </div>
-                            <div className="flex justify-between gap-4">
-                              <span className="text-emerald-400">Real Estate:</span>
-                              <span className="text-zinc-200">${(p.realEstate || 0).toLocaleString()}</span>
-                            </div>
-                            <div className="flex justify-between gap-4">
-                              <span className="text-purple-400">Bonds:</span>
-                              <span className="text-zinc-200">${(p.bonds || 0).toLocaleString()}</span>
-                            </div>
-                            <div className="pt-2 mt-2 border-t border-zinc-700">
+                        return (
+                          <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-3 text-sm min-w-[200px]">
+                            <p className="font-semibold text-zinc-200 mb-2">Age {label} {p.hasEvent ? '📅' : ''}</p>
+                            <div className="space-y-1">
                               <div className="flex justify-between gap-4">
-                                <span className="text-white font-semibold">Total Assets:</span>
-                                <span className="text-white font-semibold">${(p.total || 0).toLocaleString()}</span>
+                                <span className="text-orange-400">Bitcoin:</span>
+                                <span className="text-zinc-200">${(p.btc || 0).toLocaleString()}</span>
                               </div>
-                              {p.totalDebt > 0 && (
-                                <>
-                                  <div className="flex justify-between gap-4 mt-1">
-                                    <span className="text-rose-400 font-semibold">Total Debt:</span>
-                                    <span className="text-rose-400 font-semibold">-${(p.totalDebt || 0).toLocaleString()}</span>
+                              <div className="flex justify-between gap-4">
+                                <span className="text-blue-400">Stocks:</span>
+                                <span className="text-zinc-200">${(p.stocks || 0).toLocaleString()}</span>
+                              </div>
+                              <div className="flex justify-between gap-4">
+                                <span className="text-emerald-400">Real Estate:</span>
+                                <span className="text-zinc-200">${(p.realEstate || 0).toLocaleString()}</span>
+                              </div>
+                              <div className="flex justify-between gap-4">
+                                <span className="text-purple-400">Bonds:</span>
+                                <span className="text-zinc-200">${(p.bonds || 0).toLocaleString()}</span>
+                              </div>
+                              <div className="pt-2 mt-2 border-t border-zinc-700">
+                                <div className="flex justify-between gap-4">
+                                  <span className="text-white font-semibold">Total Assets:</span>
+                                  <span className="text-white font-semibold">${(p.total || 0).toLocaleString()}</span>
+                                </div>
+                                {p.totalDebt > 0 && (
+                                  <>
+                                    <div className="flex justify-between gap-4 mt-1">
+                                      <span className="text-rose-400 font-semibold">Total Debt:</span>
+                                      <span className="text-rose-400 font-semibold">-${(p.totalDebt || 0).toLocaleString()}</span>
+                                    </div>
+                                    <div className="flex justify-between gap-4 mt-1 pt-1 border-t border-zinc-700/50">
+                                      <span className="text-emerald-400 font-semibold">Net Worth:</span>
+                                      <span className="text-emerald-400 font-semibold">${((p.total || 0) - (p.totalDebt || 0)).toLocaleString()}</span>
+                                    </div>
+                                  </>
+                                )}
+                                {p.debtPaidOffThisYear && p.debtPaidOffThisYear.length > 0 && (
+                                  <div className="pt-2 mt-2 border-t border-zinc-700">
+                                    <p className="text-emerald-400 font-semibold text-xs">✓ Debt Paid Off!</p>
+                                    <p className="text-[10px] text-zinc-500">{p.debtPaidOffThisYear.join(', ')}</p>
                                   </div>
-                                  <div className="flex justify-between gap-4 mt-1 pt-1 border-t border-zinc-700/50">
-                                    <span className="text-emerald-400 font-semibold">Net Worth:</span>
-                                    <span className="text-emerald-400 font-semibold">${((p.total || 0) - (p.totalDebt || 0)).toLocaleString()}</span>
-                                  </div>
-                                </>
-                              )}
-                              {p.debtPaidOffThisYear && p.debtPaidOffThisYear.length > 0 && (
+                                )}
+                              </div>
+                              {!p.isRetired && (
                                 <div className="pt-2 mt-2 border-t border-zinc-700">
-                                  <p className="text-emerald-400 font-semibold text-xs">✓ Debt Paid Off!</p>
-                                  <p className="text-[10px] text-zinc-500">{p.debtPaidOffThisYear.join(', ')}</p>
-                                </div>
-                              )}
-                            </div>
-                            {!p.isRetired && (
-                              <div className="pt-2 mt-2 border-t border-zinc-700">
-                                <div className="text-xs space-y-0.5 text-zinc-400 mb-1">
-                                  <div className="flex justify-between">
-                                    <span>• Current Spending:</span>
-                                    <span className="text-zinc-300">${currentAnnualSpending.toLocaleString()}</span>
-                                  </div>
-                                </div>
-                                <p className={`font-medium ${p.yearSavingsForTooltip >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                  Total Annual {p.yearSavingsForTooltip >= 0 ? 'Inflow' : 'Outflow'}: ${Math.abs(p.yearSavingsForTooltip).toLocaleString()}
-                                </p>
-                              </div>
-                            )}
-                            {p.isRetired && (p.yearWithdrawal > 0 || p.yearGoalWithdrawal > 0) && (
-                              <div className="pt-2 mt-2 border-t border-zinc-700">
-                                {p.retirementSpendingOnly > 0 && (
                                   <div className="text-xs space-y-0.5 text-zinc-400 mb-1">
                                     <div className="flex justify-between">
-                                      <span>• Retirement Spending:</span>
-                                      <span className="text-zinc-300">${(p.retirementSpendingOnly).toLocaleString()}</span>
+                                      <span>• Current Spending:</span>
+                                      <span className="text-zinc-300">${currentAnnualSpending.toLocaleString()}</span>
                                     </div>
                                   </div>
-                                )}
-                                {p.yearGoalWithdrawal > 0 && (
-                                  <div className="text-xs space-y-0.5 text-zinc-400 mb-2">
-                                    <div className="flex justify-between">
-                                      <span>• Goal Funding:</span>
-                                      <span className="text-orange-400">${(p.yearGoalWithdrawal).toLocaleString()}</span>
+                                  <p className={`font-medium ${p.yearSavingsForTooltip >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                    Total Annual {p.yearSavingsForTooltip >= 0 ? 'Inflow' : 'Outflow'}: ${Math.abs(p.yearSavingsForTooltip).toLocaleString()}
+                                  </p>
+                                </div>
+                              )}
+                              {p.isRetired && (p.yearWithdrawal > 0 || p.yearGoalWithdrawal > 0) && (
+                                <div className="pt-2 mt-2 border-t border-zinc-700">
+                                  {p.retirementSpendingOnly > 0 && (
+                                    <div className="text-xs space-y-0.5 text-zinc-400 mb-1">
+                                      <div className="flex justify-between">
+                                        <span>• Retirement Spending:</span>
+                                        <span className="text-zinc-300">${(p.retirementSpendingOnly).toLocaleString()}</span>
+                                      </div>
                                     </div>
-                                    {p.goalNames && p.goalNames.length > 0 && (
-                                      <p className="text-[10px] text-zinc-500 ml-2">{p.goalNames.join(', ')}</p>
+                                  )}
+                                  {p.yearGoalWithdrawal > 0 && (
+                                    <div className="text-xs space-y-0.5 text-zinc-400 mb-2">
+                                      <div className="flex justify-between">
+                                        <span>• Goal Funding:</span>
+                                        <span className="text-orange-400">${(p.yearGoalWithdrawal).toLocaleString()}</span>
+                                      </div>
+                                      {p.goalNames && p.goalNames.length > 0 && (
+                                        <p className="text-[10px] text-zinc-500 ml-2">{p.goalNames.join(', ')}</p>
+                                      )}
+                                    </div>
+                                  )}
+                                  <p className={`font-medium ${p.yearWithdrawal > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                    Total Annual {p.yearWithdrawal > 0 ? 'Outflow' : 'Inflow'}: ${(p.yearWithdrawal || 0).toLocaleString()}
+                                  </p>
+                                  <div className="text-xs space-y-0.5 text-zinc-400 mt-2 pt-2 border-t border-zinc-700/50">
+                                    {p.withdrawFromTaxable > 0 && (
+                                      <div className="flex justify-between">
+                                        <span>From Taxable:</span>
+                                        <span className="text-emerald-400">${(p.withdrawFromTaxable).toLocaleString()}</span>
+                                      </div>
+                                    )}
+                                    {p.withdrawFromTaxDeferred > 0 && (
+                                      <div className="flex justify-between">
+                                        <span>From Tax-Deferred:</span>
+                                        <span className="text-amber-400">${(p.withdrawFromTaxDeferred).toLocaleString()}</span>
+                                      </div>
+                                    )}
+                                    {p.withdrawFromTaxFree > 0 && (
+                                      <div className="flex justify-between">
+                                        <span>From Tax-Free:</span>
+                                        <span className="text-purple-400">${(p.withdrawFromTaxFree).toLocaleString()}</span>
+                                      </div>
+                                    )}
+                                    {p.taxesPaid > 0 && (
+                                      <div className="flex justify-between text-rose-400">
+                                        <span>Taxes:</span>
+                                        <span>-${(p.taxesPaid).toLocaleString()}</span>
+                                      </div>
+                                    )}
+                                    {p.penaltyPaid > 0 && (
+                                      <div className="flex justify-between text-rose-400">
+                                        <span>Early Withdrawal Penalty:</span>
+                                        <span>-${(p.penaltyPaid).toLocaleString()}</span>
+                                      </div>
+                                    )}
+                                    {p.taxesPaid === 0 && p.penaltyPaid === 0 && p.canAccessPenaltyFree && (
+                                      <div className="flex justify-between text-emerald-400">
+                                        <span>Tax Status:</span>
+                                        <span>Tax-Free! ✓</span>
+                                      </div>
                                     )}
                                   </div>
-                                )}
-                                <p className={`font-medium ${p.yearWithdrawal > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
-                                  Total Annual {p.yearWithdrawal > 0 ? 'Outflow' : 'Inflow'}: ${(p.yearWithdrawal || 0).toLocaleString()}
-                                </p>
-                                <div className="text-xs space-y-0.5 text-zinc-400 mt-2 pt-2 border-t border-zinc-700/50">
-                                  {p.withdrawFromTaxable > 0 && (
-                                    <div className="flex justify-between">
-                                      <span>From Taxable:</span>
-                                      <span className="text-emerald-400">${(p.withdrawFromTaxable).toLocaleString()}</span>
-                                    </div>
-                                  )}
-                                  {p.withdrawFromTaxDeferred > 0 && (
-                                    <div className="flex justify-between">
-                                      <span>From Tax-Deferred:</span>
-                                      <span className="text-amber-400">${(p.withdrawFromTaxDeferred).toLocaleString()}</span>
-                                    </div>
-                                  )}
-                                  {p.withdrawFromTaxFree > 0 && (
-                                    <div className="flex justify-between">
-                                      <span>From Tax-Free:</span>
-                                      <span className="text-purple-400">${(p.withdrawFromTaxFree).toLocaleString()}</span>
-                                    </div>
-                                  )}
-                                  {p.taxesPaid > 0 && (
-                                    <div className="flex justify-between text-rose-400">
-                                      <span>Taxes:</span>
-                                      <span>-${(p.taxesPaid).toLocaleString()}</span>
-                                    </div>
-                                  )}
-                                  {p.penaltyPaid > 0 && (
-                                    <div className="flex justify-between text-rose-400">
-                                      <span>Early Withdrawal Penalty:</span>
-                                      <span>-${(p.penaltyPaid).toLocaleString()}</span>
-                                    </div>
-                                  )}
-                                  {p.taxesPaid === 0 && p.penaltyPaid === 0 && p.canAccessPenaltyFree && (
-                                    <div className="flex justify-between text-emerald-400">
-                                      <span>Tax Status:</span>
-                                      <span>Tax-Free! ✓</span>
-                                    </div>
-                                  )}
                                 </div>
-                              </div>
-                            )}
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      );
-                    }}
-                    labelFormatter={(age) => {
-                      const year = new Date().getFullYear() + (age - currentAge);
-                      const yearEvents = lifeEvents.filter(e => e.year === year);
-                      const yearGoals = goals.filter(g => g.will_be_spent && g.target_date && new Date(g.target_date).getFullYear() === year);
-                      let label = `Age ${age}`;
-                      if (yearEvents.length > 0) {
-                        label += ` • ${yearEvents.map(e => e.name).join(', ')}`;
-                      }
-                      if (yearGoals.length > 0) {
-                        label += ` • ${yearGoals.map(g => `${g.name} (-$${(g.target_amount/1000).toFixed(0)}k)`).join(', ')}`;
-                      }
-                      return label;
-                    }}
-                  />
-                  <Legend />
-                  <ReferenceLine x={retirementAge} stroke="#F7931A" strokeDasharray="5 5" label={{ value: 'Retire', fill: '#F7931A', fontSize: 10 }} yAxisId="left" />
-                  {lifeEvents.slice(0, 5).map((event, i) => {
-                    const eventAge = currentAge + (event.year - new Date().getFullYear());
-                    if (eventAge > currentAge && eventAge < lifeExpectancy) {
-                      return (
-                        <ReferenceLine 
-                          key={event.id} 
-                          x={eventAge} 
-                          stroke={event.amount < 0 ? "#f87171" : "#34d399"} 
-                          strokeDasharray="3 3"
-                          strokeOpacity={0.5}
-                          yAxisId="left"
-                        />
-                      );
-                    }
-                    return null;
-                  })}
-                  {goals.filter(g => g.will_be_spent && g.target_date).slice(0, 5).map((goal) => {
-                    const goalYear = new Date(goal.target_date).getFullYear();
-                    const goalAge = currentAge + (goalYear - new Date().getFullYear());
-                    const goalColor = (() => {
-                      switch(goal.goal_type) {
-                        case 'retirement': return '#a78bfa';
-                        case 'btc_stack': return '#fbbf24';
-                        case 'emergency_fund': return '#34d399';
-                        case 'major_purchase': return '#60a5fa';
-                        case 'debt_payoff': return '#f87171';
-                        default: return '#71717a';
-                      }
-                    })();
-                    if (goalAge > currentAge && goalAge < lifeExpectancy) {
-                      return (
-                        <ReferenceLine 
-                          key={`goal-${goal.id}`} 
-                          x={goalAge} 
-                          stroke={goalColor}
-                          strokeDasharray="3 3"
-                          strokeOpacity={0.7}
-                          label={{ value: goal.name, fill: goalColor, fontSize: 9, position: 'insideTopLeft', offset: 10 }}
-                          yAxisId="left"
-                        />
-                      );
-                    }
-                    return null;
-                  })}
-                  {goalsWithProjections.filter(g => g.target_amount > 0 && !g.will_be_spent).slice(0, 3).map((goal, i) => (
-                    <ReferenceLine 
-                      key={goal.id} 
-                      y={goal.target_amount} 
-                      stroke="#60a5fa" 
-                      strokeDasharray="8 4"
-                      strokeOpacity={0.4}
-                      label={{ value: goal.name, fill: '#60a5fa', fontSize: 10, position: 'right' }}
-                      yAxisId="left"
+                        );
+                      }}
+                      labelFormatter={(age) => {
+                        const year = new Date().getFullYear() + (age - currentAge);
+                        const yearEvents = lifeEvents.filter(e => e.year === year);
+                        const yearGoals = goals.filter(g => g.will_be_spent && g.target_date && new Date(g.target_date).getFullYear() === year);
+                        let label = `Age ${age}`;
+                        if (yearEvents.length > 0) {
+                          label += ` • ${yearEvents.map(e => e.name).join(', ')}`;
+                        }
+                        if (yearGoals.length > 0) {
+                          label += ` • ${yearGoals.map(g => `${g.name} (-$${(g.target_amount/1000).toFixed(0)}k)`).join(', ')}`;
+                        }
+                        return label;
+                      }}
                     />
-                  ))}
-                  <Area type="monotone" dataKey="bonds" stackId="1" stroke="#a78bfa" fill="#a78bfa" fillOpacity={0.3} name="Bonds" yAxisId="left" />
-                  <Area type="monotone" dataKey="realEstate" stackId="1" stroke="#10b981" fill="#10b981" fillOpacity={0.3} name="Real Estate" yAxisId="left" />
-                  <Area type="monotone" dataKey="stocks" stackId="1" stroke="#60a5fa" fill="#60a5fa" fillOpacity={0.3} name="Stocks" yAxisId="left" />
-                  <Area type="monotone" dataKey="btc" stackId="1" stroke="#F7931A" fill="#F7931A" fillOpacity={0.5} name="Bitcoin" yAxisId="left" />
-                  <Line type="monotone" dataKey="total" stroke="#ffffff" strokeWidth={2} dot={false} name="Total Assets" yAxisId="left" />
-                  <Line type="monotone" dataKey="totalDebt" stroke="#dc2626" strokeWidth={2} strokeDasharray="5 5" dot={false} name="Total Debt" yAxisId="left" />
-                  <Line type="monotone" dataKey="yearGoalWithdrawal" stroke="#fb923c" strokeWidth={2} strokeDasharray="4 4" dot={(props) => {
-                    if (props.payload?.yearGoalWithdrawal > 0) {
-                      return <circle cx={props.cx} cy={props.cy} r={4} fill="#fb923c" stroke="#0a0a0b" strokeWidth={2} />;
-                    }
-                    return null;
-                  }} name="Goal Funding" yAxisId="right" connectNulls={false} />
-                  <Line type="monotone" dataKey="yearWithdrawal" stroke="#ef4444" strokeWidth={2} dot={(props) => {
-                    if (props.payload?.yearWithdrawal > 0) {
-                      return <circle cx={props.cx} cy={props.cy} r={2} fill="#ef4444" />;
-                    }
-                    return null;
-                  }} name="Withdrawal" yAxisId="right" connectNulls={false} />
-                  {projections.filter(p => p.debtPaidOffThisYear && p.debtPaidOffThisYear.length > 0).map((p) => (
-                    <ReferenceLine 
-                      key={`debt-${p.age}`}
-                      x={p.age} 
-                      stroke="#22c55e"
-                      strokeDasharray="3 3"
-                      strokeOpacity={0.6}
-                      label={{ value: '✓ Debt Free', fill: '#22c55e', fontSize: 9, position: 'top' }}
-                      yAxisId="left"
-                    />
-                  ))}
-                  {(() => {
-                    const firstFailure = projections.find(p => p.portfolioFailed);
-                    if (firstFailure) {
-                      return (
-                        <ReferenceLine 
-                          x={firstFailure.age} 
-                          stroke="#dc2626"
-                          strokeWidth={2}
-                          strokeDasharray="5 5"
-                          label={{ value: '❌ Portfolio Depleted', fill: '#dc2626', fontSize: 10, position: 'top' }}
-                          yAxisId="left"
-                        />
-                      );
-                    }
-                    return null;
-                  })()}
-                  {(() => {
-                    const firstBtcDepletion = projections.find(p => p.btcRunsOut);
-                    if (firstBtcDepletion) {
-                      return (
-                        <ReferenceLine 
-                          x={firstBtcDepletion.age} 
-                          stroke="#F7931A"
-                          strokeWidth={2}
-                          strokeDasharray="5 5"
-                          strokeOpacity={0.7}
-                          label={{ value: '⚠️ BTC Depleted', fill: '#F7931A', fontSize: 10, position: 'insideBottomLeft' }}
-                          yAxisId="left"
-                        />
-                      );
-                    }
-                    return null;
-                  })()}
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
+                    <Legend />
+                    <ReferenceLine x={retirementAge} stroke="#F7931A" strokeDasharray="5 5" label={{ value: 'Retire', fill: '#F7931A', fontSize: 10 }} yAxisId="left" />
+                    {/* Life Event Reference Lines */}
+                    {lifeEvents.slice(0, 5).map((event, i) => {
+                      const eventAge = currentAge + (event.year - new Date().getFullYear());
+                      if (eventAge > currentAge && eventAge < lifeExpectancy) {
+                        return (
+                          <ReferenceLine 
+                            key={event.id} 
+                            x={eventAge} 
+                            stroke={event.amount < 0 ? "#f87171" : "#34d399"} 
+                            strokeDasharray="3 3"
+                            strokeOpacity={0.5}
+                            yAxisId="left"
+                          />
+                        );
+                      }
+                      return null;
+                    })}
+                    {/* Goals marked as "will be spent" - vertical lines at target age */}
+                    {goals.filter(g => g.will_be_spent && g.target_date).slice(0, 5).map((goal) => {
+                      const goalYear = new Date(goal.target_date).getFullYear();
+                      const goalAge = currentAge + (goalYear - new Date().getFullYear());
+                      const goalColor = (() => {
+                        switch(goal.goal_type) {
+                          case 'retirement': return '#a78bfa';
+                          case 'btc_stack': return '#fbbf24';
+                          case 'emergency_fund': return '#34d399';
+                          case 'major_purchase': return '#60a5fa';
+                          case 'debt_payoff': return '#f87171';
+                          default: return '#71717a';
+                        }
+                      })();
+                      if (goalAge > currentAge && goalAge < lifeExpectancy) {
+                        return (
+                          <ReferenceLine 
+                            key={`goal-${goal.id}`} 
+                            x={goalAge} 
+                            stroke={goalColor}
+                            strokeDasharray="3 3"
+                            strokeOpacity={0.7}
+                            label={{ value: goal.name, fill: goalColor, fontSize: 9, position: 'insideTopLeft', offset: 10 }}
+                            yAxisId="left"
+                          />
+                        );
+                      }
+                      return null;
+                    })}
+                    {/* Goal target lines - only show for accumulation goals (not one-time spending) */}
+                    {goalsWithProjections.filter(g => g.target_amount > 0 && !g.will_be_spent).slice(0, 3).map((goal, i) => (
+                      <ReferenceLine 
+                        key={goal.id} 
+                        y={goal.target_amount} 
+                        stroke="#60a5fa" 
+                        strokeDasharray="8 4"
+                        strokeOpacity={0.4}
+                        label={{ value: goal.name, fill: '#60a5fa', fontSize: 10, position: 'right' }}
+                        yAxisId="left"
+                      />
+                    ))}
+                    <Area type="monotone" dataKey="bonds" stackId="1" stroke="#a78bfa" fill="#a78bfa" fillOpacity={0.3} name="Bonds" yAxisId="left" />
+                    <Area type="monotone" dataKey="realEstate" stackId="1" stroke="#10b981" fill="#10b981" fillOpacity={0.3} name="Real Estate" yAxisId="left" />
+                    <Area type="monotone" dataKey="stocks" stackId="1" stroke="#60a5fa" fill="#60a5fa" fillOpacity={0.3} name="Stocks" yAxisId="left" />
+                    <Area type="monotone" dataKey="btc" stackId="1" stroke="#F7931A" fill="#F7931A" fillOpacity={0.5} name="Bitcoin" yAxisId="left" />
+                    <Line type="monotone" dataKey="total" stroke="#ffffff" strokeWidth={2} dot={false} name="Total Assets" yAxisId="left" />
+                    <Line type="monotone" dataKey="totalDebt" stroke="#dc2626" strokeWidth={2} strokeDasharray="5 5" dot={false} name="Total Debt" yAxisId="left" />
+                    <Line type="monotone" dataKey="yearGoalWithdrawal" stroke="#fb923c" strokeWidth={2} strokeDasharray="4 4" dot={(props) => {
+                      // Show dots for years with goal withdrawals
+                      if (props.payload?.yearGoalWithdrawal > 0) {
+                        return <circle cx={props.cx} cy={props.cy} r={4} fill="#fb923c" stroke="#0a0a0b" strokeWidth={2} />;
+                      }
+                      return null;
+                    }} name="Goal Funding" yAxisId="right" connectNulls={false} />
+                    <Line type="monotone" dataKey="yearWithdrawal" stroke="#ef4444" strokeWidth={2} dot={(props) => {
+                      // Only show dots for retirement years with actual withdrawals
+                      if (props.payload?.yearWithdrawal > 0) {
+                        return <circle cx={props.cx} cy={props.cy} r={2} fill="#ef4444" />;
+                      }
+                      return null;
+                    }} name="Withdrawal" yAxisId="right" connectNulls={false} />
+                    {/* Mark debt payoffs */}
+                    {projections.filter(p => p.debtPaidOffThisYear && p.debtPaidOffThisYear.length > 0).map((p) => (
+                      <ReferenceLine 
+                        key={`debt-${p.age}`}
+                        x={p.age} 
+                        stroke="#22c55e"
+                        strokeDasharray="3 3"
+                        strokeOpacity={0.6}
+                        label={{ value: '✓ Debt Free', fill: '#22c55e', fontSize: 9, position: 'top' }}
+                        yAxisId="left"
+                      />
+                    ))}
+                    {/* Mark portfolio failure */}
+                    {(() => {
+                      const firstFailure = projections.find(p => p.portfolioFailed);
+                      if (firstFailure) {
+                        return (
+                          <ReferenceLine 
+                            x={firstFailure.age} 
+                            stroke="#dc2626"
+                            strokeWidth={2}
+                            strokeDasharray="5 5"
+                            label={{ value: '❌ Portfolio Depleted', fill: '#dc2626', fontSize: 10, position: 'top' }}
+                            yAxisId="left"
+                          />
+                        );
+                      }
+                      return null;
+                    })()}
+                    {/* Mark Bitcoin depletion */}
+                    {(() => {
+                      const firstBtcDepletion = projections.find(p => p.btcRunsOut);
+                      if (firstBtcDepletion) {
+                        return (
+                          <ReferenceLine 
+                            x={firstBtcDepletion.age} 
+                            stroke="#F7931A"
+                            strokeWidth={2}
+                            strokeDasharray="5 5"
+                            strokeOpacity={0.7}
+                            label={{ value: '⚠️ BTC Depleted', fill: '#F7931A', fontSize: 10, position: 'insideBottomLeft' }}
+                            yAxisId="left"
+                          />
+                        );
+                      }
+                      return null;
+                    })()}
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
             {(lifeEvents.length > 0 || goals.length > 0) && (
               <div className="flex flex-wrap justify-center gap-4 mt-4">
                 {lifeEvents.length > 0 && <div className="flex items-center gap-2"><div className="w-3 h-0.5 bg-rose-400/50" /><span className="text-sm text-zinc-400">Life Events</span></div>}
                 {goals.length > 0 && <div className="flex items-center gap-2"><div className="w-6 h-0.5 bg-blue-400/50" style={{backgroundImage: 'repeating-linear-gradient(90deg, #60a5fa 0, #60a5fa 8px, transparent 8px, transparent 12px)'}} /><span className="text-sm text-zinc-400">Goal Targets</span></div>}
               </div>
             )}
+            
+
           </div>
 
+          {/* Account Type Summary */}
           <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
             <h3 className="font-semibold mb-4">Portfolio by Tax Treatment</h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -1980,6 +2188,7 @@ export default function FinancialPlan() {
               </div>
             </div>
             
+            {/* Withdrawal Priority Explanation */}
             <div className="mt-4 p-3 rounded-lg bg-zinc-800/30 border border-zinc-700/50">
               <p className="text-xs font-medium text-zinc-300 mb-2">Withdrawal Priority Order</p>
               <div className="flex items-center gap-2 text-xs text-zinc-400">
@@ -1994,120 +2203,139 @@ export default function FinancialPlan() {
                 Before 59½: Taxable first, then Roth contributions, then tax-deferred with 10% penalty as last resort.
               </p>
             </div>
+            
 
             {retirementAge < 59.5 && (() => {
-              const yearsUntilPenaltyFree = Math.ceil(59.5 - retirementAge);
-              const annualNeedAtRetirement = retirementAnnualSpending * Math.pow(1 + inflationRate / 100, retirementAge - currentAge);
+                const yearsUntilPenaltyFree = Math.ceil(59.5 - retirementAge);
+                const annualNeedAtRetirement = retirementAnnualSpending * Math.pow(1 + inflationRate / 100, retirementAge - currentAge);
 
-              const taxableBtc = taxableLiquidHoldings.filter(h => h.ticker === 'BTC').reduce((sum, h) => sum + h.quantity * currentPrice, 0);
-              const taxableStocks = taxableLiquidHoldings.filter(h => h.asset_type === 'stocks').reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
-              const taxableBonds = taxableLiquidHoldings.filter(h => h.asset_type === 'bonds').reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
-              const taxableOther = taxableLiquidValue - taxableBtc - taxableStocks - taxableBonds;
+                // Calculate blended growth rate based on actual LIQUID taxable portfolio composition
+                const taxableBtc = taxableLiquidHoldings.filter(h => h.ticker === 'BTC').reduce((sum, h) => sum + h.quantity * currentPrice, 0);
+                const taxableStocks = taxableLiquidHoldings.filter(h => h.asset_type === 'stocks').reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
+                const taxableBonds = taxableLiquidHoldings.filter(h => h.asset_type === 'bonds').reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
+                const taxableOther = taxableLiquidValue - taxableBtc - taxableStocks - taxableBonds;
 
-              const avgBtcGrowthForBridge = (() => {
-                if (btcReturnModel === 'custom') return effectiveBtcCagr;
-                let totalGrowth = 0;
-                const yearsToRetire = retirementAge - currentAge;
-                for (let y = yearsToRetire; y < yearsToRetire + yearsUntilPenaltyFree; y++) {
-                  totalGrowth += getBtcGrowthRate(y, effectiveInflation);
+                // Weighted average growth rate based on taxable portfolio allocation
+                const avgBtcGrowthForBridge = (() => {
+                  if (btcReturnModel === 'custom') return effectiveBtcCagr;
+                  let totalGrowth = 0;
+                  const yearsToRetire = retirementAge - currentAge;
+                  for (let y = yearsToRetire; y < yearsToRetire + yearsUntilPenaltyFree; y++) {
+                    totalGrowth += getBtcGrowthRate(y, effectiveInflation);
+                  }
+                  return totalGrowth / yearsUntilPenaltyFree;
+                })();
+
+                let bridgeGrowthRate = 0.05;
+                if (taxableLiquidValue > 0) {
+                  bridgeGrowthRate = (
+                    (taxableBtc / taxableLiquidValue) * (avgBtcGrowthForBridge / 100) +
+                    (taxableStocks / taxableLiquidValue) * (effectiveStocksCagr / 100) +
+                    (taxableBonds / taxableLiquidValue) * (bondsCagr / 100) +
+                    (taxableOther / taxableLiquidValue) * (effectiveStocksCagr / 100)
+                  );
                 }
-                return totalGrowth / yearsUntilPenaltyFree;
-              })();
 
-              let bridgeGrowthRate = 0.05;
-              if (taxableLiquidValue > 0) {
-                bridgeGrowthRate = (
-                  (taxableBtc / taxableLiquidValue) * (avgBtcGrowthForBridge / 100) +
-                  (taxableStocks / taxableLiquidValue) * (effectiveStocksCagr / 100) +
-                  (taxableBonds / taxableLiquidValue) * (bondsCagr / 100) +
-                  (taxableOther / taxableLiquidValue) * (effectiveStocksCagr / 100)
-                );
-              }
+                // Use growing annuity formula: payments grow with inflation, discounted by nominal growth
+                const nominalBridgeGrowthRate = bridgeGrowthRate;
+                const inflationRateDecimal = inflationRate / 100;
 
-              const nominalBridgeGrowthRate = bridgeGrowthRate;
-              const inflationRateDecimal = inflationRate / 100;
+                // Get actual Roth contributions from accounts (default to 0 if not specified)
+                const totalRothContributions = accounts
+                  .filter(a => ['401k_roth', 'ira_roth', 'hsa'].includes(a.account_type))
+                  .reduce((sum, a) => sum + (a.roth_contributions || 0), 0);
 
-              const totalRothContributions = accounts
-                .filter(a => ['401k_roth', 'ira_roth', 'hsa'].includes(a.account_type))
-                .reduce((sum, a) => sum + (a.roth_contributions || 0), 0);
+                // Present value of withdrawals needed from taxable + Roth contributions
+                // Using growing annuity: annualNeedAtRetirement inflates each year during bridge
+                let bridgeFundsNeeded;
+                if (Math.abs(nominalBridgeGrowthRate - inflationRateDecimal) < 0.000001) {
+                  // When growth rate equals inflation rate
+                  bridgeFundsNeeded = annualNeedAtRetirement * yearsUntilPenaltyFree;
+                } else {
+                  // Growing annuity present value formula
+                  bridgeFundsNeeded = annualNeedAtRetirement * (
+                    (1 - Math.pow((1 + inflationRateDecimal) / (1 + nominalBridgeGrowthRate), yearsUntilPenaltyFree)) /
+                    (nominalBridgeGrowthRate - inflationRateDecimal)
+                  );
+                }
 
-              let bridgeFundsNeeded;
-              if (Math.abs(nominalBridgeGrowthRate - inflationRateDecimal) < 0.000001) {
-                bridgeFundsNeeded = annualNeedAtRetirement * yearsUntilPenaltyFree;
-              } else {
-                bridgeFundsNeeded = annualNeedAtRetirement * (
-                  (1 - Math.pow((1 + inflationRateDecimal) / (1 + nominalBridgeGrowthRate), yearsUntilPenaltyFree)) /
-                  (nominalBridgeGrowthRate - inflationRateDecimal)
-                );
-              }
+                // Project today's accessible funds forward to retirement age
+                const yearsToRetirement = Math.max(0, retirementAge - currentAge);
+                const projectedAccessibleFunds = (taxableLiquidValue + totalRothContributions) * Math.pow(1 + bridgeGrowthRate, yearsToRetirement);
+                const shortfall = Math.max(0, bridgeFundsNeeded - projectedAccessibleFunds);
 
-              const yearsToRetirement = Math.max(0, retirementAge - currentAge);
-              const projectedAccessibleFunds = (taxableLiquidValue + totalRothContributions) * Math.pow(1 + bridgeGrowthRate, yearsToRetirement);
-              const shortfall = Math.max(0, bridgeFundsNeeded - projectedAccessibleFunds);
-
-              return (
-                <div className="mt-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                  <p className="text-sm text-amber-400 font-medium mb-2">
-                    ⚠️ Early Retirement Warning (Before Age 59.5)
-                  </p>
-                  <p className="text-sm text-zinc-300">
-                    Retiring at {retirementAge} means {yearsUntilPenaltyFree} years before penalty-free access to retirement account earnings.
-                    You'll need <span className="font-bold text-amber-400">{formatNumber(bridgeFundsNeeded)}</span> in accessible funds (liquid taxable + Roth contributions) to cover {formatNumber(annualNeedAtRetirement)}/yr for {yearsUntilPenaltyFree} years.
-                  </p>
-                  <div className="text-xs text-zinc-400 mt-2 space-y-1">
-                    <div>• Liquid Taxable (today): {formatNumber(taxableLiquidValue)}</div>
-                    <div>• Roth Contributions (today): {formatNumber(totalRothContributions)}</div>
-                    <div className="font-medium">• Projected Accessible at {retirementAge}: {formatNumber(projectedAccessibleFunds)}</div>
-                    {totalRothContributions === 0 && taxFreeValue > 0 && (
-                      <div className="text-amber-400 mt-1">⚠️ Set Roth contributions in Account settings for accurate early retirement planning</div>
+                return (
+                  <div className="mt-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                    <p className="text-sm text-amber-400 font-medium mb-2">
+                      ⚠️ Early Retirement Warning (Before Age 59.5)
+                    </p>
+                    <p className="text-sm text-zinc-300">
+                      Retiring at {retirementAge} means {yearsUntilPenaltyFree} years before penalty-free access to retirement account earnings.
+                      You'll need <span className="font-bold text-amber-400">{formatNumber(bridgeFundsNeeded)}</span> in accessible funds (liquid taxable + Roth contributions) to cover {formatNumber(annualNeedAtRetirement)}/yr for {yearsUntilPenaltyFree} years.
+                    </p>
+                    <div className="text-xs text-zinc-400 mt-2 space-y-1">
+                      <div>• Liquid Taxable (today): {formatNumber(taxableLiquidValue)}</div>
+                      <div>• Roth Contributions (today): {formatNumber(totalRothContributions)}</div>
+                      <div className="font-medium">• Projected Accessible at {retirementAge}: {formatNumber(projectedAccessibleFunds)}</div>
+                      {totalRothContributions === 0 && taxFreeValue > 0 && (
+                        <div className="text-amber-400 mt-1">⚠️ Set Roth contributions in Account settings for accurate early retirement planning</div>
+                      )}
+                    </div>
+                    {shortfall > 0 ? (
+                      <p className="text-sm text-rose-400 mt-2 font-semibold">
+                        Shortfall: {formatNumber(shortfall)} — You may need to withdraw Roth earnings or tax-deferred funds early (incurring penalties).
+                      </p>
+                    ) : (
+                      <p className="text-sm text-emerald-400 mt-2 font-semibold">
+                        ✓ Sufficient accessible funds for early retirement bridge period!
+                      </p>
                     )}
                   </div>
-                  {shortfall > 0 ? (
-                    <p className="text-sm text-rose-400 mt-2 font-semibold">
-                      Shortfall: {formatNumber(shortfall)} — You may need to withdraw Roth earnings or tax-deferred funds early (incurring penalties).
-                    </p>
-                  ) : (
-                    <p className="text-sm text-emerald-400 mt-2 font-semibold">
-                      ✓ Sufficient accessible funds for early retirement bridge period!
-                    </p>
-                  )}
-                </div>
-              );
-            })()}
+                );
+              })()}
           </div>
 
+          {/* Retirement Planning Settings */}
           <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
             <h3 className="font-semibold mb-6">Retirement Planning Settings</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-              <div className="space-y-2">
-                <Label className="text-zinc-400">Current Age</Label>
-                <Input type="number" value={currentAge} onChange={(e) => setCurrentAge(parseInt(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
+                <div className="space-y-2">
+                  <Label className="text-zinc-400">Current Age</Label>
+                  <Input type="number" value={currentAge} onChange={(e) => setCurrentAge(parseInt(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-zinc-400">Target Retirement Age</Label>
+                  <Input type="number" value={retirementAge} onChange={(e) => setRetirementAge(parseInt(e.target.value) || 65)} className="bg-zinc-900 border-zinc-800" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-zinc-400">Life Expectancy</Label>
+                  <Input type="number" value={lifeExpectancy} onChange={(e) => setLifeExpectancy(parseInt(e.target.value) || 90)} className="bg-zinc-900 border-zinc-800" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-zinc-400">Current Spending</Label>
+                  <Input type="number" value={currentAnnualSpending} onChange={(e) => setCurrentAnnualSpending(parseInt(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-zinc-400">Retirement Spending</Label>
+                  <Input type="number" value={retirementAnnualSpending} onChange={(e) => setRetirementAnnualSpending(parseInt(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label className="text-zinc-400">Target Retirement Age</Label>
-                <Input type="number" value={retirementAge} onChange={(e) => setRetirementAge(parseInt(e.target.value) || 65)} className="bg-zinc-900 border-zinc-800" />
+              
+              <div className="mt-4 space-y-2">
+                <p className="text-xs text-zinc-500">
+                  💡 Your annual net cash flow of <span className="text-emerald-400 font-medium">{formatNumber(annualSavings)}</span> is calculated from your total income (from Budget) minus your current annual spending (from Settings).
+                  A positive value means you are saving. A negative value means you are drawing down.
+                </p>
+                {monthlyDebtPayments > 0 && (
+                  <p className="text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
+                    ⚠️ <span className="font-medium">{formatNumber(monthlyDebtPayments * 12)}/yr</span> in debt payments reduces your available savings in these projections. 
+                    This represents the actual monthly payments you're making on liabilities (from your Liabilities page). 
+                    Create a "Debt Payoff" goal to accelerate repayment and increase future savings.
+                  </p>
+                )}
               </div>
-              <div className="space-y-2">
-                <Label className="text-zinc-400">Life Expectancy</Label>
-                <Input type="number" value={lifeExpectancy} onChange={(e) => setLifeExpectancy(parseInt(e.target.value) || 90)} className="bg-zinc-900 border-zinc-800" />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-zinc-400">Current Spending</Label>
-                <Input type="number" value={currentAnnualSpending} onChange={(e) => setCurrentAnnualSpending(parseInt(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-zinc-400">Retirement Spending</Label>
-                <Input type="number" value={retirementAnnualSpending} onChange={(e) => setRetirementAnnualSpending(parseInt(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
-              </div>
-            </div>
-            
-            <div className="mt-4 space-y-2">
-              <p className="text-xs text-zinc-500">
-                💡 Your annual net cash flow of <span className="text-emerald-400 font-medium">{formatNumber(annualSavings)}</span> is calculated from your total income (from Budget) minus your current annual spending (from Settings).
-                A positive value means you are saving. A negative value means you are drawing down.
-              </p>
-            </div>
 
+            {/* Withdrawal Strategy */}
             <div className="mt-6 p-4 rounded-xl bg-zinc-800/30">
               <Label className="text-zinc-300 font-medium mb-3 block">Withdrawal Strategy</Label>
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
@@ -2188,7 +2416,9 @@ export default function FinancialPlan() {
           </div>
         </TabsContent>
 
+        {/* Monte Carlo Tab */}
         <TabsContent value="montecarlo" className="space-y-6">
+          {/* Income-Based Target */}
           <div className="card-premium rounded-xl p-4 border border-zinc-800/50">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
@@ -2227,6 +2457,7 @@ export default function FinancialPlan() {
 
             {simulationResults ? (
               <>
+                {/* Success Probability - Main Focus */}
                 <div className={cn(
                   "p-6 rounded-2xl mb-6 text-center",
                   successProbability >= 80 ? "bg-emerald-500/10 border border-emerald-500/30" :
@@ -2245,9 +2476,9 @@ export default function FinancialPlan() {
                     {successProbability?.toFixed(0)}%
                   </p>
                   <p className="text-xs text-zinc-400 mt-1">
-                    {withdrawalStrategy === '4percent' ? '4% Rule' : 
-                     withdrawalStrategy === 'dynamic' ? `${dynamicWithdrawalRate || 5}% Dynamic` : `Income-Based ($${Math.round(inflationAdjustedRetirementSpending || 0).toLocaleString()}/yr)`} • {btcReturnModel === 'custom' ? `${btcCagr || 25}%` : btcReturnModel} BTC • BTC Vol: {getBtcVolatility(0).toFixed(0)}%→{getBtcVolatility(30).toFixed(0)}%
-                  </p>
+                      {withdrawalStrategy === '4percent' ? '4% Rule' : 
+                       withdrawalStrategy === 'dynamic' ? `${dynamicWithdrawalRate || 5}% Dynamic` : `Income-Based ($${Math.round(inflationAdjustedRetirementSpending || 0).toLocaleString()}/yr)`} • {btcReturnModel === 'custom' ? `${btcCagr || 25}%` : btcReturnModel} BTC • BTC Vol: {getBtcVolatility(0).toFixed(0)}%→{getBtcVolatility(30).toFixed(0)}%
+                    </p>
                   <p className="text-sm text-zinc-300 mt-2">
                     {successProbability >= 80 ? "Excellent! You're on track for your desired retirement lifestyle." :
                      successProbability >= 50 ? "Good progress, but consider increasing savings or adjusting expectations." :
@@ -2255,6 +2486,7 @@ export default function FinancialPlan() {
                   </p>
                 </div>
 
+                {/* Portfolio Value Chart */}
                 <div className="mb-6">
                   <h4 className="text-sm font-medium text-zinc-400 mb-3">Portfolio Value Over Time</h4>
                   <div className="h-64">
@@ -2310,6 +2542,7 @@ export default function FinancialPlan() {
                   </div>
                 </div>
 
+                {/* Summary Stats */}
                 <div className="grid grid-cols-3 gap-4">
                   <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20">
                     <p className="text-xs text-zinc-500">Worst Case (10%)</p>
@@ -2328,6 +2561,7 @@ export default function FinancialPlan() {
                   </div>
                 </div>
 
+                {/* At Retirement Stats */}
                 <div className="mt-4 p-4 rounded-xl bg-zinc-800/30">
                   <h4 className="text-sm font-medium text-zinc-400 mb-3">At Retirement (Age {retirementAge})</h4>
                   <div className="grid grid-cols-3 gap-4">
@@ -2345,6 +2579,8 @@ export default function FinancialPlan() {
                     </div>
                   </div>
                 </div>
+                
+
               </>
             ) : (
               <div className="text-center py-16">
@@ -2355,7 +2591,12 @@ export default function FinancialPlan() {
             )}
           </div>
         </TabsContent>
+
+
+
       </Tabs>
+
+
     </div>
   );
 }
