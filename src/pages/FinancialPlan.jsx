@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -70,6 +71,7 @@ const runMonteCarloSimulation = (params, numSimulations = 1000) => {
     let runningTaxable = taxableValue;
     let runningTaxDeferred = taxDeferredValue;
     let runningTaxFree = taxFreeValue;
+    let runningSavings = 0;
     let ranOutOfMoney = false;
     let initial4PercentWithdrawal = 0;
     
@@ -111,12 +113,14 @@ const runMonteCarloSimulation = (params, numSimulations = 1000) => {
       runningTaxable = Math.max(0, runningTaxable * (1 + portfolioReturn));
       runningTaxDeferred = Math.max(0, runningTaxDeferred * (1 + portfolioReturn));
       runningTaxFree = Math.max(0, runningTaxFree * (1 + portfolioReturn));
+      runningSavings = Math.max(0, runningSavings * (1 + portfolioReturn));
       
       let yearWithdrawal = 0;
       
       if (!isRetired) {
         // Add annual net cash flow to taxable (can be positive or negative)
         const yearNetCashFlow = annualSavings * Math.pow(1 + incomeGrowth / 100, year);
+        runningSavings += yearNetCashFlow;
         runningTaxable += yearNetCashFlow;
       } else {
         // Retirement withdrawals - use account total for withdrawal calculation
@@ -151,6 +155,13 @@ const runMonteCarloSimulation = (params, numSimulations = 1000) => {
         const fromTaxFree = Math.min(remaining, runningTaxFree);
         runningTaxFree -= fromTaxFree;
         remaining -= fromTaxFree;
+        
+        // Also reduce savings proportionally
+        const totalBeforeWithdraw = runningTaxable + runningTaxDeferred + runningTaxFree + runningSavings + yearWithdrawal;
+        if (totalBeforeWithdraw > 0 && runningSavings > 0) {
+          const savingsRatio = runningSavings / totalBeforeWithdraw;
+          runningSavings = Math.max(0, runningSavings - yearWithdrawal * savingsRatio);
+        }
         
         // Check if ran out of money
         if (runningTaxable + runningTaxDeferred + runningTaxFree <= 0) {
@@ -580,6 +591,7 @@ export default function FinancialPlan() {
     let runningTaxable = taxableValue;
     let runningTaxDeferred = taxDeferredValue;
     let runningTaxFree = taxFreeValue;
+    let runningSavings = 0; // This runningSavings is now separate from the asset allocation percentages.
     
     // Track cost basis for taxable accounts to dynamically estimate capital gains
     const initialTaxableCostBasis = taxableHoldings.reduce((sum, h) => sum + (h.cost_basis_total || 0), 0);
@@ -760,10 +772,12 @@ export default function FinancialPlan() {
         runningTaxable = runningTaxable * (1 + blendedGrowthRate);
         runningTaxDeferred = runningTaxDeferred * (1 + blendedGrowthRate);
         runningTaxFree = runningTaxFree * (1 + blendedGrowthRate);
+        runningSavings = runningSavings * (1 + blendedGrowthRate); // Treat runningSavings as another account type
       }
 
       if (!isRetired) {
         yearSavings = annualSavings * Math.pow(1 + incomeGrowth / 100, i);
+        runningSavings += yearSavings;
         cumulativeSavings += yearSavings;
         
         // Subtract debt payments from portfolio (comes out of taxable/savings)
@@ -883,7 +897,7 @@ export default function FinancialPlan() {
       const totalReleasedBtc = Object.values(releasedBtc).reduce((sum, amount) => sum + amount, 0);
       
       // The total portfolio value from all accounts
-      const totalPortfolio = runningTaxable + runningTaxDeferred + runningTaxFree;
+      const totalPortfolio = runningTaxable + runningTaxDeferred + runningTaxFree + runningSavings;
       
       // Calculate individual asset values based on initial allocation percentages
       // These are illustrative of the portfolio's composition, not independently growing assets
@@ -907,7 +921,7 @@ export default function FinancialPlan() {
         stocks: Math.round(runningStocks),
         realEstate: Math.round(runningRealEstate),
         bonds: Math.round(runningBonds),
-        savings: 0,
+        savings: Math.round(runningSavings),
         yearSavingsForTooltip: isRetired ? 0 : Math.round(yearSavings),
         total: Math.round(total),
         realTotal: Math.round(realTotal),
