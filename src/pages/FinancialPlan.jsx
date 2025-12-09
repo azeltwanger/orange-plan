@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -579,18 +578,15 @@ export default function FinancialPlan() {
     const data = [];
     const currentYear = new Date().getFullYear();
 
-    // Calculate initial asset allocation percentages (stays constant throughout)
-    const totalInitialAssets = btcValue + stocksValue + realEstateValue + bondsValue + otherValue;
-    const btcAllocationPct = totalInitialAssets > 0 ? btcValue / totalInitialAssets : 0;
-    const stocksAllocationPct = totalInitialAssets > 0 ? stocksValue / totalInitialAssets : 0;
-    const realEstateAllocationPct = totalInitialAssets > 0 ? realEstateValue / totalInitialAssets : 0;
-    const bondsAllocationPct = totalInitialAssets > 0 ? bondsValue / totalInitialAssets : 0;
-    const otherAllocationPct = totalInitialAssets > 0 ? otherValue / totalInitialAssets : 0;
-
     let cumulativeSavings = 0;
+    let runningBtc = btcValue;
+    let runningStocks = stocksValue;
+    let runningRealEstate = realEstateValue;
+    let runningBonds = bondsValue;
+    let runningOther = otherValue;
     let runningSavings = 0;
     
-    // Track by account type - this is the source of truth for portfolio value
+    // Track by account type - use the correctly calculated values
     let runningTaxable = taxableValue;
     let runningTaxDeferred = taxDeferredValue;
     let runningTaxFree = taxFreeValue;
@@ -621,11 +617,10 @@ export default function FinancialPlan() {
       const year = currentYear + i;
       
       // Get BTC growth rate for this year (needed early for collateral calculations)
-      // This is used for blending overall portfolio return, and for BTC price in collateral calculations
       const yearBtcGrowth = getBtcGrowthRate(i, effectiveInflation);
       
       // Calculate life event impacts for this year (with income growth applied)
-        let eventImpact = 0; // This will be applied to the taxable account
+        let eventImpact = 0;
         let yearGoalWithdrawal = 0; // Track goal-specific withdrawals for this year
         const yearGoalNames = []; // Track which goals are funded this year
         
@@ -638,8 +633,24 @@ export default function FinancialPlan() {
               : 1;
 
             if (event.affects === 'assets') {
-              // Asset purchases/sales directly affect the cash pool (taxable account)
-              eventImpact += event.amount;
+              const eventAmount = event.amount;
+              eventImpact += eventAmount;
+              
+              // Apply custom allocation if specified and amount is positive
+              if (eventAmount > 0 && event.allocation_method === 'custom') {
+                const btcAlloc = (event.btc_allocation || 0) / 100;
+                const stocksAlloc = (event.stocks_allocation || 0) / 100;
+                const realEstateAlloc = (event.real_estate_allocation || 0) / 100;
+                const bondsAlloc = (event.bonds_allocation || 0) / 100;
+                const cashAlloc = (event.cash_allocation || 0) / 100;
+                const otherAlloc = (event.other_allocation || 0) / 100;
+                
+                runningBtc += eventAmount * btcAlloc;
+                runningStocks += eventAmount * stocksAlloc;
+                runningRealEstate += eventAmount * realEstateAlloc;
+                runningBonds += eventAmount * bondsAlloc;
+                runningOther += eventAmount * (cashAlloc + otherAlloc);
+              }
             } else if (event.affects === 'income') {
               eventImpact += event.amount * growthMultiplier;
             }
@@ -656,7 +667,7 @@ export default function FinancialPlan() {
           const goalYear = new Date(goal.target_date).getFullYear();
           if (goalYear === year) {
             const goalAmount = goal.target_amount || 0;
-            eventImpact -= goalAmount; // Reduce available cash/taxable for this spending
+            eventImpact -= goalAmount;
             yearGoalWithdrawal += goalAmount;
             yearGoalNames.push(goal.name);
           }
@@ -675,7 +686,7 @@ export default function FinancialPlan() {
             const annualPayment = (goal.target_amount || 0) / goal.payoff_years;
             const monthlyExtraPayment = annualPayment / 12;
             debtPayoffGoalMonthlyPayments[goal.linked_liability_id] = monthlyExtraPayment;
-            eventImpact -= annualPayment; // This counts as an outflow
+            eventImpact -= annualPayment; // Still track total annual impact
           }
         }
       });
@@ -750,6 +761,7 @@ export default function FinancialPlan() {
       const isRetired = currentAge + i >= retirementAge;
       const yearsIntoRetirement = isRetired ? currentAge + i - retirementAge : 0;
       
+      // Pre-retirement: save and grow. Post-retirement: grow then withdraw
       let yearSavings = 0;
       let yearWithdrawal = 0;
       let taxesPaid = 0;
@@ -761,21 +773,31 @@ export default function FinancialPlan() {
       let totalWithdrawalForTaxCalculation = 0;
       
       if (i > 0) {
-        // Calculate blended growth rate for this year based on initial allocation
-        const yearBtcGrowthForBlend = getBtcGrowthRate(i, effectiveInflation);
-        const blendedGrowthRate = (
-          btcAllocationPct * (yearBtcGrowthForBlend / 100) +
-          stocksAllocationPct * (effectiveStocksCagr / 100) +
-          realEstateAllocationPct * (realEstateCagr / 100) +
-          bondsAllocationPct * (bondsCagr / 100) +
-          otherAllocationPct * (otherCagr / 100)
-        );
+        // Grow assets by their respective rates
+        runningBtc = runningBtc * (1 + yearBtcGrowth / 100);
+        runningStocks = runningStocks * (1 + effectiveStocksCagr / 100);
+        runningRealEstate = runningRealEstate * (1 + realEstateCagr / 100);
+        runningBonds = runningBonds * (1 + bondsCagr / 100);
+        runningOther = runningOther * (1 + otherCagr / 100);
         
-        // Grow all account buckets at blended rate
+        // Calculate blended growth rate based on current portfolio composition
+        const totalAssets = runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther;
+        let blendedGrowthRate = 0.05; // default 5%
+        if (totalAssets > 0) {
+          blendedGrowthRate = (
+            (runningBtc / totalAssets) * (yearBtcGrowth / 100) +
+            (runningStocks / totalAssets) * (effectiveStocksCagr / 100) +
+            (runningRealEstate / totalAssets) * (realEstateCagr / 100) +
+            (runningBonds / totalAssets) * (bondsCagr / 100) +
+            (runningOther / totalAssets) * (otherCagr / 100)
+          );
+        }
+        runningSavings = runningSavings * (1 + blendedGrowthRate);
+        
+        // Grow account type buckets at blended rate
         runningTaxable = runningTaxable * (1 + blendedGrowthRate);
         runningTaxDeferred = runningTaxDeferred * (1 + blendedGrowthRate);
         runningTaxFree = runningTaxFree * (1 + blendedGrowthRate);
-        runningSavings = runningSavings * (1 + blendedGrowthRate);
       }
 
       if (!isRetired) {
@@ -788,6 +810,7 @@ export default function FinancialPlan() {
         runningTaxable += netCashFlowAfterDebt;
       } else {
         // Calculate withdrawal based on strategy
+        const totalBeforeWithdrawal = runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther + runningSavings;
         const accountTotalBeforeWithdrawal = runningTaxable + runningTaxDeferred + runningTaxFree;
         
         if (withdrawalStrategy === '4percent') {
@@ -887,40 +910,60 @@ export default function FinancialPlan() {
         runningTaxable = Math.max(0, runningTaxable - withdrawFromTaxable);
         runningTaxDeferred = Math.max(0, runningTaxDeferred - withdrawFromTaxDeferred);
         runningTaxFree = Math.max(0, runningTaxFree - withdrawFromTaxFree);
+        
+        // Withdraw proportionally from asset types based on actual total withdrawal
+        const actualWithdrawalFromAccounts = withdrawFromTaxable + withdrawFromTaxDeferred + withdrawFromTaxFree;
+        const totalAssetValue = runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther + runningSavings;
+        if (totalAssetValue > 0 && actualWithdrawalFromAccounts > 0) {
+          const withdrawRatio = Math.min(1, actualWithdrawalFromAccounts / totalAssetValue);
+          runningBtc = Math.max(0, runningBtc * (1 - withdrawRatio));
+          runningStocks = Math.max(0, runningStocks * (1 - withdrawRatio));
+          runningRealEstate = Math.max(0, runningRealEstate * (1 - withdrawRatio));
+          runningBonds = Math.max(0, runningBonds * (1 - withdrawRatio));
+          runningOther = Math.max(0, runningOther * (1 - withdrawRatio));
+          runningSavings = Math.max(0, runningSavings * (1 - withdrawRatio));
+        }
       }
 
-      // Apply event impacts to taxable account (e.g. major expenses, asset sales)
-      // Positive eventImpact is inflow, negative is outflow
-      runningTaxable += eventImpact;
-
+      // Apply event impacts to total
+      // For proportionate allocation or non-asset impacts, apply to total
+      // Custom allocations were already applied directly to asset buckets above
+      const totalBeforeEvent = runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther + runningSavings;
+      
+      // Only add eventImpact if it wasn't a custom-allocated positive asset event
+      let adjustedEventImpact = eventImpact;
+      lifeEvents.forEach(event => {
+        if (event.year === year && event.affects === 'assets' && event.amount > 0 && event.allocation_method === 'custom') {
+          // Subtract it back out since we already added it to individual buckets
+          adjustedEventImpact -= event.amount;
+        }
+      });
+      
+      // Calculate total debt (net worth impact)
       const totalDebt = Object.values(runningDebt).reduce((sum, balance) => sum + balance, 0);
+
+      // Calculate total encumbered BTC (illiquid)
       const totalEncumberedBtc = Object.values(encumberedBtc).reduce((sum, amount) => sum + amount, 0);
       const totalReleasedBtc = Object.values(releasedBtc).reduce((sum, amount) => sum + amount, 0);
       
-      // Calculate total portfolio value from account types
-      const total = Math.max(0, runningTaxable + runningTaxDeferred + runningTaxFree);
+      const total = Math.max(0, totalBeforeEvent + adjustedEventImpact);
       const realTotal = total / Math.pow(1 + effectiveInflation / 100, i);
 
-      // Derive individual asset values from total using allocation percentages
-      // These are for display purposes on the chart, maintaining initial proportions
-      const derivedRunningBtc = total * btcAllocationPct;
-      const derivedRunningStocks = total * stocksAllocationPct;
-      const derivedRunningRealEstate = total * realEstateAllocationPct;
-      const derivedRunningBonds = total * bondsAllocationPct;
-      const derivedRunningOther = total * otherAllocationPct;
-
+      // Verify account totals match asset totals (they should track together)
       const accountTotal = runningTaxable + runningTaxDeferred + runningTaxFree;
+
+      // Check for portfolio failure
       const portfolioFailed = total <= 0 && isRetired;
-      const btcRunsOut = derivedRunningBtc <= 0 && isRetired;
+      const btcRunsOut = runningBtc <= 0 && isRetired;
 
       data.push({
         age: currentAge + i,
         year,
-        btc: Math.round(derivedRunningBtc),
-        stocks: Math.round(derivedRunningStocks),
-        realEstate: Math.round(derivedRunningRealEstate),
-        bonds: Math.round(derivedRunningBonds),
-        savings: Math.round(runningSavings), // runningSavings is still a separate bucket
+        btc: Math.round(runningBtc),
+        stocks: Math.round(runningStocks),
+        realEstate: Math.round(runningRealEstate),
+        bonds: Math.round(runningBonds),
+        savings: Math.round(runningSavings),
         yearSavingsForTooltip: isRetired ? 0 : Math.round(yearSavings),
         total: Math.round(total),
         realTotal: Math.round(realTotal),
@@ -954,7 +997,7 @@ export default function FinancialPlan() {
         debtPayments: i === 0 ? Math.round(monthlyDebtPayments * 12) : Math.round(actualAnnualDebtPayments), // Actual debt payments made this year
         encumberedBtc: totalEncumberedBtc,
         releasedBtc: totalReleasedBtc,
-        liquidBtc: Math.max(0, (derivedRunningBtc / (btcPrice || 97000)) - totalEncumberedBtc),
+        liquidBtc: Math.max(0, (runningBtc / (btcPrice || 97000)) - totalEncumberedBtc),
         debtPaidOffThisYear: Object.entries(debtPaidOffYears)
           .filter(([id, payoffYear]) => payoffYear === year)
           .map(([id]) => liabilities.find(l => l.id === id)?.name)
@@ -1102,7 +1145,7 @@ export default function FinancialPlan() {
     }
   }, [earliestRetirementAge, retirementAge, willRunOutOfMoney, runOutOfMoneyAge, currentAge, retirementValue, maxSustainableSpending, retirementAnnualSpending, inflationRate]);
 
-  // Calculate maximum sustainable spending
+  // Calculate maximum sustainable spending - binary search for all strategies
   useEffect(() => {
     const calculateMaxSpending = () => {
       const startingPortfolio = taxableValue + taxDeferredValue + taxFreeValue;
