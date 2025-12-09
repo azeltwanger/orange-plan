@@ -12,6 +12,7 @@ export default function CashFlowProjections({
   userSettings = {}
 }) {
   const currentYear = new Date().getFullYear();
+  const currentMonth = new Date().getMonth(); // 0-11
   const inflationRate = userSettings?.inflation_rate || 3;
   const incomeGrowthRate = userSettings?.income_growth_rate || 3;
   const projectionYears = 10;
@@ -40,6 +41,7 @@ export default function CashFlowProjections({
 
       // Calculate debt payments for this year with month-by-month amortization
       let yearDebtPayments = 0;
+      const debtPayoffMonths = {}; // Track which month each debt is paid off
 
       liabilities.forEach(liability => {
         if (runningDebt[liability.id] > 0) {
@@ -51,8 +53,11 @@ export default function CashFlowProjections({
             // Simulate month-by-month
             let remainingBalance = runningDebt[liability.id];
             let monthsPaid = 0;
+            
+            // For current year, start from current month; for future years, start from January
+            const startMonth = (i === 0) ? currentMonth : 0;
 
-            for (let month = 0; month < 12; month++) {
+            for (let month = startMonth; month < 12; month++) {
               if (remainingBalance <= 0) break;
 
               const monthlyInterest = hasInterest 
@@ -63,13 +68,19 @@ export default function CashFlowProjections({
               remainingBalance = Math.max(0, remainingBalance - principalPayment);
               monthsPaid++;
               yearDebtPayments += liability.monthly_payment;
+              
+              // Track payoff month
+              if (remainingBalance <= 0.01 && !debtPayoffMonths[liability.id]) {
+                debtPayoffMonths[liability.id] = month + 1; // 1-12
+              }
             }
 
             runningDebt[liability.id] = remainingBalance;
 
             // Track if debt was paid off this year
             if (startingBalance > 0 && remainingBalance <= 0.01) {
-              yearEvents.push(`✓ Paid off ${liability.name}`);
+              const monthName = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][debtPayoffMonths[liability.id] - 1];
+              yearEvents.push(`✓ Paid off ${liability.name} (${monthName})`);
             }
           } else if (hasInterest) {
             // No payment, interest accrues

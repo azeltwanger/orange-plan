@@ -657,17 +657,20 @@ export default function FinancialPlan() {
       
       // Calculate actual debt payments for this year with month-by-month simulation
       let actualAnnualDebtPayments = 0;
+      const debtPayoffEvents = []; // Track debts paid off this year
 
       // For liabilities WITHOUT active payoff goals, process monthly
       liabilities.forEach(liability => {
         if (!liabilitiesWithPayoffGoals.has(liability.id) && runningDebt[liability.id] > 0) {
           const hasPayment = liability.monthly_payment && liability.monthly_payment > 0;
           const hasInterest = liability.interest_rate && liability.interest_rate > 0;
+          const startingBalance = runningDebt[liability.id];
 
           if (hasPayment) {
             // Simulate month-by-month to track when loan is paid off
             let remainingBalance = runningDebt[liability.id];
             let monthsPaid = 0;
+            let payoffMonth = null;
 
             for (let month = 0; month < 12; month++) {
               if (remainingBalance <= 0) break;
@@ -684,10 +687,24 @@ export default function FinancialPlan() {
               remainingBalance = Math.max(0, remainingBalance - principalPayment);
               monthsPaid++;
               actualAnnualDebtPayments += liability.monthly_payment;
+              
+              // Track payoff month
+              if (remainingBalance <= 0.01 && payoffMonth === null) {
+                payoffMonth = month + 1; // 1-12
+              }
             }
 
             // Update running debt balance for this liability
             runningDebt[liability.id] = remainingBalance;
+            
+            // Track if debt was paid off this year
+            if (startingBalance > 0 && remainingBalance <= 0.01 && payoffMonth) {
+              debtPayoffEvents.push({ 
+                name: liability.name, 
+                month: payoffMonth,
+                age: currentAge + i 
+              });
+            }
           } else if (hasInterest) {
             // No payment, interest accrues and is added to principal
             const annualInterest = runningDebt[liability.id] * (liability.interest_rate / 100);
@@ -935,6 +952,7 @@ export default function FinancialPlan() {
         encumberedBtc: totalEncumberedBtc,
         releasedBtc: totalReleasedBtc,
         liquidBtc: Math.max(0, (runningBtc / (btcPrice || 97000)) - totalEncumberedBtc),
+        debtPayoffs: debtPayoffEvents, // Array of debts paid off this year
         });
     }
     return data;
@@ -1966,6 +1984,29 @@ export default function FinancialPlan() {
                             strokeDasharray="3 3"
                             strokeOpacity={0.7}
                             label={{ value: goal.name, fill: goalColor, fontSize: 9, position: 'insideTopLeft', offset: 10 }}
+                            yAxisId="left"
+                          />
+                        );
+                      }
+                      return null;
+                    })}
+                    {/* Debt payoff markers */}
+                    {projections.filter(p => p.debtPayoffs && p.debtPayoffs.length > 0).slice(0, 5).map((p, idx) => {
+                      if (p.age > currentAge && p.age < lifeExpectancy) {
+                        return (
+                          <ReferenceLine 
+                            key={`debt-payoff-${idx}`} 
+                            x={p.age} 
+                            stroke="#10b981"
+                            strokeDasharray="5 5"
+                            strokeOpacity={0.6}
+                            label={{ 
+                              value: `✓ Debt Free`, 
+                              fill: '#10b981', 
+                              fontSize: 9, 
+                              position: 'insideBottomLeft', 
+                              offset: 10 
+                            }}
                             yAxisId="left"
                           />
                         );
