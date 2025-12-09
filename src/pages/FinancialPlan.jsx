@@ -428,38 +428,6 @@ export default function FinancialPlan() {
     .filter(b => b.type === 'income' && b.is_active !== false)
     .reduce((sum, b) => sum + (b.amount * (freqMultiplier[b.frequency] || 12) / 12), 0);
   
-  // Calculate accurate current year debt payments (accounting for current month and payoffs)
-  const currentYearDebtPayments = useMemo(() => {
-    const currentMonth = new Date().getMonth(); // 0-indexed (Jan=0, Dec=11)
-    let totalPayments = 0;
-    
-    liabilities.forEach(liability => {
-      if (liability.monthly_payment && liability.monthly_payment > 0) {
-        let remainingBalance = liability.current_balance || 0;
-        const monthlyPayment = liability.monthly_payment;
-        const hasInterest = liability.interest_rate && liability.interest_rate > 0;
-        
-        // Simulate remaining months of current year
-        for (let month = currentMonth; month < 12; month++) {
-          if (remainingBalance <= 0) break;
-          
-          // Add monthly interest if applicable
-          if (hasInterest) {
-            remainingBalance += remainingBalance * (liability.interest_rate / 100 / 12);
-          }
-          
-          // Make payment
-          const actualPayment = Math.min(monthlyPayment, remainingBalance);
-          totalPayments += actualPayment;
-          remainingBalance = Math.max(0, remainingBalance - actualPayment);
-        }
-      }
-    });
-    
-    return totalPayments;
-  }, [liabilities]);
-
-  // Simple monthly debt payments for display
   const monthlyDebtPayments = liabilities.reduce((sum, liability) => {
     if (liability.monthly_payment && liability.monthly_payment > 0) {
       return sum + liability.monthly_payment;
@@ -1891,11 +1859,11 @@ export default function FinancialPlan() {
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-emerald-400" />
                       <span className="text-zinc-400">Annual Net Cash Flow:</span>
-                      <span className={cn("font-semibold", annualSavings >= 0 ? "text-emerald-400" : "text-rose-400")}>{formatNumber(annualSavings)}</span>
+                      <span className="font-semibold text-emerald-400">{formatNumber(annualSavings)}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-amber-400" />
-                      <span className="text-zinc-400">Desired Retirement Spending:</span>
+                      <span className="text-zinc-400">Retirement Spending:</span>
                       <span className="font-semibold text-amber-400">{formatNumber(retirementAnnualSpending)}/yr</span>
                     </div>
                     <div className="flex items-center gap-2">
@@ -2465,7 +2433,7 @@ export default function FinancialPlan() {
                   <Input type="number" value={currentAnnualSpending} onChange={(e) => setCurrentAnnualSpending(parseInt(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-zinc-400">Desired Retirement Spending</Label>
+                  <Label className="text-zinc-400">Retirement Spending</Label>
                   <Input type="number" value={retirementAnnualSpending} onChange={(e) => setRetirementAnnualSpending(parseInt(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
                 </div>
               </div>
@@ -2475,7 +2443,13 @@ export default function FinancialPlan() {
                   💡 Your annual net cash flow of <span className="text-emerald-400 font-medium">{formatNumber(annualSavings)}</span> is calculated from your total income (from Budget) minus your current annual spending (from Settings).
                   A positive value means you are saving. A negative value means you are drawing down.
                 </p>
-
+                {monthlyDebtPayments > 0 && (
+                  <p className="text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
+                    ⚠️ <span className="font-medium">{formatNumber(monthlyDebtPayments * 12)}/yr</span> in debt payments reduces your available savings in these projections. 
+                    This represents the actual monthly payments you're making on liabilities (from your Liabilities page). 
+                    Create a "Debt Payoff" goal to accelerate repayment and increase future savings.
+                  </p>
+                )}
               </div>
 
             {/* Withdrawal Strategy */}
