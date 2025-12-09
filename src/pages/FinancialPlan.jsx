@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -599,11 +600,9 @@ export default function FinancialPlan() {
     const runningDebt = {};
     const encumberedBtc = {}; // Track BTC locked as collateral
     const releasedBtc = {}; // Track BTC released when LTV drops below threshold
-    const debtPaidOffYears = {}; // Track when each debt is paid off
 
     liabilities.forEach(liability => {
       runningDebt[liability.id] = liability.current_balance || 0;
-      debtPaidOffYears[liability.id] = null;
       if (liability.type === 'btc_collateralized' && liability.collateral_btc_amount) {
         encumberedBtc[liability.id] = liability.collateral_btc_amount;
         releasedBtc[liability.id] = 0;
@@ -674,43 +673,43 @@ export default function FinancialPlan() {
         }
       });
 
-      // Calculate debt payoff goal extra monthly payments for this year
-      const debtPayoffGoalMonthlyPayments = {}; // liability_id -> extra monthly payment
+      // Debt payoff goals - spread payments over payoff period
+      // Track which liabilities have active payoff goals this year
+      const liabilitiesWithPayoffGoals = new Set();
       goals.forEach(goal => {
         if (goal.goal_type === 'debt_payoff' && goal.linked_liability_id && goal.payoff_years > 0) {
           const startYear = goal.target_date ? new Date(goal.target_date).getFullYear() : currentYear;
           const endYear = startYear + goal.payoff_years;
-
+          
           if (year >= startYear && year < endYear) {
-            // Monthly extra payment = (total debt / payoff years) / 12
+            // Annual payment = total debt / payoff years
             const annualPayment = (goal.target_amount || 0) / goal.payoff_years;
-            const monthlyExtraPayment = annualPayment / 12;
-            debtPayoffGoalMonthlyPayments[goal.linked_liability_id] = monthlyExtraPayment;
-            eventImpact -= annualPayment; // Still track total annual impact
+            eventImpact -= annualPayment;
+            liabilitiesWithPayoffGoals.add(goal.linked_liability_id);
+            
+            // Reduce the debt balance for this liability
+            if (runningDebt[goal.linked_liability_id]) {
+              runningDebt[goal.linked_liability_id] = Math.max(0, runningDebt[goal.linked_liability_id] - annualPayment);
+            }
           }
         }
       });
-
+      
       // Calculate actual debt payments for this year with month-by-month simulation
       let actualAnnualDebtPayments = 0;
 
-      // Process ALL liabilities monthly (including those with debt payoff goals)
+      // For liabilities WITHOUT active payoff goals, process monthly
       liabilities.forEach(liability => {
-        if (runningDebt[liability.id] > 0) {
+        if (!liabilitiesWithPayoffGoals.has(liability.id) && runningDebt[liability.id] > 0) {
           const hasPayment = liability.monthly_payment && liability.monthly_payment > 0;
           const hasInterest = liability.interest_rate && liability.interest_rate > 0;
-          const hasExtraPayment = debtPayoffGoalMonthlyPayments[liability.id] > 0;
 
-          if (hasPayment || hasExtraPayment) {
-            // Standard amortization: month-by-month simulation
+          if (hasPayment) {
+            // Simulate month-by-month to track when loan is paid off
             let remainingBalance = runningDebt[liability.id];
-            const baseMonthlyPayment = liability.monthly_payment || 0;
-            const extraMonthlyPayment = debtPayoffGoalMonthlyPayments[liability.id] || 0;
-            const totalMonthlyPayment = baseMonthlyPayment + extraMonthlyPayment;
-            const currentMonth = new Date().getMonth(); // 0-indexed (Jan=0, Dec=11)
-            const startMonth = i === 0 ? currentMonth : 0; // Start from current month in current year
+            let monthsPaid = 0;
 
-            for (let month = startMonth; month < 12; month++) {
+            for (let month = 0; month < 12; month++) {
               if (remainingBalance <= 0) break;
 
               // Calculate monthly interest
@@ -718,29 +717,24 @@ export default function FinancialPlan() {
                 ? remainingBalance * (liability.interest_rate / 100 / 12)
                 : 0;
 
-              // Add interest to balance first
-              remainingBalance += monthlyInterest;
+              // Principal portion of payment
+              const principalPayment = Math.max(0, liability.monthly_payment - monthlyInterest);
 
-              // Deduct the total monthly payment (base + extra from debt payoff goal)
-              remainingBalance = Math.max(0, remainingBalance - totalMonthlyPayment);
-
-              actualAnnualDebtPayments += totalMonthlyPayment;
+              // Make payment and update balance
+              remainingBalance = Math.max(0, remainingBalance - principalPayment);
+              monthsPaid++;
+              actualAnnualDebtPayments += liability.monthly_payment;
             }
 
             // Update running debt balance for this liability
             runningDebt[liability.id] = remainingBalance;
-
-            // Track if this debt was paid off this year
-            if (remainingBalance <= 0 && debtPaidOffYears[liability.id] === null) {
-              debtPaidOffYears[liability.id] = year;
-            }
           } else if (hasInterest) {
-            // No payment specified: interest accrues annually and is added to principal
+            // No payment, interest accrues and is added to principal
             const annualInterest = runningDebt[liability.id] * (liability.interest_rate / 100);
             runningDebt[liability.id] += annualInterest;
           }
           // If no payment and no interest, debt stays constant
-          }
+        }
 
         // Check for BTC collateral release based on LTV
         if (liability.type === 'btc_collateralized' && encumberedBtc[liability.id] > 0) {
@@ -804,9 +798,8 @@ export default function FinancialPlan() {
         runningSavings += yearSavings;
         cumulativeSavings += yearSavings;
         
-        // Subtract debt payments from portfolio (comes out of taxable/savings)
-        const netCashFlowAfterDebt = yearSavings - actualAnnualDebtPayments;
-        runningTaxable += netCashFlowAfterDebt;
+        // Allocate net cash flow to taxable accounts (can be negative = drawdown)
+        runningTaxable += yearSavings;
       } else {
         // Calculate withdrawal based on strategy
         const totalBeforeWithdrawal = runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther + runningSavings;
@@ -993,10 +986,6 @@ export default function FinancialPlan() {
         encumberedBtc: totalEncumberedBtc,
         releasedBtc: totalReleasedBtc,
         liquidBtc: Math.max(0, (runningBtc / (btcPrice || 97000)) - totalEncumberedBtc),
-        debtPaidOffThisYear: Object.entries(debtPaidOffYears)
-          .filter(([id, payoffYear]) => payoffYear === year)
-          .map(([id]) => liabilities.find(l => l.id === id)?.name)
-          .filter(Boolean),
         });
     }
     return data;
@@ -1922,12 +1911,6 @@ export default function FinancialPlan() {
                                     </div>
                                   </>
                                 )}
-                                {p.debtPaidOffThisYear && p.debtPaidOffThisYear.length > 0 && (
-                                  <div className="pt-2 mt-2 border-t border-zinc-700">
-                                    <p className="text-emerald-400 font-semibold text-xs">✓ Debt Paid Off!</p>
-                                    <p className="text-[10px] text-zinc-500">{p.debtPaidOffThisYear.join(', ')}</p>
-                                  </div>
-                                )}
                               </div>
                               {!p.isRetired && p.yearSavingsForTooltip !== 0 && (
                                 <div className="pt-2 mt-2 border-t border-zinc-700">
@@ -2083,8 +2066,7 @@ export default function FinancialPlan() {
                     <Area type="monotone" dataKey="realEstate" stackId="1" stroke="#10b981" fill="#10b981" fillOpacity={0.3} name="Real Estate" yAxisId="left" />
                     <Area type="monotone" dataKey="stocks" stackId="1" stroke="#60a5fa" fill="#60a5fa" fillOpacity={0.3} name="Stocks" yAxisId="left" />
                     <Area type="monotone" dataKey="btc" stackId="1" stroke="#F7931A" fill="#F7931A" fillOpacity={0.5} name="Bitcoin" yAxisId="left" />
-                    <Line type="monotone" dataKey="total" stroke="#ffffff" strokeWidth={2} dot={false} name="Total Assets" yAxisId="left" />
-                    <Line type="monotone" dataKey="totalDebt" stroke="#dc2626" strokeWidth={2} strokeDasharray="5 5" dot={false} name="Total Debt" yAxisId="left" />
+                    <Line type="monotone" dataKey="total" stroke="#ffffff" strokeWidth={2} dot={false} name="Total" yAxisId="left" />
                     <Line type="monotone" dataKey="yearGoalWithdrawal" stroke="#fb923c" strokeWidth={2} strokeDasharray="4 4" dot={(props) => {
                       // Show dots for years with goal withdrawals
                       if (props.payload?.yearGoalWithdrawal > 0) {
@@ -2099,18 +2081,6 @@ export default function FinancialPlan() {
                       }
                       return null;
                     }} name="Withdrawal" yAxisId="right" connectNulls={false} />
-                    {/* Mark debt payoffs */}
-                    {projections.filter(p => p.debtPaidOffThisYear && p.debtPaidOffThisYear.length > 0).map((p) => (
-                      <ReferenceLine 
-                        key={`debt-${p.age}`}
-                        x={p.age} 
-                        stroke="#22c55e"
-                        strokeDasharray="3 3"
-                        strokeOpacity={0.6}
-                        label={{ value: '✓ Debt Free', fill: '#22c55e', fontSize: 9, position: 'top' }}
-                        yAxisId="left"
-                      />
-                    ))}
                   </AreaChart>
                 </ResponsiveContainer>
               </div>

@@ -38,22 +38,6 @@ export default function CashFlowProjections({
       let lifeEventExpenses = 0;
       const yearEvents = [];
 
-      // Calculate debt payoff goal extra monthly payments for this year
-      const debtPayoffGoalMonthlyPayments = {}; // liability_id -> extra monthly payment
-      goals.forEach(goal => {
-        if (goal.goal_type === 'debt_payoff' && goal.linked_liability_id && goal.payoff_years > 0) {
-          const startYear = goal.target_date ? new Date(goal.target_date).getFullYear() : currentYear;
-          const endYear = startYear + goal.payoff_years;
-          
-          if (year >= startYear && year < endYear) {
-            // Monthly extra payment = (total debt / payoff years) / 12
-            const annualPayment = (goal.target_amount || 0) / goal.payoff_years;
-            const monthlyExtraPayment = annualPayment / 12;
-            debtPayoffGoalMonthlyPayments[goal.linked_liability_id] = monthlyExtraPayment;
-          }
-        }
-      });
-
       // Calculate debt payments for this year with month-by-month amortization
       let yearDebtPayments = 0;
 
@@ -61,31 +45,24 @@ export default function CashFlowProjections({
         if (runningDebt[liability.id] > 0) {
           const hasPayment = liability.monthly_payment && liability.monthly_payment > 0;
           const hasInterest = liability.interest_rate && liability.interest_rate > 0;
-          const hasExtraPayment = debtPayoffGoalMonthlyPayments[liability.id] > 0;
           const startingBalance = runningDebt[liability.id];
 
-          if (hasPayment || hasExtraPayment) {
-            // Simulate month-by-month with corrected amortization
+          if (hasPayment) {
+            // Simulate month-by-month
             let remainingBalance = runningDebt[liability.id];
-            const baseMonthlyPayment = liability.monthly_payment || 0;
-            const extraMonthlyPayment = debtPayoffGoalMonthlyPayments[liability.id] || 0;
-            const totalMonthlyPayment = baseMonthlyPayment + extraMonthlyPayment;
-            const currentMonth = new Date().getMonth(); // 0-indexed (Jan=0, Dec=11)
-            const startMonth = i === 0 ? currentMonth : 0; // Start from current month in current year
+            let monthsPaid = 0;
 
-            for (let month = startMonth; month < 12; month++) {
+            for (let month = 0; month < 12; month++) {
               if (remainingBalance <= 0) break;
 
-              // Calculate and add monthly interest first
               const monthlyInterest = hasInterest 
                 ? remainingBalance * (liability.interest_rate / 100 / 12)
                 : 0;
-              
-              remainingBalance += monthlyInterest;
 
-              // Then deduct the full payment
-              remainingBalance = Math.max(0, remainingBalance - totalMonthlyPayment);
-              yearDebtPayments += totalMonthlyPayment;
+              const principalPayment = Math.max(0, liability.monthly_payment - monthlyInterest);
+              remainingBalance = Math.max(0, remainingBalance - principalPayment);
+              monthsPaid++;
+              yearDebtPayments += liability.monthly_payment;
             }
 
             runningDebt[liability.id] = remainingBalance;
