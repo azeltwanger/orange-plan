@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -113,7 +112,6 @@ const runMonteCarloSimulation = (params, numSimulations = 1000) => {
       runningTaxable = Math.max(0, runningTaxable * (1 + portfolioReturn));
       runningTaxDeferred = Math.max(0, runningTaxDeferred * (1 + portfolioReturn));
       runningTaxFree = Math.max(0, runningTaxFree * (1 + portfolioReturn));
-      runningSavings = Math.max(0, runningSavings * (1 + portfolioReturn));
       
       let yearWithdrawal = 0;
       
@@ -590,8 +588,7 @@ export default function FinancialPlan() {
     // Track by account type only
     let runningTaxable = taxableValue;
     let runningTaxDeferred = taxDeferredValue;
-    let runningTaxFree = taxFreeValue;
-    let runningSavings = 0; // This runningSavings is now separate from the asset allocation percentages.
+    let runningTaxFree = taxFreeValue; // This runningSavings is now separate from the asset allocation percentages.
     
     // Track cost basis for taxable accounts to dynamically estimate capital gains
     const initialTaxableCostBasis = taxableHoldings.reduce((sum, h) => sum + (h.cost_basis_total || 0), 0);
@@ -921,7 +918,7 @@ export default function FinancialPlan() {
         stocks: Math.round(runningStocks),
         realEstate: Math.round(runningRealEstate),
         bonds: Math.round(runningBonds),
-        savings: Math.round(runningSavings),
+        savings: 0,
         yearSavingsForTooltip: isRetired ? 0 : Math.round(yearSavings),
         total: Math.round(total),
         realTotal: Math.round(realTotal),
