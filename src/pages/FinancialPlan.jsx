@@ -2004,17 +2004,18 @@ export default function FinancialPlan() {
                       return null;
                     })}
                     {/* Debt payoff markers */}
-                    {projections.filter(p => p.debtPayoffs && p.debtPayoffs.length > 0).slice(0, 5).map((p, idx) => {
-                      if (p.age > currentAge && p.age < lifeExpectancy) {
+                    {projections.filter(p => p.debtPayoffs && p.debtPayoffs.length > 0).map((p, idx) => {
+                      if (p.age >= currentAge && p.age <= lifeExpectancy) {
+                        const debtNames = p.debtPayoffs.map(d => d.name).join(', ');
                         return (
                           <ReferenceLine 
-                            key={`debt-payoff-${idx}`} 
+                            key={`debt-payoff-${p.age}-${idx}`} 
                             x={p.age} 
                             stroke="#10b981"
                             strokeDasharray="5 5"
                             strokeOpacity={0.6}
                             label={{ 
-                              value: `✓ Debt Free`, 
+                              value: `✓ ${debtNames}`, 
                               fill: '#10b981', 
                               fontSize: 9, 
                               position: 'insideBottomLeft', 
