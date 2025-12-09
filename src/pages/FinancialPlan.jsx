@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -538,6 +539,7 @@ export default function FinancialPlan() {
     const years = lifeExpectancy - currentAge;
     const data = [];
     const currentYear = new Date().getFullYear();
+    const currentMonth = new Date().getMonth(); // 0-11
 
     let cumulativeSavings = 0;
     let runningBtc = btcValue;
@@ -557,12 +559,20 @@ export default function FinancialPlan() {
     let runningTaxableBasis = initialTaxableCostBasis;
     
     // Track debt balances for all liabilities with month-by-month amortization
-    const runningDebt = {};
+    // Initialize these mutable liability states once outside the loop
+    const tempRunningDebt = {};
+    liabilities.forEach(liability => {
+      tempRunningDebt[liability.id] = {
+        ...liability,
+        current_balance: liability.current_balance || 0,
+        paid_off: false, // Add a paid_off flag
+      };
+    });
+
     const encumberedBtc = {}; // Track BTC locked as collateral
     const releasedBtc = {}; // Track BTC released when LTV drops below threshold
 
     liabilities.forEach(liability => {
-      runningDebt[liability.id] = liability.current_balance || 0;
       if (liability.type === 'btc_collateralized' && liability.collateral_btc_amount) {
         encumberedBtc[liability.id] = liability.collateral_btc_amount;
         releasedBtc[liability.id] = 0;
@@ -647,9 +657,13 @@ export default function FinancialPlan() {
             eventImpact -= annualPayment;
             liabilitiesWithPayoffGoals.add(goal.linked_liability_id);
             
-            // Reduce the debt balance for this liability
-            if (runningDebt[goal.linked_liability_id]) {
-              runningDebt[goal.linked_liability_id] = Math.max(0, runningDebt[goal.linked_liability_id] - annualPayment);
+            // Reduce the debt balance for this liability in tempRunningDebt
+            const liabilityToUpdate = tempRunningDebt[goal.linked_liability_id];
+            if (liabilityToUpdate && !liabilityToUpdate.paid_off) { // Only update if not already paid off
+              liabilityToUpdate.current_balance = Math.max(0, liabilityToUpdate.current_balance - annualPayment);
+              if (liabilityToUpdate.current_balance <= 0.01) { // Check for near-zero balance
+                liabilityToUpdate.paid_off = true;
+              }
             }
           }
         }
@@ -660,20 +674,25 @@ export default function FinancialPlan() {
       const debtPayoffEvents = []; // Track debts paid off this year
 
       // For liabilities WITHOUT active payoff goals, process monthly
-      liabilities.forEach(liability => {
-        if (!liabilitiesWithPayoffGoals.has(liability.id) && runningDebt[liability.id] > 0) {
+      Object.values(tempRunningDebt).forEach(liability => {
+        if (!liabilitiesWithPayoffGoals.has(liability.id) && !liability.paid_off) { // Check paid_off flag
           const hasPayment = liability.monthly_payment && liability.monthly_payment > 0;
           const hasInterest = liability.interest_rate && liability.interest_rate > 0;
-          const startingBalance = runningDebt[liability.id];
+          const startingBalanceForYear = liability.current_balance; // Store for payoff check
 
           if (hasPayment) {
-            // Simulate month-by-month to track when loan is paid off
-            let remainingBalance = runningDebt[liability.id];
-            let monthsPaid = 0;
+            let remainingBalance = liability.current_balance;
             let payoffMonth = null;
 
-            for (let month = 0; month < 12; month++) {
-              if (remainingBalance <= 0) break;
+            // For the first year (i === 0), start simulation from the current month
+            // For subsequent years, start from the beginning of the year (month 0)
+            const startMonth = (i === 0) ? currentMonth : 0;
+
+            for (let month = startMonth; month < 12; month++) {
+              if (remainingBalance <= 0) {
+                liability.paid_off = true; // Mark as paid off
+                break;
+              }
 
               // Calculate monthly interest
               const monthlyInterest = hasInterest 
@@ -683,32 +702,35 @@ export default function FinancialPlan() {
               // Principal portion of payment
               const principalPayment = Math.max(0, liability.monthly_payment - monthlyInterest);
 
-              // Make payment and update balance
+              // Ensure payment does not exceed remaining balance + interest
+              const paymentThisMonth = Math.min(remainingBalance + monthlyInterest, liability.monthly_payment);
               remainingBalance = Math.max(0, remainingBalance - principalPayment);
-              monthsPaid++;
-              actualAnnualDebtPayments += liability.monthly_payment;
               
-              // Track payoff month
+              actualAnnualDebtPayments += paymentThisMonth; // Add the actual amount paid this month
+              
+              // Track payoff month (if it happens this year)
               if (remainingBalance <= 0.01 && payoffMonth === null) {
                 payoffMonth = month + 1; // 1-12
               }
             }
 
-            // Update running debt balance for this liability
-            runningDebt[liability.id] = remainingBalance;
+            // Update liability's balance for the next year's calculation
+            liability.current_balance = remainingBalance;
             
             // Track if debt was paid off this year
-            if (startingBalance > 0 && remainingBalance <= 0.01 && payoffMonth) {
+            if (startingBalanceForYear > 0 && liability.current_balance <= 0.01 && payoffMonth) {
               debtPayoffEvents.push({ 
                 name: liability.name, 
                 month: payoffMonth,
                 age: currentAge + i 
               });
+              liability.paid_off = true; // Mark as paid off so no further payments are made
             }
+
           } else if (hasInterest) {
-            // No payment, interest accrues and is added to principal
-            const annualInterest = runningDebt[liability.id] * (liability.interest_rate / 100);
-            runningDebt[liability.id] += annualInterest;
+            // No payment, interest accrues and is added to principal (annualized)
+            const annualInterest = liability.current_balance * (liability.interest_rate / 100);
+            liability.current_balance += annualInterest;
           }
           // If no payment and no interest, debt stays constant
         }
@@ -717,7 +739,7 @@ export default function FinancialPlan() {
         if (liability.type === 'btc_collateralized' && encumberedBtc[liability.id] > 0) {
           const yearBtcPrice = btcPrice * Math.pow(1 + yearBtcGrowth / 100, year - currentAge);
           const collateralValue = encumberedBtc[liability.id] * yearBtcPrice;
-          const currentLTV = runningDebt[liability.id] / collateralValue;
+          const currentLTV = liability.current_balance / collateralValue; // Use updated current_balance
           const releaseLTV = (liability.collateral_release_ltv || 30) / 100;
 
           // If LTV drops below release threshold, collateral becomes liquid
@@ -893,8 +915,8 @@ export default function FinancialPlan() {
         }
       });
       
-      // Calculate total debt (net worth impact)
-      const totalDebt = Object.values(runningDebt).reduce((sum, balance) => sum + balance, 0);
+      // Calculate total debt (net worth impact) from tempRunningDebt
+      const totalDebt = Object.values(tempRunningDebt).reduce((sum, liab) => sum + liab.current_balance, 0);
 
       // Calculate total encumbered BTC (illiquid)
       const totalEncumberedBtc = Object.values(encumberedBtc).reduce((sum, amount) => sum + amount, 0);
@@ -956,7 +978,7 @@ export default function FinancialPlan() {
         });
     }
     return data;
-  }, [btcValue, stocksValue, realEstateValue, bondsValue, otherValue, taxableValue, taxDeferredValue, taxFreeValue, currentAge, retirementAge, lifeExpectancy, effectiveBtcCagr, effectiveStocksCagr, realEstateCagr, bondsCagr, effectiveInflation, lifeEvents, goals, annualSavings, incomeGrowth, retirementAnnualSpending, btcReturnModel, filingStatus, taxableHoldings, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, liabilities, monthlyDebtPayments]);
+  }, [btcValue, stocksValue, realEstateValue, bondsValue, otherValue, taxableValue, taxDeferredValue, taxFreeValue, currentAge, retirementAge, lifeExpectancy, effectiveBtcCagr, effectiveStocksCagr, realEstateCagr, bondsCagr, effectiveInflation, lifeEvents, goals, annualSavings, incomeGrowth, retirementAnnualSpending, btcReturnModel, filingStatus, taxableHoldings, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, liabilities, monthlyDebtPayments, btcPrice, cashCagr, otherCagr]);
 
   // Run Monte Carlo when button clicked
   const handleRunSimulation = () => {
@@ -1313,7 +1335,7 @@ export default function FinancialPlan() {
     );
 
     return weightedReturn;
-  }, [btcValue, stocksValue, realEstateValue, bondsValue, otherValue, totalValue, effectiveStocksCagr, realEstateCagr, bondsCagr, getBtcGrowthRate]);
+  }, [btcValue, stocksValue, realEstateValue, bondsValue, otherValue, totalValue, effectiveStocksCagr, realEstateCagr, bondsCagr, getBtcGrowthRate, otherCagr, effectiveInflation]);
 
   // Calculate when goals will be met based on projections
   const goalsWithProjections = useMemo(() => {
@@ -1542,7 +1564,7 @@ export default function FinancialPlan() {
             <div className={cn("space-y-3", btcReturnModel !== 'custom' && "opacity-50")}>
               <div className="flex justify-between">
                 <Label className="text-zinc-400">Bitcoin CAGR {btcReturnModel !== 'custom' && '(using model)'}</Label>
-                <span className="text-orange-400 font-semibold">{btcReturnModel === 'custom' ? btcCagr : getBtcGrowthRate(0)}%</span>
+                <span className="text-orange-400 font-semibold">{btcReturnModel === 'custom' ? btcCagr : getBtcGrowthRate(0, effectiveInflation)}%</span>
               </div>
               <Slider 
                 value={[btcCagr]} 
