@@ -2091,12 +2091,12 @@ export default function FinancialPlan() {
                               {p.isRetired && (p.yearWithdrawal > 0 || p.yearGoalWithdrawal > 0) && (
                                 <div className="pt-2 mt-2 border-t border-zinc-700">
                                   {p.retirementSpendingOnly > 0 && (
-                                    <div className="text-xs space-y-0.5 text-zinc-400 mb-1">
-                                      <div className="flex justify-between">
-                                        <span>• Retirement Spending:</span>
-                                        <span className="text-zinc-300">${(p.retirementSpendingOnly).toLocaleString()}</span>
-                                      </div>
-                                    </div>
+                                   <div className="text-xs space-y-0.5 text-zinc-400 mb-1">
+                                     <div className="flex justify-between">
+                                       <span>• Desired Retirement Spending:</span>
+                                       <span className="text-zinc-300">${(p.retirementSpendingOnly).toLocaleString()}</span>
+                                     </div>
+                                   </div>
                                   )}
                                   {p.yearGoalWithdrawal > 0 && (
                                     <div className="text-xs space-y-0.5 text-zinc-400 mb-2">
