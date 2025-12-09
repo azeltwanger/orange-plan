@@ -224,9 +224,10 @@ export default function FinancialPlan() {
   const [lifeExpectancy, setLifeExpectancy] = useState(90);
   const [currentAnnualSpending, setCurrentAnnualSpending] = useState(80000);
   const [retirementAnnualSpending, setRetirementAnnualSpending] = useState(100000);
-  
+  const [grossAnnualIncome, setGrossAnnualIncome] = useState(100000);
 
-  
+
+
   // BTC return model (separate from withdrawal)
   const [btcReturnModel, setBtcReturnModel] = useState('custom');
   
@@ -339,6 +340,7 @@ export default function FinancialPlan() {
       if (settings.other_retirement_income !== undefined) setOtherRetirementIncome(settings.other_retirement_income);
                   if (settings.social_security_start_age !== undefined) setSocialSecurityStartAge(settings.social_security_start_age);
                   if (settings.social_security_amount !== undefined) setSocialSecurityAmount(settings.social_security_amount);
+                  if (settings.gross_annual_income !== undefined) setGrossAnnualIncome(settings.gross_annual_income);
                   setSettingsLoaded(true);
     }
   }, [userSettings, settingsLoaded]);
@@ -378,17 +380,13 @@ export default function FinancialPlan() {
                       other_retirement_income: otherRetirementIncome || 0,
                       social_security_start_age: socialSecurityStartAge || 67,
                       social_security_amount: socialSecurityAmount || 0,
+                      gross_annual_income: grossAnnualIncome || 100000,
                     });
     }, 1000); // Debounce 1 second
     return () => clearTimeout(timeoutId);
-  }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, otherCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount]);
+  }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, otherCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, grossAnnualIncome]);
 
-  // Calculate annual net cash flow: income - currentAnnualSpending (can be negative)
-  const freqMultiplier = { monthly: 12, weekly: 52, biweekly: 26, quarterly: 4, annual: 1, one_time: 0 };
-  const monthlyIncome = budgetItems
-    .filter(b => b.type === 'income' && b.is_active !== false)
-    .reduce((sum, b) => sum + (b.amount * (freqMultiplier[b.frequency] || 12) / 12), 0);
-  
+  // Calculate annual net cash flow: grossAnnualIncome - currentAnnualSpending (can be negative)
   const monthlyDebtPayments = liabilities.reduce((sum, liability) => {
     if (liability.monthly_payment && liability.monthly_payment > 0) {
       return sum + liability.monthly_payment;
@@ -396,8 +394,8 @@ export default function FinancialPlan() {
     return sum;
   }, 0);
 
-  // Annual net cash flow = income - currentAnnualSpending (CAN be negative)
-  const annualSavings = (monthlyIncome * 12) - currentAnnualSpending;
+  // Annual net cash flow = grossAnnualIncome - currentAnnualSpending (CAN be negative)
+  const annualSavings = grossAnnualIncome - currentAnnualSpending;
 
   // Mutations
   const createGoal = useMutation({
@@ -1670,7 +1668,7 @@ export default function FinancialPlan() {
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-amber-400" />
-                      <span className="text-zinc-400">Retirement Spending:</span>
+                      <span className="text-zinc-400">Target Retirement Spending:</span>
                       <span className="font-semibold text-amber-400">{formatNumber(retirementAnnualSpending)}/yr</span>
                     </div>
                     <div className="flex items-center gap-2">
@@ -1899,7 +1897,7 @@ export default function FinancialPlan() {
                                   {p.retirementSpendingOnly > 0 && (
                                     <div className="text-xs space-y-0.5 text-zinc-400 mb-1">
                                       <div className="flex justify-between">
-                                        <span>• Retirement Spending:</span>
+                                        <span>• Net Retirement Spending:</span>
                                         <span className="text-zinc-300">${(p.retirementSpendingOnly).toLocaleString()}</span>
                                       </div>
                                     </div>
@@ -1907,7 +1905,7 @@ export default function FinancialPlan() {
                                   {p.yearGoalWithdrawal > 0 && (
                                     <div className="text-xs space-y-0.5 text-zinc-400 mb-2">
                                       <div className="flex justify-between">
-                                        <span>• Goal Funding:</span>
+                                        <span>• Net Goal Funding:</span>
                                         <span className="text-orange-400">${(p.yearGoalWithdrawal).toLocaleString()}</span>
                                       </div>
                                       {p.goalNames && p.goalNames.length > 0 && (
@@ -1915,10 +1913,23 @@ export default function FinancialPlan() {
                                       )}
                                     </div>
                                   )}
+                                  {p.taxesPaid > 0 && (
+                                    <div className="text-xs flex justify-between text-rose-400 mb-1">
+                                      <span>• Taxes Paid:</span>
+                                      <span>-${(p.taxesPaid).toLocaleString()}</span>
+                                    </div>
+                                  )}
+                                  {p.penaltyPaid > 0 && (
+                                    <div className="text-xs flex justify-between text-rose-400 mb-1">
+                                      <span>• Early Withdrawal Penalty:</span>
+                                      <span>-${(p.penaltyPaid).toLocaleString()}</span>
+                                    </div>
+                                  )}
                                   <p className={`font-medium ${p.yearWithdrawal > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
-                                    Total Annual {p.yearWithdrawal > 0 ? 'Outflow' : 'Inflow'}: ${(p.yearWithdrawal || 0).toLocaleString()}
+                                    Total Annual Outflow: ${((p.retirementSpendingOnly || 0) + (p.yearGoalWithdrawal || 0) + (p.taxesPaid || 0) + (p.penaltyPaid || 0)).toLocaleString()}
                                   </p>
                                   <div className="text-xs space-y-0.5 text-zinc-400 mt-2 pt-2 border-t border-zinc-700/50">
+                                    <p className="text-zinc-300 font-medium mb-1">Withdrawal Sources:</p>
                                     {p.withdrawFromTaxable > 0 && (
                                       <div className="flex justify-between">
                                         <span>From Taxable:</span>
@@ -1937,22 +1948,10 @@ export default function FinancialPlan() {
                                         <span className="text-purple-400">${(p.withdrawFromTaxFree).toLocaleString()}</span>
                                       </div>
                                     )}
-                                    {p.taxesPaid > 0 && (
-                                      <div className="flex justify-between text-rose-400">
-                                        <span>Taxes:</span>
-                                        <span>-${(p.taxesPaid).toLocaleString()}</span>
-                                      </div>
-                                    )}
-                                    {p.penaltyPaid > 0 && (
-                                      <div className="flex justify-between text-rose-400">
-                                        <span>Early Withdrawal Penalty:</span>
-                                        <span>-${(p.penaltyPaid).toLocaleString()}</span>
-                                      </div>
-                                    )}
                                     {p.taxesPaid === 0 && p.penaltyPaid === 0 && p.canAccessPenaltyFree && (
                                       <div className="flex justify-between text-emerald-400">
                                         <span>Tax Status:</span>
-                                        <span>Tax-Free! ✓</span>
+                                        <span>Tax-Efficient! ✓</span>
                                       </div>
                                     )}
                                   </div>
@@ -2232,7 +2231,7 @@ export default function FinancialPlan() {
           {/* Retirement Planning Settings */}
           <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
             <h3 className="font-semibold mb-6">Retirement Planning Settings</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label className="text-zinc-400">Current Age</Label>
                   <Input type="number" value={currentAge} onChange={(e) => setCurrentAge(parseInt(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
@@ -2246,18 +2245,22 @@ export default function FinancialPlan() {
                   <Input type="number" value={lifeExpectancy} onChange={(e) => setLifeExpectancy(parseInt(e.target.value) || 90)} className="bg-zinc-900 border-zinc-800" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-zinc-400">Current Spending</Label>
-                  <Input type="number" value={currentAnnualSpending} onChange={(e) => setCurrentAnnualSpending(parseInt(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
+                  <Label className="text-zinc-400">Gross Annual Income</Label>
+                  <Input type="number" value={grossAnnualIncome} onChange={(e) => setGrossAnnualIncome(parseFloat(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-zinc-400">Retirement Spending</Label>
-                  <Input type="number" value={retirementAnnualSpending} onChange={(e) => setRetirementAnnualSpending(parseInt(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
+                  <Label className="text-zinc-400">Annual Spending (After Tax)</Label>
+                  <Input type="number" value={currentAnnualSpending} onChange={(e) => setCurrentAnnualSpending(parseFloat(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-zinc-400">Target Retirement Spending</Label>
+                  <Input type="number" value={retirementAnnualSpending} onChange={(e) => setRetirementAnnualSpending(parseFloat(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
                 </div>
               </div>
-              
+
               <div className="mt-4 space-y-2">
                 <p className="text-xs text-zinc-500">
-                  💡 Your annual net cash flow of <span className={cn("font-medium", annualSavings >= 0 ? "text-emerald-400" : "text-rose-400")}>{annualSavings >= 0 ? '+' : ''}{formatNumber(annualSavings)}</span> is calculated from your total income (from Budget) minus your current annual spending (from Settings).
+                  💡 Your annual net cash flow of <span className={cn("font-medium", annualSavings >= 0 ? "text-emerald-400" : "text-rose-400")}>{annualSavings >= 0 ? '+' : ''}{formatNumber(annualSavings)}</span> is calculated from your Gross Annual Income minus your Annual Spending (After Tax).
                   A positive value means you are saving. A negative value means you are drawing down your portfolio.
                 </p>
               </div>
@@ -2268,7 +2271,7 @@ export default function FinancialPlan() {
               <div>
                 <p className="text-sm text-zinc-400">At Retirement (Age {retirementAge})</p>
                 <p className="text-2xl font-bold text-orange-400">{formatNumber(retirementValue, 2)}</p>
-                <p className="text-xs text-zinc-500">Need: {formatNumber(requiredNestEgg)}</p>
+                <p className="text-xs text-zinc-500">Minimum need: {formatNumber(requiredNestEgg)}</p>
               </div>
               <div>
                 <p className="text-sm text-zinc-400">Max Sustainable Spending</p>
