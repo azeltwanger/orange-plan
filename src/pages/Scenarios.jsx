@@ -54,13 +54,15 @@ const SCENARIO_PRESETS = {
 };
 
 const BTC_RETURN_MODELS = {
-  custom: { name: 'Custom', getRate: (btcCagr) => btcCagr },
+  custom: { name: 'Custom', getRate: (btcCagr) => btcCagr, shortDesc: null },
   saylor24: { 
     name: 'Saylor Bitcoin24', 
+    shortDesc: '50%→20% declining',
     getRate: (btcCagr, yearFromNow) => Math.max(15, 45 - (yearFromNow * 1.5)) 
   },
   conservative: { 
     name: 'Conservative', 
+    shortDesc: '10% flat',
     getRate: () => 10 
   },
 };
@@ -623,7 +625,11 @@ export default function Scenarios() {
           </div>
           <div className="p-3 rounded-xl bg-zinc-800/30">
             <p className="text-xs text-zinc-500">BTC CAGR</p>
-            <p className="text-lg font-bold text-orange-400">{baseAssumptions.btcCagr}%</p>
+            <p className="text-lg font-bold text-orange-400">
+              {baseAssumptions.btcReturnModel && baseAssumptions.btcReturnModel !== 'custom' && BTC_RETURN_MODELS[baseAssumptions.btcReturnModel]?.shortDesc
+                ? BTC_RETURN_MODELS[baseAssumptions.btcReturnModel].shortDesc
+                : `${baseAssumptions.btcCagr}%`}
+            </p>
           </div>
           <div className="p-3 rounded-xl bg-zinc-800/30">
             <p className="text-xs text-zinc-500">Stocks CAGR</p>
@@ -755,11 +761,13 @@ export default function Scenarios() {
                                 Retire at {scenario.retirement_age_override}
                               </Badge>
                             )}
-                            {scenario.btc_cagr_override !== null && scenario.btc_cagr_override !== undefined && (
+                            {(scenario.btc_cagr_override !== null && scenario.btc_cagr_override !== undefined) || scenario.btc_return_model_override ? (
                               <Badge variant="outline" className="border-orange-500/30 text-orange-400">
-                                BTC {scenario.btc_cagr_override}%
+                                BTC {scenario.btc_return_model_override && scenario.btc_return_model_override !== 'custom' && BTC_RETURN_MODELS[scenario.btc_return_model_override]?.shortDesc
+                                  ? BTC_RETURN_MODELS[scenario.btc_return_model_override].shortDesc
+                                  : `${scenario.btc_cagr_override ?? baseAssumptions.btcCagr}%`}
                               </Badge>
-                            )}
+                            ) : null}
                             {scenario.stocks_cagr_override !== null && scenario.stocks_cagr_override !== undefined && (
                               <Badge variant="outline" className="border-blue-500/30 text-blue-400">
                                 Stocks {scenario.stocks_cagr_override}%
