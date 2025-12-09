@@ -196,27 +196,7 @@ const calculatePercentiles = (simulations, percentiles = [10, 25, 50, 75, 90]) =
   return result;
 };
 
-// Calculate withdrawal amounts by year for Monte Carlo
-const calculateWithdrawals = (params) => {
-  const { currentAge, retirementAge, lifeExpectancy, inflationRate, retirementAnnualSpending, withdrawalStrategy, dynamicWithdrawalRate } = params;
-  const years = Math.max(1, lifeExpectancy - currentAge);
-  const yearsToRetirement = Math.max(0, retirementAge - currentAge);
-  const withdrawals = [];
-  
-  for (let i = 0; i <= years; i++) {
-    const isRetired = i >= yearsToRetirement;
-    if (!isRetired) {
-      withdrawals.push(0);
-    } else {
-      const yearsIntoRetirement = i - yearsToRetirement;
-      // For display purposes, show income-based withdrawal (inflation-adjusted)
-      const yearsOfInflation = yearsToRetirement + yearsIntoRetirement;
-      const withdrawal = retirementAnnualSpending * Math.pow(1 + inflationRate / 100, yearsOfInflation);
-      withdrawals.push(Math.round(withdrawal));
-    }
-  }
-  return withdrawals;
-};
+
 
 export default function FinancialPlan() {
   const [btcPrice, setBtcPrice] = useState(null);
@@ -2250,10 +2230,7 @@ export default function FinancialPlan() {
                 ${(retirementAnnualSpending || 0).toLocaleString()}/yr today → ${Math.round(inflationAdjustedRetirementSpending || 0).toLocaleString()}/yr at retirement ({inflationRate || 0}% inflation) for {yearsInRetirement} years
               </p>
               <p className="text-xs text-zinc-400 mt-1">
-                Strategy: <span className="text-orange-400 font-semibold">
-                  {withdrawalStrategy === '4percent' ? '4% Rule' : 
-                   withdrawalStrategy === 'dynamic' ? `${dynamicWithdrawalRate}% Dynamic` : 'Income-Based'}
-                </span> • BTC Model: <span className="text-orange-400 font-semibold">
+                BTC Model: <span className="text-orange-400 font-semibold">
                   {btcReturnModel === 'custom' ? `${btcCagr}%` : 
                    btcReturnModel === 'saylor24' ? 'Saylor Bitcoin24' : 
                    btcReturnModel === 'powerlaw' ? 'Power Law' : 'Conservative'}
