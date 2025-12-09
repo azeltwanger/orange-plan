@@ -886,43 +886,30 @@ export default function FinancialPlan() {
       const totalPortfolio = runningTaxable + runningTaxDeferred + runningTaxFree;
       
       // Calculate individual asset values based on initial allocation percentages
+      // These are illustrative of the portfolio's composition, not independently growing assets
       const runningBtc = totalPortfolio * btcAllocationPct;
       const runningStocks = totalPortfolio * stocksAllocationPct;
       const runningRealEstate = totalPortfolio * realEstateAllocationPct;
       const runningBonds = totalPortfolio * bondsAllocationPct;
       const runningOther = totalPortfolio * otherAllocationPct;
       
-      // Calculate liquid vs illiquid split
-      // Real estate is ILLIQUID - cannot be easily sold for retirement spending
-      // BTC that is collateralized is also ILLIQUID
-      const yearBtcPrice = btcPrice * Math.pow(1 + yearBtcGrowth / 100, i);
-      const encumberedBtcValue = totalEncumberedBtc * yearBtcPrice;
-      
-      const illiquidAssets = runningRealEstate + encumberedBtcValue;
-      const liquidAssets = Math.max(0, totalPortfolio - illiquidAssets);
-      
-      // For chart display, use LIQUID assets as the main line
-      const total = Math.max(0, liquidAssets);
-      const totalIncludingIlliquid = Math.max(0, totalPortfolio);
+      const total = Math.max(0, totalPortfolio);
       const realTotal = total / Math.pow(1 + effectiveInflation / 100, i);
 
-      // Check for portfolio failure based on LIQUID assets
-      const portfolioFailed = liquidAssets <= 0 && isRetired;
-      const btcRunsOut = runningBtc <= encumberedBtcValue && isRetired;
+      // Check for portfolio failure
+      const portfolioFailed = total <= 0 && isRetired;
+      const btcRunsOut = runningBtc <= 0 && isRetired;
 
       data.push({
         age: currentAge + i,
         year,
-        btc: Math.round(Math.max(0, runningBtc - encumberedBtcValue)),
+        btc: Math.round(runningBtc),
         stocks: Math.round(runningStocks),
         realEstate: Math.round(runningRealEstate),
         bonds: Math.round(runningBonds),
         savings: 0,
         yearSavingsForTooltip: isRetired ? 0 : Math.round(yearSavings),
         total: Math.round(total),
-        totalIncludingIlliquid: Math.round(totalIncludingIlliquid),
-        liquidAssets: Math.round(liquidAssets),
-        illiquidAssets: Math.round(illiquidAssets),
         realTotal: Math.round(realTotal),
         hasEvent: lifeEvents.some(e => e.year === year) || 
           goals.some(g => g.will_be_spent && g.target_date && new Date(g.target_date).getFullYear() === year) ||
@@ -1883,7 +1870,7 @@ export default function FinancialPlan() {
                             <p className="font-semibold text-zinc-200 mb-2">Age {label} {p.hasEvent ? '📅' : ''}</p>
                             <div className="space-y-1">
                               <div className="flex justify-between gap-4">
-                                <span className="text-orange-400">Bitcoin (Liquid):</span>
+                                <span className="text-orange-400">Bitcoin:</span>
                                 <span className="text-zinc-200">${(p.btc || 0).toLocaleString()}</span>
                               </div>
                               <div className="flex justify-between gap-4">
@@ -1891,23 +1878,17 @@ export default function FinancialPlan() {
                                 <span className="text-zinc-200">${(p.stocks || 0).toLocaleString()}</span>
                               </div>
                               <div className="flex justify-between gap-4">
+                                <span className="text-emerald-400">Real Estate:</span>
+                                <span className="text-zinc-200">${(p.realEstate || 0).toLocaleString()}</span>
+                              </div>
+                              <div className="flex justify-between gap-4">
                                 <span className="text-purple-400">Bonds:</span>
                                 <span className="text-zinc-200">${(p.bonds || 0).toLocaleString()}</span>
                               </div>
                               <div className="pt-2 mt-2 border-t border-zinc-700">
                                 <div className="flex justify-between gap-4">
-                                  <span className="text-emerald-400 font-semibold">Liquid Assets:</span>
-                                  <span className="text-emerald-400 font-semibold">${(p.liquidAssets || 0).toLocaleString()}</span>
-                                </div>
-                                {p.illiquidAssets > 0 && (
-                                  <div className="flex justify-between gap-4 mt-1 text-xs">
-                                    <span className="text-zinc-500">+ Illiquid (RE, Collateral):</span>
-                                    <span className="text-zinc-500">${(p.illiquidAssets || 0).toLocaleString()}</span>
-                                  </div>
-                                )}
-                                <div className="flex justify-between gap-4 mt-1 pt-1 border-t border-zinc-700/50">
-                                  <span className="text-white font-semibold">Total Net Worth:</span>
-                                  <span className="text-white font-semibold">${(p.totalIncludingIlliquid || 0).toLocaleString()}</span>
+                                  <span className="text-white font-semibold">Total Assets:</span>
+                                  <span className="text-white font-semibold">${(p.total || 0).toLocaleString()}</span>
                                 </div>
                                 {p.totalDebt > 0 && (
                                   <>
@@ -2084,10 +2065,10 @@ export default function FinancialPlan() {
                       />
                     ))}
                     <Area type="monotone" dataKey="bonds" stackId="1" stroke="#a78bfa" fill="#a78bfa" fillOpacity={0.3} name="Bonds" yAxisId="left" />
+                    <Area type="monotone" dataKey="realEstate" stackId="1" stroke="#10b981" fill="#10b981" fillOpacity={0.3} name="Real Estate" yAxisId="left" />
                     <Area type="monotone" dataKey="stocks" stackId="1" stroke="#60a5fa" fill="#60a5fa" fillOpacity={0.3} name="Stocks" yAxisId="left" />
-                    <Area type="monotone" dataKey="btc" stackId="1" stroke="#F7931A" fill="#F7931A" fillOpacity={0.5} name="Bitcoin (Liquid)" yAxisId="left" />
-                    <Line type="monotone" dataKey="total" stroke="#10b981" strokeWidth={3} dot={false} name="Liquid Assets (Spendable)" yAxisId="left" />
-                    <Line type="monotone" dataKey="totalIncludingIlliquid" stroke="#ffffff" strokeWidth={1} strokeDasharray="5 5" dot={false} name="Total Net Worth" yAxisId="left" strokeOpacity={0.4} />
+                    <Area type="monotone" dataKey="btc" stackId="1" stroke="#F7931A" fill="#F7931A" fillOpacity={0.5} name="Bitcoin" yAxisId="left" />
+                    <Line type="monotone" dataKey="total" stroke="#ffffff" strokeWidth={2} dot={false} name="Total Assets" yAxisId="left" />
                     <Line type="monotone" dataKey="totalDebt" stroke="#dc2626" strokeWidth={2} strokeDasharray="5 5" dot={false} name="Total Debt" yAxisId="left" />
                     <Line type="monotone" dataKey="yearGoalWithdrawal" stroke="#fb923c" strokeWidth={2} strokeDasharray="4 4" dot={(props) => {
                       // Show dots for years with goal withdrawals
