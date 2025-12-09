@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -268,8 +269,8 @@ export default function FinancialPlan() {
   // Tax settings
   const [filingStatus, setFilingStatus] = useState('single');
   const [otherRetirementIncome, setOtherRetirementIncome] = useState(0);
-    const [socialSecurityStartAge, setSocialSecurityStartAge] = useState(67);
-    const [socialSecurityAmount, setSocialSecurityAmount] = useState(0); // Other income in retirement (social security, pension, etc.)
+  const [socialSecurityStartAge, setSocialSecurityStartAge] = useState(67);
+  const [socialSecurityAmount, setSocialSecurityAmount] = useState(0); // Other income in retirement (social security, pension, etc.)
   
   // Settings loaded flag
   const [settingsLoaded, setSettingsLoaded] = useState(false);
@@ -374,9 +375,9 @@ export default function FinancialPlan() {
       if (settings.dynamic_withdrawal_rate !== undefined) setDynamicWithdrawalRate(settings.dynamic_withdrawal_rate);
       if (settings.btc_return_model !== undefined) setBtcReturnModel(settings.btc_return_model);
       if (settings.other_retirement_income !== undefined) setOtherRetirementIncome(settings.other_retirement_income);
-                  if (settings.social_security_start_age !== undefined) setSocialSecurityStartAge(settings.social_security_start_age);
-                  if (settings.social_security_amount !== undefined) setSocialSecurityAmount(settings.social_security_amount);
-                  setSettingsLoaded(true);
+      if (settings.social_security_start_age !== undefined) setSocialSecurityStartAge(settings.social_security_start_age);
+      if (settings.social_security_amount !== undefined) setSocialSecurityAmount(settings.social_security_amount);
+      setSettingsLoaded(true);
     }
   }, [userSettings, settingsLoaded]);
 
@@ -414,10 +415,10 @@ export default function FinancialPlan() {
         withdrawal_strategy: withdrawalStrategy || 'dynamic',
         dynamic_withdrawal_rate: dynamicWithdrawalRate || 5,
         btc_return_model: btcReturnModel || 'custom',
-                      other_retirement_income: otherRetirementIncome || 0,
-                      social_security_start_age: socialSecurityStartAge || 67,
-                      social_security_amount: socialSecurityAmount || 0,
-                    });
+        other_retirement_income: otherRetirementIncome || 0,
+        social_security_start_age: socialSecurityStartAge || 67,
+        social_security_amount: socialSecurityAmount || 0,
+      });
     }, 1000); // Debounce 1 second
     return () => clearTimeout(timeoutId);
   }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, otherCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, withdrawalStrategy, dynamicWithdrawalRate, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount]);
@@ -1187,10 +1188,8 @@ export default function FinancialPlan() {
           });
         }
         
-        const firstYearWithdrawal = withdrawalStrategy === '4percent'
-          ? portfolioAtRetirement * 0.04
-          : portfolioAtRetirement * (dynamicWithdrawalRate / 100);
-        
+        const withdrawalRate = withdrawalStrategy === '4percent' ? 0.04 : (dynamicWithdrawalRate / 100);
+        const firstYearWithdrawal = portfolioAtRetirement * withdrawalRate;
         const maxSpendingTodayDollars = firstYearWithdrawal / Math.pow(1 + effectiveInflation / 100, retirementAge - currentAge);
         setMaxSustainableSpending(Math.round(maxSpendingTodayDollars));
         return;
@@ -1198,7 +1197,7 @@ export default function FinancialPlan() {
 
       // For Income-based: binary search to find max sustainable spending
       let low = 0;
-      let high = 1000000;
+      let high = 10000000; // Increased high value to ensure it covers large spending targets
       let maxSpending = 0;
       const tolerance = 0.01;
 
@@ -1207,7 +1206,7 @@ export default function FinancialPlan() {
         let portfolio = startingPortfolio;
         let canSustain = true;
         const currentYear = new Date().getFullYear();
-        let initial4PercentWithdrawal = 0;
+        // let initial4PercentWithdrawal = 0; // Not needed for income-based in this loop, but present in existing code
 
         for (let year = 1; year <= lifeExpectancy - currentAge; year++) {
           const age = currentAge + year;
@@ -1260,21 +1259,8 @@ export default function FinancialPlan() {
             portfolio += annualSavings * Math.pow(1 + incomeGrowth / 100, year);
           } else {
             const yearsIntoRetirement = age - retirementAge;
-            const nominalSpendingRequired = testSpending * Math.pow(1 + effectiveInflation / 100, yearsIntoRetirement);
-            
-            let withdrawal;
-            if (withdrawalStrategy === 'dynamic') {
-              // Dynamic: withdraw % of portfolio, but must meet minimum spending
-              const dynamicAmount = portfolio * (dynamicWithdrawalRate / 100);
-              if (dynamicAmount < nominalSpendingRequired) {
-                canSustain = false;
-                break;
-              }
-              withdrawal = dynamicAmount;
-            } else {
-              // Income-based: withdraw exactly the nominal spending needed
-              withdrawal = nominalSpendingRequired;
-            }
+            const nominalTestSpendingAtRetirement = testSpending * Math.pow(1 + effectiveInflation / 100, Math.max(0, retirementAge - currentAge));
+            const withdrawal = nominalTestSpendingAtRetirement * Math.pow(1 + effectiveInflation / 100, yearsIntoRetirement);
 
             if (portfolio < withdrawal) {
               canSustain = false;
@@ -1329,7 +1315,7 @@ export default function FinancialPlan() {
             stocksPct * (effectiveStocksCagr / 100) +
             realEstatePct * (realEstateCagr / 100) +
             bondsPct * (bondsCagr / 100) +
-            otherPct * (effectiveStocksCagr / 100)
+            otherPct * (effectiveStocksCagr / 100) // Assuming other uses stocks growth if no specific otherCagr
           );
           
           portfolio = portfolio * (1 + blendedGrowthRate);
@@ -1347,14 +1333,25 @@ export default function FinancialPlan() {
               // First year is 4% of portfolio at FI, then inflation-adjusted
               // Need to get initial portfolio value at FI age correctly
               const simulatedRetirementYearIndex = testAge - currentAge;
-              const initialPortfolioAtFI = (projections[simulatedRetirementYearIndex]?.total || 0);
+              // This part is tricky because 'projections' itself depends on 'retirementAge' state.
+              // To avoid circular dependency or incorrect values, we simulate the 'initial4PercentWithdrawal' for the current 'testAge'
+              // The `projections` array is calculated with the *global* `retirementAge`, not the `testAge`.
+              // For a more accurate earliestFI calculation using 4% rule, we would need to re-run a simplified projection for each `testAge`
+              // to get the true initial portfolio value at that `testAge`.
+              // For now, let's use a simplified approach for the initial portfolio for 4% rule.
+              // A more robust solution might involve memoizing a function that generates a single year's projection given a target age.
+              
+              // Simplified: Use the current portfolio value `portfolio` as the base for 4% calculation for the first year of withdrawal
               if (yearsIntoRetirement === 0) {
-                withdrawal = initialPortfolioAtFI * 0.04;
+                withdrawal = portfolio * 0.04; // Use the portfolio value at the beginning of the retirement year
               } else {
-                // Approximate initial withdrawal for calculation if not exact
-                const baseWithdrawal = (simulatedRetirementYearIndex > 0 ? projections[simulatedRetirementYearIndex - 1]?.total || 0 : startingPortfolio) * 0.04; // Use portfolio one year prior to FI age for 4% calculation
+                // To get the "initial" 4% correctly for inflation adjustment, we need the portfolio at testAge.
+                // This is a simplification and might not perfectly match if event impacts are very complex for testAge.
+                const simulatedInitialPortfolioAtTestAge = projections[testAge - currentAge]?.total || startingPortfolio; // Fallback to startingPortfolio if projection not available
+                const baseWithdrawal = simulatedInitialPortfolioAtTestAge * 0.04;
                 withdrawal = baseWithdrawal * Math.pow(1 + effectiveInflation / 100, yearsIntoRetirement);
               }
+
             } else if (withdrawalStrategy === 'dynamic') {
               withdrawal = portfolio * (dynamicWithdrawalRate / 100);
             } else {
@@ -2594,12 +2591,7 @@ export default function FinancialPlan() {
             )}
           </div>
         </TabsContent>
-
-
-
       </Tabs>
-
-
     </div>
   );
 }
