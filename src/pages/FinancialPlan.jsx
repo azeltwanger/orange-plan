@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -938,11 +937,15 @@ export default function FinancialPlan() {
       const totalEncumberedBtc = Object.values(encumberedBtc).reduce((sum, amount) => sum + amount, 0);
       const totalReleasedBtc = Object.values(releasedBtc).reduce((sum, amount) => sum + amount, 0);
       
-      const total = Math.max(0, totalBeforeEvent + adjustedEventImpact);
-      const realTotal = total / Math.pow(1 + effectiveInflation / 100, i);
-
-      // Verify account totals match asset totals (they should track together)
+      let total = totalBeforeEvent + adjustedEventImpact;
+      
+      // Check if portfolio ran out of money (allow it to go to zero or negative, then clamp for display)
       const accountTotal = runningTaxable + runningTaxDeferred + runningTaxFree;
+      if (accountTotal <= 0 && isRetired) {
+        total = 0; // Portfolio has been depleted
+      }
+      
+      const realTotal = total / Math.pow(1 + effectiveInflation / 100, i);
 
       data.push({
         age: currentAge + i,
