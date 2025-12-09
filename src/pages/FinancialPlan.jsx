@@ -70,7 +70,6 @@ const runMonteCarloSimulation = (params, numSimulations = 1000) => {
     let runningTaxable = taxableValue;
     let runningTaxDeferred = taxDeferredValue;
     let runningTaxFree = taxFreeValue;
-    let runningSavings = 0;
     let ranOutOfMoney = false;
     let initial4PercentWithdrawal = 0;
     
@@ -118,7 +117,6 @@ const runMonteCarloSimulation = (params, numSimulations = 1000) => {
       if (!isRetired) {
         // Add annual net cash flow to taxable (can be positive or negative)
         const yearNetCashFlow = annualSavings * Math.pow(1 + incomeGrowth / 100, year);
-        runningSavings += yearNetCashFlow;
         runningTaxable += yearNetCashFlow;
       } else {
         // Retirement withdrawals - use account total for withdrawal calculation
@@ -153,13 +151,6 @@ const runMonteCarloSimulation = (params, numSimulations = 1000) => {
         const fromTaxFree = Math.min(remaining, runningTaxFree);
         runningTaxFree -= fromTaxFree;
         remaining -= fromTaxFree;
-        
-        // Also reduce savings proportionally
-        const totalBeforeWithdraw = runningTaxable + runningTaxDeferred + runningTaxFree + runningSavings + yearWithdrawal;
-        if (totalBeforeWithdraw > 0 && runningSavings > 0) {
-          const savingsRatio = runningSavings / totalBeforeWithdraw;
-          runningSavings = Math.max(0, runningSavings - yearWithdrawal * savingsRatio);
-        }
         
         // Check if ran out of money
         if (runningTaxable + runningTaxDeferred + runningTaxFree <= 0) {
@@ -588,7 +579,7 @@ export default function FinancialPlan() {
     // Track by account type only
     let runningTaxable = taxableValue;
     let runningTaxDeferred = taxDeferredValue;
-    let runningTaxFree = taxFreeValue; // This runningSavings is now separate from the asset allocation percentages.
+    let runningTaxFree = taxFreeValue;
     
     // Track cost basis for taxable accounts to dynamically estimate capital gains
     const initialTaxableCostBasis = taxableHoldings.reduce((sum, h) => sum + (h.cost_basis_total || 0), 0);
@@ -769,12 +760,10 @@ export default function FinancialPlan() {
         runningTaxable = runningTaxable * (1 + blendedGrowthRate);
         runningTaxDeferred = runningTaxDeferred * (1 + blendedGrowthRate);
         runningTaxFree = runningTaxFree * (1 + blendedGrowthRate);
-        runningSavings = runningSavings * (1 + blendedGrowthRate); // Treat runningSavings as another account type
       }
 
       if (!isRetired) {
         yearSavings = annualSavings * Math.pow(1 + incomeGrowth / 100, i);
-        runningSavings += yearSavings;
         cumulativeSavings += yearSavings;
         
         // Subtract debt payments from portfolio (comes out of taxable/savings)
@@ -894,7 +883,7 @@ export default function FinancialPlan() {
       const totalReleasedBtc = Object.values(releasedBtc).reduce((sum, amount) => sum + amount, 0);
       
       // The total portfolio value from all accounts
-      const totalPortfolio = runningTaxable + runningTaxDeferred + runningTaxFree + runningSavings;
+      const totalPortfolio = runningTaxable + runningTaxDeferred + runningTaxFree;
       
       // Calculate individual asset values based on initial allocation percentages
       // These are illustrative of the portfolio's composition, not independently growing assets
