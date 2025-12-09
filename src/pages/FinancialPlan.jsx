@@ -25,8 +25,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
 // Bitcoin volatility model - starts high and decays over time based on historical trends
-// Historical: ~80% in 2011-2013, ~60% in 2017-2018, ~40-50% in 2021-2024
-// Projects continued decline as Bitcoin matures as an asset class
 const getBtcVolatility = (yearFromNow) => {
   const initialVolatility = 55; // Current approximate annualized volatility
   const minimumVolatility = 20; // Floor - won't go below this (mature asset level)
@@ -37,7 +35,7 @@ const getBtcVolatility = (yearFromNow) => {
   return volatility;
 };
 
-// Monte Carlo simulation - uses same logic as main projections
+// Monte Carlo simulation
 const runMonteCarloSimulation = (params, numSimulations = 1000) => {
   const {
     btcValue, stocksValue, realEstateValue, bondsValue, otherValue,
@@ -72,7 +70,6 @@ const runMonteCarloSimulation = (params, numSimulations = 1000) => {
     let runningTaxable = taxableValue;
     let runningTaxDeferred = taxDeferredValue;
     let runningTaxFree = taxFreeValue;
-    let runningSavings = 0;
     let ranOutOfMoney = false;
     let initial4PercentWithdrawal = 0;
     
@@ -110,18 +107,11 @@ const runMonteCarloSimulation = (params, numSimulations = 1000) => {
         otherPct * stocksReturn
       ) / 100;
       
-      // Grow all account buckets
-      runningTaxable = Math.max(0, runningTaxable * (1 + portfolioReturn));
-      runningTaxDeferred = Math.max(0, runningTaxDeferred * (1 + portfolioReturn));
-      runningTaxFree = Math.max(0, runningTaxFree * (1 + portfolioReturn));
-      runningSavings = Math.max(0, runningSavings * (1 + portfolioReturn));
-      
       let yearWithdrawal = 0;
       
+      // STEP 1: Add cash flow or calculate withdrawals
       if (!isRetired) {
-        // Add annual net cash flow to taxable (can be positive or negative)
         const yearNetCashFlow = annualSavings * Math.pow(1 + incomeGrowth / 100, year);
-        runningSavings += yearNetCashFlow;
         runningTaxable += yearNetCashFlow;
       } else {
         // Retirement withdrawals - use account total for withdrawal calculation
@@ -157,18 +147,15 @@ const runMonteCarloSimulation = (params, numSimulations = 1000) => {
         runningTaxFree -= fromTaxFree;
         remaining -= fromTaxFree;
         
-        // Also reduce savings proportionally
-        const totalBeforeWithdraw = runningTaxable + runningTaxDeferred + runningTaxFree + runningSavings + yearWithdrawal;
-        if (totalBeforeWithdraw > 0 && runningSavings > 0) {
-          const savingsRatio = runningSavings / totalBeforeWithdraw;
-          runningSavings = Math.max(0, runningSavings - yearWithdrawal * savingsRatio);
-        }
-        
-        // Check if ran out of money
         if (runningTaxable + runningTaxDeferred + runningTaxFree <= 0) {
           ranOutOfMoney = true;
         }
       }
+      
+      // STEP 2: Apply growth AFTER withdrawals
+      runningTaxable = Math.max(0, runningTaxable * (1 + portfolioReturn));
+      runningTaxDeferred = Math.max(0, runningTaxDeferred * (1 + portfolioReturn));
+      runningTaxFree = Math.max(0, runningTaxFree * (1 + portfolioReturn));
       
       const total = runningTaxable + runningTaxDeferred + runningTaxFree;
       path.push(Math.max(0, total));
@@ -268,8 +255,8 @@ export default function FinancialPlan() {
   // Tax settings
   const [filingStatus, setFilingStatus] = useState('single');
   const [otherRetirementIncome, setOtherRetirementIncome] = useState(0);
-    const [socialSecurityStartAge, setSocialSecurityStartAge] = useState(67);
-    const [socialSecurityAmount, setSocialSecurityAmount] = useState(0); // Other income in retirement (social security, pension, etc.)
+  const [socialSecurityStartAge, setSocialSecurityStartAge] = useState(67);
+  const [socialSecurityAmount, setSocialSecurityAmount] = useState(0); // Other income in retirement (social security, pension, etc.)
   
   // Settings loaded flag
   const [settingsLoaded, setSettingsLoaded] = useState(false);
@@ -374,9 +361,9 @@ export default function FinancialPlan() {
       if (settings.dynamic_withdrawal_rate !== undefined) setDynamicWithdrawalRate(settings.dynamic_withdrawal_rate);
       if (settings.btc_return_model !== undefined) setBtcReturnModel(settings.btc_return_model);
       if (settings.other_retirement_income !== undefined) setOtherRetirementIncome(settings.other_retirement_income);
-                  if (settings.social_security_start_age !== undefined) setSocialSecurityStartAge(settings.social_security_start_age);
-                  if (settings.social_security_amount !== undefined) setSocialSecurityAmount(settings.social_security_amount);
-                  setSettingsLoaded(true);
+      if (settings.social_security_start_age !== undefined) setSocialSecurityStartAge(settings.social_security_start_age);
+      if (settings.social_security_amount !== undefined) setSocialSecurityAmount(settings.social_security_amount);
+      setSettingsLoaded(true);
     }
   }, [userSettings, settingsLoaded]);
 
@@ -414,10 +401,10 @@ export default function FinancialPlan() {
         withdrawal_strategy: withdrawalStrategy || 'dynamic',
         dynamic_withdrawal_rate: dynamicWithdrawalRate || 5,
         btc_return_model: btcReturnModel || 'custom',
-                      other_retirement_income: otherRetirementIncome || 0,
-                      social_security_start_age: socialSecurityStartAge || 67,
-                      social_security_amount: socialSecurityAmount || 0,
-                    });
+        other_retirement_income: otherRetirementIncome || 0,
+        social_security_start_age: socialSecurityStartAge || 67,
+        social_security_amount: socialSecurityAmount || 0,
+      });
     }, 1000); // Debounce 1 second
     return () => clearTimeout(timeoutId);
   }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, otherCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, withdrawalStrategy, dynamicWithdrawalRate, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount]);
@@ -428,38 +415,6 @@ export default function FinancialPlan() {
     .filter(b => b.type === 'income' && b.is_active !== false)
     .reduce((sum, b) => sum + (b.amount * (freqMultiplier[b.frequency] || 12) / 12), 0);
   
-  // Calculate accurate current year debt payments (accounting for current month and payoffs)
-  const currentYearDebtPayments = useMemo(() => {
-    const currentMonth = new Date().getMonth(); // 0-indexed (Jan=0, Dec=11)
-    let totalPayments = 0;
-    
-    liabilities.forEach(liability => {
-      if (liability.monthly_payment && liability.monthly_payment > 0) {
-        let remainingBalance = liability.current_balance || 0;
-        const monthlyPayment = liability.monthly_payment;
-        const hasInterest = liability.interest_rate && liability.interest_rate > 0;
-        
-        // Simulate remaining months of current year
-        for (let month = currentMonth; month < 12; month++) {
-          if (remainingBalance <= 0) break;
-          
-          // Add monthly interest if applicable
-          if (hasInterest) {
-            remainingBalance += remainingBalance * (liability.interest_rate / 100 / 12);
-          }
-          
-          // Make payment
-          const actualPayment = Math.min(monthlyPayment, remainingBalance);
-          totalPayments += actualPayment;
-          remainingBalance = Math.max(0, remainingBalance - actualPayment);
-        }
-      }
-    });
-    
-    return totalPayments;
-  }, [liabilities]);
-
-  // Simple monthly debt payments for display
   const monthlyDebtPayments = liabilities.reduce((sum, liability) => {
     if (liability.monthly_payment && liability.monthly_payment > 0) {
       return sum + liability.monthly_payment;
@@ -611,14 +566,16 @@ export default function FinancialPlan() {
     const currentYear = new Date().getFullYear();
 
     let cumulativeSavings = 0;
-    let runningBtc = btcValue;
-    let runningStocks = stocksValue;
-    let runningRealEstate = realEstateValue;
-    let runningBonds = bondsValue;
-    let runningOther = otherValue;
-    let runningSavings = 0;
     
-    // Track by account type - use the correctly calculated values
+    // Calculate initial asset allocation percentages (FIXED)
+    const totalInitialAssets = btcValue + stocksValue + realEstateValue + bondsValue + otherValue;
+    const btcAllocationPct = totalInitialAssets > 0 ? btcValue / totalInitialAssets : 0;
+    const stocksAllocationPct = totalInitialAssets > 0 ? stocksValue / totalInitialAssets : 0;
+    const realEstateAllocationPct = totalInitialAssets > 0 ? realEstateValue / totalInitialAssets : 0;
+    const bondsAllocationPct = totalInitialAssets > 0 ? bondsValue / totalInitialAssets : 0;
+    const otherAllocationPct = totalInitialAssets > 0 ? otherValue / totalInitialAssets : 0;
+    
+    // Track by account type only
     let runningTaxable = taxableValue;
     let runningTaxDeferred = taxDeferredValue;
     let runningTaxFree = taxFreeValue;
@@ -652,46 +609,30 @@ export default function FinancialPlan() {
       const yearBtcGrowth = getBtcGrowthRate(i, effectiveInflation);
       
       // Calculate life event impacts for this year (with income growth applied)
-        let eventImpact = 0;
-        let yearGoalWithdrawal = 0; // Track goal-specific withdrawals for this year
-        const yearGoalNames = []; // Track which goals are funded this year
+      // eventImpact now accumulates net cash flow changes affecting the taxable account
+      let eventImpact = 0; 
+      let yearGoalWithdrawal = 0; // Track goal-specific withdrawals for this year
+      const yearGoalNames = []; // Track which goals are funded this year
         
-        lifeEvents.forEach(event => {
-          const yearsFromEventStart = year - event.year;
-          if (event.year === year || (event.is_recurring && event.year <= year && year < event.year + (event.recurring_years || 1))) {
-            // Apply income growth to income-related events
-            const growthMultiplier = (event.affects === 'income' || event.event_type === 'income_change') 
-              ? Math.pow(1 + incomeGrowth / 100, Math.max(0, yearsFromEventStart))
-              : 1;
+      lifeEvents.forEach(event => {
+        const yearsFromEventStart = year - event.year;
+        if (event.year === year || (event.is_recurring && event.year <= year && year < event.year + (event.recurring_years || 1))) {
+          // Apply income growth to income-related events
+          const growthMultiplier = (event.affects === 'income' || event.event_type === 'income_change') 
+            ? Math.pow(1 + incomeGrowth / 100, Math.max(0, yearsFromEventStart))
+            : 1;
 
-            if (event.affects === 'assets') {
-              const eventAmount = event.amount;
-              eventImpact += eventAmount;
-              
-              // Apply custom allocation if specified and amount is positive
-              if (eventAmount > 0 && event.allocation_method === 'custom') {
-                const btcAlloc = (event.btc_allocation || 0) / 100;
-                const stocksAlloc = (event.stocks_allocation || 0) / 100;
-                const realEstateAlloc = (event.real_estate_allocation || 0) / 100;
-                const bondsAlloc = (event.bonds_allocation || 0) / 100;
-                const cashAlloc = (event.cash_allocation || 0) / 100;
-                const otherAlloc = (event.other_allocation || 0) / 100;
-                
-                runningBtc += eventAmount * btcAlloc;
-                runningStocks += eventAmount * stocksAlloc;
-                runningRealEstate += eventAmount * realEstateAlloc;
-                runningBonds += eventAmount * bondsAlloc;
-                runningOther += eventAmount * (cashAlloc + otherAlloc);
-              }
-            } else if (event.affects === 'income') {
-              eventImpact += event.amount * growthMultiplier;
-            }
-
-            if (event.event_type === 'home_purchase' && event.year === year) {
-              eventImpact -= (event.down_payment || 0);
-            }
+          if (event.affects === 'assets') {
+            eventImpact += event.amount; // All asset changes from events are treated as cash flow affecting the taxable account
+          } else if (event.affects === 'income') {
+            eventImpact += event.amount * growthMultiplier;
           }
-        });
+
+          if (event.event_type === 'home_purchase' && event.year === year) {
+            eventImpact -= (event.down_payment || 0); // Down payment is a cash outflow
+          }
+        }
+      });
       
       // Include goals marked as "will_be_spent" at their target date
       goals.forEach(goal => {
@@ -699,7 +640,7 @@ export default function FinancialPlan() {
           const goalYear = new Date(goal.target_date).getFullYear();
           if (goalYear === year) {
             const goalAmount = goal.target_amount || 0;
-            eventImpact -= goalAmount;
+            eventImpact -= goalAmount; // Goal spending is a cash outflow
             yearGoalWithdrawal += goalAmount;
             yearGoalNames.push(goal.name);
           }
@@ -718,7 +659,7 @@ export default function FinancialPlan() {
             const annualPayment = (goal.target_amount || 0) / goal.payoff_years;
             const monthlyExtraPayment = annualPayment / 12;
             debtPayoffGoalMonthlyPayments[goal.linked_liability_id] = monthlyExtraPayment;
-            eventImpact -= annualPayment; // Still track total annual impact
+            eventImpact -= annualPayment; // Deduct the annual extra payment from overall cash flow
           }
         }
       });
@@ -804,45 +745,16 @@ export default function FinancialPlan() {
       let retirementSpendingOnly = 0;
       let totalWithdrawalForTaxCalculation = 0;
       
-      if (i > 0) {
-        // Grow assets by their respective rates
-        runningBtc = runningBtc * (1 + yearBtcGrowth / 100);
-        runningStocks = runningStocks * (1 + effectiveStocksCagr / 100);
-        runningRealEstate = runningRealEstate * (1 + realEstateCagr / 100);
-        runningBonds = runningBonds * (1 + bondsCagr / 100);
-        runningOther = runningOther * (1 + otherCagr / 100);
-        
-        // Calculate blended growth rate based on current portfolio composition
-        const totalAssets = runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther;
-        let blendedGrowthRate = 0.05; // default 5%
-        if (totalAssets > 0) {
-          blendedGrowthRate = (
-            (runningBtc / totalAssets) * (yearBtcGrowth / 100) +
-            (runningStocks / totalAssets) * (effectiveStocksCagr / 100) +
-            (runningRealEstate / totalAssets) * (realEstateCagr / 100) +
-            (runningBonds / totalAssets) * (bondsCagr / 100) +
-            (runningOther / totalAssets) * (otherCagr / 100)
-          );
-        }
-        runningSavings = runningSavings * (1 + blendedGrowthRate);
-        
-        // Grow account type buckets at blended rate
-        runningTaxable = runningTaxable * (1 + blendedGrowthRate);
-        runningTaxDeferred = runningTaxDeferred * (1 + blendedGrowthRate);
-        runningTaxFree = runningTaxFree * (1 + blendedGrowthRate);
-      }
-
+      // STEP 1: Add savings (pre-retirement) OR Calculate withdrawals (post-retirement)
       if (!isRetired) {
         yearSavings = annualSavings * Math.pow(1 + incomeGrowth / 100, i);
-        runningSavings += yearSavings;
         cumulativeSavings += yearSavings;
         
-        // Subtract debt payments from portfolio (comes out of taxable/savings)
         const netCashFlowAfterDebt = yearSavings - actualAnnualDebtPayments;
         runningTaxable += netCashFlowAfterDebt;
       } else {
+        // RETIREMENT: Calculate and apply withdrawals BEFORE growth
         // Calculate withdrawal based on strategy
-        const totalBeforeWithdrawal = runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther + runningSavings;
         const accountTotalBeforeWithdrawal = runningTaxable + runningTaxDeferred + runningTaxFree;
         
         if (withdrawalStrategy === '4percent') {
@@ -913,11 +825,6 @@ export default function FinancialPlan() {
         // Combine retirement withdrawal and goal withdrawal for tax estimation
         totalWithdrawalForTaxCalculation = retirementSpendingOnly + yearGoalWithdrawal;
 
-        // Calculate actual Roth contributions (defaults to 0)
-        const totalRothContributions = accounts
-          .filter(a => ['401k_roth', 'ira_roth', 'hsa'].includes(a.account_type))
-          .reduce((sum, a) => sum + (a.roth_contributions || 0), 0);
-
         // Use tax calculation utility for accurate withdrawal taxes
         const taxEstimate = estimateRetirementWithdrawalTaxes({
           withdrawalNeeded: totalWithdrawalForTaxCalculation,
@@ -929,7 +836,6 @@ export default function FinancialPlan() {
           filingStatus,
           age: currentAgeInYear,
           otherIncome: totalOtherIncome,
-          rothContributions: totalRothContributions,
         });
         
         withdrawFromTaxable = taxEstimate.fromTaxable || 0;
@@ -948,35 +854,11 @@ export default function FinancialPlan() {
         runningTaxable = Math.max(0, runningTaxable - withdrawFromTaxable);
         runningTaxDeferred = Math.max(0, runningTaxDeferred - withdrawFromTaxDeferred);
         runningTaxFree = Math.max(0, runningTaxFree - withdrawFromTaxFree);
-        
-        // Withdraw proportionally from asset types based on actual total withdrawal
-        const actualWithdrawalFromAccounts = withdrawFromTaxable + withdrawFromTaxDeferred + withdrawFromTaxFree;
-        const totalAssetValue = runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther + runningSavings;
-        if (totalAssetValue > 0 && actualWithdrawalFromAccounts > 0) {
-          const withdrawRatio = Math.min(1, actualWithdrawalFromAccounts / totalAssetValue);
-          runningBtc = Math.max(0, runningBtc * (1 - withdrawRatio));
-          runningStocks = Math.max(0, runningStocks * (1 - withdrawRatio));
-          runningRealEstate = Math.max(0, runningRealEstate * (1 - withdrawRatio));
-          runningBonds = Math.max(0, runningBonds * (1 - withdrawRatio));
-          runningOther = Math.max(0, runningOther * (1 - withdrawRatio));
-          runningSavings = Math.max(0, runningSavings * (1 - withdrawRatio));
-        }
       }
 
-      // Apply event impacts to total
-      // For proportionate allocation or non-asset impacts, apply to total
-      // Custom allocations were already applied directly to asset buckets above
-      const totalBeforeEvent = runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther + runningSavings;
-      
-      // Only add eventImpact if it wasn't a custom-allocated positive asset event
-      let adjustedEventImpact = eventImpact;
-      lifeEvents.forEach(event => {
-        if (event.year === year && event.affects === 'assets' && event.amount > 0 && event.allocation_method === 'custom') {
-          // Subtract it back out since we already added it to individual buckets
-          adjustedEventImpact -= event.amount;
-        }
-      });
-      
+      // Apply net event impacts to taxable account (including asset changes, goals, extra debt payments)
+      runningTaxable += eventImpact;
+
       // Calculate total debt (net worth impact)
       const totalDebt = Object.values(runningDebt).reduce((sum, balance) => sum + balance, 0);
 
@@ -984,22 +866,47 @@ export default function FinancialPlan() {
       const totalEncumberedBtc = Object.values(encumberedBtc).reduce((sum, amount) => sum + amount, 0);
       const totalReleasedBtc = Object.values(releasedBtc).reduce((sum, amount) => sum + amount, 0);
       
-      const total = Math.max(0, totalBeforeEvent + adjustedEventImpact);
+      // The total portfolio value from all accounts
+      const totalPortfolio = runningTaxable + runningTaxDeferred + runningTaxFree;
+      
+      // Calculate individual asset values based on initial allocation percentages
+      const runningBtc = totalPortfolio * btcAllocationPct;
+      const runningStocks = totalPortfolio * stocksAllocationPct;
+      const runningRealEstate = totalPortfolio * realEstateAllocationPct;
+      const runningBonds = totalPortfolio * bondsAllocationPct;
+      const runningOther = totalPortfolio * otherAllocationPct;
+      
+      // Calculate liquid vs illiquid split
+      // Real estate is ILLIQUID - cannot be easily sold for retirement spending
+      // BTC that is collateralized is also ILLIQUID
+      const yearBtcPrice = btcPrice * Math.pow(1 + yearBtcGrowth / 100, i);
+      const encumberedBtcValue = totalEncumberedBtc * yearBtcPrice;
+      
+      const illiquidAssets = runningRealEstate + encumberedBtcValue;
+      const liquidAssets = Math.max(0, totalPortfolio - illiquidAssets);
+      
+      // For chart display, use LIQUID assets as the main line
+      const total = Math.max(0, liquidAssets);
+      const totalIncludingIlliquid = Math.max(0, totalPortfolio);
       const realTotal = total / Math.pow(1 + effectiveInflation / 100, i);
 
-      // Verify account totals match asset totals (they should track together)
-      const accountTotal = runningTaxable + runningTaxDeferred + runningTaxFree;
+      // Check for portfolio failure based on LIQUID assets
+      const portfolioFailed = liquidAssets <= 0 && isRetired;
+      const btcRunsOut = runningBtc <= encumberedBtcValue && isRetired;
 
       data.push({
         age: currentAge + i,
         year,
-        btc: Math.round(runningBtc),
+        btc: Math.round(Math.max(0, runningBtc - encumberedBtcValue)),
         stocks: Math.round(runningStocks),
         realEstate: Math.round(runningRealEstate),
         bonds: Math.round(runningBonds),
-        savings: Math.round(runningSavings),
+        savings: 0,
         yearSavingsForTooltip: isRetired ? 0 : Math.round(yearSavings),
         total: Math.round(total),
+        totalIncludingIlliquid: Math.round(totalIncludingIlliquid),
+        liquidAssets: Math.round(liquidAssets),
+        illiquidAssets: Math.round(illiquidAssets),
         realTotal: Math.round(realTotal),
         hasEvent: lifeEvents.some(e => e.year === year) || 
           goals.some(g => g.will_be_spent && g.target_date && new Date(g.target_date).getFullYear() === year) ||
@@ -1017,7 +924,7 @@ export default function FinancialPlan() {
         taxable: Math.round(runningTaxable),
         taxDeferred: Math.round(runningTaxDeferred),
         taxFree: Math.round(runningTaxFree),
-        accountTotal: Math.round(accountTotal),
+        accountTotal: Math.round(runningTaxable + runningTaxDeferred + runningTaxFree), // Recalculate for accuracy after withdrawal
         canAccessPenaltyFree: currentAge + i >= PENALTY_FREE_AGE,
         penaltyPaid: isRetired ? Math.round(penaltyPaid) : 0,
         taxesPaid: isRetired ? Math.round(taxesPaid) : 0,
@@ -1036,10 +943,13 @@ export default function FinancialPlan() {
           .filter(([id, payoffYear]) => payoffYear === year)
           .map(([id]) => liabilities.find(l => l.id === id)?.name)
           .filter(Boolean),
+        // Failure indicators
+        portfolioFailed,
+        btcRunsOut,
         });
     }
     return data;
-  }, [btcValue, stocksValue, realEstateValue, bondsValue, otherValue, taxableValue, taxDeferredValue, taxFreeValue, currentAge, retirementAge, lifeExpectancy, effectiveBtcCagr, effectiveStocksCagr, realEstateCagr, bondsCagr, effectiveInflation, lifeEvents, goals, annualSavings, incomeGrowth, retirementAnnualSpending, withdrawalStrategy, dynamicWithdrawalRate, btcReturnModel, filingStatus, taxableHoldings, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, liabilities, monthlyDebtPayments]);
+  }, [btcValue, stocksValue, realEstateValue, bondsValue, otherValue, taxableValue, taxDeferredValue, taxFreeValue, currentAge, retirementAge, lifeExpectancy, effectiveBtcCagr, effectiveStocksCagr, realEstateCagr, bondsCagr, cashCagr, otherCagr, effectiveInflation, lifeEvents, goals, annualSavings, incomeGrowth, retirementAnnualSpending, withdrawalStrategy, dynamicWithdrawalRate, btcReturnModel, filingStatus, taxableHoldings, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, liabilities, monthlyDebtPayments, currentPrice]);
 
   // Run Monte Carlo when button clicked
   const handleRunSimulation = () => {
@@ -1177,123 +1087,6 @@ export default function FinancialPlan() {
   }, [earliestRetirementAge, retirementAge, willRunOutOfMoney, runOutOfMoneyAge, currentAge, retirementValue, maxSustainableSpending, retirementAnnualSpending, inflationRate]);
 
   // Calculate maximum sustainable spending - binary search for all strategies
-  useEffect(() => {
-    const calculateMaxSpending = () => {
-      const startingPortfolio = taxableValue + taxDeferredValue + taxFreeValue;
-      if (startingPortfolio <= 0 && annualSavings <= 0) {
-        setMaxSustainableSpending(0);
-        return;
-      }
-
-      const totalAssets = btcValue + stocksValue + realEstateValue + bondsValue + otherValue;
-      const btcPct = totalAssets > 0 ? btcValue / totalAssets : 0;
-      const stocksPct = totalAssets > 0 ? stocksValue / totalAssets : 0;
-      const realEstatePct = totalAssets > 0 ? realEstateValue / totalAssets : 0;
-      const bondsPct = totalAssets > 0 ? bondsValue / totalAssets : 0;
-      const otherPct = totalAssets > 0 ? otherValue / totalAssets : 0;
-
-      let low = 0;
-      let high = 10000000;
-      let maxSpending = 0;
-      const tolerance = 100;
-
-      while (high - low > tolerance) {
-        const testSpending = (low + high) / 2;
-        let portfolio = startingPortfolio;
-        let canSustain = true;
-        const currentYear = new Date().getFullYear();
-        let initial4PercentWithdrawal = 0;
-
-        for (let year = 1; year <= lifeExpectancy - currentAge; year++) {
-          const age = currentAge + year;
-          const isRetired = age >= retirementAge;
-          const simulationYear = currentYear + year;
-
-          const yearBtcGrowth = getBtcGrowthRate(year, effectiveInflation);
-          const blendedGrowthRate = (
-            btcPct * (yearBtcGrowth / 100) +
-            stocksPct * (effectiveStocksCagr / 100) +
-            realEstatePct * (realEstateCagr / 100) +
-            bondsPct * (bondsCagr / 100) +
-            otherPct * (otherCagr / 100)
-          );
-
-          portfolio *= (1 + blendedGrowthRate);
-
-          let eventImpact = 0;
-          lifeEvents.forEach(event => {
-            const yearsFromEventStart = simulationYear - event.year;
-            if (event.year === simulationYear || (event.is_recurring && event.year <= simulationYear && simulationYear < event.year + (event.recurring_years || 1))) {
-              const growthMultiplier = (event.affects === 'income' || event.event_type === 'income_change') 
-                ? Math.pow(1 + incomeGrowth / 100, Math.max(0, yearsFromEventStart))
-                : 1;
-
-              if (event.affects === 'assets') eventImpact += event.amount;
-              else if (event.affects === 'income') eventImpact += event.amount * growthMultiplier;
-              if (event.event_type === 'home_purchase' && event.year === simulationYear) {
-                eventImpact -= (event.down_payment || 0);
-              }
-            }
-          });
-          
-          goals.forEach(goal => {
-            if (goal.will_be_spent && goal.target_date && new Date(goal.target_date).getFullYear() === simulationYear) {
-              eventImpact -= (goal.target_amount || 0);
-            }
-            if (goal.goal_type === 'debt_payoff' && goal.linked_liability_id && goal.payoff_years > 0) {
-              const startYear = goal.target_date ? new Date(goal.target_date).getFullYear() : currentYear;
-              const endYear = startYear + goal.payoff_years;
-              if (simulationYear >= startYear && simulationYear < endYear) {
-                eventImpact -= (goal.target_amount || 0) / goal.payoff_years;
-              }
-            }
-          });
-
-          portfolio += eventImpact;
-
-          if (!isRetired) {
-            portfolio += annualSavings * Math.pow(1 + incomeGrowth / 100, year);
-          } else {
-            const yearsIntoRetirement = age - retirementAge;
-            let withdrawal;
-
-            if (withdrawalStrategy === '4percent') {
-              if (yearsIntoRetirement === 0) {
-                initial4PercentWithdrawal = portfolio * 0.04;
-                withdrawal = initial4PercentWithdrawal;
-              } else {
-                withdrawal = initial4PercentWithdrawal * Math.pow(1 + effectiveInflation / 100, yearsIntoRetirement);
-              }
-            } else if (withdrawalStrategy === 'dynamic') {
-              withdrawal = portfolio * (dynamicWithdrawalRate / 100);
-            } else {
-              const nominalSpendingAtRetirement = testSpending * Math.pow(1 + effectiveInflation / 100, retirementAge - currentAge);
-              withdrawal = nominalSpendingAtRetirement * Math.pow(1 + effectiveInflation / 100, yearsIntoRetirement);
-            }
-
-            if (portfolio < withdrawal) {
-              canSustain = false;
-              break;
-            }
-            portfolio -= withdrawal;
-          }
-        }
-
-        if (canSustain && portfolio >= 0) {
-          maxSpending = testSpending;
-          low = testSpending;
-        } else {
-          high = testSpending;
-        }
-      }
-
-      setMaxSustainableSpending(Math.round(maxSpending));
-    };
-
-    calculateMaxSpending();
-  }, [currentAge, retirementAge, lifeExpectancy, taxableValue, taxDeferredValue, taxFreeValue, btcValue, stocksValue, realEstateValue, bondsValue, otherValue, annualSavings, effectiveInflation, incomeGrowth, effectiveStocksCagr, realEstateCagr, bondsCagr, otherCagr, withdrawalStrategy, dynamicWithdrawalRate, getBtcGrowthRate, lifeEvents, goals, retirementAnnualSpending]);
-
-  // Calculate maximum sustainable spending at retirement age
   useEffect(() => {
     const calculateMaxSpending = () => {
       const startingPortfolio = taxableValue + taxDeferredValue + taxFreeValue;
@@ -1897,12 +1690,12 @@ export default function FinancialPlan() {
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-emerald-400" />
                       <span className="text-zinc-400">Annual Net Cash Flow:</span>
-                      <span className={cn("font-semibold", annualSavings >= 0 ? "text-emerald-400" : "text-rose-400")}>{formatNumber(annualSavings)}</span>
+                      <span className="font-semibold text-emerald-400">{formatNumber(annualSavings)}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-amber-400" />
                       <span className="text-zinc-400">Retirement Spending:</span>
-                      <span className="font-semibold text-amber-400">{formatNumber(projections[retirementYearIndex]?.retirementSpendingOnly || retirementAnnualSpending)}/yr</span>
+                      <span className="font-semibold text-amber-400">{formatNumber(retirementAnnualSpending)}/yr</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-blue-400" />
@@ -2074,7 +1867,7 @@ export default function FinancialPlan() {
                             <p className="font-semibold text-zinc-200 mb-2">Age {label} {p.hasEvent ? '📅' : ''}</p>
                             <div className="space-y-1">
                               <div className="flex justify-between gap-4">
-                                <span className="text-orange-400">Bitcoin:</span>
+                                <span className="text-orange-400">Bitcoin (Liquid):</span>
                                 <span className="text-zinc-200">${(p.btc || 0).toLocaleString()}</span>
                               </div>
                               <div className="flex justify-between gap-4">
@@ -2082,17 +1875,23 @@ export default function FinancialPlan() {
                                 <span className="text-zinc-200">${(p.stocks || 0).toLocaleString()}</span>
                               </div>
                               <div className="flex justify-between gap-4">
-                                <span className="text-emerald-400">Real Estate:</span>
-                                <span className="text-zinc-200">${(p.realEstate || 0).toLocaleString()}</span>
-                              </div>
-                              <div className="flex justify-between gap-4">
                                 <span className="text-purple-400">Bonds:</span>
                                 <span className="text-zinc-200">${(p.bonds || 0).toLocaleString()}</span>
                               </div>
                               <div className="pt-2 mt-2 border-t border-zinc-700">
                                 <div className="flex justify-between gap-4">
-                                  <span className="text-white font-semibold">Total Assets:</span>
-                                  <span className="text-white font-semibold">${(p.total || 0).toLocaleString()}</span>
+                                  <span className="text-emerald-400 font-semibold">Liquid Assets:</span>
+                                  <span className="text-emerald-400 font-semibold">${(p.liquidAssets || 0).toLocaleString()}</span>
+                                </div>
+                                {p.illiquidAssets > 0 && (
+                                  <div className="flex justify-between gap-4 mt-1 text-xs">
+                                    <span className="text-zinc-500">+ Illiquid (RE, Collateral):</span>
+                                    <span className="text-zinc-500">${(p.illiquidAssets || 0).toLocaleString()}</span>
+                                  </div>
+                                )}
+                                <div className="flex justify-between gap-4 mt-1 pt-1 border-t border-zinc-700/50">
+                                  <span className="text-white font-semibold">Total Net Worth:</span>
+                                  <span className="text-white font-semibold">${(p.totalIncludingIlliquid || 0).toLocaleString()}</span>
                                 </div>
                                 {p.totalDebt > 0 && (
                                   <>
@@ -2129,12 +1928,12 @@ export default function FinancialPlan() {
                               {p.isRetired && (p.yearWithdrawal > 0 || p.yearGoalWithdrawal > 0) && (
                                 <div className="pt-2 mt-2 border-t border-zinc-700">
                                   {p.retirementSpendingOnly > 0 && (
-                                  <div className="text-xs space-y-0.5 text-zinc-400 mb-1">
-                                    <div className="flex justify-between">
-                                      <span>• Retirement Spending:</span>
-                                      <span className="text-zinc-300">${(p.retirementSpendingOnly).toLocaleString()}</span>
+                                    <div className="text-xs space-y-0.5 text-zinc-400 mb-1">
+                                      <div className="flex justify-between">
+                                        <span>• Retirement Spending:</span>
+                                        <span className="text-zinc-300">${(p.retirementSpendingOnly).toLocaleString()}</span>
+                                      </div>
                                     </div>
-                                  </div>
                                   )}
                                   {p.yearGoalWithdrawal > 0 && (
                                     <div className="text-xs space-y-0.5 text-zinc-400 mb-2">
@@ -2269,10 +2068,10 @@ export default function FinancialPlan() {
                       />
                     ))}
                     <Area type="monotone" dataKey="bonds" stackId="1" stroke="#a78bfa" fill="#a78bfa" fillOpacity={0.3} name="Bonds" yAxisId="left" />
-                    <Area type="monotone" dataKey="realEstate" stackId="1" stroke="#10b981" fill="#10b981" fillOpacity={0.3} name="Real Estate" yAxisId="left" />
                     <Area type="monotone" dataKey="stocks" stackId="1" stroke="#60a5fa" fill="#60a5fa" fillOpacity={0.3} name="Stocks" yAxisId="left" />
-                    <Area type="monotone" dataKey="btc" stackId="1" stroke="#F7931A" fill="#F7931A" fillOpacity={0.5} name="Bitcoin" yAxisId="left" />
-                    <Line type="monotone" dataKey="total" stroke="#ffffff" strokeWidth={2} dot={false} name="Total Assets" yAxisId="left" />
+                    <Area type="monotone" dataKey="btc" stackId="1" stroke="#F7931A" fill="#F7931A" fillOpacity={0.5} name="Bitcoin (Liquid)" yAxisId="left" />
+                    <Line type="monotone" dataKey="total" stroke="#10b981" strokeWidth={3} dot={false} name="Liquid Assets (Spendable)" yAxisId="left" />
+                    <Line type="monotone" dataKey="totalIncludingIlliquid" stroke="#ffffff" strokeWidth={1} strokeDasharray="5 5" dot={false} name="Total Net Worth" yAxisId="left" strokeOpacity={0.4} />
                     <Line type="monotone" dataKey="totalDebt" stroke="#dc2626" strokeWidth={2} strokeDasharray="5 5" dot={false} name="Total Debt" yAxisId="left" />
                     <Line type="monotone" dataKey="yearGoalWithdrawal" stroke="#fb923c" strokeWidth={2} strokeDasharray="4 4" dot={(props) => {
                       // Show dots for years with goal withdrawals
@@ -2300,6 +2099,41 @@ export default function FinancialPlan() {
                         yAxisId="left"
                       />
                     ))}
+                    {/* Mark portfolio failure */}
+                    {(() => {
+                      const firstFailure = projections.find(p => p.portfolioFailed);
+                      if (firstFailure) {
+                        return (
+                          <ReferenceLine 
+                            x={firstFailure.age} 
+                            stroke="#dc2626"
+                            strokeWidth={2}
+                            strokeDasharray="5 5"
+                            label={{ value: '❌ Portfolio Depleted', fill: '#dc2626', fontSize: 10, position: 'top' }}
+                            yAxisId="left"
+                          />
+                        );
+                      }
+                      return null;
+                    })()}
+                    {/* Mark Bitcoin depletion */}
+                    {(() => {
+                      const firstBtcDepletion = projections.find(p => p.btcRunsOut);
+                      if (firstBtcDepletion) {
+                        return (
+                          <ReferenceLine 
+                            x={firstBtcDepletion.age} 
+                            stroke="#F7931A"
+                            strokeWidth={2}
+                            strokeDasharray="5 5"
+                            strokeOpacity={0.7}
+                            label={{ value: '⚠️ BTC Depleted', fill: '#F7931A', fontSize: 10, position: 'insideBottomLeft' }}
+                            yAxisId="left"
+                          />
+                        );
+                      }
+                      return null;
+                    })()}
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -2481,7 +2315,13 @@ export default function FinancialPlan() {
                   💡 Your annual net cash flow of <span className="text-emerald-400 font-medium">{formatNumber(annualSavings)}</span> is calculated from your total income (from Budget) minus your current annual spending (from Settings).
                   A positive value means you are saving. A negative value means you are drawing down.
                 </p>
-
+                {monthlyDebtPayments > 0 && (
+                  <p className="text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
+                    ⚠️ <span className="font-medium">{formatNumber(monthlyDebtPayments * 12)}/yr</span> in debt payments reduces your available savings in these projections. 
+                    This represents the actual monthly payments you're making on liabilities (from your Liabilities page). 
+                    Create a "Debt Payoff" goal to accelerate repayment and increase future savings.
+                  </p>
+                )}
               </div>
 
             {/* Withdrawal Strategy */}
