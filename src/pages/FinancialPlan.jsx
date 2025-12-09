@@ -1895,8 +1895,8 @@ export default function FinancialPlan() {
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-amber-400" />
-                      <span className="text-zinc-400">Desired Retirement Spending:</span>
-                      <span className="font-semibold text-amber-400">{formatNumber(retirementAnnualSpending)}/yr</span>
+                      <span className="text-zinc-400">Retirement Spending:</span>
+                      <span className="font-semibold text-amber-400">{formatNumber(projections[retirementYearIndex]?.retirementSpendingOnly || retirementAnnualSpending)}/yr</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-blue-400" />
@@ -2123,12 +2123,12 @@ export default function FinancialPlan() {
                               {p.isRetired && (p.yearWithdrawal > 0 || p.yearGoalWithdrawal > 0) && (
                                 <div className="pt-2 mt-2 border-t border-zinc-700">
                                   {p.retirementSpendingOnly > 0 && (
-                                   <div className="text-xs space-y-0.5 text-zinc-400 mb-1">
-                                     <div className="flex justify-between">
-                                       <span>• Desired Retirement Spending:</span>
-                                       <span className="text-zinc-300">${(p.retirementSpendingOnly).toLocaleString()}</span>
-                                     </div>
-                                   </div>
+                                  <div className="text-xs space-y-0.5 text-zinc-400 mb-1">
+                                    <div className="flex justify-between">
+                                      <span>• Retirement Spending:</span>
+                                      <span className="text-zinc-300">${(p.retirementSpendingOnly).toLocaleString()}</span>
+                                    </div>
+                                  </div>
                                   )}
                                   {p.yearGoalWithdrawal > 0 && (
                                     <div className="text-xs space-y-0.5 text-zinc-400 mb-2">
@@ -2465,7 +2465,7 @@ export default function FinancialPlan() {
                   <Input type="number" value={currentAnnualSpending} onChange={(e) => setCurrentAnnualSpending(parseInt(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-zinc-400">Desired Retirement Spending</Label>
+                  <Label className="text-zinc-400">Retirement Spending</Label>
                   <Input type="number" value={retirementAnnualSpending} onChange={(e) => setRetirementAnnualSpending(parseInt(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
                 </div>
               </div>
