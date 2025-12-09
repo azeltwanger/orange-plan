@@ -428,38 +428,6 @@ export default function FinancialPlan() {
     .filter(b => b.type === 'income' && b.is_active !== false)
     .reduce((sum, b) => sum + (b.amount * (freqMultiplier[b.frequency] || 12) / 12), 0);
   
-  // Calculate accurate current year debt payments (accounting for current month and payoffs)
-  const currentYearDebtPayments = useMemo(() => {
-    const currentMonth = new Date().getMonth(); // 0-indexed (Jan=0, Dec=11)
-    let totalPayments = 0;
-    
-    liabilities.forEach(liability => {
-      if (liability.monthly_payment && liability.monthly_payment > 0) {
-        let remainingBalance = liability.current_balance || 0;
-        const monthlyPayment = liability.monthly_payment;
-        const hasInterest = liability.interest_rate && liability.interest_rate > 0;
-        
-        // Simulate remaining months of current year
-        for (let month = currentMonth; month < 12; month++) {
-          if (remainingBalance <= 0) break;
-          
-          // Add monthly interest if applicable
-          if (hasInterest) {
-            remainingBalance += remainingBalance * (liability.interest_rate / 100 / 12);
-          }
-          
-          // Make payment
-          const actualPayment = Math.min(monthlyPayment, remainingBalance);
-          totalPayments += actualPayment;
-          remainingBalance = Math.max(0, remainingBalance - actualPayment);
-        }
-      }
-    });
-    
-    return totalPayments;
-  }, [liabilities]);
-
-  // Simple monthly debt payments for display
   const monthlyDebtPayments = liabilities.reduce((sum, liability) => {
     if (liability.monthly_payment && liability.monthly_payment > 0) {
       return sum + liability.monthly_payment;
@@ -913,11 +881,6 @@ export default function FinancialPlan() {
         // Combine retirement withdrawal and goal withdrawal for tax estimation
         totalWithdrawalForTaxCalculation = retirementSpendingOnly + yearGoalWithdrawal;
 
-        // Calculate actual Roth contributions (defaults to 0)
-        const totalRothContributions = accounts
-          .filter(a => ['401k_roth', 'ira_roth', 'hsa'].includes(a.account_type))
-          .reduce((sum, a) => sum + (a.roth_contributions || 0), 0);
-
         // Use tax calculation utility for accurate withdrawal taxes
         const taxEstimate = estimateRetirementWithdrawalTaxes({
           withdrawalNeeded: totalWithdrawalForTaxCalculation,
@@ -929,7 +892,6 @@ export default function FinancialPlan() {
           filingStatus,
           age: currentAgeInYear,
           otherIncome: totalOtherIncome,
-          rothContributions: totalRothContributions,
         });
         
         withdrawFromTaxable = taxEstimate.fromTaxable || 0;
@@ -990,6 +952,10 @@ export default function FinancialPlan() {
       // Verify account totals match asset totals (they should track together)
       const accountTotal = runningTaxable + runningTaxDeferred + runningTaxFree;
 
+      // Check for portfolio failure
+      const portfolioFailed = total <= 0 && isRetired;
+      const btcRunsOut = runningBtc <= 0 && isRetired;
+
       data.push({
         age: currentAge + i,
         year,
@@ -1036,6 +1002,9 @@ export default function FinancialPlan() {
           .filter(([id, payoffYear]) => payoffYear === year)
           .map(([id]) => liabilities.find(l => l.id === id)?.name)
           .filter(Boolean),
+        // Failure indicators
+        portfolioFailed,
+        btcRunsOut,
         });
     }
     return data;
@@ -1897,12 +1866,12 @@ export default function FinancialPlan() {
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-emerald-400" />
                       <span className="text-zinc-400">Annual Net Cash Flow:</span>
-                      <span className={cn("font-semibold", annualSavings >= 0 ? "text-emerald-400" : "text-rose-400")}>{formatNumber(annualSavings)}</span>
+                      <span className="font-semibold text-emerald-400">{formatNumber(annualSavings)}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-amber-400" />
                       <span className="text-zinc-400">Retirement Spending:</span>
-                      <span className="font-semibold text-amber-400">{formatNumber(projections[retirementYearIndex]?.retirementSpendingOnly || retirementAnnualSpending)}/yr</span>
+                      <span className="font-semibold text-amber-400">{formatNumber(retirementAnnualSpending)}/yr</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-blue-400" />
@@ -2129,12 +2098,12 @@ export default function FinancialPlan() {
                               {p.isRetired && (p.yearWithdrawal > 0 || p.yearGoalWithdrawal > 0) && (
                                 <div className="pt-2 mt-2 border-t border-zinc-700">
                                   {p.retirementSpendingOnly > 0 && (
-                                  <div className="text-xs space-y-0.5 text-zinc-400 mb-1">
-                                    <div className="flex justify-between">
-                                      <span>• Retirement Spending:</span>
-                                      <span className="text-zinc-300">${(p.retirementSpendingOnly).toLocaleString()}</span>
+                                    <div className="text-xs space-y-0.5 text-zinc-400 mb-1">
+                                      <div className="flex justify-between">
+                                        <span>• Retirement Spending:</span>
+                                        <span className="text-zinc-300">${(p.retirementSpendingOnly).toLocaleString()}</span>
+                                      </div>
                                     </div>
-                                  </div>
                                   )}
                                   {p.yearGoalWithdrawal > 0 && (
                                     <div className="text-xs space-y-0.5 text-zinc-400 mb-2">
@@ -2300,6 +2269,41 @@ export default function FinancialPlan() {
                         yAxisId="left"
                       />
                     ))}
+                    {/* Mark portfolio failure */}
+                    {(() => {
+                      const firstFailure = projections.find(p => p.portfolioFailed);
+                      if (firstFailure) {
+                        return (
+                          <ReferenceLine 
+                            x={firstFailure.age} 
+                            stroke="#dc2626"
+                            strokeWidth={2}
+                            strokeDasharray="5 5"
+                            label={{ value: '❌ Portfolio Depleted', fill: '#dc2626', fontSize: 10, position: 'top' }}
+                            yAxisId="left"
+                          />
+                        );
+                      }
+                      return null;
+                    })()}
+                    {/* Mark Bitcoin depletion */}
+                    {(() => {
+                      const firstBtcDepletion = projections.find(p => p.btcRunsOut);
+                      if (firstBtcDepletion) {
+                        return (
+                          <ReferenceLine 
+                            x={firstBtcDepletion.age} 
+                            stroke="#F7931A"
+                            strokeWidth={2}
+                            strokeDasharray="5 5"
+                            strokeOpacity={0.7}
+                            label={{ value: '⚠️ BTC Depleted', fill: '#F7931A', fontSize: 10, position: 'insideBottomLeft' }}
+                            yAxisId="left"
+                          />
+                        );
+                      }
+                      return null;
+                    })()}
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -2481,7 +2485,13 @@ export default function FinancialPlan() {
                   💡 Your annual net cash flow of <span className="text-emerald-400 font-medium">{formatNumber(annualSavings)}</span> is calculated from your total income (from Budget) minus your current annual spending (from Settings).
                   A positive value means you are saving. A negative value means you are drawing down.
                 </p>
-
+                {monthlyDebtPayments > 0 && (
+                  <p className="text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
+                    ⚠️ <span className="font-medium">{formatNumber(monthlyDebtPayments * 12)}/yr</span> in debt payments reduces your available savings in these projections. 
+                    This represents the actual monthly payments you're making on liabilities (from your Liabilities page). 
+                    Create a "Debt Payoff" goal to accelerate repayment and increase future savings.
+                  </p>
+                )}
               </div>
 
             {/* Withdrawal Strategy */}
