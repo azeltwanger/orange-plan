@@ -913,6 +913,11 @@ export default function FinancialPlan() {
         // Combine retirement withdrawal and goal withdrawal for tax estimation
         totalWithdrawalForTaxCalculation = retirementSpendingOnly + yearGoalWithdrawal;
 
+        // Calculate actual Roth contributions (defaults to 0)
+        const totalRothContributions = accounts
+          .filter(a => ['401k_roth', 'ira_roth', 'hsa'].includes(a.account_type))
+          .reduce((sum, a) => sum + (a.roth_contributions || 0), 0);
+
         // Use tax calculation utility for accurate withdrawal taxes
         const taxEstimate = estimateRetirementWithdrawalTaxes({
           withdrawalNeeded: totalWithdrawalForTaxCalculation,
@@ -924,6 +929,7 @@ export default function FinancialPlan() {
           filingStatus,
           age: currentAgeInYear,
           otherIncome: totalOtherIncome,
+          rothContributions: totalRothContributions,
         });
         
         withdrawFromTaxable = taxEstimate.fromTaxable || 0;

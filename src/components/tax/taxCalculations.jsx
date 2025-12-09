@@ -412,6 +412,7 @@ export const estimateRetirementWithdrawalTaxes = ({
   age = 65,
   otherIncome = 0, // Social Security, pension, etc.
   year = 2025,
+  rothContributions = 0, // Actual Roth contributions accessible penalty-free (defaults to 0)
 }) => {
   const PENALTY_FREE_AGE = 59.5;
   const canAccessPenaltyFree = age >= PENALTY_FREE_AGE;
@@ -520,7 +521,7 @@ export const estimateRetirementWithdrawalTaxes = ({
     }
     
     // 2. Tax-free (Roth contributions accessible)
-    const taxFreeContributions = taxFreeBalance * 0.5; // Assume 50% is contributions
+    const taxFreeContributions = rothContributions; // Use actual contributions (defaults to 0)
     const fromTaxFree = Math.min(remainingWithdrawal, taxFreeContributions);
     withdrawalBreakdown.fromTaxFree = fromTaxFree;
     remainingWithdrawal -= fromTaxFree;
