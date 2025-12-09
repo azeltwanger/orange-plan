@@ -1858,6 +1858,11 @@ export default function FinancialPlan() {
                                     Annual Net Cash Flow: ${p.yearSavingsForTooltip.toLocaleString()}
                                   </p>
                                   <p className="text-[10px] text-zinc-500 mt-1">From income minus current spending</p>
+                                  {p.debtPayoffs && p.debtPayoffs.length > 0 && (
+                                    <p className="text-[10px] text-emerald-400 mt-1">
+                                      {p.debtPayoffs.map(d => `✓ ${d.name} paid off`).join(', ')}
+                                    </p>
+                                  )}
                                 </div>
                               )}
                               {p.isRetired && (p.yearWithdrawal > 0 || p.yearGoalWithdrawal > 0) && (
