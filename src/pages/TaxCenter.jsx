@@ -705,9 +705,10 @@ export default function TaxCenter() {
 
   // Get brackets based on filing status and selected year
   const { brackets: currentBrackets, standardDeductions } = getTaxDataForYear(selectedYear);
-  const yearBrackets = currentBrackets[filingStatus];
+  const yearBrackets = currentBrackets[filingStatus] || currentBrackets.single;
 
   const getLTCGRateForYear = (income) => {
+    if (!yearBrackets?.ltcg) return 0.15;
     for (const bracket of yearBrackets.ltcg) {
       if (income <= bracket.max) return bracket.rate;
     }
@@ -715,6 +716,7 @@ export default function TaxCenter() {
   };
 
   const getSTCGRateForYear = (income) => {
+    if (!yearBrackets?.income) return 0.24;
     for (const bracket of yearBrackets.income) {
       if (income <= bracket.max) return bracket.rate;
     }
@@ -732,8 +734,8 @@ export default function TaxCenter() {
   
   // 0% LTCG bracket room is based on taxable income, not gross income
   // If taxable income is below the 0% threshold, you have room
-  const ltcgBracketRoom = Math.max(0, yearBrackets.ltcg[0].max - taxableIncome);
-  const canHarvestGainsTaxFree = taxableIncome < yearBrackets.ltcg[0].max;
+  const ltcgBracketRoom = yearBrackets?.ltcg?.[0]?.max ? Math.max(0, yearBrackets.ltcg[0].max - taxableIncome) : 0;
+  const canHarvestGainsTaxFree = yearBrackets?.ltcg?.[0]?.max ? taxableIncome < yearBrackets.ltcg[0].max : false;
 
   const estimatedTax = (shortTermGains > 0 ? shortTermGains * effectiveSTCGRate : 0) + (longTermGains > 0 ? longTermGains * effectiveLTCGRate : 0);
 
@@ -753,12 +755,12 @@ export default function TaxCenter() {
 
 
   // Tax bracket visualization data - include all brackets up to 37%
-  const bracketChartData = yearBrackets.income.map(bracket => ({
+  const bracketChartData = yearBrackets?.income ? yearBrackets.income.map(bracket => ({
     name: bracket.label,
     max: bracket.max === Infinity ? (filingStatus === 'married' ? 900000 : 800000) : bracket.max,
     rate: bracket.rate * 100,
     fill: annualIncome >= bracket.min && (bracket.max === Infinity || annualIncome < bracket.max) ? '#F7931A' : '#27272a',
-  }));
+  })) : [];
 
   // Calculate wash trade net benefit (tax savings minus trading fees)
   const calculateWashTradeAnalysis = (lots, feePercent = DEFAULT_ROUND_TRIP_FEE_PERCENT) => {
@@ -1048,7 +1050,7 @@ export default function TaxCenter() {
           <div className="p-4 rounded-xl bg-zinc-800/30">
             <p className="text-sm text-zinc-300 mb-2">0% LTCG Bracket Room</p>
             <p className="text-2xl font-bold text-emerald-400">${ltcgBracketRoom.toLocaleString()}</p>
-            <Progress value={(taxableIncome / currentBrackets.ltcg[0].max) * 100} className="h-2 mt-2 bg-zinc-700" />
+            <Progress value={yearBrackets?.ltcg?.[0]?.max ? (taxableIncome / yearBrackets.ltcg[0].max) * 100 : 0} className="h-2 mt-2 bg-zinc-700" />
             <p className="text-xs text-zinc-500 mt-1">
               Taxable income: ${taxableIncome.toLocaleString()} (after ${standardDeduction.toLocaleString()} std deduction)
             </p>
@@ -1683,7 +1685,7 @@ export default function TaxCenter() {
             {!canHarvestGainsTaxFree ? (
               <div className="p-4 rounded-xl bg-amber-400/10 border border-amber-400/20 mb-6">
                 <p className="text-sm text-amber-400">
-                  Your taxable income (${taxableIncome.toLocaleString()} after ${standardDeduction.toLocaleString()} std deduction) exceeds the 0% LTCG bracket (${currentBrackets.ltcg[0].max.toLocaleString()}).
+                  Your taxable income (${taxableIncome.toLocaleString()} after ${standardDeduction.toLocaleString()} std deduction) exceeds the 0% LTCG bracket (${yearBrackets?.ltcg?.[0]?.max?.toLocaleString() || 'N/A'}).
                 </p>
               </div>
             ) : (
