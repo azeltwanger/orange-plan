@@ -590,6 +590,11 @@ export default function CsvImportDialog({ open, onClose }) {
                   </li>
                 </ul>
                 <p className="text-xs text-zinc-500 mt-3">Recommended: Trading Fee, Exchange/Wallet | Optional: Transaction ID, Notes</p>
+                <div className="mt-4 pt-3 border-t border-zinc-700">
+                  <p className="text-sm text-zinc-300">
+                    <span className="text-orange-400 font-semibold">💡 Important:</span> Upload one CSV per account type. You'll select the account in the next step.
+                  </p>
+                </div>
               </div>
 
               <Input
@@ -657,7 +662,7 @@ export default function CsvImportDialog({ open, onClose }) {
                   disabled={!allRequiredFieldsMapped}
                   className="brand-gradient text-white"
                 >
-                  Preview Import
+                  Next
                 </Button>
               </DialogFooter>
             </div>
@@ -670,17 +675,34 @@ export default function CsvImportDialog({ open, onClose }) {
               <div className="p-4 rounded-xl bg-zinc-800/30 border border-zinc-700">
                 <Label className="text-zinc-200 font-medium mb-3 block">Import to Account</Label>
                 <p className="text-xs text-zinc-500 mb-3">Select an existing account or create a new one for these transactions.</p>
-                <AccountSelector
-                  value={selectedAccountId}
-                  onChange={(value) => {
+                <Select
+                  value={selectedAccountId || '_none_'}
+                  onValueChange={(value) => {
                     if (value === '_create_') {
                       setSelectedAccountId('_new_');
+                      setNewAccountName('');
+                      setNewAccountType('taxable_brokerage');
                     } else {
                       setSelectedAccountId(value === '_none_' ? '' : value);
                       setNewAccountName('');
                     }
                   }}
-                />
+                >
+                  <SelectTrigger className="bg-zinc-900 border-zinc-700">
+                    <SelectValue placeholder="Select an account..." />
+                  </SelectTrigger>
+                  <SelectContent className="bg-zinc-900 border-zinc-700">
+                    <SelectItem value="_none_" className="text-zinc-400">— No Account —</SelectItem>
+                    {accounts.map(account => (
+                      <SelectItem key={account.id} value={account.id}>
+                        {account.name} ({account.account_type?.replace(/_/g, ' ')})
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="_create_" className="text-orange-400">
+                      <Plus className="w-4 h-4 inline mr-2" /> Create New Account
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
                 
                 {/* Inline new account creation */}
                 {selectedAccountId === '_new_' && (
@@ -708,6 +730,12 @@ export default function CsvImportDialog({ open, onClose }) {
                       </Select>
                     </div>
                   </div>
+                )}
+                
+                {(!selectedAccountId || selectedAccountId === '_none_') && (
+                  <p className="text-xs text-rose-400 mt-2 flex items-center gap-1">
+                    <AlertTriangle className="w-3 h-3" /> Please select or create an account to proceed.
+                  </p>
                 )}
               </div>
 
@@ -780,7 +808,12 @@ export default function CsvImportDialog({ open, onClose }) {
                 </Button>
                 <Button 
                   onClick={() => importTransactions.mutate()} 
-                  disabled={importTransactions.isPending}
+                  disabled={
+                    importTransactions.isPending || 
+                    !selectedAccountId || 
+                    selectedAccountId === '_none_' ||
+                    (selectedAccountId === '_new_' && !newAccountName.trim())
+                  }
                   className="brand-gradient text-white"
                 >
                   {importTransactions.isPending ? (
