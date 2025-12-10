@@ -51,7 +51,7 @@ export default function Liabilities() {
     interest_rate: '',
     monthly_payment: '',
     collateral_btc_amount: '',
-    collateral_asset_id: '',
+    collateral_asset_id: '_none_',
     liquidation_price: '',
     collateral_release_ltv: '30',
     lender: '',
@@ -102,7 +102,7 @@ export default function Liabilities() {
       interest_rate: '',
       monthly_payment: '',
       collateral_btc_amount: '',
-      collateral_asset_id: '',
+      collateral_asset_id: '_none_',
       liquidation_price: '',
       collateral_release_ltv: '30',
       lender: '',
@@ -121,7 +121,7 @@ export default function Liabilities() {
         interest_rate: editingLiability.interest_rate || '',
         monthly_payment: editingLiability.monthly_payment || '',
         collateral_btc_amount: editingLiability.collateral_btc_amount || '',
-        collateral_asset_id: editingLiability.collateral_asset_id || '',
+        collateral_asset_id: editingLiability.collateral_asset_id || '_none_',
         liquidation_price: editingLiability.liquidation_price || '',
         collateral_release_ltv: editingLiability.collateral_release_ltv || '30',
         lender: editingLiability.lender || '',
@@ -719,13 +719,14 @@ export default function Liabilities() {
               <div className="space-y-2">
                 <Label className="text-zinc-400 text-xs uppercase tracking-wider">Collateralized Asset</Label>
                 <Select
-                  value={formData.collateral_asset_id}
-                  onValueChange={(value) => setFormData({ ...formData, collateral_asset_id: value })}
+                  value={formData.collateral_asset_id || '_none_'}
+                  onValueChange={(value) => setFormData({ ...formData, collateral_asset_id: value === '_none_' ? '' : value })}
                 >
                   <SelectTrigger className="bg-zinc-900 border-zinc-800">
                     <SelectValue placeholder="Select asset..." />
                   </SelectTrigger>
                   <SelectContent className="bg-zinc-900 border-zinc-800">
+                    <SelectItem value="_none_">None selected</SelectItem>
                     {holdings.filter(h => h.asset_type === 'real_estate').map(h => (
                       <SelectItem key={h.id} value={h.id}>{h.asset_name}</SelectItem>
                     ))}
