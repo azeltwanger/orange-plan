@@ -473,6 +473,17 @@ export default function TaxCenter() {
   };
 
   const currentPrice = btcPrice || 97000;
+  
+  // Get current prices for all tickers from holdings
+  const pricesByTicker = useMemo(() => {
+    const prices = { BTC: currentPrice };
+    holdings.forEach(h => {
+      if (h.ticker && h.current_price) {
+        prices[h.ticker] = h.current_price;
+      }
+    });
+    return prices;
+  }, [holdings, currentPrice]);
 
   // Get taxable holdings only (exclude retirement accounts for harvest analysis)
   const taxableHoldings = holdings.filter(h => 
@@ -519,7 +530,9 @@ export default function TaxCenter() {
         remainingSold -= soldFromThisLot;
       }
       
-      const currentValue = remainingQuantity * currentPrice;
+      // Get current price for this ticker
+      const tickerPrice = pricesByTicker[ticker] || (tx.price_per_unit || 0);
+      const currentValue = remainingQuantity * tickerPrice;
       const perUnitCost = tx.price_per_unit || 0;
       const costBasis = remainingQuantity * perUnitCost;
       const unrealizedGain = currentValue - costBasis;
@@ -552,7 +565,7 @@ export default function TaxCenter() {
     }
     
     return allLots;
-  }, [allTransactions, currentPrice, holdings]);
+  }, [allTransactions, pricesByTicker, holdings]);
 
   // Sort lots by different methods
   const sortLotsByMethod = (lots, method) => {
@@ -1664,7 +1677,7 @@ export default function TaxCenter() {
                       <div className="flex items-start justify-between mb-3">
                         <div>
                           <p className="font-medium text-zinc-100">{displayQty} {lot.asset_ticker}</p>
-                          <p className="text-sm text-zinc-400">Bought @ ${(lot.price_per_unit || 0).toLocaleString()} • Now ${currentPrice.toLocaleString()}</p>
+                          <p className="text-sm text-zinc-400">Bought @ ${(lot.price_per_unit || 0).toLocaleString()} • Now ${(pricesByTicker[lot.asset_ticker] || 0).toLocaleString()}</p>
                         </div>
                         <div className="text-right">
                           <p className="text-lg font-bold text-rose-400">-${Math.abs(lot.unrealizedGain).toLocaleString()}</p>
