@@ -400,6 +400,19 @@ export default function EstateSecurity() {
     queryClient.invalidateQueries({ queryKey: ['userSettings'] });
   };
 
+  const handleTestDeadMansSwitch = async () => {
+    if (!confirm('This will test the Dead Mans Switch by sending the inheritance protocol to all beneficiaries with email addresses. Continue?')) {
+      return;
+    }
+    
+    try {
+      const { data } = await base44.functions.invoke('checkDeadMansSwitch', {});
+      alert(`Test complete!\n\nChecked users: ${data.total_users_checked}\n\nResults: ${JSON.stringify(data.results, null, 2)}`);
+    } catch (error) {
+      alert(`Test failed: ${error.message}`);
+    }
+  };
+
   // Calculate total value of other assets
   const totalOtherAssetsValue = otherAssets.reduce((sum, a) => {
     const usdVal = a.description?.includes('usd_value:') 
@@ -610,10 +623,17 @@ export default function EstateSecurity() {
               )}
             </div>
           </div>
-          <Button onClick={handleCheckin} className={settings.dead_mans_switch_enabled ? "bg-emerald-600 hover:bg-emerald-700" : "brand-gradient"}>
-            <CheckCircle className="w-4 h-4 mr-2" />
-            {settings.dead_mans_switch_enabled ? "Check In" : "Enable & Check In"}
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={handleCheckin} className={settings.dead_mans_switch_enabled ? "bg-emerald-600 hover:bg-emerald-700" : "brand-gradient"}>
+              <CheckCircle className="w-4 h-4 mr-2" />
+              {settings.dead_mans_switch_enabled ? "Check In" : "Enable & Check In"}
+            </Button>
+            {settings.dead_mans_switch_enabled && (
+              <Button onClick={handleTestDeadMansSwitch} variant="outline" className="bg-transparent border-zinc-700" size="sm">
+                Test
+              </Button>
+            )}
+          </div>
         </div>
         {monthsSinceCheckin >= 5 && (
           <div className="mt-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20">
