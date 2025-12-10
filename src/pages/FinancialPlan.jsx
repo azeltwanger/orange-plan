@@ -802,8 +802,44 @@ export default function FinancialPlan() {
         runningSavings += yearSavings;
         cumulativeSavings += yearSavings;
         
+        // Calculate pre-retirement taxes for this year
+        const yearGrossIncome = grossAnnualIncome * Math.pow(1 + incomeGrowth / 100, i);
+        const yearTaxableIncome = Math.max(0, yearGrossIncome - currentStandardDeduction);
+        const yearTaxesPaid = calculateProgressiveIncomeTax(yearTaxableIncome, filingStatus, year);
+        taxesPaid = yearTaxesPaid;
+        
+        // Track components for tooltip
+        const yearSpending = currentAnnualSpending * Math.pow(1 + inflationRate / 100, i);
+        
         // Allocate net cash flow to taxable accounts (can be negative = drawdown)
-        runningTaxable += yearSavings;
+        // If negative, we're withdrawing - track sources like retirement
+        if (yearSavings < 0) {
+          const withdrawalNeeded = Math.abs(yearSavings);
+          let remaining = withdrawalNeeded;
+          
+          // Withdraw from taxable first
+          const fromTaxable = Math.min(remaining, runningTaxable);
+          withdrawFromTaxable = fromTaxable;
+          runningTaxable -= fromTaxable;
+          remaining -= fromTaxable;
+          
+          // Then tax-deferred if needed
+          if (remaining > 0) {
+            const fromTaxDeferred = Math.min(remaining, runningTaxDeferred);
+            withdrawFromTaxDeferred = fromTaxDeferred;
+            runningTaxDeferred -= fromTaxDeferred;
+            remaining -= fromTaxDeferred;
+          }
+          
+          // Finally tax-free
+          if (remaining > 0) {
+            const fromTaxFree = Math.min(remaining, runningTaxFree);
+            withdrawFromTaxFree = fromTaxFree;
+            runningTaxFree -= fromTaxFree;
+          }
+        } else {
+          runningTaxable += yearSavings;
+        }
       } else {
         // Calculate withdrawal based on strategy
         const totalBeforeWithdrawal = runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther + runningSavings;
