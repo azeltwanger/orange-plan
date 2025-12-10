@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -9,7 +10,8 @@ import {
   getIncomeTaxRate, 
   getLTCGRate, 
   calculateProgressiveIncomeTax,
-  estimateRetirementWithdrawalTaxes 
+  estimateRetirementWithdrawalTaxes,
+  getTaxDataForYear 
 } from '@/components/tax/taxCalculations';
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -341,6 +343,7 @@ export default function FinancialPlan() {
                   if (settings.social_security_start_age !== undefined) setSocialSecurityStartAge(settings.social_security_start_age);
                   if (settings.social_security_amount !== undefined) setSocialSecurityAmount(settings.social_security_amount);
                   if (settings.gross_annual_income !== undefined) setGrossAnnualIncome(settings.gross_annual_income);
+                  if (settings.filing_status !== undefined) setFilingStatus(settings.filing_status);
                   setSettingsLoaded(true);
     }
   }, [userSettings, settingsLoaded]);
@@ -381,21 +384,29 @@ export default function FinancialPlan() {
                       social_security_start_age: socialSecurityStartAge || 67,
                       social_security_amount: socialSecurityAmount || 0,
                       gross_annual_income: grossAnnualIncome || 100000,
+                      filing_status: filingStatus || 'single',
                     });
     }, 1000); // Debounce 1 second
     return () => clearTimeout(timeoutId);
-  }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, otherCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, grossAnnualIncome]);
+  }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, otherCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, grossAnnualIncome, filingStatus]);
 
-  // Calculate annual net cash flow: grossAnnualIncome - currentAnnualSpending (can be negative)
+  // Calculate annual net cash flow with proper after-tax income
+  const currentYear = new Date().getFullYear();
+  const { standardDeductions } = getTaxDataForYear(currentYear);
+  const currentStandardDeduction = standardDeductions[filingStatus] || standardDeductions.single;
+  const taxableGrossIncome = Math.max(0, grossAnnualIncome - currentStandardDeduction);
+  const estimatedIncomeTax = calculateProgressiveIncomeTax(taxableGrossIncome, filingStatus, currentYear);
+
+  // Annual net cash flow = after-tax income - spending (can be negative)
+  const annualSavings = grossAnnualIncome - estimatedIncomeTax - currentAnnualSpending;
+
+  // Calculate monthly debt payments
   const monthlyDebtPayments = liabilities.reduce((sum, liability) => {
     if (liability.monthly_payment && liability.monthly_payment > 0) {
       return sum + liability.monthly_payment;
     }
     return sum;
   }, 0);
-
-  // Annual net cash flow = grossAnnualIncome - currentAnnualSpending (CAN be negative)
-  const annualSavings = grossAnnualIncome - currentAnnualSpending;
 
   // Mutations
   const createGoal = useMutation({
@@ -865,6 +876,7 @@ export default function FinancialPlan() {
           filingStatus,
           age: currentAgeInYear,
           otherIncome: totalOtherIncome,
+          taxYear: year
         });
         
         withdrawFromTaxable = taxEstimate.fromTaxable || 0;
@@ -1052,7 +1064,7 @@ export default function FinancialPlan() {
   // Calculate retirement status and insights
   const retirementStatus = useMemo(() => {
     // Compare in today's dollars - allow spending up to ~102% of max sustainable (within 2% tolerance)
-    const canAffordDesiredSpending = retirementAnnualSpending <= maxSustainableSpending;
+    const canAffordDesiredSpending = retirementAnnualSpending <= maxSustainableSpending * 1.02;
 
     if (willRunOutOfMoney) {
       return {
@@ -1073,6 +1085,16 @@ export default function FinancialPlan() {
         icon: <AlertTriangle className="w-5 h-5" />
       };
     }
+    
+    if (annualSavings < 0) {
+      return {
+        type: 'critical',
+        title: 'Critical: Negative Cash Flow',
+        description: `Your income after taxes is less than your current spending. Increase income or reduce spending.`,
+        icon: <AlertTriangle className="w-5 h-5" />
+      };
+    }
+
 
     // Now check the timing (gap analysis)
     const gap = earliestRetirementAge ? earliestRetirementAge - retirementAge : null;
@@ -1109,7 +1131,7 @@ export default function FinancialPlan() {
         icon: <Sparkles className="w-5 h-5" />
       };
     }
-  }, [earliestRetirementAge, retirementAge, willRunOutOfMoney, runOutOfMoneyAge, currentAge, retirementValue, maxSustainableSpending, retirementAnnualSpending, inflationRate]);
+  }, [earliestRetirementAge, retirementAge, willRunOutOfMoney, runOutOfMoneyAge, currentAge, retirementValue, maxSustainableSpending, retirementAnnualSpending, inflationRate, annualSavings]);
 
   // Calculate maximum sustainable spending at retirement age
   useEffect(() => {
@@ -1138,13 +1160,13 @@ export default function FinancialPlan() {
         const testSpending = (low + high) / 2;
         let portfolio = startingPortfolio;
         let canSustain = true;
-        const currentYear = new Date().getFullYear();
+        const currentYearSim = new Date().getFullYear(); // Renamed to avoid conflict
 
         // Simulate from now until life expectancy
         for (let year = 1; year <= lifeExpectancy - currentAge; year++) {
           const age = currentAge + year;
           const isRetired = age >= retirementAge;
-          const simulationYear = currentYear + year;
+          const simulationYear = currentYearSim + year; // Use currentYearSim
 
           // Growth
           const yearBtcGrowth = getBtcGrowthRate(year, effectiveInflation);
@@ -1190,7 +1212,7 @@ export default function FinancialPlan() {
           // Debt payoff goals
           goals.forEach(goal => {
             if (goal.goal_type === 'debt_payoff' && goal.linked_liability_id && goal.payoff_years > 0) {
-              const startYear = goal.target_date ? new Date(goal.target_date).getFullYear() : currentYear;
+              const startYear = goal.target_date ? new Date(goal.target_date).getFullYear() : currentYearSim; // Use currentYearSim
               const endYear = startYear + goal.payoff_years;
               
               if (simulationYear >= startYear && simulationYear < endYear) {
@@ -1499,7 +1521,7 @@ export default function FinancialPlan() {
       real_estate_allocation: parseFloat(eventForm.real_estate_allocation) || 0,
       bonds_allocation: parseFloat(eventForm.bonds_allocation) || 0,
       cash_allocation: parseFloat(eventForm.cash_allocation) || 0,
-      other_allocation: parseFloat(eventForm.other_allocation) || 0,
+      other_allocation: parseFloat(event.other_allocation) || 0,
     };
     editingEvent ? updateEvent.mutate({ id: editingEvent.id, data }) : createEvent.mutate(data);
   };
@@ -1686,7 +1708,7 @@ export default function FinancialPlan() {
                   </div>
 
                   {/* Retirement Status Indicator */}
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             {/* Status Card */}
             <div className={cn(
               "lg:col-span-1 card-premium rounded-xl p-4 border flex items-start gap-3",
@@ -1717,83 +1739,97 @@ export default function FinancialPlan() {
             </div>
 
             {/* Actionable Insights - Show when behind schedule or plan not sustainable */}
-            {(!earliestRetirementAge || earliestRetirementAge > retirementAge || willRunOutOfMoney || retirementStatus.type === 'critical' || retirementStatus.type === 'at_risk') && (
+            {(!earliestRetirementAge || earliestRetirementAge > retirementAge || willRunOutOfMoney || retirementStatus.type === 'critical' || retirementStatus.type === 'at_risk' || annualSavings < 0) && (
               <>
-                {/* Savings Insight */}
-                <div className="card-premium rounded-xl p-4 border border-zinc-700/50">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                    <h5 className="text-xs font-semibold text-zinc-300 uppercase tracking-wide">Increase Annual Investment By</h5>
+                {/* If annual savings is negative, prioritize the "Increase Annual Savings" insight */}
+                {annualSavings < 0 ? (
+                  <div className="card-premium rounded-xl p-4 border border-rose-500/30 bg-rose-500/5">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+                      <h5 className="text-xs font-semibold text-zinc-300 uppercase tracking-wide">Increase Annual Savings By</h5>
+                    </div>
+                    <p className="text-2xl font-bold text-rose-400">
+                      {formatNumber(Math.abs(annualSavings))}<span className="text-sm text-zinc-500">/yr</span>
+                    </p>
+                    <p className="text-[10px] text-zinc-500 mt-1">
+                      to bring your after-tax cash flow to zero
+                    </p>
                   </div>
-                  <p className="text-2xl font-bold text-emerald-400">
-                    +{formatNumber((() => {
-                      const yearsToWork = retirementAge - currentAge;
-                      if (yearsToWork <= 0) return 0;
+                ) : (
+                  <>
+                    {/* Savings Insight (if positive but insufficient) */}
+                    {retirementStatus.type !== 'optimistic' && retirementStatus.type !== 'on_track' && (
+                      <div className="card-premium rounded-xl p-4 border border-zinc-700/50">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                          <h5 className="text-xs font-semibold text-zinc-300 uppercase tracking-wide">Increase Annual Investment By</h5>
+                        </div>
+                        <p className="text-2xl font-bold text-emerald-400">
+                          +{formatNumber((() => {
+                            const yearsToWork = retirementAge - currentAge;
+                            if (yearsToWork <= 0) return 0;
 
-                      // Calculate shortfall based on sustainable vs desired spending (both in today's dollars)
-                      const spendingShortfall = Math.max(0, retirementAnnualSpending - maxSustainableSpending);
-                      if (spendingShortfall <= 0) return 0;
+                            const spendingShortfall = Math.max(0, retirementAnnualSpending - maxSustainableSpending);
+                            if (spendingShortfall <= 0) return 0;
 
-                      // Required additional nest egg in today's dollars to support the shortfall
-                      const effectiveWithdrawalRate = Math.max(0.03, 1 / (lifeExpectancy - retirementAge));
-                      const additionalNestEggNeeded = spendingShortfall / effectiveWithdrawalRate;
+                            const effectiveWithdrawalRate = Math.max(0.03, 1 / (lifeExpectancy - retirementAge));
+                            const additionalNestEggNeeded = spendingShortfall / effectiveWithdrawalRate;
 
-                      // Calculate blended growth rate for new savings
-                      const totalAssets = btcValue + stocksValue + realEstateValue + bondsValue + otherValue;
-                      const btcPct = totalAssets > 0 ? btcValue / totalAssets : 0.5;
-                      const stocksPct = totalAssets > 0 ? stocksValue / totalAssets : 0.3;
-                      const realEstatePct = totalAssets > 0 ? realEstateValue / totalAssets : 0.1;
-                      const bondsPct = totalAssets > 0 ? bondsValue / totalAssets : 0.05;
-                      const otherPct = totalAssets > 0 ? otherValue / totalAssets : 0.05;
+                            const totalAssets = btcValue + stocksValue + realEstateValue + bondsValue + otherValue;
+                            const btcPct = totalAssets > 0 ? btcValue / totalAssets : 0.5;
+                            const stocksPct = totalAssets > 0 ? stocksValue / totalAssets : 0.3;
+                            const realEstatePct = totalAssets > 0 ? realEstateValue / totalAssets : 0.1;
+                            const bondsPct = totalAssets > 0 ? bondsValue / totalAssets : 0.05;
+                            const otherPct = totalAssets > 0 ? otherValue / totalAssets : 0.05;
 
-                      // Weighted average of expected returns
-                      const avgBtcReturn = (() => {
-                        let total = 0;
-                        for (let y = 1; y <= yearsToWork; y++) {
-                          total += getBtcGrowthRate(y, effectiveInflation);
-                        }
-                        return total / yearsToWork;
-                      })();
+                            const avgBtcReturn = (() => {
+                              let total = 0;
+                              for (let y = 1; y <= yearsToWork; y++) {
+                                total += getBtcGrowthRate(y, effectiveInflation);
+                              }
+                              return total / yearsToWork;
+                            })();
 
-                      const blendedGrowthRate = (
-                        btcPct * (avgBtcReturn / 100) +
-                        stocksPct * (effectiveStocksCagr / 100) +
-                        realEstatePct * (realEstateCagr / 100) +
-                        bondsPct * (bondsCagr / 100) +
-                        otherPct * (otherCagr / 100)
-                      );
+                            const blendedGrowthRate = (
+                              btcPct * (avgBtcReturn / 100) +
+                              stocksPct * (effectiveStocksCagr / 100) +
+                              realEstatePct * (realEstateCagr / 100) +
+                              bondsPct * (bondsCagr / 100) +
+                              otherPct * (otherCagr / 100)
+                            );
 
-                      // Annual savings needed using future value of annuity formula
-                      // FV = PMT * [(1+r)^n - 1] / r
-                      // So: PMT = FV / {[(1+r)^n - 1] / r}
-                      if (Math.abs(blendedGrowthRate) < 0.001) {
-                        return additionalNestEggNeeded / yearsToWork;
-                      }
+                            if (Math.abs(blendedGrowthRate) < 0.001) {
+                              return additionalNestEggNeeded / yearsToWork;
+                            }
 
-                      const fvFactor = (Math.pow(1 + blendedGrowthRate, yearsToWork) - 1) / blendedGrowthRate;
-                      return additionalNestEggNeeded / fvFactor;
-                    })())}<span className="text-sm text-zinc-500">/yr</span>
-                  </p>
-                  <p className="text-[10px] text-zinc-500 mt-1">invested into your portfolio to retire at age {retirementAge}</p>
-                </div>
+                            const fvFactor = (Math.pow(1 + blendedGrowthRate, yearsToWork) - 1) / blendedGrowthRate;
+                            return additionalNestEggNeeded / fvFactor;
+                          })())}<span className="text-sm text-zinc-500">/yr</span>
+                        </p>
+                        <p className="text-[10px] text-zinc-500 mt-1">invested into your portfolio to retire at age {retirementAge}</p>
+                      </div>
+                    )}
 
-                {/* Spending Reduction Insight */}
-                <div className="card-premium rounded-xl p-4 border border-zinc-700/50">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-rose-400" />
-                    <h5 className="text-xs font-semibold text-zinc-300 uppercase tracking-wide">Or Reduce Retirement Spending To</h5>
-                  </div>
-                  <p className="text-2xl font-bold text-rose-400">
-                    {formatNumber(maxSustainableSpending)}<span className="text-sm text-zinc-500">/yr</span>
-                  </p>
-                  <p className="text-[10px] text-zinc-500 mt-1">
-                    {(() => {
-                      const reduction = Math.max(0, retirementAnnualSpending - maxSustainableSpending);
-                      return `${formatNumber(reduction)} less than planned (in today's dollars)`;
-                    })()}
-                  </p>
-                </div>
-
+                    {/* Spending Reduction Insight (if target spending is too high) */}
+                    {retirementAnnualSpending > maxSustainableSpending && maxSustainableSpending > 0 && (
+                      <div className="card-premium rounded-xl p-4 border border-zinc-700/50">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+                          <h5 className="text-xs font-semibold text-zinc-300 uppercase tracking-wide">Or Reduce Retirement Spending To</h5>
+                        </div>
+                        <p className="text-2xl font-bold text-rose-400">
+                          {formatNumber(maxSustainableSpending)}<span className="text-sm text-zinc-500">/yr</span>
+                        </p>
+                        <p className="text-[10px] text-zinc-500 mt-1">
+                          {(() => {
+                            const reduction = Math.max(0, retirementAnnualSpending - maxSustainableSpending);
+                            return `${formatNumber(reduction)} less than planned (in today's dollars)`;
+                          })()}
+                        </p>
+                      </div>
+                    )}
+                  </>
+                )}
                 {/* Alternative: Delay Retirement */}
                 {earliestRetirementAge && (
                   <div className="card-premium rounded-xl p-4 border border-zinc-700/50">
@@ -1876,7 +1912,7 @@ export default function FinancialPlan() {
                                   <p className={`font-medium ${p.yearSavingsForTooltip > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                                     Annual Net Cash Flow: ${p.yearSavingsForTooltip.toLocaleString()}
                                   </p>
-                                  <p className="text-[10px] text-zinc-500 mt-1">From income minus current spending</p>
+                                  <p className="text-[10px] text-zinc-500 mt-1">From income after tax minus current spending</p>
                                 </div>
                               )}
                               {p.debtPayoffs && p.debtPayoffs.length > 0 && (
@@ -2175,7 +2211,7 @@ export default function FinancialPlan() {
 
                 // Get actual Roth contributions from accounts (default to 0 if not specified)
                 const totalRothContributions = accounts
-                  .filter(a => ['401k_roth', 'ira_roth', 'hsa'].includes(a.account_type))
+                  .filter(a => ['roth_401k', 'roth_ira', 'hsa'].includes(a.account_type)) // Corrected to match getTaxTreatmentFromHolding logic
                   .reduce((sum, a) => sum + (a.roth_contributions || 0), 0);
 
                 // Present value of withdrawals needed from taxable + Roth contributions
@@ -2256,12 +2292,37 @@ export default function FinancialPlan() {
                   <Label className="text-zinc-400">Target Retirement Spending</Label>
                   <Input type="number" value={retirementAnnualSpending} onChange={(e) => setRetirementAnnualSpending(parseFloat(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
                 </div>
+                <div className="space-y-2">
+                  <Label className="text-zinc-400">Filing Status</Label>
+                  <Select value={filingStatus} onValueChange={setFilingStatus}>
+                    <SelectTrigger className="w-full bg-zinc-900 border-zinc-800">
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="single">Single</SelectItem>
+                      <SelectItem value="married_filing_jointly">Married Filing Jointly</SelectItem>
+                      <SelectItem value="married_filing_separately">Married Filing Separately</SelectItem>
+                      <SelectItem value="head_of_household">Head of Household</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-zinc-400">Social Security Start Age</Label>
+                  <Input type="number" value={socialSecurityStartAge} onChange={(e) => setSocialSecurityStartAge(parseInt(e.target.value) || 67)} className="bg-zinc-900 border-zinc-800" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-zinc-400">Social Security Amount/yr</Label>
+                  <Input type="number" value={socialSecurityAmount} onChange={(e) => setSocialSecurityAmount(parseFloat(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
+                </div>
               </div>
 
               <div className="mt-4 space-y-2">
                 <p className="text-xs text-zinc-500">
-                  💡 Your annual net cash flow of <span className={cn("font-medium", annualSavings >= 0 ? "text-emerald-400" : "text-rose-400")}>{annualSavings >= 0 ? '+' : ''}{formatNumber(annualSavings)}</span> is calculated from your Gross Annual Income minus your Annual Spending (After Tax).
+                  💡 Your annual net cash flow of <span className={cn("font-medium", annualSavings >= 0 ? "text-emerald-400" : "text-rose-400")}>{annualSavings >= 0 ? '+' : ''}{formatNumber(annualSavings)}</span> is calculated from your Gross Annual Income minus your Estimated Income Tax and your Annual Spending (After Tax).
                   A positive value means you are saving. A negative value means you are drawing down your portfolio.
+                </p>
+                <p className="text-xs text-zinc-500">
+                  (Gross Annual Income: {formatNumber(grossAnnualIncome)} - Estimated Income Tax: {formatNumber(estimatedIncomeTax)} - Annual Spending: {formatNumber(currentAnnualSpending)} = Net Cash Flow: {formatNumber(annualSavings)})
                 </p>
               </div>
 
