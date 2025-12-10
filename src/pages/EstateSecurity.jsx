@@ -511,24 +511,43 @@ export default function EstateSecurity() {
   };
 
   const handleEmailProtocol = async () => {
-    const report = generateProtocolReport();
-    const emails = beneficiaries
-      .filter(b => b.beneficiary_email)
-      .map(b => b.beneficiary_email);
-    
-    if (emails.length === 0) {
-      alert('No beneficiary emails configured. Add email addresses to beneficiaries first.');
-      return;
+    try {
+      const report = generateProtocolReport();
+      const emails = beneficiaries
+        .filter(b => b.beneficiary_email)
+        .map(b => b.beneficiary_email);
+      
+      if (emails.length === 0) {
+        alert('No beneficiary emails configured. Add email addresses to beneficiaries first.');
+        return;
+      }
+      
+      const results = [];
+      for (const email of emails) {
+        try {
+          await base44.integrations.Core.SendEmail({
+            to: email,
+            subject: 'Orange Plan - Inheritance Protocol Document',
+            body: `This is your inheritance protocol document from Orange Plan.\n\n${report}`,
+          });
+          results.push({ email, success: true });
+        } catch (err) {
+          results.push({ email, success: false, error: err.message });
+        }
+      }
+      
+      const successCount = results.filter(r => r.success).length;
+      const failedCount = results.filter(r => !r.success).length;
+      
+      if (failedCount === 0) {
+        alert(`✓ Protocol successfully sent to ${successCount} beneficiaries.`);
+      } else {
+        const failedEmails = results.filter(r => !r.success).map(r => `${r.email}: ${r.error}`).join('\n');
+        alert(`Sent to ${successCount} beneficiaries.\n\nFailed (${failedCount}):\n${failedEmails}`);
+      }
+    } catch (error) {
+      alert(`Error sending protocol: ${error.message}`);
     }
-    
-    for (const email of emails) {
-      await base44.integrations.Core.SendEmail({
-        to: email,
-        subject: 'Orange Plan - Inheritance Protocol Document',
-        body: `This is your inheritance protocol document from Orange Plan.\n\n${report}`,
-      });
-    }
-    alert(`Protocol sent to ${emails.length} beneficiaries.`);
   };
 
   const custodyIcons = {
@@ -1140,21 +1159,6 @@ export default function EstateSecurity() {
               </div>
             )}
 
-            {/* Email Protocol Button */}
-            {beneficiaries.some(b => b.beneficiary_email) && (
-              <div className="mt-6 p-4 rounded-xl bg-zinc-800/30 border border-zinc-700">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Send Protocol to Beneficiaries</p>
-                    <p className="text-sm text-zinc-500">Email the inheritance protocol to all beneficiaries with emails configured</p>
-                  </div>
-                  <Button onClick={handleEmailProtocol} variant="outline" className="border-zinc-700">
-                    <Mail className="w-4 h-4 mr-2" />
-                    Send Now
-                  </Button>
-                </div>
-              </div>
-            )}
           </div>
         </TabsContent>
 
