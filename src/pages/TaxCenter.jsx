@@ -492,19 +492,24 @@ export default function TaxCenter() {
   // Build tax lots from buy transactions, accounting for sales
   // Only include transactions from TAXABLE accounts (exclude 401k, IRA, etc.)
   const taxLots = useMemo(() => {
-    const buyTxs = allTransactions.filter(t => t.type === 'buy' && t.asset_ticker === 'BTC' && isTaxableTransaction(t));
-    const sellTxs = allTransactions.filter(t => t.type === 'sell' && t.asset_ticker === 'BTC' && isTaxableTransaction(t));
+    // Group by asset ticker to process each separately
+    const allTickers = [...new Set(allTransactions.map(t => t.asset_ticker))];
+    const allLots = [];
     
-    // Calculate total sold quantity
-    const totalSold = sellTxs.reduce((sum, t) => sum + (t.quantity || 0), 0);
-    
-    // Sort buys by date for FIFO tracking (we'll use this to reduce quantities)
-    const sortedBuys = [...buyTxs].sort((a, b) => new Date(a.date) - new Date(b.date));
-    
-    // Track remaining quantity per lot after sales (using FIFO for simplicity)
-    let remainingSold = totalSold;
-    
-    return sortedBuys.map(tx => {
+    for (const ticker of allTickers) {
+      const buyTxs = allTransactions.filter(t => t.type === 'buy' && t.asset_ticker === ticker && isTaxableTransaction(t));
+      const sellTxs = allTransactions.filter(t => t.type === 'sell' && t.asset_ticker === ticker && isTaxableTransaction(t));
+      
+      // Calculate total sold quantity for this ticker
+      const totalSold = sellTxs.reduce((sum, t) => sum + (t.quantity || 0), 0);
+      
+      // Sort buys by date for FIFO tracking (we'll use this to reduce quantities)
+      const sortedBuys = [...buyTxs].sort((a, b) => new Date(a.date) - new Date(b.date));
+      
+      // Track remaining quantity per lot after sales (using FIFO for simplicity)
+      let remainingSold = totalSold;
+      
+      const tickerLots = sortedBuys.map(tx => {
       let remainingQuantity = tx.quantity || 0;
       
       // Reduce this lot's quantity by sold amount (FIFO)
@@ -528,20 +533,25 @@ export default function TaxCenter() {
       const accountType = tx.account_type || holding?.account_type || 'taxable';
       const taxTreatment = getTaxTreatment(accountType);
       
-      return {
-        ...tx,
-        originalQuantity: tx.quantity,
-        remainingQuantity,
-        currentValue,
-        costBasis,
-        unrealizedGain,
-        unrealizedGainPercent: costBasis > 0 ? (unrealizedGain / costBasis) * 100 : 0,
-        isLongTerm,
-        daysSincePurchase,
-        accountType,
-        taxTreatment,
-      };
-    }).filter(lot => lot.remainingQuantity > 0);
+        return {
+          ...tx,
+          originalQuantity: tx.quantity,
+          remainingQuantity,
+          currentValue,
+          costBasis,
+          unrealizedGain,
+          unrealizedGainPercent: costBasis > 0 ? (unrealizedGain / costBasis) * 100 : 0,
+          isLongTerm,
+          daysSincePurchase,
+          accountType,
+          taxTreatment,
+        };
+      }).filter(lot => lot.remainingQuantity > 0);
+      
+      allLots.push(...tickerLots);
+    }
+    
+    return allLots;
   }, [allTransactions, currentPrice, holdings]);
 
   // Sort lots by different methods
@@ -700,8 +710,13 @@ export default function TaxCenter() {
   const longTermGains = sellTxs.filter(t => t.holding_period === 'long_term').reduce((sum, t) => sum + (t.realized_gain_loss || 0), 0);
   const totalRealized = shortTermGains + longTermGains;
   
-  // Total BTC from holdings
-  const totalBtcHeld = taxLots.reduce((sum, lot) => sum + lot.remainingQuantity, 0);
+  // Total assets from taxable holdings (grouped by ticker)
+  const totalAssetsByTicker = taxLots.reduce((acc, lot) => {
+    if (!acc[lot.asset_ticker]) acc[lot.asset_ticker] = 0;
+    acc[lot.asset_ticker] += lot.remainingQuantity;
+    return acc;
+  }, {});
+  const totalBtcHeld = totalAssetsByTicker.BTC || 0;
 
   // Get brackets based on filing status and selected year
   const { brackets: currentBrackets, standardDeductions } = getTaxDataForYear(selectedYear);
@@ -1147,12 +1162,12 @@ export default function TaxCenter() {
 
         <div className="card-premium rounded-xl p-5 border border-zinc-800/50">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs text-zinc-500 uppercase tracking-wider">Taxable BTC</span>
+            <span className="text-xs text-zinc-500 uppercase tracking-wider">Taxable Assets</span>
             <div className="p-1.5 rounded-lg bg-orange-400/10">
               <Receipt className="w-4 h-4 text-orange-400" />
             </div>
           </div>
-          <p className="text-2xl font-bold text-orange-400">{totalBtcHeld.toFixed(4)}</p>
+          <p className="text-2xl font-bold text-orange-400">{Object.keys(totalAssetsByTicker).length}</p>
           <p className="text-xs text-zinc-500 mt-1">{taxLots.length} taxable lots</p>
         </div>
       </div>
@@ -1199,8 +1214,8 @@ export default function TaxCenter() {
                 <p className="text-xs text-zinc-500">On {sellTxs.length} sales</p>
               </div>
               <div className="p-4 rounded-xl bg-zinc-800/30">
-                <p className="text-sm text-zinc-500">BTC Holdings</p>
-                <p className="text-xl font-bold text-orange-400">{totalBtcHeld.toFixed(4)} BTC</p>
+                <p className="text-sm text-zinc-500">Taxable Holdings</p>
+                <p className="text-xl font-bold text-orange-400">{Object.keys(totalAssetsByTicker).length} assets</p>
                 <p className="text-xs text-zinc-500">{taxLots.length} lots</p>
               </div>
             </div>
@@ -1281,7 +1296,7 @@ export default function TaxCenter() {
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h3 className="font-semibold">Tax Lots (Unrealized)</h3>
-                <p className="text-sm text-zinc-500">Total: {totalBtcHeld.toFixed(8)} BTC remaining</p>
+                <p className="text-sm text-zinc-500">{taxLots.length} taxable lots across {Object.keys(totalAssetsByTicker).length} assets</p>
               </div>
               <Select value={lotSortOrder} onValueChange={setLotSortOrder}>
                 <SelectTrigger className="w-36 bg-zinc-800 border-zinc-700 h-9 text-sm">
@@ -1320,12 +1335,16 @@ export default function TaxCenter() {
                   };
                   const isTaxable = lot.taxTreatment === 'taxable';
                   
+                  const holding = holdings.find(h => h.ticker === lot.asset_ticker);
+                  const isCrypto = holding?.asset_type === 'crypto' || COINGECKO_IDS[lot.asset_ticker];
+                  const displayQty = isCrypto ? lot.remainingQuantity.toFixed(8) : lot.remainingQuantity.toFixed(2);
+                  
                   return (
                   <div key={lot.id} className="p-4 rounded-xl bg-zinc-800/30 border border-zinc-800">
                     <div className="flex items-start justify-between mb-3">
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
-                          <p className="font-medium">{lot.remainingQuantity.toFixed(8)} BTC</p>
+                          <p className="font-medium">{displayQty} {lot.asset_ticker}</p>
                           {lot.originalQuantity !== lot.remainingQuantity && (
                             <span className="text-xs text-zinc-500">(of {lot.originalQuantity} original)</span>
                           )}
@@ -1589,7 +1608,7 @@ export default function TaxCenter() {
         <TabsContent value="harvest-loss">
           <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
             <h3 className="font-semibold mb-2">Tax Loss Harvesting</h3>
-            <p className="text-sm text-zinc-400 mb-6">Sell lots at a loss to offset gains. Watch for wash sales!</p>
+            <p className="text-sm text-zinc-400 mb-6">Sell taxable lots at a loss to offset gains. Watch for wash sales (30-day rule)!</p>
             
             {harvestLossOpportunities.length > 0 && (
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 p-4 rounded-xl bg-zinc-800/30 border border-zinc-700/50 mb-6">
@@ -1636,12 +1655,15 @@ export default function TaxCenter() {
                   const lotFees = lotValue * (avgFeePercent / 100);
                   const lotTaxSavings = Math.abs(lot.unrealizedGain) * effectiveSTCGRate;
                   const lotNetBenefit = lotTaxSavings - lotFees;
+                  const holding = holdings.find(h => h.ticker === lot.asset_ticker);
+                  const isCrypto = holding?.asset_type === 'crypto' || COINGECKO_IDS[lot.asset_ticker];
+                  const displayQty = isCrypto ? lot.remainingQuantity.toFixed(8) : lot.remainingQuantity.toFixed(2);
                   
                   return (
                     <div key={lot.id} className={cn("p-4 rounded-xl bg-zinc-800/30", lotNetBenefit > 0 ? "border border-emerald-400/20" : "border border-zinc-700/50")}>
                       <div className="flex items-start justify-between mb-3">
                         <div>
-                          <p className="font-medium text-zinc-100">{lot.remainingQuantity.toFixed(8)} BTC</p>
+                          <p className="font-medium text-zinc-100">{displayQty} {lot.asset_ticker}</p>
                           <p className="text-sm text-zinc-400">Bought @ ${(lot.price_per_unit || 0).toLocaleString()} • Now ${currentPrice.toLocaleString()}</p>
                         </div>
                         <div className="text-right">
@@ -1665,8 +1687,8 @@ export default function TaxCenter() {
                           </p>
                         </div>
                       </div>
-                      {lot.asset_ticker !== 'BTC' && !COINGECKO_IDS[lot.asset_ticker] && (
-                        <p className="text-xs text-amber-400 mt-2">⚠️ Selling and rebuying within 30 days creates a wash sale</p>
+                      {!COINGECKO_IDS[lot.asset_ticker] && (
+                        <p className="text-xs text-amber-400 mt-2">⚠️ Wash sale rule: Can't rebuy within 30 days</p>
                       )}
                     </div>
                   );
@@ -1735,13 +1757,16 @@ export default function TaxCenter() {
                   const lotFees = lot.currentValue * (avgFeePercent / 100);
                   const lotFutureTaxSavings = lot.unrealizedGain * 0.15; // Future 15% LTCG avoided
                   const lotNetBenefit = canHarvestGainsTaxFree ? lotFutureTaxSavings - lotFees : -lotFees;
+                  const holding = holdings.find(h => h.ticker === lot.asset_ticker);
+                  const isCrypto = holding?.asset_type === 'crypto' || COINGECKO_IDS[lot.asset_ticker];
+                  const displayQty = isCrypto ? lot.remainingQuantity.toFixed(8) : lot.remainingQuantity.toFixed(2);
                   
                   return (
                     <div key={lot.id} className={cn("p-4 rounded-xl bg-zinc-800/30", canHarvestGainsTaxFree && lotNetBenefit > 0 && "border border-emerald-400/30")}>
                       <div className="flex items-start justify-between mb-3">
                         <div>
                           <div className="flex items-center gap-2">
-                            <p className="font-medium text-zinc-100">{lot.remainingQuantity.toFixed(8)} BTC</p>
+                            <p className="font-medium text-zinc-100">{displayQty} {lot.asset_ticker}</p>
                             <Badge className="bg-emerald-400/20 text-emerald-400 border-0">Long-term</Badge>
                             {canHarvestGainsTaxFree && lotNetBenefit > 0 && (
                               <Badge className="bg-emerald-400/20 text-emerald-400 border-0">Recommended</Badge>
