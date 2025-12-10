@@ -1882,9 +1882,11 @@ export default function FinancialPlan() {
                               {!p.isRetired && p.yearSavingsForTooltip !== 0 && (
                                 <div className="pt-2 mt-2 border-t border-zinc-700">
                                   <p className={`font-medium ${p.yearSavingsForTooltip > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                    Annual Net Cash Flow: ${p.yearSavingsForTooltip.toLocaleString()}
+                                    {p.yearSavingsForTooltip > 0 ? 'Total Annual Inflow:' : 'Total Annual Outflow:'} ${Math.abs(p.yearSavingsForTooltip).toLocaleString()}
                                   </p>
-                                  <p className="text-[10px] text-zinc-500 mt-1">From income minus current spending</p>
+                                  <p className="text-[10px] text-zinc-500 mt-1">
+                                    {p.yearSavingsForTooltip > 0 ? 'To Portfolio' : 'From Portfolio'}
+                                  </p>
                                 </div>
                               )}
                               {p.debtPayoffs && p.debtPayoffs.length > 0 && (
