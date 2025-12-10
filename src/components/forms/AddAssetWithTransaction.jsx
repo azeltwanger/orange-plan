@@ -48,7 +48,7 @@ export default function AddAssetWithTransaction({
     quantity: '',
     date: new Date().toISOString().split('T')[0],
     price_per_unit: '',
-    exchange_or_wallet: '',
+    exchange_or_wallet: 'other',
     trading_fee: '',
   }]);
 
@@ -133,7 +133,7 @@ export default function AddAssetWithTransaction({
       quantity: '',
       date: new Date().toISOString().split('T')[0],
       price_per_unit: '',
-      exchange_or_wallet: '',
+      exchange_or_wallet: 'other',
       trading_fee: '',
     }]);
     setIncludeTransaction(true);
@@ -158,7 +158,7 @@ export default function AddAssetWithTransaction({
       quantity: '',
       date: new Date().toISOString().split('T')[0],
       price_per_unit: assetData.ticker === 'BTC' ? btcPrice : '',
-      exchange_or_wallet: lots[lots.length - 1]?.exchange_or_wallet || '',
+      exchange_or_wallet: lots[lots.length - 1]?.exchange_or_wallet || 'other',
       trading_fee: '',
     }]);
   };
