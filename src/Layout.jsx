@@ -14,7 +14,8 @@ import {
         X,
         Zap,
         RefreshCw,
-        DollarSign
+        DollarSign,
+        Settings
       } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
@@ -30,6 +31,10 @@ const navItems = [
   { name: 'Tax Strategy', icon: Receipt, page: 'TaxCenter', description: 'Optimize your taxes' },
   { name: 'Liabilities', icon: Scale, page: 'Liabilities', description: 'Debt management' },
   { name: 'Estate Planning', icon: Shield, page: 'EstateSecurity', description: 'Inheritance & security' },
+];
+
+const settingsItems = [
+  { name: 'Settings', icon: Settings, page: 'Settings', description: 'Account & subscription' },
 ];
 
 export default function Layout({ children, currentPageName }) {
@@ -347,9 +352,44 @@ export default function Layout({ children, currentPageName }) {
                     )}
                   </div>
                 </Link>
-              );
-            })}
-          </nav>
+                );
+                })}
+
+                <div className="pt-4 mt-4 border-t border-zinc-800/30">
+                <p className={cn("px-4 text-[10px] font-semibold uppercase tracking-widest mb-4", darkMode ? "text-zinc-600" : "text-gray-400")}>Account</p>
+                {settingsItems.map((item) => {
+                const isActive = currentPageName === item.page;
+                return (
+                  <Link
+                    key={item.page}
+                    to={createPageUrl(item.page)}
+                    onClick={() => setSidebarOpen(false)}
+                    className={cn(
+                      "flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-all duration-200 group",
+                      isActive 
+                        ? darkMode ? "sidebar-item-active text-orange-400" : "bg-orange-50 text-orange-600 border-l-2 border-orange-500"
+                        : darkMode 
+                          ? "text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/30"
+                          : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                    )}
+                  >
+                    <item.icon className={cn(
+                      "w-5 h-5 transition-colors",
+                      isActive 
+                        ? darkMode ? "text-orange-400" : "text-orange-600" 
+                        : darkMode ? "text-zinc-600 group-hover:text-zinc-400" : "text-gray-500 group-hover:text-gray-700"
+                    )} />
+                    <div className="flex-1">
+                      <span className="font-medium">{item.name}</span>
+                      {isActive && (
+                        <p className={cn("text-[10px] mt-0.5", darkMode ? "text-zinc-500" : "text-gray-400")}>{item.description}</p>
+                      )}
+                    </div>
+                  </Link>
+                );
+                })}
+                </div>
+                </nav>
 
           {/* Footer - Live Data */}
           <div className={cn("p-4 border-t space-y-3", darkMode ? "border-zinc-800/30" : "border-gray-200")}>

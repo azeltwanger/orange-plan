@@ -12,6 +12,7 @@ import FeeAnalysis from './pages/FeeAnalysis';
 import Pricing from './pages/Pricing';
 import Scenarios from './pages/Scenarios';
 import Features from './pages/Features';
+import Settings from './pages/Settings';
 import __Layout from './Layout.jsx';
 
 
@@ -30,6 +31,7 @@ export const PAGES = {
     "Pricing": Pricing,
     "Scenarios": Scenarios,
     "Features": Features,
+    "Settings": Settings,
 }
 
 export const pagesConfig = {
