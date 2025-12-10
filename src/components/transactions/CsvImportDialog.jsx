@@ -296,7 +296,7 @@ export default function CsvImportDialog({ open, onClose }) {
   };
 
   const mappedPreviewData = useMemo(() => {
-    if (csvData.length === 0 || Object.keys(mapping).length === 0) return [];
+    if (!csvData || csvData.length === 0 || Object.keys(mapping).length === 0) return [];
     return csvData.map(row => {
       const previewRow = {};
       for (const field of TRANSACTION_FIELDS) {
@@ -644,7 +644,7 @@ export default function CsvImportDialog({ open, onClose }) {
                         ))}
                       </SelectContent>
                     </Select>
-                    {mapping[field.key] && csvData[0] && (
+                    {mapping[field.key] && csvData.length > 0 && csvData[0] && csvData[0][mapping[field.key]] !== undefined && (
                       <p className="text-xs text-zinc-500">
                         Example: <span className="font-mono text-zinc-400">{csvData[0][mapping[field.key]]}</span>
                       </p>
