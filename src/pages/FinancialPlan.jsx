@@ -402,8 +402,8 @@ export default function FinancialPlan() {
   const taxableGrossIncome = Math.max(0, grossAnnualIncome - currentStandardDeduction);
   const estimatedIncomeTax = calculateProgressiveIncomeTax(taxableGrossIncome, filingStatus, currentYear);
 
-  // Annual net cash flow = grossAnnualIncome - estimatedIncomeTax - currentAnnualSpending (CAN be negative)
-  const annualSavings = grossAnnualIncome - estimatedIncomeTax - currentAnnualSpending;
+  // Annual net cash flow = grossAnnualIncome - estimatedIncomeTax - currentAnnualSpending - debtPayments (CAN be negative)
+  const annualSavings = grossAnnualIncome - estimatedIncomeTax - currentAnnualSpending - (monthlyDebtPayments * 12);
 
   // Mutations
   const createGoal = useMutation({
@@ -2002,6 +2002,14 @@ export default function FinancialPlan() {
                                       )}
                                     </div>
                                   )}
+                                  {p.debtPayments > 0 && (
+                                    <div className="text-xs space-y-0.5 text-zinc-400 mb-1">
+                                      <div className="flex justify-between">
+                                        <span>• Debt Payments:</span>
+                                        <span className="text-zinc-300">${(p.debtPayments).toLocaleString()}</span>
+                                      </div>
+                                    </div>
+                                  )}
                                   {p.taxesPaid > 0 && (
                                     <div className="text-xs flex justify-between text-rose-400 mb-1">
                                       <span>• Taxes Paid:</span>
@@ -2015,7 +2023,7 @@ export default function FinancialPlan() {
                                     </div>
                                   )}
                                   <p className={`font-medium ${p.yearWithdrawal > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
-                                    Total Annual Outflow: ${((p.retirementSpendingOnly || 0) + (p.yearGoalWithdrawal || 0) + (p.taxesPaid || 0) + (p.penaltyPaid || 0)).toLocaleString()}
+                                    Total Annual Outflow: ${((p.retirementSpendingOnly || 0) + (p.yearGoalWithdrawal || 0) + (p.debtPayments || 0) + (p.taxesPaid || 0) + (p.penaltyPaid || 0)).toLocaleString()}
                                   </p>
                                   <div className="text-xs space-y-0.5 text-zinc-400 mt-2 pt-2 border-t border-zinc-700/50">
                                     <p className="text-zinc-300 font-medium mb-1">Withdrawal Sources:</p>
