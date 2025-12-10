@@ -1003,7 +1003,7 @@ export default function FinancialPlan() {
         accountTotal: Math.round(accountTotal),
         canAccessPenaltyFree: currentAge + i >= PENALTY_FREE_AGE,
         penaltyPaid: isRetired ? Math.round(penaltyPaid) : 0,
-        taxesPaid: isRetired ? Math.round(taxesPaid) : 0,
+        taxesPaid: Math.round(taxesPaid),
         netWithdrawal: isRetired ? Math.round(totalWithdrawalForTaxCalculation - taxesPaid - penaltyPaid) : 0,
         // Withdrawal breakdown by account type
         withdrawFromTaxable: isRetired ? Math.round(withdrawFromTaxable) : 0,
