@@ -583,16 +583,10 @@ export default function EstateSecurity() {
           <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">Estate Planning</h1>
           <p className="text-zinc-500 mt-1">Custody, inheritance, and recovery protocols</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={handleDownloadProtocol} className="bg-transparent border-zinc-700">
-            <Download className="w-4 h-4 mr-2" />
-            Export Protocol
-          </Button>
-          <Button onClick={() => { setEditingItem(null); resetForm(); setFormData(prev => ({ ...prev, item_type: 'custody_location', asset_type: 'btc' })); setFormOpen(true); }} className="brand-gradient text-white font-semibold hover:opacity-90 shadow-lg shadow-orange-500/20">
-            <Plus className="w-4 h-4 mr-2" />
-            Add BTC Custody
-          </Button>
-        </div>
+        <Button variant="outline" onClick={handleDownloadProtocol} className="bg-transparent border-zinc-700">
+          <Download className="w-4 h-4 mr-2" />
+          Export Protocol
+        </Button>
       </div>
 
       {/* Dead Man's Switch Banner */}
