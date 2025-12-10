@@ -408,8 +408,10 @@ export default function EstateSecurity() {
   const totalOtherAssetsValue = otherAssets.reduce((sum, a) => sum + (a.asset_value || 0), 0);
 
   // Calculate total estate value (BTC + other manual assets + auto-synced holdings)
-  const totalHoldingsValue = nonBtcHoldings.reduce((sum, h) => sum + (h.quantity * (h.current_price || 0)), 0);
-  const totalEstateValue = (totalCustodyBtc * currentPrice) + totalOtherAssetsValue + totalHoldingsValue;
+  const totalBtcHoldingsValue = btcHoldings.reduce((sum, h) => sum + (h.quantity * (h.current_price || 0)), 0);
+  const totalNonBtcHoldingsValue = nonBtcHoldings.reduce((sum, h) => sum + (h.quantity * (h.current_price || 0)), 0);
+  const totalHoldingsValue = totalBtcHoldingsValue + totalNonBtcHoldingsValue;
+  const totalEstateValue = totalBtcHoldingsValue + totalOtherAssetsValue + totalNonBtcHoldingsValue;
 
   // Generate protocol report
   const generateProtocolReport = () => {
@@ -419,9 +421,10 @@ export default function EstateSecurity() {
 
     report += `ESTATE SUMMARY\n`;
     report += `${'-'.repeat(40)}\n`;
-    report += `Bitcoin Holdings: ${totalCustodyBtc.toFixed(8)} BTC ($${(totalCustodyBtc * currentPrice).toLocaleString()})\n`;
-    report += `Other Assets Value: $${totalOtherAssetsValue.toLocaleString()}\n`;
-    report += `Total Estate Value: $${((totalCustodyBtc * currentPrice) + totalOtherAssetsValue).toLocaleString()}\n\n`;
+    report += `Bitcoin Holdings: ${totalBtcHoldings.toFixed(8)} BTC ($${totalBtcHoldingsValue.toLocaleString()})\n`;
+    report += `Other Holdings (Stocks/Bonds/etc.): $${totalNonBtcHoldingsValue.toLocaleString()}\n`;
+    report += `Other Manual Assets: $${totalOtherAssetsValue.toLocaleString()}\n`;
+    report += `Total Net Worth: $${totalEstateValue.toLocaleString()}\n\n`;
 
     report += `BENEFICIARIES\n`;
     report += `${'-'.repeat(40)}\n`;
@@ -1270,19 +1273,23 @@ export default function EstateSecurity() {
             {/* Estate Summary */}
             <div className="p-5 rounded-xl bg-orange-500/5 border border-orange-500/20 mb-6">
               <h4 className="font-semibold text-orange-400 mb-4">Estate Summary</h4>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div>
-                  <p className="text-sm text-zinc-500">Bitcoin Holdings</p>
-                  <p className="text-xl font-bold text-orange-400">{totalCustodyBtc.toFixed(4)} BTC</p>
-                  <p className="text-sm text-zinc-500">${(totalCustodyBtc * currentPrice).toLocaleString()}</p>
+                  <p className="text-sm text-zinc-500">Bitcoin</p>
+                  <p className="text-xl font-bold text-orange-400">{totalBtcHoldings.toFixed(4)} BTC</p>
+                  <p className="text-sm text-zinc-500">${totalBtcHoldingsValue.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-zinc-500">Stocks/Bonds</p>
+                  <p className="text-xl font-bold text-blue-400">${totalNonBtcHoldingsValue.toLocaleString()}</p>
                 </div>
                 <div>
                   <p className="text-sm text-zinc-500">Other Assets</p>
                   <p className="text-xl font-bold text-emerald-400">${totalOtherAssetsValue.toLocaleString()}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-zinc-500">Total Estate Value</p>
-                  <p className="text-xl font-bold text-white">${((totalCustodyBtc * currentPrice) + totalOtherAssetsValue).toLocaleString()}</p>
+                  <p className="text-sm text-zinc-500">Total Net Worth</p>
+                  <p className="text-xl font-bold text-white">${totalEstateValue.toLocaleString()}</p>
                 </div>
               </div>
             </div>
