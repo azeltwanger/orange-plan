@@ -1917,12 +1917,55 @@ export default function FinancialPlan() {
                               </div>
                               {!p.isRetired && p.yearSavingsForTooltip !== 0 && (
                                 <div className="pt-2 mt-2 border-t border-zinc-700">
+                                  {p.yearSavingsForTooltip < 0 && (
+                                    <div className="text-xs space-y-0.5 text-zinc-400 mb-1">
+                                      <div className="flex justify-between">
+                                        <span>• Current Spending:</span>
+                                        <span className="text-zinc-300">${(currentAnnualSpending * Math.pow(1 + inflationRate / 100, p.age - currentAge)).toLocaleString(undefined, {maximumFractionDigits: 0})}</span>
+                                      </div>
+                                      {p.debtPayments > 0 && (
+                                        <div className="flex justify-between">
+                                          <span>• Debt Payments:</span>
+                                          <span className="text-zinc-300">${p.debtPayments.toLocaleString()}</span>
+                                        </div>
+                                      )}
+                                      {p.taxesPaid > 0 && (
+                                        <div className="flex justify-between">
+                                          <span>• Taxes Paid:</span>
+                                          <span className="text-rose-400">-${p.taxesPaid.toLocaleString()}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
                                   <p className={`font-medium ${p.yearSavingsForTooltip > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                                     {p.yearSavingsForTooltip > 0 ? 'Total Annual Inflow:' : 'Total Annual Outflow:'} ${Math.abs(p.yearSavingsForTooltip).toLocaleString()}
                                   </p>
-                                  <p className="text-[10px] text-zinc-500 mt-1">
-                                    {p.yearSavingsForTooltip > 0 ? 'To Portfolio' : 'From Portfolio'}
-                                  </p>
+                                  {p.yearSavingsForTooltip < 0 && (p.withdrawFromTaxable > 0 || p.withdrawFromTaxDeferred > 0 || p.withdrawFromTaxFree > 0) && (
+                                    <div className="text-xs space-y-0.5 text-zinc-400 mt-2 pt-2 border-t border-zinc-700/50">
+                                      <p className="text-zinc-300 font-medium mb-1">Withdrawal Sources:</p>
+                                      {p.withdrawFromTaxable > 0 && (
+                                        <div className="flex justify-between">
+                                          <span>From Taxable:</span>
+                                          <span className="text-emerald-400">${p.withdrawFromTaxable.toLocaleString()}</span>
+                                        </div>
+                                      )}
+                                      {p.withdrawFromTaxDeferred > 0 && (
+                                        <div className="flex justify-between">
+                                          <span>From Tax-Deferred:</span>
+                                          <span className="text-amber-400">${p.withdrawFromTaxDeferred.toLocaleString()}</span>
+                                        </div>
+                                      )}
+                                      {p.withdrawFromTaxFree > 0 && (
+                                        <div className="flex justify-between">
+                                          <span>From Tax-Free:</span>
+                                          <span className="text-purple-400">${p.withdrawFromTaxFree.toLocaleString()}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                  {p.yearSavingsForTooltip > 0 && (
+                                    <p className="text-[10px] text-zinc-500 mt-1">To Portfolio</p>
+                                  )}
                                 </div>
                               )}
                               {p.debtPayoffs && p.debtPayoffs.length > 0 && (
