@@ -241,9 +241,7 @@ export default function EstateSecurity() {
         reminder_frequency: editingItem.reminder_frequency || '',
         last_verified: editingItem.last_verified || '',
         notes: editingItem.notes || '',
-        access_instructions: editingItem.description?.includes('access:') 
-          ? editingItem.description.split('access:')[1] 
-          : '',
+        access_instructions: editingItem.access_instructions || '',
         linked_holding_id: editingItem.linked_holding_id || '',
       });
     }
@@ -275,7 +273,6 @@ export default function EstateSecurity() {
     const descParts = [];
     if (formData.asset_type) descParts.push(`asset_type:${formData.asset_type}`);
     if (formData.usd_value) descParts.push(`usd_value:${formData.usd_value}`);
-    if (formData.access_instructions) descParts.push(`access:${formData.access_instructions}`);
     
     const data = {
       ...formData,
@@ -284,6 +281,7 @@ export default function EstateSecurity() {
       security_score: securityScore,
       beneficiary_allocation_percent: parseFloat(formData.beneficiary_allocation_percent) || 0,
       linked_holding_id: formData.linked_holding_id || null,
+      access_instructions: formData.access_instructions || '',
     };
     
     if (editingItem) {
@@ -480,14 +478,11 @@ export default function EstateSecurity() {
         const usdValue = asset.description?.includes('usd_value:') 
           ? parseFloat(asset.description.split('usd_value:')[1]?.split(',')[0]) || 0 
           : 0;
-        const accessInstructions = asset.description?.includes('access:') 
-          ? asset.description.split('access:')[1] 
-          : '';
-        
+
         report += `\n☐ ${asset.title}\n`;
         report += `   Type: ${ASSET_TYPES.find(t => t.value === assetType)?.label || assetType}\n`;
         if (usdValue) report += `   Value: $${usdValue.toLocaleString()}\n`;
-        if (accessInstructions) report += `   Access: ${accessInstructions}\n`;
+        if (asset.access_instructions) report += `   Access: ${asset.access_instructions}\n`;
         if (asset.notes) report += `   Notes: ${asset.notes}\n`;
       });
     }
@@ -1358,10 +1353,7 @@ export default function EstateSecurity() {
                     const usdValue = asset.description?.includes('usd_value:') 
                       ? parseFloat(asset.description.split('usd_value:')[1]?.split(',')[0]) || 0 
                       : 0;
-                    const accessInstructions = asset.description?.includes('access:') 
-                      ? asset.description.split('access:')[1] 
-                      : '';
-                    
+
                     return (
                       <div key={asset.id} className="p-4 rounded-lg bg-zinc-800/50">
                         <div className="flex items-center gap-2 mb-2">
@@ -1369,8 +1361,8 @@ export default function EstateSecurity() {
                           <p className="font-medium">{asset.title}</p>
                           <span className="text-emerald-400 ml-auto">${usdValue.toLocaleString()}</span>
                         </div>
-                        {accessInstructions && (
-                          <p className="text-sm text-zinc-400 ml-6">Access: {accessInstructions}</p>
+                        {asset.access_instructions && (
+                          <p className="text-sm text-zinc-400 ml-6">Access: {asset.access_instructions}</p>
                         )}
                       </div>
                     );
