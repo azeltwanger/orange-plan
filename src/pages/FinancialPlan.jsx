@@ -9,7 +9,8 @@ import {
   getIncomeTaxRate, 
   getLTCGRate, 
   calculateProgressiveIncomeTax,
-  estimateRetirementWithdrawalTaxes 
+  estimateRetirementWithdrawalTaxes,
+  getTaxDataForYear 
 } from '@/components/tax/taxCalculations';
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -394,8 +395,15 @@ export default function FinancialPlan() {
     return sum;
   }, 0);
 
-  // Annual net cash flow = grossAnnualIncome - currentAnnualSpending (CAN be negative)
-  const annualSavings = grossAnnualIncome - currentAnnualSpending;
+  // Calculate annual net cash flow after estimated income tax
+  const currentYear = new Date().getFullYear();
+  const { standardDeductions } = getTaxDataForYear(currentYear);
+  const currentStandardDeduction = standardDeductions[filingStatus] || standardDeductions.single;
+  const taxableGrossIncome = Math.max(0, grossAnnualIncome - currentStandardDeduction);
+  const estimatedIncomeTax = calculateProgressiveIncomeTax(taxableGrossIncome, filingStatus, currentYear);
+
+  // Annual net cash flow = grossAnnualIncome - estimatedIncomeTax - currentAnnualSpending (CAN be negative)
+  const annualSavings = grossAnnualIncome - estimatedIncomeTax - currentAnnualSpending;
 
   // Mutations
   const createGoal = useMutation({
