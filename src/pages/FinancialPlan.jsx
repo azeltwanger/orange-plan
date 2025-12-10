@@ -1011,7 +1011,7 @@ export default function FinancialPlan() {
         withdrawFromTaxFree: isRetired ? Math.round(withdrawFromTaxFree) : 0,
         // Debt tracking
         totalDebt: Math.round(totalDebt),
-        debtPayments: i === 0 ? Math.round(monthlyDebtPayments * 12) : Math.round(actualAnnualDebtPayments), // Actual debt payments made this year
+        debtPayments: Math.round(actualAnnualDebtPayments), // Actual debt payments made this year
         encumberedBtc: totalEncumberedBtc,
         releasedBtc: totalReleasedBtc,
         liquidBtc: Math.max(0, (runningBtc / (btcPrice || 97000)) - totalEncumberedBtc),
