@@ -134,6 +134,8 @@ export default function EstateSecurity() {
     notes: '',
     access_instructions: '',
     linked_holding_id: '',
+    linked_account_id: '',
+    asset_value: 0,
   });
 
   const [protocolForm, setProtocolForm] = useState({
@@ -209,7 +211,7 @@ export default function EstateSecurity() {
       item_type: 'custody_location', title: '', description: '', custody_type: 'hardware_wallet',
       asset_type: 'btc', btc_amount: '', usd_value: '', beneficiary_name: '', beneficiary_allocation_percent: '', 
       beneficiary_email: '', reminder_date: '', reminder_frequency: '', last_verified: '', notes: '', access_instructions: '',
-      linked_holding_id: '',
+      linked_holding_id: '', linked_account_id: '', asset_value: 0,
     });
   };
 
@@ -243,6 +245,8 @@ export default function EstateSecurity() {
         notes: editingItem.notes || '',
         access_instructions: editingItem.access_instructions || '',
         linked_holding_id: editingItem.linked_holding_id || '',
+        linked_account_id: editingItem.linked_account_id || '',
+        asset_value: editingItem.asset_value || 0,
       });
     }
   }, [editingItem]);
@@ -281,6 +285,8 @@ export default function EstateSecurity() {
       security_score: securityScore,
       beneficiary_allocation_percent: parseFloat(formData.beneficiary_allocation_percent) || 0,
       linked_holding_id: formData.linked_holding_id || null,
+      linked_account_id: formData.linked_account_id || null,
+      asset_value: parseFloat(formData.asset_value) || 0,
       access_instructions: formData.access_instructions || '',
     };
     
@@ -468,16 +474,22 @@ export default function EstateSecurity() {
       }
     });
 
-    if (otherAssets.length > 0) {
+    // Include both manually added other assets and account-linked estate items
+    const allOtherAssetItems = estateItems.filter(i => 
+      (i.item_type === 'custody_location' && i.description?.includes('asset_type:') && !i.description?.includes('asset_type:btc')) ||
+      i.item_type === 'other_asset'
+    );
+
+    if (allOtherAssetItems.length > 0) {
       report += `\n\nOTHER ASSETS CHECKLIST\n`;
       report += `${'-'.repeat(40)}\n`;
-      otherAssets.forEach(asset => {
+      allOtherAssetItems.forEach(asset => {
         const assetType = asset.description?.includes('asset_type:') 
           ? asset.description.split('asset_type:')[1]?.split(',')[0] 
           : 'other';
         const usdValue = asset.description?.includes('usd_value:') 
           ? parseFloat(asset.description.split('usd_value:')[1]?.split(',')[0]) || 0 
-          : 0;
+          : asset.asset_value || 0;
 
         report += `\n☐ ${asset.title}\n`;
         report += `   Type: ${ASSET_TYPES.find(t => t.value === assetType)?.label || assetType}\n`;
@@ -914,6 +926,9 @@ export default function EstateSecurity() {
                     const accountType = account?.account_type?.replace(/_/g, ' ') || '';
                     const totalValue = accountHoldings.reduce((sum, h) => sum + (h.quantity * (h.current_price || 0)), 0);
                     
+                    // Find estate item linked to this account
+                    const linkedEstateItem = estateItems.find(item => item.linked_account_id === accountId);
+                    
                     return (
                       <div key={accountId} className="p-4 rounded-xl bg-zinc-800/30 border border-zinc-800">
                         <div className="flex items-center justify-between mb-3">
@@ -926,8 +941,38 @@ export default function EstateSecurity() {
                               <p className="text-xs text-zinc-500 capitalize">{accountType}</p>
                             </div>
                           </div>
-                          <p className="text-lg font-semibold text-emerald-400">${totalValue.toLocaleString()}</p>
+                          <div className="flex items-center gap-3">
+                            <p className="text-lg font-semibold text-emerald-400">${totalValue.toLocaleString()}</p>
+                            <button 
+                              onClick={() => {
+                                if (linkedEstateItem) {
+                                  setEditingItem(linkedEstateItem);
+                                  setFormOpen(true);
+                                } else {
+                                  resetForm();
+                                  setFormData(prev => ({ 
+                                    ...prev, 
+                                    item_type: 'other_asset',
+                                    title: accountName,
+                                    linked_account_id: accountId,
+                                    asset_value: totalValue
+                                  }));
+                                  setFormOpen(true);
+                                }
+                              }}
+                              className="p-2 rounded-lg hover:bg-zinc-700 text-zinc-400"
+                              title="Add access instructions"
+                            >
+                              {linkedEstateItem ? <Pencil className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                            </button>
+                          </div>
                         </div>
+                        {linkedEstateItem?.access_instructions && (
+                          <div className="mb-3 p-3 rounded-lg bg-zinc-800/50">
+                            <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">Access Instructions</p>
+                            <p className="text-sm text-zinc-300">{linkedEstateItem.access_instructions}</p>
+                          </div>
+                        )}
                         <div className="space-y-2">
                           {accountHoldings.map(h => (
                             <div key={h.id} className="flex items-center justify-between p-2 rounded-lg bg-zinc-800/50">
@@ -1336,20 +1381,20 @@ export default function EstateSecurity() {
             </div>
 
             {/* Other Assets Checklist */}
-            {otherAssets.length > 0 && (
+            {(otherAssets.length > 0 || otherAssetEstateItems.length > 0) && (
               <div className="p-5 rounded-xl bg-zinc-800/30 border border-zinc-800">
                 <h4 className="font-semibold mb-4 flex items-center gap-2">
                   <Package className="w-5 h-5 text-blue-400" />
                   Other Assets Checklist
                 </h4>
                 <div className="space-y-3">
-                  {otherAssets.map(asset => {
+                  {[...otherAssets, ...otherAssetEstateItems].map(asset => {
                     const assetType = asset.description?.includes('asset_type:') 
                       ? asset.description.split('asset_type:')[1]?.split(',')[0] 
                       : 'other';
                     const usdValue = asset.description?.includes('usd_value:') 
                       ? parseFloat(asset.description.split('usd_value:')[1]?.split(',')[0]) || 0 
-                      : 0;
+                      : asset.asset_value || 0;
 
                     return (
                       <div key={asset.id} className="p-4 rounded-lg bg-zinc-800/50">
@@ -1469,6 +1514,19 @@ export default function EstateSecurity() {
                     <Input type="date" value={formData.last_verified} onChange={(e) => setFormData({ ...formData, last_verified: e.target.value })} className="bg-zinc-900 border-zinc-800" />
                   </div>
                 )}
+              </>
+            )}
+
+            {formData.item_type === 'other_asset' && (
+              <>
+                <div className="space-y-2">
+                  <Label className="text-zinc-400">Estimated Value (USD)</Label>
+                  <Input type="number" value={formData.asset_value} onChange={(e) => setFormData({ ...formData, asset_value: e.target.value })} placeholder="100000" className="bg-zinc-900 border-zinc-800" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-zinc-400">Access Instructions</Label>
+                  <Textarea value={formData.access_instructions} onChange={(e) => setFormData({ ...formData, access_instructions: e.target.value })} placeholder="Account login details, contact person, recovery process..." className="bg-zinc-900 border-zinc-800 resize-none" rows={3} />
+                </div>
               </>
             )}
 
