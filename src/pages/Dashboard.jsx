@@ -217,6 +217,9 @@ export default function Dashboard() {
       return sum + (b.amount * (freq[b.frequency] || 1));
     }, 0);
 
+  const monthlyDebtPayments = liabilities.reduce((sum, l) => sum + (l.monthly_payment || 0), 0);
+  const totalMonthlyOutflow = monthlyExpenses + monthlyDebtPayments;
+
   const securityScores = estateItems
     .filter(e => e.item_type === 'custody_location' && e.security_score)
     .map(e => e.security_score);
@@ -292,7 +295,7 @@ export default function Dashboard() {
       {/* Quick Stats */}
       <QuickStats
         monthlyIncome={monthlyIncome}
-        monthlyExpenses={monthlyExpenses}
+        monthlyExpenses={totalMonthlyOutflow}
         dcaProgress={0}
         liabilityRatio={totalAssets > 0 ? (totalLiabilities / totalAssets) * 100 : 0}
         securityScore={Math.round(avgSecurityScore)}
