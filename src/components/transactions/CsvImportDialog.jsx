@@ -592,7 +592,7 @@ export default function CsvImportDialog({ open, onClose }) {
                 <p className="text-xs text-zinc-500 mt-3">Recommended: Trading Fee, Exchange/Wallet | Optional: Transaction ID, Notes</p>
                 <div className="mt-4 pt-3 border-t border-zinc-700">
                   <p className="text-sm text-zinc-300">
-                    <span className="text-orange-400 font-semibold">💡 Important:</span> Upload one CSV per account type. You'll select the account in the next step.
+                    <span className="text-orange-400 font-semibold">💡 Important:</span> Upload one CSV per account. You will select the specific account and its tax type in the next step.
                   </p>
                 </div>
               </div>
