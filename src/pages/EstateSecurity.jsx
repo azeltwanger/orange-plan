@@ -124,7 +124,7 @@ export default function EstateSecurity() {
     custody_type: 'hardware_wallet',
     asset_type: 'btc',
     btc_amount: '',
-    usd_value: '',
+    asset_value: '',
     beneficiary_name: '',
     beneficiary_allocation_percent: '',
     beneficiary_email: '',
@@ -135,7 +135,6 @@ export default function EstateSecurity() {
     access_instructions: '',
     linked_holding_id: '',
     linked_account_id: '',
-    asset_value: 0,
   });
 
   const [protocolForm, setProtocolForm] = useState({
@@ -209,9 +208,9 @@ export default function EstateSecurity() {
   const resetForm = () => {
     setFormData({
       item_type: 'custody_location', title: '', description: '', custody_type: 'hardware_wallet',
-      asset_type: 'btc', btc_amount: '', usd_value: '', beneficiary_name: '', beneficiary_allocation_percent: '', 
+      asset_type: 'btc', btc_amount: '', asset_value: '', beneficiary_name: '', beneficiary_allocation_percent: '', 
       beneficiary_email: '', reminder_date: '', reminder_frequency: '', last_verified: '', notes: '', access_instructions: '',
-      linked_holding_id: '', linked_account_id: '', asset_value: 0,
+      linked_holding_id: '', linked_account_id: '',
     });
   };
 
@@ -229,13 +228,9 @@ export default function EstateSecurity() {
         title: editingItem.title || '',
         description: editingItem.description || '',
         custody_type: editingItem.custody_type || 'hardware_wallet',
-        asset_type: editingItem.description?.includes('asset_type:') 
-          ? editingItem.description.split('asset_type:')[1]?.split(',')[0] 
-          : 'btc',
+        asset_type: editingItem.asset_type || 'btc',
         btc_amount: editingItem.btc_amount || '',
-        usd_value: editingItem.description?.includes('usd_value:') 
-          ? editingItem.description.split('usd_value:')[1]?.split(',')[0] 
-          : '',
+        asset_value: editingItem.asset_value || '',
         beneficiary_name: editingItem.beneficiary_name || '',
         beneficiary_allocation_percent: editingItem.beneficiary_allocation_percent || '',
         beneficiary_email: editingItem.beneficiary_email || '',
@@ -246,7 +241,6 @@ export default function EstateSecurity() {
         access_instructions: editingItem.access_instructions || '',
         linked_holding_id: editingItem.linked_holding_id || '',
         linked_account_id: editingItem.linked_account_id || '',
-        asset_value: editingItem.asset_value || 0,
       });
     }
   }, [editingItem]);
@@ -273,20 +267,14 @@ export default function EstateSecurity() {
       ? SECURITY_SCORES[formData.custody_type] || 5
       : 0;
     
-    // Store extra fields in description for non-BTC assets
-    const descParts = [];
-    if (formData.asset_type) descParts.push(`asset_type:${formData.asset_type}`);
-    if (formData.usd_value) descParts.push(`usd_value:${formData.usd_value}`);
-    
     const data = {
       ...formData,
-      description: descParts.join(','),
       btc_amount: parseFloat(formData.btc_amount) || 0,
+      asset_value: parseFloat(formData.asset_value) || 0,
       security_score: securityScore,
       beneficiary_allocation_percent: parseFloat(formData.beneficiary_allocation_percent) || 0,
       linked_holding_id: formData.linked_holding_id || null,
       linked_account_id: formData.linked_account_id || null,
-      asset_value: parseFloat(formData.asset_value) || 0,
       access_instructions: formData.access_instructions || '',
     };
     
@@ -313,9 +301,8 @@ export default function EstateSecurity() {
 
   // Filter by type
   const custodyLocations = estateItems.filter(i => i.item_type === 'custody_location');
-  const btcCustody = custodyLocations.filter(c => !c.description?.includes('asset_type:') || c.description?.includes('asset_type:btc'));
-  const manualOtherAssets = custodyLocations.filter(c => c.description?.includes('asset_type:') && !c.description?.includes('asset_type:btc'));
-  const otherAssetEstateItems = estateItems.filter(i => i.item_type === 'other_asset');
+  const btcCustody = custodyLocations.filter(c => c.asset_type === 'btc' || !c.asset_type);
+  const otherAssets = estateItems.filter(i => i.item_type === 'other_asset');
   const beneficiaries = estateItems.filter(i => i.item_type === 'beneficiary');
   const reminders = estateItems.filter(i => i.item_type === 'reminder');
   const protocols = estateItems.filter(i => i.item_type === 'security_protocol');
@@ -340,14 +327,14 @@ export default function EstateSecurity() {
     return acc;
   }, {});
 
-  // Combine manual other assets with auto-synced holdings
-  const otherAssets = manualOtherAssets;
+  // Get estate items linked to accounts (for displaying instructions on auto-synced accounts)
+  const accountEstateItems = otherAssets.filter(i => i.linked_account_id);
 
   // Calculate weighted security score - only for BTC custody (crypto assets that need security scoring)
   const btcCustodyForScore = custodyLocations.filter(c => 
-    !c.description?.includes('asset_type:') || c.description?.includes('asset_type:btc') || c.description?.includes('asset_type:crypto_other')
+    c.asset_type === 'btc' || c.asset_type === 'crypto_other' || !c.asset_type
   );
-  const totalCustodyBtc = btcCustodyForScore.reduce((sum, c) => sum + (c.btc_amount || 0), 0);
+  const totalCustodyBtc = btcCustody.reduce((sum, c) => sum + (c.btc_amount || 0), 0);
   
   // Calculate total value for weighting (BTC value + other crypto value)
   const getTotalValueForScoring = () => {
@@ -417,13 +404,8 @@ export default function EstateSecurity() {
     }
   };
 
-  // Calculate total value of other assets
-  const totalOtherAssetsValue = otherAssets.reduce((sum, a) => {
-    const usdVal = a.description?.includes('usd_value:') 
-      ? parseFloat(a.description.split('usd_value:')[1]?.split(',')[0]) || 0 
-      : 0;
-    return sum + usdVal;
-  }, 0);
+  // Calculate total value of other assets (manually added, not auto-synced from holdings)
+  const totalOtherAssetsValue = otherAssets.reduce((sum, a) => sum + (a.asset_value || 0), 0);
 
   // Calculate total estate value (BTC + other manual assets + auto-synced holdings)
   const totalHoldingsValue = nonBtcHoldings.reduce((sum, h) => sum + (h.quantity * (h.current_price || 0)), 0);
@@ -474,28 +456,35 @@ export default function EstateSecurity() {
       }
     });
 
-    // Include both manually added other assets and account-linked estate items
-    const allOtherAssetItems = estateItems.filter(i => 
-      (i.item_type === 'custody_location' && i.description?.includes('asset_type:') && !i.description?.includes('asset_type:btc')) ||
-      i.item_type === 'other_asset'
-    );
-
-    if (allOtherAssetItems.length > 0) {
+    // Add manually added other assets
+    if (otherAssets.length > 0) {
       report += `\n\nOTHER ASSETS CHECKLIST\n`;
       report += `${'-'.repeat(40)}\n`;
-      allOtherAssetItems.forEach(asset => {
-        const assetType = asset.description?.includes('asset_type:') 
-          ? asset.description.split('asset_type:')[1]?.split(',')[0] 
-          : 'other';
-        const usdValue = asset.description?.includes('usd_value:') 
-          ? parseFloat(asset.description.split('usd_value:')[1]?.split(',')[0]) || 0 
-          : asset.asset_value || 0;
-
+      otherAssets.forEach(asset => {
         report += `\n☐ ${asset.title}\n`;
-        report += `   Type: ${ASSET_TYPES.find(t => t.value === assetType)?.label || assetType}\n`;
-        if (usdValue) report += `   Value: $${usdValue.toLocaleString()}\n`;
+        report += `   Type: ${ASSET_TYPES.find(t => t.value === asset.asset_type)?.label || asset.asset_type || 'other'}\n`;
+        if (asset.asset_value) report += `   Value: $${asset.asset_value.toLocaleString()}\n`;
         if (asset.access_instructions) report += `   Access: ${asset.access_instructions}\n`;
         if (asset.notes) report += `   Notes: ${asset.notes}\n`;
+      });
+    }
+
+    // Add auto-synced holdings with instructions
+    const accountsWithInstructions = accountEstateItems.filter(item => item.access_instructions);
+    if (accountsWithInstructions.length > 0) {
+      if (otherAssets.length === 0) {
+        report += `\n\nOTHER ASSETS CHECKLIST\n`;
+        report += `${'-'.repeat(40)}\n`;
+      }
+      accountsWithInstructions.forEach(item => {
+        const account = accounts.find(a => a.id === item.linked_account_id);
+        const accountHoldings = nonBtcHoldings.filter(h => h.account_id === item.linked_account_id);
+        const totalValue = accountHoldings.reduce((sum, h) => sum + (h.quantity * (h.current_price || 0)), 0);
+        
+        report += `\n☐ ${account?.name || 'Account'}\n`;
+        report += `   Type: Investment Account\n`;
+        if (totalValue) report += `   Value: $${totalValue.toLocaleString()}\n`;
+        if (item.access_instructions) report += `   Access: ${item.access_instructions}\n`;
       });
     }
 
@@ -909,7 +898,7 @@ export default function EstateSecurity() {
                 <h3 className="font-semibold">Other Assets</h3>
                 <p className="text-sm text-zinc-500">Auto-synced from your holdings, grouped by account</p>
               </div>
-              <Button size="sm" onClick={() => { resetForm(); setFormData(prev => ({ ...prev, item_type: 'custody_location', asset_type: 'stocks' })); setFormOpen(true); }} className="brand-gradient text-white">
+              <Button size="sm" onClick={() => { resetForm(); setFormData(prev => ({ ...prev, item_type: 'other_asset', asset_type: 'stocks' })); setFormOpen(true); }} className="brand-gradient text-white">
                 <Plus className="w-4 h-4 mr-2" />
                 Add Other Asset
               </Button>
@@ -925,9 +914,7 @@ export default function EstateSecurity() {
                     const accountName = account?.name || (accountId === 'unassigned' ? 'Unassigned' : 'Unknown Account');
                     const accountType = account?.account_type?.replace(/_/g, ' ') || '';
                     const totalValue = accountHoldings.reduce((sum, h) => sum + (h.quantity * (h.current_price || 0)), 0);
-                    
-                    // Find estate item linked to this account
-                    const linkedEstateItem = estateItems.find(item => item.linked_account_id === accountId);
+                    const existingItem = accountEstateItems.find(i => i.linked_account_id === accountId);
                     
                     return (
                       <div key={accountId} className="p-4 rounded-xl bg-zinc-800/30 border border-zinc-800">
@@ -943,36 +930,39 @@ export default function EstateSecurity() {
                           </div>
                           <div className="flex items-center gap-3">
                             <p className="text-lg font-semibold text-emerald-400">${totalValue.toLocaleString()}</p>
-                            <button 
-                              onClick={() => {
-                                if (linkedEstateItem) {
-                                  setEditingItem(linkedEstateItem);
-                                  setFormOpen(true);
-                                } else {
-                                  resetForm();
+                            {existingItem ? (
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                className="bg-transparent border-zinc-700 text-xs"
+                                onClick={() => { setEditingItem(existingItem); setFormOpen(true); }}
+                              >
+                                <Pencil className="w-3 h-3 mr-1" />
+                                Edit Instructions
+                              </Button>
+                            ) : (
+                              <Button 
+                                size="sm" 
+                                className="brand-gradient text-white text-xs"
+                                onClick={() => { 
+                                  resetForm(); 
                                   setFormData(prev => ({ 
                                     ...prev, 
-                                    item_type: 'other_asset',
+                                    item_type: 'other_asset', 
+                                    asset_type: 'stocks',
                                     title: accountName,
                                     linked_account_id: accountId,
-                                    asset_value: totalValue
-                                  }));
-                                  setFormOpen(true);
-                                }
-                              }}
-                              className="p-2 rounded-lg hover:bg-zinc-700 text-zinc-400"
-                              title="Add access instructions"
-                            >
-                              {linkedEstateItem ? <Pencil className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-                            </button>
+                                    asset_value: totalValue.toString()
+                                  })); 
+                                  setFormOpen(true); 
+                                }}
+                              >
+                                <Plus className="w-3 h-3 mr-1" />
+                                Add Instructions
+                              </Button>
+                            )}
                           </div>
                         </div>
-                        {linkedEstateItem?.access_instructions && (
-                          <div className="mb-3 p-3 rounded-lg bg-zinc-800/50">
-                            <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">Access Instructions</p>
-                            <p className="text-sm text-zinc-300">{linkedEstateItem.access_instructions}</p>
-                          </div>
-                        )}
                         <div className="space-y-2">
                           {accountHoldings.map(h => (
                             <div key={h.id} className="flex items-center justify-between p-2 rounded-lg bg-zinc-800/50">
@@ -988,6 +978,12 @@ export default function EstateSecurity() {
                             </div>
                           ))}
                         </div>
+                        {existingItem?.access_instructions && (
+                          <div className="mt-3 p-3 rounded-lg bg-zinc-800/50">
+                            <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">Access Instructions</p>
+                            <p className="text-sm text-zinc-300">{existingItem.access_instructions}</p>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -995,84 +991,67 @@ export default function EstateSecurity() {
               </div>
             )}
 
-            {/* Manually Added Assets */}
-            {otherAssets.length > 0 && (
+            {/* Manually Added Assets (not linked to accounts) */}
+            {otherAssets.filter(a => !a.linked_account_id).length > 0 && (
               <div className="mb-6">
                 <h4 className="text-sm font-medium text-zinc-400 mb-3">Manually Added</h4>
-              </div>
-            )}
+                <div className="space-y-4">
+                  {otherAssets.filter(a => !a.linked_account_id).map((asset) => {
+                    return (
+                      <div key={asset.id} className="p-5 rounded-xl bg-zinc-800/30 hover:bg-zinc-800/50 transition-colors border border-zinc-800">
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-xl bg-blue-400/10 flex items-center justify-center border border-blue-400/20">
+                              {asset.asset_type === 'stocks' && <TrendingUp className="w-6 h-6 text-blue-400" />}
+                              {asset.asset_type === 'real_estate' && <Building2 className="w-6 h-6 text-purple-400" />}
+                              {asset.asset_type === 'bank' && <Wallet className="w-6 h-6 text-emerald-400" />}
+                              {asset.asset_type === 'retirement' && <PiggyBank className="w-6 h-6 text-amber-400" />}
+                              {asset.asset_type === 'crypto_other' && <Coins className="w-6 h-6 text-orange-400" />}
+                              {asset.asset_type === 'insurance' && <Shield className="w-6 h-6 text-cyan-400" />}
+                              {(asset.asset_type === 'other' || !asset.asset_type) && <Package className="w-6 h-6 text-zinc-400" />}
+                            </div>
+                            <div>
+                              <h4 className="font-semibold text-lg">{asset.title}</h4>
+                              <span className="text-sm text-zinc-500">{ASSET_TYPES.find(t => t.value === asset.asset_type)?.label || 'Other Asset'}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => { setEditingItem(asset); setFormOpen(true); }} className="p-2 rounded-lg hover:bg-zinc-700">
+                              <Pencil className="w-4 h-4 text-zinc-400" />
+                            </button>
+                            <button onClick={() => deleteItem.mutate(asset.id)} className="p-2 rounded-lg hover:bg-rose-600/50">
+                              <Trash2 className="w-4 h-4 text-zinc-400" />
+                            </button>
+                          </div>
+                        </div>
 
-            {otherAssets.length === 0 && Object.keys(holdingsByAccount).length === 0 ? (
-              <div className="text-center py-12">
-                <Package className="w-12 h-12 text-zinc-700 mx-auto mb-4" />
-                <p className="text-zinc-500">No other assets yet</p>
-                <p className="text-xs text-zinc-600 mt-2">Add holdings in Summary or manually add assets here</p>
-              </div>
-            ) : otherAssets.length === 0 ? null : (
-              <div className="space-y-4">
-                {otherAssets.map((asset) => {
-                  const assetType = asset.description?.includes('asset_type:') 
-                    ? asset.description.split('asset_type:')[1]?.split(',')[0] 
-                    : 'other';
-                  const usdValue = asset.description?.includes('usd_value:') 
-                    ? parseFloat(asset.description.split('usd_value:')[1]?.split(',')[0]) || 0 
-                    : 0;
-                  const assetInfo = ASSET_TYPES.find(t => t.value === assetType);
-                  
-                  return (
-                    <div key={asset.id} className="p-5 rounded-xl bg-zinc-800/30 hover:bg-zinc-800/50 transition-colors border border-zinc-800">
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 rounded-xl bg-blue-400/10 flex items-center justify-center border border-blue-400/20">
-                            {assetType === 'stocks' && <TrendingUp className="w-6 h-6 text-blue-400" />}
-                            {assetType === 'real_estate' && <Building2 className="w-6 h-6 text-purple-400" />}
-                            {assetType === 'bank' && <Wallet className="w-6 h-6 text-emerald-400" />}
-                            {assetType === 'retirement' && <PiggyBank className="w-6 h-6 text-amber-400" />}
-                            {assetType === 'crypto_other' && <Coins className="w-6 h-6 text-orange-400" />}
-                            {assetType === 'insurance' && <Shield className="w-6 h-6 text-cyan-400" />}
-                            {(assetType === 'other' || !assetType) && <Package className="w-6 h-6 text-zinc-400" />}
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-sm text-zinc-500">Estimated Value</p>
+                            <p className="text-lg font-semibold text-emerald-400">${(asset.asset_value || 0).toLocaleString()}</p>
                           </div>
                           <div>
-                            <h4 className="font-semibold text-lg">{asset.title}</h4>
-                            <span className="text-sm text-zinc-500">{assetInfo?.label || 'Other Asset'}</span>
+                            <p className="text-sm text-zinc-500">Last Verified</p>
+                            <p className="text-lg font-semibold text-zinc-300">
+                              {asset.last_verified ? format(new Date(asset.last_verified), 'MMM d, yyyy') : 'Never'}
+                            </p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <button onClick={() => { setEditingItem(asset); setFormOpen(true); }} className="p-2 rounded-lg hover:bg-zinc-700">
-                            <Pencil className="w-4 h-4 text-zinc-400" />
-                          </button>
-                          <button onClick={() => deleteItem.mutate(asset.id)} className="p-2 rounded-lg hover:bg-rose-600/50">
-                            <Trash2 className="w-4 h-4 text-zinc-400" />
-                          </button>
-                        </div>
+
+                        {asset.access_instructions && (
+                          <div className="mt-4 p-3 rounded-lg bg-zinc-800/50">
+                            <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">Access Instructions</p>
+                            <p className="text-sm text-zinc-300">{asset.access_instructions}</p>
+                          </div>
+                        )}
+
+                        {asset.notes && (
+                          <p className="mt-3 text-sm text-zinc-500">{asset.notes}</p>
+                        )}
                       </div>
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <p className="text-sm text-zinc-500">Estimated Value</p>
-                          <p className="text-lg font-semibold text-emerald-400">${usdValue.toLocaleString()}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-zinc-500">Last Verified</p>
-                          <p className="text-lg font-semibold text-zinc-300">
-                            {asset.last_verified ? format(new Date(asset.last_verified), 'MMM d, yyyy') : 'Never'}
-                          </p>
-                        </div>
-                      </div>
-
-                      {asset.access_instructions && (
-                        <div className="mt-4 p-3 rounded-lg bg-zinc-800/50">
-                          <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">Access Instructions</p>
-                          <p className="text-sm text-zinc-300">{asset.access_instructions}</p>
-                        </div>
-                      )}
-
-                      {asset.notes && (
-                        <p className="mt-3 text-sm text-zinc-500">{asset.notes}</p>
-                      )}
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
             )}
 
@@ -1381,30 +1360,48 @@ export default function EstateSecurity() {
             </div>
 
             {/* Other Assets Checklist */}
-            {(otherAssets.length > 0 || otherAssetEstateItems.length > 0) && (
+            {(otherAssets.length > 0 || accountEstateItems.length > 0) && (
               <div className="p-5 rounded-xl bg-zinc-800/30 border border-zinc-800">
                 <h4 className="font-semibold mb-4 flex items-center gap-2">
                   <Package className="w-5 h-5 text-blue-400" />
-                  Other Assets Checklist
+                  Other Assets Recovery Checklist
                 </h4>
                 <div className="space-y-3">
-                  {[...otherAssets, ...otherAssetEstateItems].map(asset => {
-                    const assetType = asset.description?.includes('asset_type:') 
-                      ? asset.description.split('asset_type:')[1]?.split(',')[0] 
-                      : 'other';
-                    const usdValue = asset.description?.includes('usd_value:') 
-                      ? parseFloat(asset.description.split('usd_value:')[1]?.split(',')[0]) || 0 
-                      : asset.asset_value || 0;
-
+                  {/* Manually added assets (not linked to accounts) */}
+                  {otherAssets.filter(a => !a.linked_account_id).map(asset => {
                     return (
                       <div key={asset.id} className="p-4 rounded-lg bg-zinc-800/50">
                         <div className="flex items-center gap-2 mb-2">
                           <CheckCircle className="w-4 h-4 text-zinc-600" />
                           <p className="font-medium">{asset.title}</p>
-                          <span className="text-emerald-400 ml-auto">${usdValue.toLocaleString()}</span>
+                          <span className="text-emerald-400 ml-auto">${(asset.asset_value || 0).toLocaleString()}</span>
                         </div>
-                        {asset.access_instructions && (
+                        {asset.access_instructions ? (
                           <p className="text-sm text-zinc-400 ml-6">Access: {asset.access_instructions}</p>
+                        ) : (
+                          <p className="text-sm text-amber-400 ml-6">⚠️ No access instructions provided</p>
+                        )}
+                      </div>
+                    );
+                  })}
+                  
+                  {/* Auto-synced accounts with instructions */}
+                  {accountEstateItems.map(item => {
+                    const account = accounts.find(a => a.id === item.linked_account_id);
+                    const accountHoldings = nonBtcHoldings.filter(h => h.account_id === item.linked_account_id);
+                    const totalValue = accountHoldings.reduce((sum, h) => sum + (h.quantity * (h.current_price || 0)), 0);
+                    
+                    return (
+                      <div key={item.id} className="p-4 rounded-lg bg-zinc-800/50">
+                        <div className="flex items-center gap-2 mb-2">
+                          <CheckCircle className="w-4 h-4 text-zinc-600" />
+                          <p className="font-medium">{account?.name || item.title}</p>
+                          <span className="text-emerald-400 ml-auto">${totalValue.toLocaleString()}</span>
+                        </div>
+                        {item.access_instructions ? (
+                          <p className="text-sm text-zinc-400 ml-6">Access: {item.access_instructions}</p>
+                        ) : (
+                          <p className="text-sm text-amber-400 ml-6">⚠️ No access instructions provided</p>
                         )}
                       </div>
                     );
@@ -1444,7 +1441,6 @@ export default function EstateSecurity() {
 
                 {formData.asset_type === 'btc' ? (
                   <>
-                    {/* Link to existing BTC holding */}
                     {btcHoldings.length > 0 && (
                       <div className="space-y-2">
                         <Label className="text-zinc-400">Link to Holding (Optional)</Label>
@@ -1498,16 +1494,15 @@ export default function EstateSecurity() {
                   <>
                     <div className="space-y-2">
                       <Label className="text-zinc-400">Estimated Value (USD)</Label>
-                      <Input type="number" value={formData.usd_value} onChange={(e) => setFormData({ ...formData, usd_value: e.target.value })} placeholder="100000" className="bg-zinc-900 border-zinc-800" />
+                      <Input type="number" value={formData.asset_value} onChange={(e) => setFormData({ ...formData, asset_value: e.target.value })} placeholder="100000" className="bg-zinc-900 border-zinc-800" />
                     </div>
                     <div className="space-y-2">
                       <Label className="text-zinc-400">Access Instructions</Label>
-                      <Input value={formData.access_instructions} onChange={(e) => setFormData({ ...formData, access_instructions: e.target.value })} placeholder="Account #, login info location, contact person..." className="bg-zinc-900 border-zinc-800" />
+                      <Textarea value={formData.access_instructions} onChange={(e) => setFormData({ ...formData, access_instructions: e.target.value })} placeholder="Account #, login info location, contact person..." className="bg-zinc-900 border-zinc-800 resize-none" rows={3} />
                     </div>
                   </>
                 )}
 
-                {/* Only show Last Verified for BTC and other crypto assets */}
                 {(formData.asset_type === 'btc' || formData.asset_type === 'crypto_other') && (
                   <div className="space-y-2">
                     <Label className="text-zinc-400">Last Verified</Label>
@@ -1520,12 +1515,30 @@ export default function EstateSecurity() {
             {formData.item_type === 'other_asset' && (
               <>
                 <div className="space-y-2">
+                  <Label className="text-zinc-400">Asset Type</Label>
+                  <Select value={formData.asset_type} onValueChange={(value) => setFormData({ ...formData, asset_type: value })}>
+                    <SelectTrigger className="bg-zinc-900 border-zinc-800"><SelectValue /></SelectTrigger>
+                    <SelectContent className="bg-zinc-900 border-zinc-800 text-zinc-100">
+                      {ASSET_TYPES.filter(t => t.value !== 'btc').map(type => (
+                        <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
                   <Label className="text-zinc-400">Estimated Value (USD)</Label>
                   <Input type="number" value={formData.asset_value} onChange={(e) => setFormData({ ...formData, asset_value: e.target.value })} placeholder="100000" className="bg-zinc-900 border-zinc-800" />
                 </div>
+
                 <div className="space-y-2">
                   <Label className="text-zinc-400">Access Instructions</Label>
-                  <Textarea value={formData.access_instructions} onChange={(e) => setFormData({ ...formData, access_instructions: e.target.value })} placeholder="Account login details, contact person, recovery process..." className="bg-zinc-900 border-zinc-800 resize-none" rows={3} />
+                  <Textarea value={formData.access_instructions} onChange={(e) => setFormData({ ...formData, access_instructions: e.target.value })} placeholder="Login details, account numbers, location of documents..." className="bg-zinc-900 border-zinc-800 resize-none" rows={3} />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-zinc-400">Last Verified</Label>
+                  <Input type="date" value={formData.last_verified} onChange={(e) => setFormData({ ...formData, last_verified: e.target.value })} className="bg-zinc-900 border-zinc-800" />
                 </div>
               </>
             )}
