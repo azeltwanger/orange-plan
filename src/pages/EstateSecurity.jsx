@@ -972,9 +972,6 @@ export default function EstateSecurity() {
                   const usdValue = asset.description?.includes('usd_value:') 
                     ? parseFloat(asset.description.split('usd_value:')[1]?.split(',')[0]) || 0 
                     : 0;
-                  const accessInstructions = asset.description?.includes('access:') 
-                    ? asset.description.split('access:')[1] 
-                    : '';
                   const assetInfo = ASSET_TYPES.find(t => t.value === assetType);
                   
                   return (
@@ -1018,10 +1015,10 @@ export default function EstateSecurity() {
                         </div>
                       </div>
 
-                      {accessInstructions && (
+                      {asset.access_instructions && (
                         <div className="mt-4 p-3 rounded-lg bg-zinc-800/50">
                           <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">Access Instructions</p>
-                          <p className="text-sm text-zinc-300">{accessInstructions}</p>
+                          <p className="text-sm text-zinc-300">{asset.access_instructions}</p>
                         </div>
                       )}
 
