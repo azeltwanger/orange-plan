@@ -387,10 +387,26 @@ export default function FinancialPlan() {
     return () => clearTimeout(timeoutId);
   }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, otherCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, grossAnnualIncome]);
 
-  // Calculate annual net cash flow: grossAnnualIncome - currentAnnualSpending (can be negative)
+  // Calculate accurate debt payments for current month
+  const currentMonthForDebt = new Date().getMonth();
+  const currentYearForDebt = new Date().getFullYear();
   const monthlyDebtPayments = liabilities.reduce((sum, liability) => {
-    if (liability.monthly_payment && liability.monthly_payment > 0) {
-      return sum + liability.monthly_payment;
+    if (!liability.monthly_payment || liability.monthly_payment <= 0) return sum;
+    
+    let remainingBalance = liability.current_balance || 0;
+    const hasInterest = liability.interest_rate && liability.interest_rate > 0;
+    
+    for (let month = 0; month <= currentMonthForDebt; month++) {
+      if (remainingBalance <= 0) break;
+      
+      const monthlyInterest = hasInterest ? remainingBalance * (liability.interest_rate / 100 / 12) : 0;
+      const principalPayment = Math.max(0, liability.monthly_payment - monthlyInterest);
+      const paymentThisMonth = Math.min(remainingBalance + monthlyInterest, liability.monthly_payment);
+      
+      if (month === currentMonthForDebt) {
+        return sum + paymentThisMonth;
+      }
+      remainingBalance = Math.max(0, remainingBalance - principalPayment);
     }
     return sum;
   }, 0);
