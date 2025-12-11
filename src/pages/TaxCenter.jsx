@@ -2071,7 +2071,14 @@ export default function TaxCenter() {
                             <div className="flex-1">
                               <div className="flex items-center justify-between">
                                 <div>
-                                  <p className="text-sm font-medium">{lot.remainingQuantity.toFixed(8)} BTC available</p>
+                                  <p className="text-sm font-medium">
+                                    {(() => {
+                                      const holding = holdings.find(h => h.ticker === lot.asset_ticker);
+                                      const isCrypto = holding?.asset_type === 'crypto' || COINGECKO_IDS[lot.asset_ticker];
+                                      const displayQty = isCrypto ? lot.remainingQuantity.toFixed(8) : lot.remainingQuantity.toFixed(2);
+                                      return `${displayQty} ${lot.asset_ticker} available`;
+                                    })()}
+                                  </p>
                                   <p className="text-xs text-zinc-500">
                                     Bought {lot.date ? format(new Date(lot.date), 'MMM d, yyyy') : 'Unknown'} @ ${(lot.price_per_unit || 0).toLocaleString()}
                                   </p>
@@ -2127,7 +2134,14 @@ export default function TaxCenter() {
                     <div className="flex justify-between">
                       <span className="text-zinc-400">Total from selected:</span>
                       <span>
-                        {Object.values(specificLotQuantities).reduce((sum, qty) => sum + (qty || 0), 0).toFixed(8)} BTC
+                        {(() => {
+                          const totalQty = Object.values(specificLotQuantities).reduce((sum, qty) => sum + (qty || 0), 0);
+                          const firstLot = taxLots.find(l => saleForm.selected_lots.includes(l.id));
+                          const ticker = firstLot?.asset_ticker || 'BTC';
+                          const holding = holdings.find(h => h.ticker === ticker);
+                          const isCrypto = holding?.asset_type === 'crypto' || COINGECKO_IDS[ticker];
+                          return isCrypto ? `${totalQty.toFixed(8)} ${ticker}` : `${totalQty.toFixed(2)} ${ticker}`;
+                        })()}
                       </span>
                     </div>
                   </div>
