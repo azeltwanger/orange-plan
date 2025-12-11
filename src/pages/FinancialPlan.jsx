@@ -2119,16 +2119,34 @@ export default function FinancialPlan() {
                       content={(props) => {
                         const { payload } = props;
                         return (
-                          <div className="flex flex-wrap justify-center gap-4 text-xs">
-                            {payload?.map((entry, index) => (
-                              <div key={`item-${index}`} className="flex items-center gap-2">
-                                <div style={{ backgroundColor: entry.color }} className="w-3 h-3 rounded" />
-                                <span className="text-zinc-400">{entry.value}</span>
+                          <div className="space-y-3">
+                            {/* Asset types row */}
+                            <div className="flex flex-wrap justify-center gap-4 text-xs">
+                              {payload?.map((entry, index) => (
+                                <div key={`item-${index}`} className="flex items-center gap-2">
+                                  <div style={{ backgroundColor: entry.color }} className="w-3 h-3 rounded" />
+                                  <span className="text-zinc-400">{entry.value}</span>
+                                </div>
+                              ))}
+                            </div>
+                            {/* Event markers row */}
+                            <div className="flex flex-wrap justify-center gap-4 text-xs pt-2 border-t border-zinc-800/50">
+                              {goals.filter(g => !g.will_be_spent).length > 0 && (
+                                <div className="flex items-center gap-2">
+                                  <div className="w-6 h-0.5 bg-blue-400/50" style={{backgroundImage: 'repeating-linear-gradient(90deg, #60a5fa 0, #60a5fa 8px, transparent 8px, transparent 12px)'}} />
+                                  <span className="text-zinc-400">Goal Targets</span>
+                                </div>
+                              )}
+                              <div className="flex items-center gap-2">
+                                <div className="w-6 h-0.5 bg-emerald-400" style={{backgroundImage: 'repeating-linear-gradient(90deg, #10b981 0, #10b981 5px, transparent 5px, transparent 10px)'}} />
+                                <span className="text-zinc-400">Debt Payoff</span>
                               </div>
-                            ))}
-                            <div className="flex items-center gap-2">
-                              <div className="w-6 h-0.5 bg-emerald-400" style={{backgroundImage: 'repeating-linear-gradient(90deg, #10b981 0, #10b981 5px, transparent 5px, transparent 10px)'}} />
-                              <span className="text-zinc-400">Debt Payoff</span>
+                              {runOutOfMoneyYear && (
+                                <div className="flex items-center gap-2">
+                                  <div className="w-4 h-0.5 bg-red-500" />
+                                  <span className="text-rose-400">Portfolio Depleted</span>
+                                </div>
+                              )}
                             </div>
                           </div>
                         );
@@ -2193,7 +2211,13 @@ export default function FinancialPlan() {
                     {/* Debt payoff markers */}
                     {projections.filter(p => p.debtPayoffs && p.debtPayoffs.length > 0).map((p, idx) => {
                       if (p.age >= currentAge && p.age <= lifeExpectancy) {
-                        const debtNames = p.debtPayoffs.map(d => d.name).join(', ');
+                        // Truncate long names and rotate positions to avoid overlap
+                        const debtNames = p.debtPayoffs.map(d => {
+                          const name = d.name;
+                          return name.length > 15 ? name.substring(0, 12) + '...' : name;
+                        }).join(', ');
+                        const positions = ['insideBottomLeft', 'insideBottom', 'insideBottomRight'];
+                        const position = positions[idx % positions.length];
                         return (
                           <ReferenceLine 
                             key={`debt-payoff-${p.age}-${idx}`} 
@@ -2205,7 +2229,7 @@ export default function FinancialPlan() {
                               value: `✓ ${debtNames}`, 
                               fill: '#10b981', 
                               fontSize: 9, 
-                              position: 'insideBottomLeft', 
+                              position: position, 
                               offset: 10 
                             }}
                             yAxisId="left"
@@ -2217,7 +2241,13 @@ export default function FinancialPlan() {
                     {/* Liquidation event markers */}
                     {projections.filter(p => p.liquidations && p.liquidations.length > 0).map((p, idx) => {
                       if (p.age >= currentAge && p.age <= lifeExpectancy) {
-                        const liqNames = p.liquidations.map(l => l.liabilityName).join(', ');
+                        // Truncate long names and rotate positions to avoid overlap
+                        const liqNames = p.liquidations.map(l => {
+                          const name = l.liabilityName;
+                          return name.length > 15 ? name.substring(0, 12) + '...' : name;
+                        }).join(', ');
+                        const positions = ['top', 'insideTopLeft', 'insideTopRight'];
+                        const position = positions[idx % positions.length];
                         return (
                           <ReferenceLine 
                             key={`liquidation-${p.age}-${idx}`} 
@@ -2226,10 +2256,10 @@ export default function FinancialPlan() {
                             strokeWidth={2}
                             strokeOpacity={0.8}
                             label={{ 
-                              value: `⚠️ ${liqNames} Liquidated`, 
+                              value: `⚠️ ${liqNames}`, 
                               fill: '#ef4444', 
                               fontSize: 9, 
-                              position: 'insideTopLeft', 
+                              position: position, 
                               offset: 10 
                             }}
                             yAxisId="left"
@@ -2273,26 +2303,14 @@ export default function FinancialPlan() {
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
-            <div className="flex flex-wrap justify-center gap-4 mt-4 text-xs text-zinc-400">
-              {lifeEvents.length > 0 && (
+            {lifeEvents.length > 0 && (
+              <div className="flex flex-wrap justify-center gap-4 mt-4 text-xs text-zinc-400">
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-0.5 bg-rose-400/50" />
                   <span>Life Events</span>
                 </div>
-              )}
-              {goals.filter(g => !g.will_be_spent).length > 0 && (
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-0.5 bg-blue-400/50" style={{backgroundImage: 'repeating-linear-gradient(90deg, #60a5fa 0, #60a5fa 8px, transparent 8px, transparent 12px)'}} />
-                  <span>Goal Targets</span>
-                </div>
-              )}
-              {runOutOfMoneyYear && (
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-0.5 bg-red-500" />
-                  <span className="text-rose-400">Portfolio Depleted</span>
-                </div>
-              )}
-            </div>
+              </div>
+            )}
             
 
           </div>
