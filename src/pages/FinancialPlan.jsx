@@ -403,7 +403,7 @@ export default function FinancialPlan() {
   const estimatedIncomeTax = calculateProgressiveIncomeTax(taxableGrossIncome, filingStatus, currentYear);
 
   // Annual net cash flow = grossAnnualIncome - estimatedIncomeTax - currentAnnualSpending - debtPayments (CAN be negative)
-  const annualSavings = grossAnnualIncome - estimatedIncomeTax - currentAnnualSpending - (monthlyDebtPayments * 12);
+  const annualSavings = grossAnnualIncome - estimatedIncomeTax - currentAnnualSpending - annualDebtPayments;
 
   // Mutations
   const createGoal = useMutation({
@@ -2357,7 +2357,7 @@ export default function FinancialPlan() {
 
               <div className="mt-4 space-y-2">
                 <p className="text-xs text-zinc-500">
-                  💡 Your annual net cash flow of <span className={cn("font-medium", annualSavings >= 0 ? "text-emerald-400" : "text-rose-400")}>{annualSavings >= 0 ? '+' : ''}{formatNumber(annualSavings)}</span> is calculated from your Gross Annual Income, after subtracting estimated income tax ({formatNumber(estimatedIncomeTax)}), your Annual Spending (After Tax), and debt payments ({formatNumber(monthlyDebtPayments * 12)}/yr).
+                  💡 Your annual net cash flow of <span className={cn("font-medium", annualSavings >= 0 ? "text-emerald-400" : "text-rose-400")}>{annualSavings >= 0 ? '+' : ''}{formatNumber(annualSavings)}</span> is calculated from your Gross Annual Income, after subtracting estimated income tax ({formatNumber(estimatedIncomeTax)}), your Annual Spending (After Tax), and debt payments ({formatNumber(annualDebtPayments)}/yr).
                   A positive value means you are saving. A negative value means you are drawing down your portfolio.
                 </p>
               </div>
