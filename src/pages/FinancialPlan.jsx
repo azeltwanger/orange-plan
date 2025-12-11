@@ -592,11 +592,14 @@ export default function FinancialPlan() {
 
     const encumberedBtc = {}; // Track BTC locked as collateral
     const releasedBtc = {}; // Track BTC released when LTV drops below threshold
+    const liquidatedBtc = {}; // Track BTC liquidated due to LTV breach
+    const liquidationEvents = []; // Track liquidation events by year
 
     liabilities.forEach(liability => {
       if (liability.type === 'btc_collateralized' && liability.collateral_btc_amount) {
         encumberedBtc[liability.id] = liability.collateral_btc_amount;
         releasedBtc[liability.id] = 0;
+        liquidatedBtc[liability.id] = 0;
       }
     });
     
@@ -756,15 +759,42 @@ export default function FinancialPlan() {
           // If no payment and no interest, debt stays constant
         }
 
-        // Check for BTC collateral release based on LTV
+        // Check for BTC collateral release or liquidation based on LTV
         if (liability.type === 'btc_collateralized' && encumberedBtc[liability.id] > 0) {
-          const yearBtcPrice = btcPrice * Math.pow(1 + yearBtcGrowth / 100, year - currentAge);
+          const yearBtcPrice = currentPrice * Math.pow(1 + yearBtcGrowth / 100, i);
           const collateralValue = encumberedBtc[liability.id] * yearBtcPrice;
-          const currentLTV = liability.current_balance / collateralValue; // Use updated current_balance
-          const releaseLTV = (liability.collateral_release_ltv || 30) / 100;
+          const currentLTV = (liability.current_balance / collateralValue) * 100; // LTV as percentage
+          const liquidationLTV = liability.liquidation_ltv || 80;
+          const releaseLTV = liability.collateral_release_ltv || 30;
 
-          // If LTV drops below release threshold, collateral becomes liquid
-          if (currentLTV <= releaseLTV && releasedBtc[liability.id] === 0) {
+          // LIQUIDATION: If LTV exceeds liquidation threshold
+          if (currentLTV >= liquidationLTV && liquidatedBtc[liability.id] === 0) {
+            // Liquidation event - lender sells collateral to cover loan
+            const btcToLiquidate = encumberedBtc[liability.id];
+            const liquidationProceeds = btcToLiquidate * yearBtcPrice;
+            
+            // Remove collateral from portfolio
+            runningBtc = Math.max(0, runningBtc - (btcToLiquidate * yearBtcPrice));
+            
+            // Apply liquidation proceeds to debt
+            liability.current_balance = Math.max(0, liability.current_balance - liquidationProceeds);
+            
+            // Mark as liquidated
+            liquidatedBtc[liability.id] = btcToLiquidate;
+            encumberedBtc[liability.id] = 0;
+            
+            // Track liquidation event
+            liquidationEvents.push({
+              year,
+              age: currentAge + i,
+              liabilityName: liability.name,
+              btcAmount: btcToLiquidate,
+              proceeds: liquidationProceeds,
+              remainingDebt: liability.current_balance
+            });
+          }
+          // RELEASE: If LTV drops below release threshold
+          else if (currentLTV <= releaseLTV && releasedBtc[liability.id] === 0 && liquidatedBtc[liability.id] === 0) {
             releasedBtc[liability.id] = encumberedBtc[liability.id];
             encumberedBtc[liability.id] = 0;
           }
@@ -978,6 +1008,8 @@ export default function FinancialPlan() {
       // Calculate total encumbered BTC (illiquid)
       const totalEncumberedBtc = Object.values(encumberedBtc).reduce((sum, amount) => sum + amount, 0);
       const totalReleasedBtc = Object.values(releasedBtc).reduce((sum, amount) => sum + amount, 0);
+      const totalLiquidatedBtc = Object.values(liquidatedBtc).reduce((sum, amount) => sum + amount, 0);
+      const yearLiquidations = liquidationEvents.filter(e => e.year === year);
       
       let total = totalBeforeEvent + adjustedEventImpact;
       
@@ -1032,6 +1064,7 @@ export default function FinancialPlan() {
         releasedBtc: totalReleasedBtc,
         liquidBtc: Math.max(0, (runningBtc / (btcPrice || 97000)) - totalEncumberedBtc),
         debtPayoffs: debtPayoffEvents, // Array of debts paid off this year
+        liquidations: yearLiquidations, // Array of liquidations this year
         });
     }
     return data;
@@ -1099,6 +1132,7 @@ export default function FinancialPlan() {
   const endOfLifeValue = projections[projections.length - 1]?.total || 0;
   const runOutOfMoneyAge = projections.findIndex(p => p.total <= 0 && p.isRetired);
   const willRunOutOfMoney = runOutOfMoneyAge !== -1;
+  const runOutOfMoneyYear = willRunOutOfMoney ? projections[runOutOfMoneyAge]?.age : null;
   const yearsInRetirement = lifeExpectancy - retirementAge;
 
   // Calculate inflation-adjusted retirement spending need at retirement
@@ -1892,10 +1926,11 @@ export default function FinancialPlan() {
                         if (!active || !payload?.length) return null;
                         const p = payload[0]?.payload;
                         if (!p) return null;
+                        const hasLiquidation = p.liquidations && p.liquidations.length > 0;
 
                         return (
                           <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-3 text-sm min-w-[200px]">
-                            <p className="font-semibold text-zinc-200 mb-2">Age {label} {p.hasEvent ? '📅' : ''}</p>
+                            <p className="font-semibold text-zinc-200 mb-2">Age {label} {p.hasEvent ? '📅' : ''} {hasLiquidation ? '⚠️' : ''}</p>
                             <div className="space-y-1">
                               <div className="flex justify-between gap-4">
                                 <span className="text-orange-400">Bitcoin:</span>
@@ -1925,8 +1960,8 @@ export default function FinancialPlan() {
                                       <span className="text-rose-400 font-semibold">-${(p.totalDebt || 0).toLocaleString()}</span>
                                     </div>
                                     <div className="flex justify-between gap-4 mt-1 pt-1 border-t border-zinc-700/50">
-                                      <span className="text-emerald-400 font-semibold">Net Worth:</span>
-                                      <span className="text-emerald-400 font-semibold">${((p.total || 0) - (p.totalDebt || 0)).toLocaleString()}</span>
+                                      <span className={cn("font-semibold", (p.total - p.totalDebt) > 0 ? "text-emerald-400" : "text-rose-400")}>Net Worth:</span>
+                                      <span className={cn("font-semibold", (p.total - p.totalDebt) > 0 ? "text-emerald-400" : "text-rose-400")}>${((p.total || 0) - (p.totalDebt || 0)).toLocaleString()}</span>
                                     </div>
                                   </>
                                 )}
@@ -2005,10 +2040,24 @@ export default function FinancialPlan() {
                                         ✓ {d.name} ({monthName})
                                       </p>
                                     );
-                                  })}
-                                </div>
-                              )}
-                              {p.isRetired && (p.yearWithdrawal > 0 || p.yearGoalWithdrawal > 0) && (
+                                    })}
+                                    </div>
+                                    )}
+                                    {p.liquidations && p.liquidations.length > 0 && (
+                                    <div className="pt-2 mt-2 border-t border-zinc-700">
+                                    <p className="text-xs font-medium text-rose-400 mb-1">⚠️ Liquidation Event:</p>
+                                    {p.liquidations.map((liq, idx) => (
+                                    <div key={idx} className="text-[10px] text-rose-400 space-y-0.5">
+                                     <p>• {liq.liabilityName}</p>
+                                     <p className="ml-2 text-zinc-500">Liquidated: {liq.btcAmount.toFixed(4)} BTC (${liq.proceeds.toLocaleString()})</p>
+                                     {liq.remainingDebt > 0 && (
+                                       <p className="ml-2 text-zinc-500">Remaining debt: ${liq.remainingDebt.toLocaleString()}</p>
+                                     )}
+                                    </div>
+                                    ))}
+                                    </div>
+                                    )}
+                                    {p.isRetired && (p.yearWithdrawal > 0 || p.yearGoalWithdrawal > 0) && (
                                 <div className="pt-2 mt-2 border-t border-zinc-700">
                                   <div className="text-xs space-y-0.5 text-zinc-400 mb-1">
                                     <div className="flex justify-between">
@@ -2066,8 +2115,35 @@ export default function FinancialPlan() {
                         return label;
                       }}
                     />
-                    <Legend />
+                    <Legend 
+                      content={(props) => {
+                        const { payload } = props;
+                        return (
+                          <div className="flex flex-wrap justify-center gap-4 text-xs">
+                            {payload?.map((entry, index) => (
+                              <div key={`item-${index}`} className="flex items-center gap-2">
+                                <div style={{ backgroundColor: entry.color }} className="w-3 h-3 rounded" />
+                                <span className="text-zinc-400">{entry.value}</span>
+                              </div>
+                            ))}
+                            <div className="flex items-center gap-2">
+                              <div className="w-6 h-0.5 bg-emerald-400" style={{backgroundImage: 'repeating-linear-gradient(90deg, #10b981 0, #10b981 5px, transparent 5px, transparent 10px)'}} />
+                              <span className="text-zinc-400">Debt Payoff</span>
+                            </div>
+                          </div>
+                        );
+                      }}
+                    />
                     <ReferenceLine x={retirementAge} stroke="#F7931A" strokeDasharray="5 5" label={{ value: 'Retire', fill: '#F7931A', fontSize: 10 }} yAxisId="left" />
+                    {runOutOfMoneyYear && (
+                      <ReferenceLine 
+                        x={runOutOfMoneyYear} 
+                        stroke="#ef4444" 
+                        strokeWidth={2}
+                        label={{ value: '💥 Portfolio Depleted', fill: '#ef4444', fontSize: 10, position: 'top' }} 
+                        yAxisId="left" 
+                      />
+                    )}
                     {/* Life Event Reference Lines */}
                     {lifeEvents.slice(0, 5).map((event, i) => {
                       const eventAge = currentAge + (event.year - new Date().getFullYear());
@@ -2138,6 +2214,30 @@ export default function FinancialPlan() {
                       }
                       return null;
                     })}
+                    {/* Liquidation event markers */}
+                    {projections.filter(p => p.liquidations && p.liquidations.length > 0).map((p, idx) => {
+                      if (p.age >= currentAge && p.age <= lifeExpectancy) {
+                        const liqNames = p.liquidations.map(l => l.liabilityName).join(', ');
+                        return (
+                          <ReferenceLine 
+                            key={`liquidation-${p.age}-${idx}`} 
+                            x={p.age} 
+                            stroke="#ef4444"
+                            strokeWidth={2}
+                            strokeOpacity={0.8}
+                            label={{ 
+                              value: `⚠️ ${liqNames} Liquidated`, 
+                              fill: '#ef4444', 
+                              fontSize: 9, 
+                              position: 'insideTopLeft', 
+                              offset: 10 
+                            }}
+                            yAxisId="left"
+                          />
+                        );
+                      }
+                      return null;
+                    })}
                     {/* Goal target lines - only show for accumulation goals (not one-time spending) */}
                     {goalsWithProjections.filter(g => g.target_amount > 0 && !g.will_be_spent).slice(0, 3).map((goal, i) => (
                       <ReferenceLine 
@@ -2154,7 +2254,8 @@ export default function FinancialPlan() {
                     <Area type="monotone" dataKey="realEstate" stackId="1" stroke="#10b981" fill="#10b981" fillOpacity={0.3} name="Real Estate" yAxisId="left" />
                     <Area type="monotone" dataKey="stocks" stackId="1" stroke="#60a5fa" fill="#60a5fa" fillOpacity={0.3} name="Stocks" yAxisId="left" />
                     <Area type="monotone" dataKey="btc" stackId="1" stroke="#F7931A" fill="#F7931A" fillOpacity={0.5} name="Bitcoin" yAxisId="left" />
-                    <Line type="monotone" dataKey="total" stroke="#ffffff" strokeWidth={2} dot={false} name="Total" yAxisId="left" />
+                    <Line type="monotone" dataKey="total" stroke="#ffffff" strokeWidth={2} dot={false} name="Total Assets" yAxisId="left" />
+                    <Line type="monotone" dataKey="totalDebt" stroke="#ef4444" strokeWidth={2} strokeDasharray="3 3" dot={false} name="Total Debt" yAxisId="left" />
                     <Line type="monotone" dataKey="yearGoalWithdrawal" stroke="#fb923c" strokeWidth={2} strokeDasharray="4 4" dot={(props) => {
                       // Show dots for years with goal withdrawals
                       if (props.payload?.yearGoalWithdrawal > 0) {
@@ -2172,12 +2273,26 @@ export default function FinancialPlan() {
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
-            {(lifeEvents.length > 0 || goals.length > 0) && (
-              <div className="flex flex-wrap justify-center gap-4 mt-4">
-                {lifeEvents.length > 0 && <div className="flex items-center gap-2"><div className="w-3 h-0.5 bg-rose-400/50" /><span className="text-sm text-zinc-400">Life Events</span></div>}
-                {goals.length > 0 && <div className="flex items-center gap-2"><div className="w-6 h-0.5 bg-blue-400/50" style={{backgroundImage: 'repeating-linear-gradient(90deg, #60a5fa 0, #60a5fa 8px, transparent 8px, transparent 12px)'}} /><span className="text-sm text-zinc-400">Goal Targets</span></div>}
-              </div>
-            )}
+            <div className="flex flex-wrap justify-center gap-4 mt-4 text-xs text-zinc-400">
+              {lifeEvents.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-0.5 bg-rose-400/50" />
+                  <span>Life Events</span>
+                </div>
+              )}
+              {goals.filter(g => !g.will_be_spent).length > 0 && (
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-0.5 bg-blue-400/50" style={{backgroundImage: 'repeating-linear-gradient(90deg, #60a5fa 0, #60a5fa 8px, transparent 8px, transparent 12px)'}} />
+                  <span>Goal Targets</span>
+                </div>
+              )}
+              {runOutOfMoneyYear && (
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-0.5 bg-red-500" />
+                  <span className="text-rose-400">Portfolio Depleted</span>
+                </div>
+              )}
+            </div>
             
 
           </div>
