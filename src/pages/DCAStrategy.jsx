@@ -81,13 +81,13 @@ export default function DCAStrategy() {
   });
 
   // Calculate savings from Income & Expenses (single source of truth)
-  const budgetFreqMultiplier = { monthly: 12, weekly: 52, biweekly: 26, quarterly: 4, annual: 1, one_time: 0 };
+  const budgetFreqMultiplier = { monthly: 1, weekly: 52/12, biweekly: 26/12, quarterly: 3, annual: 1/12, one_time: 0 };
   const monthlyIncome = budgetItems
     .filter(b => b.type === 'income' && b.is_active !== false)
-    .reduce((sum, b) => sum + (b.amount * (budgetFreqMultiplier[b.frequency] || 12) / 12), 0);
+    .reduce((sum, b) => sum + (b.amount * (budgetFreqMultiplier[b.frequency] || 1)), 0);
   const monthlyExpenses = budgetItems
     .filter(b => b.type === 'expense' && b.is_active !== false)
-    .reduce((sum, b) => sum + (b.amount * (budgetFreqMultiplier[b.frequency] || 12) / 12), 0);
+    .reduce((sum, b) => sum + (b.amount * (budgetFreqMultiplier[b.frequency] || 1)), 0);
   const monthlySavings = Math.max(0, monthlyIncome - monthlyExpenses);
   const annualSavings = monthlySavings * 12;
 
