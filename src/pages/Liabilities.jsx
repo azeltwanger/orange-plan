@@ -69,6 +69,11 @@ export default function Liabilities() {
     queryFn: () => base44.entities.Holding.list(),
   });
 
+  const { data: collateralizedLoans = [] } = useQuery({
+    queryKey: ['collateralizedLoans'],
+    queryFn: () => base44.entities.CollateralizedLoan.list(),
+  });
+
   const createLiability = useMutation({
     mutationFn: (data) => base44.entities.Liability.create(data),
     onSuccess: () => {
@@ -175,15 +180,21 @@ export default function Liabilities() {
     return sum + (h.quantity * (h.current_price || 0));
   }, 0);
 
-  const totalLiabilities = liabilities.reduce((sum, l) => sum + (l.current_balance || 0), 0);
+  // Combine liabilities and collateralized loans for display
+  const allDebts = [
+    ...liabilities.map(l => ({ ...l, entity_type: 'Liability' })),
+    ...collateralizedLoans.map(l => ({ ...l, entity_type: 'CollateralizedLoan', type: 'btc_collateralized' }))
+  ];
+
+  const totalLiabilities = allDebts.reduce((sum, l) => sum + (l.current_balance || 0), 0);
   const debtToAssetRatio = totalAssets > 0 ? (totalLiabilities / totalAssets) * 100 : 0;
 
-  const securedDebt = liabilities.filter(l => l.type === 'secured').reduce((sum, l) => sum + (l.current_balance || 0), 0);
-  const unsecuredDebt = liabilities.filter(l => l.type === 'unsecured').reduce((sum, l) => sum + (l.current_balance || 0), 0);
-  const btcCollateralizedDebt = liabilities.filter(l => l.type === 'btc_collateralized').reduce((sum, l) => sum + (l.current_balance || 0), 0);
+  const securedDebt = allDebts.filter(l => l.type === 'secured').reduce((sum, l) => sum + (l.current_balance || 0), 0);
+  const unsecuredDebt = allDebts.filter(l => l.type === 'unsecured').reduce((sum, l) => sum + (l.current_balance || 0), 0);
+  const btcCollateralizedDebt = allDebts.filter(l => l.type === 'btc_collateralized').reduce((sum, l) => sum + (l.current_balance || 0), 0);
 
   // BTC collateral health
-  const btcLoans = liabilities.filter(l => l.type === 'btc_collateralized');
+  const btcLoans = allDebts.filter(l => l.type === 'btc_collateralized');
   const totalCollateralBtc = btcLoans.reduce((sum, l) => sum + (l.collateral_btc_amount || 0), 0);
   const totalCollateralValue = totalCollateralBtc * currentPrice;
   
@@ -414,10 +425,10 @@ export default function Liabilities() {
       <div className="card-premium rounded-2xl p-6 lg:p-8 border border-zinc-800/50">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-xl font-semibold">All Positions</h3>
-          <span className="text-sm text-zinc-500">{liabilities.length} {liabilities.length === 1 ? 'position' : 'positions'}</span>
+          <span className="text-sm text-zinc-500">{allDebts.length} {allDebts.length === 1 ? 'position' : 'positions'}</span>
         </div>
 
-        {liabilities.length === 0 ? (
+        {allDebts.length === 0 ? (
           <div className="text-center py-16">
             <div className="w-16 h-16 rounded-2xl bg-zinc-800/50 flex items-center justify-center mx-auto mb-4">
               <Lock className="w-8 h-8 text-zinc-600" />
@@ -427,7 +438,7 @@ export default function Liabilities() {
           </div>
         ) : (
           <div className="space-y-4">
-            {liabilities.map((liability) => {
+            {allDebts.map((liability) => {
               const Icon = typeIcons[liability.type] || Lock;
               const colorClass = typeColors[liability.type] || 'bg-zinc-400/10 text-zinc-400 border-zinc-400/20';
               const paidOff = liability.principal_amount > 0 
@@ -484,18 +495,27 @@ export default function Liabilities() {
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      <button
-                        onClick={() => { setEditingLiability(liability); setFormOpen(true); }}
-                        className="p-2.5 rounded-lg bg-zinc-800/50 hover:bg-zinc-700 transition-colors"
-                      >
-                        <Pencil className="w-4 h-4 text-zinc-400" />
-                      </button>
-                      <button
-                        onClick={() => deleteLiability.mutate(liability.id)}
-                        className="p-2.5 rounded-lg bg-zinc-800/50 hover:bg-rose-600/30 transition-colors"
-                      >
-                        <Trash2 className="w-4 h-4 text-zinc-400" />
-                      </button>
+                      {liability.entity_type === 'Liability' && (
+                        <>
+                          <button
+                            onClick={() => { setEditingLiability(liability); setFormOpen(true); }}
+                            className="p-2.5 rounded-lg bg-zinc-800/50 hover:bg-zinc-700 transition-colors"
+                          >
+                            <Pencil className="w-4 h-4 text-zinc-400" />
+                          </button>
+                          <button
+                            onClick={() => deleteLiability.mutate(liability.id)}
+                            className="p-2.5 rounded-lg bg-zinc-800/50 hover:bg-rose-600/30 transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4 text-zinc-400" />
+                          </button>
+                        </>
+                      )}
+                      {liability.entity_type === 'CollateralizedLoan' && (
+                        <span className="px-3 py-1 rounded-lg bg-orange-500/10 text-orange-400 text-xs font-medium">
+                          Collateralized Loan
+                        </span>
+                      )}
                     </div>
                   </div>
 
