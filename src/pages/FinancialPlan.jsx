@@ -2331,29 +2331,19 @@ export default function FinancialPlan() {
                       }
                       return null;
                     })}
-                    {/* Goals marked as "will be spent" - vertical lines at target age */}
-                    {goals.filter(g => g.will_be_spent && g.target_date).slice(0, 5).map((goal) => {
+                    {/* All goals with target dates - vertical lines at target age */}
+                    {goals.filter(g => g.target_date).slice(0, 5).map((goal) => {
                       const goalYear = new Date(goal.target_date).getFullYear();
                       const goalAge = currentAge + (goalYear - new Date().getFullYear());
-                      const goalColor = (() => {
-                        switch(goal.goal_type) {
-                          case 'retirement': return '#a78bfa';
-                          case 'btc_stack': return '#fbbf24';
-                          case 'emergency_fund': return '#34d399';
-                          case 'major_purchase': return '#60a5fa';
-                          case 'debt_payoff': return '#f87171';
-                          default: return '#71717a';
-                        }
-                      })();
                       if (goalAge > currentAge && goalAge < lifeExpectancy) {
                         return (
                           <ReferenceLine
                             key={`goal-${goal.id}`}
                             x={goalAge}
-                            stroke={goalColor}
+                            stroke="#60a5fa"
                             strokeDasharray="3 3"
                             strokeOpacity={0.7}
-                            label={{ value: goal.name, fill: goalColor, fontSize: 9, position: 'insideTopLeft', offset: 10 }}
+                            label={{ value: goal.name, fill: '#60a5fa', fontSize: 9, position: 'insideTopLeft', offset: 10 }}
                             yAxisId="left"
                           />
                         );
