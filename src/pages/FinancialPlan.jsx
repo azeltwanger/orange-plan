@@ -858,31 +858,59 @@ export default function FinancialPlan() {
         const yearSpending = currentAnnualSpending * Math.pow(1 + inflationRate / 100, i);
         
         // Allocate net cash flow to taxable accounts (can be negative = drawdown)
-        // If negative, we're withdrawing - track sources like retirement
+        // If negative, we're withdrawing - track sources and calculate taxes
         if (yearSavings < 0) {
           const withdrawalNeeded = Math.abs(yearSavings);
-          let remaining = withdrawalNeeded;
           
-          // Withdraw from taxable first
-          const fromTaxable = Math.min(remaining, runningTaxable);
-          withdrawFromTaxable = fromTaxable;
-          runningTaxable -= fromTaxable;
-          remaining -= fromTaxable;
+          // Dynamically calculate capital gains ratio based on current value vs cost basis
+          const effectiveRunningTaxableBasis = Math.min(runningTaxable, runningTaxableBasis);
+          const estimatedCurrentGainRatio = runningTaxable > 0 ? Math.max(0, (runningTaxable - effectiveRunningTaxableBasis) / runningTaxable) : 0;
           
-          // Then tax-deferred if needed
-          if (remaining > 0) {
-            const fromTaxDeferred = Math.min(remaining, runningTaxDeferred);
-            withdrawFromTaxDeferred = fromTaxDeferred;
-            runningTaxDeferred -= fromTaxDeferred;
-            remaining -= fromTaxDeferred;
+          // Calculate Social Security income for this year (if eligible) - typically not applicable pre-retirement
+          const currentAgeInYearForSS = currentAge + i;
+          let socialSecurityIncome = 0;
+          if (currentAgeInYearForSS >= socialSecurityStartAge && socialSecurityAmount > 0) {
+            const yearsOfSSInflation = currentAgeInYearForSS - socialSecurityStartAge;
+            socialSecurityIncome = socialSecurityAmount * Math.pow(1 + effectiveInflation / 100, yearsOfSSInflation);
           }
           
-          // Finally tax-free
-          if (remaining > 0) {
-            const fromTaxFree = Math.min(remaining, runningTaxFree);
-            withdrawFromTaxFree = fromTaxFree;
-            runningTaxFree -= fromTaxFree;
+          // Total other income = other retirement income + Social Security (if eligible)
+          const totalOtherIncome = otherRetirementIncome + socialSecurityIncome;
+          
+          // Use tax calculation utility for accurate withdrawal taxes (including capital gains)
+          const currentAgeInYearForWithdrawal = currentAge + i;
+          const taxEstimate = estimateRetirementWithdrawalTaxes({
+            withdrawalNeeded: withdrawalNeeded,
+            taxableBalance: runningTaxable,
+            taxDeferredBalance: runningTaxDeferred,
+            taxFreeBalance: runningTaxFree,
+            taxableGainPercent: estimatedCurrentGainRatio,
+            isLongTermGain: true, // Assume long-term for projections
+            filingStatus,
+            age: currentAgeInYearForWithdrawal,
+            otherIncome: totalOtherIncome,
+          });
+          
+          withdrawFromTaxable = taxEstimate.fromTaxable || 0;
+          withdrawFromTaxDeferred = taxEstimate.fromTaxDeferred || 0;
+          withdrawFromTaxFree = taxEstimate.fromTaxFree || 0;
+          
+          // Add withdrawal taxes and penalties to total taxes paid for the year
+          const withdrawalTaxes = taxEstimate.totalTax || 0;
+          const withdrawalPenalties = taxEstimate.totalPenalty || 0;
+          taxesPaid += withdrawalTaxes;
+          penaltyPaid = withdrawalPenalties;
+          
+          // Adjust cost basis after taxable withdrawal (proportionally reduce basis)
+          if (withdrawFromTaxable > 0 && runningTaxable > 0) {
+            const basisRatio = runningTaxableBasis / runningTaxable;
+            runningTaxableBasis = Math.max(0, runningTaxableBasis - (withdrawFromTaxable * basisRatio));
           }
+          
+          // Update running account balances
+          runningTaxable = Math.max(0, runningTaxable - withdrawFromTaxable);
+          runningTaxDeferred = Math.max(0, runningTaxDeferred - withdrawFromTaxDeferred);
+          runningTaxFree = Math.max(0, runningTaxFree - withdrawFromTaxFree);
         } else {
           runningTaxable += yearSavings;
         }
