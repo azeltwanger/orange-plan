@@ -1044,13 +1044,20 @@ export default function FinancialPlan() {
                 // Update remaining amount to withdraw if liquid assets were not enough
                 const actualWithdrawn = Math.min(totalAmountToWithdrawFromAssets, liquidAssetsExcludingRealEstate);
                 totalAmountToWithdrawFromAssets = Math.max(0, totalAmountToWithdrawFromAssets - actualWithdrawn);
+            } else {
+                // If no liquid assets left but we still have withdrawal needs, set all to zero
+                runningBtc = Math.max(0, runningBtc - currentEncumberedBtcValue); // Keep only encumbered portion
+                runningStocks = 0;
+                runningBonds = 0;
+                runningOther = 0;
+                runningSavings = 0;
             }
 
             // Step 2: If there's still a withdrawal need, draw from Real Estate (illiquid last)
             if (totalAmountToWithdrawFromAssets > 0 && runningRealEstate > 0) {
-                runningRealEstate = Math.max(0, runningRealEstate - totalAmountToWithdrawFromAssets);
-                // After drawing from real estate, the totalAmountToWithdrawFromAssets should be 0 or less
-                totalAmountToWithdrawFromAssets = 0;
+                const withdrawnRealEstate = Math.min(totalAmountToWithdrawFromAssets, runningRealEstate);
+                runningRealEstate = Math.max(0, runningRealEstate - withdrawnRealEstate);
+                totalAmountToWithdrawFromAssets = Math.max(0, totalAmountToWithdrawFromAssets - withdrawnRealEstate);
             }
         }
       }
