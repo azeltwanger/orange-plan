@@ -378,8 +378,8 @@ export default function Dashboard() {
             {holdings.length > 0 && (
               <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold text-zinc-300">Total Assets</span>
-                  <span className="text-2xl font-bold text-orange-400">
+                  <span className="text-sm text-zinc-400">Total Assets</span>
+                  <span className="text-lg font-bold text-emerald-400">
                     ${totalAssets.toLocaleString()}
                   </span>
                 </div>
