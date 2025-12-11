@@ -120,11 +120,6 @@ export default function Goals() {
     queryFn: () => base44.entities.CollateralizedLoan.list(),
   });
 
-  const { data: collateralizedLoans = [] } = useQuery({
-    queryKey: ['collateralizedLoans'],
-    queryFn: () => base44.entities.CollateralizedLoan.list(),
-  });
-
   // Fetch BTC price
   const [btcPrice, setBtcPrice] = React.useState(97000);
   React.useEffect(() => {
