@@ -2336,7 +2336,7 @@ export default function FinancialPlan() {
                       let goalYear;
                       
                       // For debt payoff goals with spread payments, show at END of payment period
-                      if (goal.goal_type === 'debt_payoff' && (goal.payoff_strategy === 'spread_payments' || !goal.payoff_strategy) && goal.payoff_years > 0) {
+                      if (goal.goal_type === 'debt_payoff' && goal.payoff_strategy === 'spread_payments' && goal.payoff_years > 0) {
                         const startYear = goal.target_date ? new Date(goal.target_date).getFullYear() : new Date().getFullYear();
                         goalYear = startYear + goal.payoff_years;
                       } else if (goal.target_date) {
