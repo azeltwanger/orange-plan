@@ -2332,8 +2332,19 @@ export default function FinancialPlan() {
                       return null;
                     })}
                     {/* All goals with target dates - vertical lines at target age */}
-                    {goals.filter(g => g.target_date).slice(0, 5).map((goal) => {
-                      const goalYear = new Date(goal.target_date).getFullYear();
+                    {goals.filter(g => g.target_date || (g.goal_type === 'debt_payoff' && g.payoff_years)).slice(0, 5).map((goal) => {
+                      let goalYear;
+                      
+                      // For debt payoff goals with spread payments, show at END of payment period
+                      if (goal.goal_type === 'debt_payoff' && goal.payoff_strategy === 'spread_payments' && goal.payoff_years > 0) {
+                        const startYear = goal.target_date ? new Date(goal.target_date).getFullYear() : new Date().getFullYear();
+                        goalYear = startYear + goal.payoff_years;
+                      } else if (goal.target_date) {
+                        goalYear = new Date(goal.target_date).getFullYear();
+                      } else {
+                        return null; // Skip if no valid date
+                      }
+                      
                       const goalAge = currentAge + (goalYear - new Date().getFullYear());
                       if (goalAge > currentAge && goalAge < lifeExpectancy) {
                         return (
