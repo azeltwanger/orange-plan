@@ -115,6 +115,11 @@ export default function Goals() {
     queryFn: () => base44.entities.Liability.list(),
   });
 
+  const { data: collateralizedLoans = [] } = useQuery({
+    queryKey: ['collateralizedLoans'],
+    queryFn: () => base44.entities.CollateralizedLoan.list(),
+  });
+
   // Fetch BTC price
   const [btcPrice, setBtcPrice] = React.useState(97000);
   React.useEffect(() => {
@@ -681,16 +686,19 @@ export default function Goals() {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label className="text-zinc-400">Link to Liability</Label>
+                  <Label className="text-zinc-400">Link to Liability or Loan</Label>
                   <Select 
                     value={goalForm.linked_liability_id || 'none'} 
                     onValueChange={(value) => {
                       const liability = liabilities.find(l => l.id === value);
+                      const loan = collateralizedLoans.find(l => `loan_${l.id}` === value);
+                      const selectedDebt = liability || loan;
+                      
                       setGoalForm({ 
                         ...goalForm, 
                         linked_liability_id: value === 'none' ? '' : value,
-                        target_amount: liability ? liability.current_balance : goalForm.target_amount,
-                        name: liability && !goalForm.name ? `Pay off ${liability.name}` : goalForm.name,
+                        target_amount: selectedDebt ? selectedDebt.current_balance : goalForm.target_amount,
+                        name: selectedDebt && !goalForm.name ? `Pay off ${selectedDebt.name}` : goalForm.name,
                       });
                     }}
                   >
@@ -702,6 +710,11 @@ export default function Goals() {
                       {liabilities.map(liability => (
                         <SelectItem key={liability.id} value={liability.id} className="text-zinc-100">
                           {liability.name} (${(liability.current_balance || 0).toLocaleString()} @ {liability.interest_rate || 0}%)
+                        </SelectItem>
+                      ))}
+                      {collateralizedLoans.map(loan => (
+                        <SelectItem key={loan.id} value={`loan_${loan.id}`} className="text-zinc-100">
+                          {loan.name} - Collateralized (${(loan.current_balance || 0).toLocaleString()} @ {loan.interest_rate || 0}%)
                         </SelectItem>
                       ))}
                     </SelectContent>

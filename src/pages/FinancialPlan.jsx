@@ -310,6 +310,11 @@ export default function FinancialPlan() {
     queryFn: () => base44.entities.Liability.list(),
   });
 
+  const { data: collateralizedLoans = [] } = useQuery({
+    queryKey: ['collateralizedLoans'],
+    queryFn: () => base44.entities.CollateralizedLoan.list(),
+  });
+
   const { data: accounts = [] } = useQuery({
     queryKey: ['accounts'],
     queryFn: () => base44.entities.Account.list(),
@@ -593,6 +598,16 @@ export default function FinancialPlan() {
       };
     });
 
+    // Track collateralized loans (daily interest accrual, monthly approximation)
+    const tempRunningCollateralizedLoans = {};
+    collateralizedLoans.forEach(loan => {
+      tempRunningCollateralizedLoans[loan.id] = {
+        ...loan,
+        current_balance: loan.current_balance || 0,
+        paid_off: false,
+      };
+    });
+
     const encumberedBtc = {}; // Track BTC locked as collateral
     let releasedBtc = {}; // Track BTC released when LTV drops below threshold - changed to let for reassignment
     const liquidatedBtc = {}; // Track BTC liquidated due to LTV breach
@@ -603,6 +618,15 @@ export default function FinancialPlan() {
         encumberedBtc[liability.id] = liability.collateral_btc_amount;
         releasedBtc[liability.id] = 0;
         liquidatedBtc[liability.id] = 0;
+      }
+    });
+
+    // Track collateralized loan collateral
+    collateralizedLoans.forEach(loan => {
+      if (loan.collateral_btc_amount) {
+        encumberedBtc[`loan_${loan.id}`] = loan.collateral_btc_amount;
+        releasedBtc[`loan_${loan.id}`] = 0;
+        liquidatedBtc[`loan_${loan.id}`] = 0;
       }
     });
 
@@ -680,50 +704,71 @@ export default function FinancialPlan() {
       });
 
       // Debt payoff goals - handle both spread payments and lump sum strategies
-      // Track which liabilities have active payoff goals this year
+      // Track which liabilities/loans have active payoff goals this year
       const liabilitiesWithPayoffGoals = new Set();
+      const loansWithPayoffGoals = new Set();
+      
       goals.forEach(goal => {
         if (goal.goal_type === 'debt_payoff' && goal.linked_liability_id) {
           const payoffStrategy = goal.payoff_strategy || 'spread_payments';
 
+          // Check if this is a regular liability or collateralized loan
+          const isLoan = goal.linked_liability_id.startsWith('loan_');
+          const actualId = isLoan ? goal.linked_liability_id.substring(5) : goal.linked_liability_id;
+          
           if (payoffStrategy === 'spread_payments' && goal.payoff_years > 0) {
-            // Spread payments strategy - same as before
             const startYear = goal.target_date ? new Date(goal.target_date).getFullYear() : currentYear;
             const endYear = startYear + goal.payoff_years;
 
             if (year >= startYear && year < endYear) {
-              // Annual payment = total debt / payoff years
               const annualPayment = (goal.target_amount || 0) / goal.payoff_years;
               eventImpact -= annualPayment;
-              yearGoalWithdrawal += annualPayment; // Add to goal funding line
+              yearGoalWithdrawal += annualPayment;
               yearGoalNames.push(goal.name);
-              liabilitiesWithPayoffGoals.add(goal.linked_liability_id);
-
-              // Reduce the debt balance for this liability in tempRunningDebt
-              const liabilityToUpdate = tempRunningDebt[goal.linked_liability_id];
-              if (liabilityToUpdate && !liabilityToUpdate.paid_off) {
-                liabilityToUpdate.current_balance = Math.max(0, liabilityToUpdate.current_balance - annualPayment);
-                if (liabilityToUpdate.current_balance <= 0.01) {
-                  liabilityToUpdate.paid_off = true;
+              
+              if (isLoan) {
+                loansWithPayoffGoals.add(actualId);
+                const loanToUpdate = tempRunningCollateralizedLoans[actualId];
+                if (loanToUpdate && !loanToUpdate.paid_off) {
+                  loanToUpdate.current_balance = Math.max(0, loanToUpdate.current_balance - annualPayment);
+                  if (loanToUpdate.current_balance <= 0.01) {
+                    loanToUpdate.paid_off = true;
+                  }
+                }
+              } else {
+                liabilitiesWithPayoffGoals.add(actualId);
+                const liabilityToUpdate = tempRunningDebt[actualId];
+                if (liabilityToUpdate && !liabilityToUpdate.paid_off) {
+                  liabilityToUpdate.current_balance = Math.max(0, liabilityToUpdate.current_balance - annualPayment);
+                  if (liabilityToUpdate.current_balance <= 0.01) {
+                    liabilityToUpdate.paid_off = true;
+                  }
                 }
               }
             }
           } else if (payoffStrategy === 'lump_sum' && goal.target_date) {
-            // Lump sum strategy - pay off entire debt at target date
             const payoffYear = new Date(goal.target_date).getFullYear();
             
             if (year === payoffYear) {
               const lumpSumAmount = goal.target_amount || 0;
               eventImpact -= lumpSumAmount;
-              yearGoalWithdrawal += lumpSumAmount; // Add to goal funding line
+              yearGoalWithdrawal += lumpSumAmount;
               yearGoalNames.push(goal.name);
-              liabilitiesWithPayoffGoals.add(goal.linked_liability_id);
-
-              // Immediately zero out the debt balance
-              const liabilityToUpdate = tempRunningDebt[goal.linked_liability_id];
-              if (liabilityToUpdate && !liabilityToUpdate.paid_off) {
-                liabilityToUpdate.current_balance = 0;
-                liabilityToUpdate.paid_off = true;
+              
+              if (isLoan) {
+                loansWithPayoffGoals.add(actualId);
+                const loanToUpdate = tempRunningCollateralizedLoans[actualId];
+                if (loanToUpdate && !loanToUpdate.paid_off) {
+                  loanToUpdate.current_balance = 0;
+                  loanToUpdate.paid_off = true;
+                }
+              } else {
+                liabilitiesWithPayoffGoals.add(actualId);
+                const liabilityToUpdate = tempRunningDebt[actualId];
+                if (liabilityToUpdate && !liabilityToUpdate.paid_off) {
+                  liabilityToUpdate.current_balance = 0;
+                  liabilityToUpdate.paid_off = true;
+                }
               }
             }
           }
@@ -836,6 +881,82 @@ export default function FinancialPlan() {
             if (!releasedBtc[liability.id] || releasedBtc[liability.id] === 0) {
                 releasedBtc[liability.id] = encumberedBtc[liability.id];
                 encumberedBtc[liability.id] = 0;
+            }
+          }
+        }
+      });
+
+      // Process collateralized loans (monthly interest accrual approximation)
+      Object.values(tempRunningCollateralizedLoans).forEach(loan => {
+        if (!loansWithPayoffGoals.has(loan.id) && !loan.paid_off) {
+          const hasInterest = loan.interest_rate && loan.interest_rate > 0;
+          const hasMinPayment = loan.minimum_monthly_payment && loan.minimum_monthly_payment > 0;
+
+          // Start from current month for year 0, start of year otherwise
+          const startMonth = (i === 0) ? currentMonth : 0;
+
+          if (hasMinPayment) {
+            // Process monthly if there's a payment
+            let remainingBalance = loan.current_balance;
+
+            for (let month = startMonth; month < 12; month++) {
+              if (remainingBalance <= 0) {
+                loan.paid_off = true;
+                break;
+              }
+
+              // Monthly interest accrual
+              const monthlyInterest = hasInterest ? remainingBalance * (loan.interest_rate / 100 / 12) : 0;
+              const principalPayment = Math.max(0, loan.minimum_monthly_payment - monthlyInterest);
+              const paymentThisMonth = Math.min(remainingBalance + monthlyInterest, loan.minimum_monthly_payment);
+
+              actualAnnualDebtPayments += paymentThisMonth;
+              remainingBalance = Math.max(0, remainingBalance - principalPayment);
+            }
+
+            loan.current_balance = remainingBalance;
+          } else if (hasInterest) {
+            // No payment but interest accrues monthly (compound monthly)
+            const monthlyRate = loan.interest_rate / 100 / 12;
+            const monthsInYear = (i === 0) ? (12 - startMonth) : 12;
+            loan.current_balance = loan.current_balance * Math.pow(1 + monthlyRate, monthsInYear);
+          }
+        }
+
+        // Check for collateral release or liquidation
+        const loanKey = `loan_${loan.id}`;
+        if (encumberedBtc[loanKey] > 0) {
+          const yearBtcPrice = currentPrice * Math.pow(1 + yearBtcGrowth / 100, i);
+          const collateralValue = encumberedBtc[loanKey] * yearBtcPrice;
+          const currentLTV = (loan.current_balance / collateralValue) * 100;
+          const liquidationLTV = loan.liquidation_ltv || 80;
+          const releaseLTV = loan.collateral_release_ltv || 30;
+
+          // LIQUIDATION
+          if (currentLTV >= liquidationLTV && liquidatedBtc[loanKey] === 0) {
+            const btcToLiquidate = encumberedBtc[loanKey];
+            const liquidationProceeds = btcToLiquidate * yearBtcPrice;
+
+            runningBtc = Math.max(0, runningBtc - (btcToLiquidate * yearBtcPrice));
+            loan.current_balance = Math.max(0, loan.current_balance - liquidationProceeds);
+
+            liquidatedBtc[loanKey] = btcToLiquidate;
+            encumberedBtc[loanKey] = 0;
+
+            liquidationEvents.push({
+              year,
+              age: currentAge + i,
+              liabilityName: loan.name,
+              btcAmount: btcToLiquidate,
+              proceeds: liquidationProceeds,
+              remainingDebt: loan.current_balance
+            });
+          }
+          // RELEASE
+          else if (currentLTV <= releaseLTV && liquidatedBtc[loanKey] === 0) {
+            if (!releasedBtc[loanKey] || releasedBtc[loanKey] === 0) {
+              releasedBtc[loanKey] = encumberedBtc[loanKey];
+              encumberedBtc[loanKey] = 0;
             }
           }
         }
@@ -1101,8 +1222,9 @@ export default function FinancialPlan() {
         }
       });
 
-      // Calculate total debt (net worth impact) from tempRunningDebt
-      const totalDebt = Object.values(tempRunningDebt).reduce((sum, liab) => sum + liab.current_balance, 0);
+      // Calculate total debt (net worth impact) from tempRunningDebt and tempRunningCollateralizedLoans
+      const totalDebt = Object.values(tempRunningDebt).reduce((sum, liab) => sum + liab.current_balance, 0) +
+                        Object.values(tempRunningCollateralizedLoans).reduce((sum, loan) => sum + loan.current_balance, 0);
 
       // Calculate total encumbered BTC (illiquid)
       const totalEncumberedBtc = Object.values(encumberedBtc).reduce((sum, amount) => sum + amount, 0);
@@ -1184,7 +1306,7 @@ export default function FinancialPlan() {
         });
     }
     return data;
-  }, [btcValue, stocksValue, realEstateValue, bondsValue, otherValue, taxableValue, taxDeferredValue, taxFreeValue, currentAge, retirementAge, lifeExpectancy, effectiveBtcCagr, effectiveStocksCagr, realEstateCagr, bondsCagr, effectiveInflation, lifeEvents, goals, annualSavings, incomeGrowth, retirementAnnualSpending, btcReturnModel, filingStatus, taxableHoldings, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, liabilities, monthlyDebtPayments, btcPrice, cashCagr, otherCagr]);
+  }, [btcValue, stocksValue, realEstateValue, bondsValue, otherValue, taxableValue, taxDeferredValue, taxFreeValue, currentAge, retirementAge, lifeExpectancy, effectiveBtcCagr, effectiveStocksCagr, realEstateCagr, bondsCagr, effectiveInflation, lifeEvents, goals, annualSavings, incomeGrowth, retirementAnnualSpending, btcReturnModel, filingStatus, taxableHoldings, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, liabilities, collateralizedLoans, monthlyDebtPayments, btcPrice, cashCagr, otherCagr]);
 
   // Run Monte Carlo when button clicked
   const handleRunSimulation = () => {
