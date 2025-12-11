@@ -67,7 +67,7 @@ export default function Goals() {
 
   // Form states
   const [goalForm, setGoalForm] = useState({
-    name: '', target_amount: '', current_amount: '', target_date: '', goal_type: 'major_purchase', priority: 'medium', notes: '', bucket: 'goals', will_be_spent: false, funding_sources: [], linked_dca_plan_id: '', linked_liability_id: '', payoff_years: '',
+    name: '', target_amount: '', current_amount: '', target_date: '', goal_type: 'major_purchase', priority: 'medium', notes: '', bucket: 'goals', will_be_spent: false, funding_sources: [], linked_dca_plan_id: '', linked_liability_id: '', payoff_years: '', payoff_strategy: 'spread_payments',
   });
 
   const [eventForm, setEventForm] = useState({
@@ -211,7 +211,7 @@ export default function Goals() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['lifeEvents'] }),
   });
 
-  const resetGoalForm = () => setGoalForm({ name: '', target_amount: '', current_amount: '', target_date: '', goal_type: 'major_purchase', priority: 'medium', notes: '', bucket: 'goals', will_be_spent: false, funding_sources: [], linked_dca_plan_id: '', linked_liability_id: '', payoff_years: '' });
+  const resetGoalForm = () => setGoalForm({ name: '', target_amount: '', current_amount: '', target_date: '', goal_type: 'major_purchase', priority: 'medium', notes: '', bucket: 'goals', will_be_spent: false, funding_sources: [], linked_dca_plan_id: '', linked_liability_id: '', payoff_years: '', payoff_strategy: 'spread_payments' });
   const resetEventForm = () => setEventForm({ name: '', event_type: 'major_expense', year: new Date().getFullYear() + 1, amount: '', is_recurring: false, recurring_years: '', affects: 'assets', notes: '', monthly_expense_impact: '', liability_amount: '', down_payment: '', interest_rate: '', loan_term_years: '', allocation_method: 'proportionate', btc_allocation: 0, stocks_allocation: 0, real_estate_allocation: 0, bonds_allocation: 0, cash_allocation: 0, other_allocation: 0 });
 
   useEffect(() => {
@@ -230,6 +230,7 @@ export default function Goals() {
         linked_dca_plan_id: editingGoal.linked_dca_plan_id || '',
         linked_liability_id: editingGoal.linked_liability_id || '',
         payoff_years: editingGoal.payoff_years || '',
+        payoff_strategy: editingGoal.payoff_strategy || 'spread_payments',
       });
     }
   }, [editingGoal]);
@@ -278,6 +279,7 @@ export default function Goals() {
       linked_dca_plan_id: goalForm.linked_dca_plan_id || null,
       linked_liability_id: goalForm.linked_liability_id || null,
       payoff_years: parseFloat(goalForm.payoff_years) || null,
+      payoff_strategy: goalForm.payoff_strategy || 'spread_payments',
     };
     delete data.bucket;
     editingGoal ? updateGoal.mutate({ id: editingGoal.id, data }) : createGoal.mutate(data);
@@ -706,21 +708,68 @@ export default function Goals() {
                   </Select>
                 </div>
 
-                <div className="space-y-2">
-                  <Label className="text-zinc-400">Payoff Period (years)</Label>
-                  <Input 
-                    type="number" 
-                    value={goalForm.payoff_years} 
-                    onChange={(e) => setGoalForm({ ...goalForm, payoff_years: e.target.value })} 
-                    placeholder="e.g., 5" 
-                    className="bg-zinc-900 border-zinc-700 text-zinc-100" 
-                  />
-                  <p className="text-xs text-zinc-500">
-                    How many years to pay off this debt? This will be factored into retirement projections as annual withdrawals from investments.
-                  </p>
+                <div className="space-y-3">
+                  <Label className="text-zinc-400">Payoff Strategy</Label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setGoalForm({ ...goalForm, payoff_strategy: 'spread_payments' })}
+                      className={cn(
+                        "p-3 rounded-lg border text-left transition-all",
+                        goalForm.payoff_strategy === 'spread_payments'
+                          ? "bg-rose-500/20 border-rose-500/50"
+                          : "bg-zinc-800/50 border-zinc-700 hover:border-zinc-600"
+                      )}
+                    >
+                      <p className={cn("font-medium text-sm", goalForm.payoff_strategy === 'spread_payments' ? "text-rose-400" : "text-zinc-200")}>
+                        Spread Payments
+                      </p>
+                      <p className="text-xs text-zinc-400 mt-1">Pay over multiple years</p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setGoalForm({ ...goalForm, payoff_strategy: 'lump_sum' })}
+                      className={cn(
+                        "p-3 rounded-lg border text-left transition-all",
+                        goalForm.payoff_strategy === 'lump_sum'
+                          ? "bg-rose-500/20 border-rose-500/50"
+                          : "bg-zinc-800/50 border-zinc-700 hover:border-zinc-600"
+                      )}
+                    >
+                      <p className={cn("font-medium text-sm", goalForm.payoff_strategy === 'lump_sum' ? "text-rose-400" : "text-zinc-200")}>
+                        Lump Sum
+                      </p>
+                      <p className="text-xs text-zinc-400 mt-1">Pay off all at once</p>
+                    </button>
+                  </div>
                 </div>
 
-                {goalForm.linked_liability_id && goalForm.payoff_years && parseFloat(goalForm.target_amount) > 0 && (
+                {goalForm.payoff_strategy === 'spread_payments' && (
+                  <div className="space-y-2">
+                    <Label className="text-zinc-400">Payoff Period (years)</Label>
+                    <Input 
+                      type="number" 
+                      value={goalForm.payoff_years} 
+                      onChange={(e) => setGoalForm({ ...goalForm, payoff_years: e.target.value })} 
+                      placeholder="e.g., 5" 
+                      className="bg-zinc-900 border-zinc-700 text-zinc-100" 
+                    />
+                    <p className="text-xs text-zinc-500">
+                      How many years to pay off this debt? This will be factored into retirement projections as annual withdrawals from investments.
+                    </p>
+                  </div>
+                )}
+
+                {goalForm.payoff_strategy === 'lump_sum' && (
+                  <div className="space-y-2">
+                    <Label className="text-zinc-400">Payoff Date</Label>
+                    <p className="text-xs text-zinc-500 mb-2">
+                      Use the "Target Date" field above to specify when you'll pay off this debt in full from your portfolio.
+                    </p>
+                  </div>
+                )}
+
+                {goalForm.linked_liability_id && goalForm.payoff_strategy === 'spread_payments' && goalForm.payoff_years && parseFloat(goalForm.target_amount) > 0 && (
                   <div className="p-3 rounded-lg bg-zinc-800/50">
                     <p className="text-sm text-zinc-300">
                       Annual payment needed: <span className="font-semibold text-rose-400">
@@ -729,6 +778,19 @@ export default function Goals() {
                     </p>
                     <p className="text-xs text-zinc-500 mt-1">
                       This will be withdrawn from your portfolio each year during the payoff period.
+                    </p>
+                  </div>
+                )}
+
+                {goalForm.linked_liability_id && goalForm.payoff_strategy === 'lump_sum' && goalForm.target_date && parseFloat(goalForm.target_amount) > 0 && (
+                  <div className="p-3 rounded-lg bg-zinc-800/50">
+                    <p className="text-sm text-zinc-300">
+                      Lump sum payment: <span className="font-semibold text-rose-400">
+                        ${parseFloat(goalForm.target_amount).toLocaleString()}
+                      </span>
+                    </p>
+                    <p className="text-xs text-zinc-500 mt-1">
+                      This will be withdrawn from your portfolio at {new Date(goalForm.target_date).getFullYear()}.
                     </p>
                   </div>
                 )}

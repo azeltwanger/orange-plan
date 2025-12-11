@@ -679,25 +679,50 @@ export default function FinancialPlan() {
         }
       });
 
-      // Debt payoff goals - spread payments over payoff period
+      // Debt payoff goals - handle both spread payments and lump sum strategies
       // Track which liabilities have active payoff goals this year
       const liabilitiesWithPayoffGoals = new Set();
       goals.forEach(goal => {
-        if (goal.goal_type === 'debt_payoff' && goal.linked_liability_id && goal.payoff_years > 0) {
-          const startYear = goal.target_date ? new Date(goal.target_date).getFullYear() : currentYear;
-          const endYear = startYear + goal.payoff_years;
+        if (goal.goal_type === 'debt_payoff' && goal.linked_liability_id) {
+          const payoffStrategy = goal.payoff_strategy || 'spread_payments';
 
-          if (year >= startYear && year < endYear) {
-            // Annual payment = total debt / payoff years
-            const annualPayment = (goal.target_amount || 0) / goal.payoff_years;
-            eventImpact -= annualPayment;
-            liabilitiesWithPayoffGoals.add(goal.linked_liability_id);
+          if (payoffStrategy === 'spread_payments' && goal.payoff_years > 0) {
+            // Spread payments strategy - same as before
+            const startYear = goal.target_date ? new Date(goal.target_date).getFullYear() : currentYear;
+            const endYear = startYear + goal.payoff_years;
 
-            // Reduce the debt balance for this liability in tempRunningDebt
-            const liabilityToUpdate = tempRunningDebt[goal.linked_liability_id];
-            if (liabilityToUpdate && !liabilityToUpdate.paid_off) { // Only update if not already paid off
-              liabilityToUpdate.current_balance = Math.max(0, liabilityToUpdate.current_balance - annualPayment);
-              if (liabilityToUpdate.current_balance <= 0.01) { // Check for near-zero balance
+            if (year >= startYear && year < endYear) {
+              // Annual payment = total debt / payoff years
+              const annualPayment = (goal.target_amount || 0) / goal.payoff_years;
+              eventImpact -= annualPayment;
+              yearGoalWithdrawal += annualPayment; // Add to goal funding line
+              yearGoalNames.push(goal.name);
+              liabilitiesWithPayoffGoals.add(goal.linked_liability_id);
+
+              // Reduce the debt balance for this liability in tempRunningDebt
+              const liabilityToUpdate = tempRunningDebt[goal.linked_liability_id];
+              if (liabilityToUpdate && !liabilityToUpdate.paid_off) {
+                liabilityToUpdate.current_balance = Math.max(0, liabilityToUpdate.current_balance - annualPayment);
+                if (liabilityToUpdate.current_balance <= 0.01) {
+                  liabilityToUpdate.paid_off = true;
+                }
+              }
+            }
+          } else if (payoffStrategy === 'lump_sum' && goal.target_date) {
+            // Lump sum strategy - pay off entire debt at target date
+            const payoffYear = new Date(goal.target_date).getFullYear();
+            
+            if (year === payoffYear) {
+              const lumpSumAmount = goal.target_amount || 0;
+              eventImpact -= lumpSumAmount;
+              yearGoalWithdrawal += lumpSumAmount; // Add to goal funding line
+              yearGoalNames.push(goal.name);
+              liabilitiesWithPayoffGoals.add(goal.linked_liability_id);
+
+              // Immediately zero out the debt balance
+              const liabilityToUpdate = tempRunningDebt[goal.linked_liability_id];
+              if (liabilityToUpdate && !liabilityToUpdate.paid_off) {
+                liabilityToUpdate.current_balance = 0;
                 liabilityToUpdate.paid_off = true;
               }
             }
@@ -1358,15 +1383,24 @@ export default function FinancialPlan() {
             }
           });
 
-          // Debt payoff goals
+          // Debt payoff goals - handle both strategies
           goals.forEach(goal => {
-            if (goal.goal_type === 'debt_payoff' && goal.linked_liability_id && goal.payoff_years > 0) {
-              const startYear = goal.target_date ? new Date(goal.target_date).getFullYear() : currentYear;
-              const endYear = startYear + goal.payoff_years;
+            if (goal.goal_type === 'debt_payoff' && goal.linked_liability_id) {
+              const payoffStrategy = goal.payoff_strategy || 'spread_payments';
 
-              if (simulationYear >= startYear && simulationYear < endYear) {
-                const annualPayment = (goal.target_amount || 0) / goal.payoff_years;
-                eventImpact -= annualPayment;
+              if (payoffStrategy === 'spread_payments' && goal.payoff_years > 0) {
+                const startYear = goal.target_date ? new Date(goal.target_date).getFullYear() : currentYear;
+                const endYear = startYear + goal.payoff_years;
+
+                if (simulationYear >= startYear && simulationYear < endYear) {
+                  const annualPayment = (goal.target_amount || 0) / goal.payoff_years;
+                  eventImpact -= annualPayment;
+                }
+              } else if (payoffStrategy === 'lump_sum' && goal.target_date) {
+                const payoffYear = new Date(goal.target_date).getFullYear();
+                if (simulationYear === payoffYear) {
+                  eventImpact -= (goal.target_amount || 0);
+                }
               }
             }
           });
