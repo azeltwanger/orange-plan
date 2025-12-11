@@ -320,6 +320,11 @@ export default function FinancialPlan() {
     queryFn: () => base44.entities.Account.list(),
   });
 
+  const { data: collateralizedLoans = [] } = useQuery({
+    queryKey: ['collateralizedLoans'],
+    queryFn: () => base44.entities.CollateralizedLoan.list(),
+  });
+
   const { data: userSettings = [] } = useQuery({
     queryKey: ['userSettings'],
     queryFn: () => base44.entities.UserSettings.list(),
@@ -595,6 +600,19 @@ export default function FinancialPlan() {
         ...liability,
         current_balance: liability.current_balance || 0,
         paid_off: false, // Add a paid_off flag
+        entity_type: 'Liability',
+      };
+    });
+
+    // Add collateralized loans to debt tracking
+    collateralizedLoans.forEach(loan => {
+      tempRunningDebt[loan.id] = {
+        ...loan,
+        current_balance: loan.current_balance || 0,
+        paid_off: false,
+        entity_type: 'CollateralizedLoan',
+        type: 'btc_collateralized', // Treat as BTC collateralized for projection logic
+        monthly_payment: loan.minimum_monthly_payment || 0,
       };
     });
 
@@ -613,11 +631,21 @@ export default function FinancialPlan() {
     const liquidatedBtc = {}; // Track BTC liquidated due to LTV breach
     const liquidationEvents = []; // Track liquidation events by year
 
+    // Track BTC collateral from regular liabilities
     liabilities.forEach(liability => {
       if (liability.type === 'btc_collateralized' && liability.collateral_btc_amount) {
         encumberedBtc[liability.id] = liability.collateral_btc_amount;
         releasedBtc[liability.id] = 0;
         liquidatedBtc[liability.id] = 0;
+      }
+    });
+
+    // Track BTC collateral from CollateralizedLoan entities
+    collateralizedLoans.forEach(loan => {
+      if (loan.collateral_btc_amount) {
+        encumberedBtc[loan.id] = loan.collateral_btc_amount;
+        releasedBtc[loan.id] = 0;
+        liquidatedBtc[loan.id] = 0;
       }
     });
 
