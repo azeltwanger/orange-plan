@@ -1,37 +1,39 @@
-import Dashboard from './pages/Dashboard';
-import Performance from './pages/Performance';
-import FinancialPlan from './pages/FinancialPlan';
+import Home from './pages/Home';
 import Budget from './pages/Budget';
 import DCAStrategy from './pages/DCAStrategy';
-import TaxCenter from './pages/TaxCenter';
-import Liabilities from './pages/Liabilities';
+import Dashboard from './pages/Dashboard';
 import EstateSecurity from './pages/EstateSecurity';
-import Landing from './pages/Landing';
-import Goals from './pages/Goals';
+import Features from './pages/Features';
 import FeeAnalysis from './pages/FeeAnalysis';
+import FinancialPlan from './pages/FinancialPlan';
+import Goals from './pages/Goals';
+import Landing from './pages/Landing';
+import Liabilities from './pages/Liabilities';
+import Performance from './pages/Performance';
 import Pricing from './pages/Pricing';
 import Scenarios from './pages/Scenarios';
-import Features from './pages/Features';
 import Settings from './pages/Settings';
+import TaxCenter from './pages/TaxCenter';
 import __Layout from './Layout.jsx';
 
 
 export const PAGES = {
-    "Dashboard": Dashboard,
-    "Performance": Performance,
-    "FinancialPlan": FinancialPlan,
+    "Home": Home,
     "Budget": Budget,
     "DCAStrategy": DCAStrategy,
-    "TaxCenter": TaxCenter,
-    "Liabilities": Liabilities,
+    "Dashboard": Dashboard,
     "EstateSecurity": EstateSecurity,
-    "Landing": Landing,
-    "Goals": Goals,
+    "Features": Features,
     "FeeAnalysis": FeeAnalysis,
+    "FinancialPlan": FinancialPlan,
+    "Goals": Goals,
+    "Landing": Landing,
+    "Liabilities": Liabilities,
+    "Performance": Performance,
     "Pricing": Pricing,
     "Scenarios": Scenarios,
-    "Features": Features,
     "Settings": Settings,
+    "TaxCenter": TaxCenter,
 }
 
 export const pagesConfig = {

@@ -158,8 +158,9 @@ export default function Budget() {
 
   // Annual totals
   const annualIncome = monthlyIncome * 12;
-  const annualExpenses = totalMonthlyExpenses * 12;
-  const annualSurplus = surplus * 12;
+  const annualBudgetExpenses = monthlyExpenses * 12;
+  const totalAnnualExpenses = annualBudgetExpenses + annualDebtPayments;
+  const annualSurplus = annualIncome - totalAnnualExpenses;
 
   // Group expenses by category (including debt payments)
   const expensesByCategory = budgetItems
@@ -236,8 +237,8 @@ export default function Budget() {
           </div>
           <p className="text-3xl font-bold text-rose-400">${totalMonthlyExpenses.toLocaleString()}</p>
           <p className="text-xs text-zinc-500 mt-1">
-            ${annualExpenses.toLocaleString()} / year
-            {annualDebtPayments > 0 && ` ($${annualDebtPayments.toLocaleString()} remaining in debt payments)`}
+            ${totalAnnualExpenses.toLocaleString()} / year
+            {annualDebtPayments > 0 && ` (includes $${annualDebtPayments.toLocaleString()}/yr debt)`}
           </p>
         </div>
 
