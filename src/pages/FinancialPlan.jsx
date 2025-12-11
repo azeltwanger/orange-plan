@@ -1021,10 +1021,10 @@ export default function FinancialPlan() {
         penaltyPaid: isRetired ? Math.round(penaltyPaid) : 0,
         taxesPaid: Math.round(taxesPaid),
         netWithdrawal: isRetired ? Math.round(totalWithdrawalForTaxCalculation - taxesPaid - penaltyPaid) : 0,
-        // Withdrawal breakdown by account type
-        withdrawFromTaxable: isRetired ? Math.round(withdrawFromTaxable) : 0,
-        withdrawFromTaxDeferred: isRetired ? Math.round(withdrawFromTaxDeferred) : 0,
-        withdrawFromTaxFree: isRetired ? Math.round(withdrawFromTaxFree) : 0,
+        // Withdrawal breakdown by account type - now for BOTH pre and post retirement
+        withdrawFromTaxable: Math.round(withdrawFromTaxable),
+        withdrawFromTaxDeferred: Math.round(withdrawFromTaxDeferred),
+        withdrawFromTaxFree: Math.round(withdrawFromTaxFree),
         // Debt tracking
         totalDebt: Math.round(totalDebt),
         debtPayments: Math.round(actualAnnualDebtPayments), // Actual debt payments made this year
