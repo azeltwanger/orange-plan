@@ -4,7 +4,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { Plus, Pencil, Trash2, ArrowUpRight, ArrowDownRight, TrendingUp, Wallet } from 'lucide-react';
 import { Button } from "@/components/ui/button";
-import { calculateCurrentMonthlyDebtPayments } from '@/components/shared/debtCalculations';
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -147,10 +146,13 @@ export default function Budget() {
     .filter(b => b.type === 'expense' && b.is_active !== false)
     .reduce((sum, b) => sum + (b.amount * (freqMultiplier[b.frequency] || 1)), 0);
 
-  // Add monthly debt payments from liabilities with accurate amortization
-  const currentYear = new Date().getFullYear();
-  const currentMonthIndex = new Date().getMonth();
-  const monthlyDebtPayments = calculateCurrentMonthlyDebtPayments(liabilities, currentYear, currentMonthIndex);
+  // Add monthly debt payments from liabilities
+  const monthlyDebtPayments = liabilities.reduce((sum, liability) => {
+    if (liability.monthly_payment && liability.monthly_payment > 0) {
+      return sum + liability.monthly_payment;
+    }
+    return sum;
+  }, 0);
 
   const totalMonthlyExpenses = monthlyExpenses + monthlyDebtPayments;
   const surplus = monthlyIncome - totalMonthlyExpenses;

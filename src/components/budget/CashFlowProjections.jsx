@@ -2,7 +2,6 @@ import React, { useMemo } from 'react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine } from 'recharts';
 import { TrendingUp, Calendar, Target, DollarSign } from 'lucide-react';
 import { cn } from "@/lib/utils";
-import { calculateCurrentMonthlyDebtPayments } from '@/components/shared/debtCalculations';
 
 export default function CashFlowProjections({ 
   monthlyIncome, 
