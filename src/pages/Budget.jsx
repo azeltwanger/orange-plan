@@ -12,6 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import CashFlowProjections from '@/components/budget/CashFlowProjections';
+import { calculateCurrentMonthlyDebtPayments, calculateCurrentYearDebtPayments } from '@/utils/calculateDebtPayments';
 
 const categoryLabels = {
   salary: 'Salary',
@@ -146,13 +147,11 @@ export default function Budget() {
     .filter(b => b.type === 'expense' && b.is_active !== false)
     .reduce((sum, b) => sum + (b.amount * (freqMultiplier[b.frequency] || 1)), 0);
 
-  // Add monthly debt payments from liabilities
-  const monthlyDebtPayments = liabilities.reduce((sum, liability) => {
-    if (liability.monthly_payment && liability.monthly_payment > 0) {
-      return sum + liability.monthly_payment;
-    }
-    return sum;
-  }, 0);
+  // Calculate accurate debt payments for current month and year
+  const currentYear = new Date().getFullYear();
+  const currentMonthIndex = new Date().getMonth(); // 0-11
+  const monthlyDebtPayments = calculateCurrentMonthlyDebtPayments(liabilities, currentYear, currentMonthIndex);
+  const annualDebtPayments = calculateCurrentYearDebtPayments(liabilities, currentYear, currentMonthIndex);
 
   const totalMonthlyExpenses = monthlyExpenses + monthlyDebtPayments;
   const surplus = monthlyIncome - totalMonthlyExpenses;
@@ -238,7 +237,7 @@ export default function Budget() {
           <p className="text-3xl font-bold text-rose-400">${totalMonthlyExpenses.toLocaleString()}</p>
           <p className="text-xs text-zinc-500 mt-1">
             ${annualExpenses.toLocaleString()} / year
-            {monthlyDebtPayments > 0 && ` (includes $${(monthlyDebtPayments * 12).toLocaleString()}/yr debt)`}
+            {annualDebtPayments > 0 && ` (includes $${annualDebtPayments.toLocaleString()}/yr debt)`}
           </p>
         </div>
 
