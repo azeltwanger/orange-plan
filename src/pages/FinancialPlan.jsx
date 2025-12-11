@@ -2001,17 +2001,34 @@ export default function FinancialPlan() {
                                       <div className="text-xs space-y-0.5 text-zinc-400 mb-1">
                                         <div className="flex justify-between">
                                           <span>• Spending:</span>
-                                          <span className="text-zinc-300">${((currentAnnualSpending * Math.pow(1 + inflationRate / 100, p.age - currentAge)) + (p.debtPayments || 0)).toLocaleString(undefined, {maximumFractionDigits: 0})}</span>
+                                          <span className="text-zinc-300">${(currentAnnualSpending * Math.pow(1 + inflationRate / 100, p.age - currentAge)).toLocaleString(undefined, {maximumFractionDigits: 0})}</span>
                                         </div>
+                                        {p.hasGoalWithdrawal && p.yearGoalWithdrawal > 0 && (
+                                          <div className="flex justify-between">
+                                            <span>• Goal Funding:</span>
+                                            <span className="text-zinc-300">${p.yearGoalWithdrawal.toLocaleString()}</span>
+                                          </div>
+                                        )}
                                         {p.taxesPaid > 0 && (
                                           <div className="flex justify-between">
                                             <span>• Taxes Paid:</span>
-                                            <span className="text-rose-400">-${p.taxesPaid.toLocaleString()}</span>
+                                            <span className="text-rose-400">${p.taxesPaid.toLocaleString()}</span>
+                                          </div>
+                                        )}
+                                        {p.penaltyPaid > 0 && (
+                                          <div className="flex justify-between">
+                                            <span>• Penalty Paid:</span>
+                                            <span className="text-rose-400">${p.penaltyPaid.toLocaleString()}</span>
                                           </div>
                                         )}
                                       </div>
+                                      {p.debtPayments > 0 && (
+                                        <div className="text-xs text-zinc-500 mb-1">
+                                          (Debt Payments: ${p.debtPayments.toLocaleString()} - tracked separately)
+                                        </div>
+                                      )}
                                       <p className="font-medium text-rose-400">
-                                        Total Annual Outflow: ${Math.abs(p.yearSavingsForTooltip).toLocaleString()}
+                                        Total Annual Outflow: ${((currentAnnualSpending * Math.pow(1 + inflationRate / 100, p.age - currentAge)) + (p.yearGoalWithdrawal || 0) + (p.taxesPaid || 0) + (p.penaltyPaid || 0)).toLocaleString(undefined, {maximumFractionDigits: 0})}
                                       </p>
                                       {(p.withdrawFromTaxable > 0 || p.withdrawFromTaxDeferred > 0 || p.withdrawFromTaxFree > 0) && (
                                         <div className="text-xs space-y-0.5 text-zinc-400 mt-2 pt-2 border-t border-zinc-700/50">
@@ -2090,17 +2107,34 @@ export default function FinancialPlan() {
                                   <div className="text-xs space-y-0.5 text-zinc-400 mb-1">
                                     <div className="flex justify-between">
                                       <span>• Spending:</span>
-                                      <span className="text-zinc-300">${((p.retirementSpendingOnly || 0) + (p.yearGoalWithdrawal || 0) + (p.debtPayments || 0)).toLocaleString()}</span>
+                                      <span className="text-zinc-300">${(p.retirementSpendingOnly || 0).toLocaleString()}</span>
                                     </div>
+                                    {p.yearGoalWithdrawal > 0 && (
+                                      <div className="flex justify-between">
+                                        <span>• Goal Funding:</span>
+                                        <span className="text-zinc-300">${p.yearGoalWithdrawal.toLocaleString()}</span>
+                                      </div>
+                                    )}
                                     {p.taxesPaid > 0 && (
                                       <div className="flex justify-between">
                                         <span>• Taxes Paid:</span>
-                                        <span className="text-rose-400">-${p.taxesPaid.toLocaleString()}</span>
+                                        <span className="text-rose-400">${p.taxesPaid.toLocaleString()}</span>
+                                      </div>
+                                    )}
+                                    {p.penaltyPaid > 0 && (
+                                      <div className="flex justify-between">
+                                        <span>• Penalty Paid:</span>
+                                        <span className="text-rose-400">${p.penaltyPaid.toLocaleString()}</span>
                                       </div>
                                     )}
                                   </div>
+                                  {p.debtPayments > 0 && (
+                                    <div className="text-xs text-zinc-500 mb-1">
+                                      (Debt Payments: ${p.debtPayments.toLocaleString()} - tracked separately)
+                                    </div>
+                                  )}
                                   <p className="font-medium text-rose-400">
-                                    Total Annual Outflow: ${((p.retirementSpendingOnly || 0) + (p.yearGoalWithdrawal || 0) + (p.debtPayments || 0) + (p.taxesPaid || 0) + (p.penaltyPaid || 0)).toLocaleString()}
+                                    Total Annual Outflow: ${((p.retirementSpendingOnly || 0) + (p.yearGoalWithdrawal || 0) + (p.taxesPaid || 0) + (p.penaltyPaid || 0)).toLocaleString()}
                                   </p>
                                   <div className="text-xs space-y-0.5 text-zinc-400 mt-2 pt-2 border-t border-zinc-700/50">
                                     <p className="text-zinc-300 font-medium mb-1">Withdrawal Sources:</p>
