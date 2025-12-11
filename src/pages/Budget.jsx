@@ -12,7 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import CashFlowProjections from '@/components/budget/CashFlowProjections';
-import { calculateCurrentMonthlyDebtPayments, calculateCurrentYearDebtPayments } from '@/utils/calculateDebtPayments';
+import { calculateCurrentMonthlyDebtPayments, calculateCurrentYearDebtPayments } from '@/components/shared/debtCalculations';
 
 const categoryLabels = {
   salary: 'Salary',
