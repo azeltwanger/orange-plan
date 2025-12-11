@@ -591,7 +591,7 @@ export default function FinancialPlan() {
     });
 
     const encumberedBtc = {}; // Track BTC locked as collateral
-    const releasedBtc = {}; // Track BTC released when LTV drops below threshold
+    let releasedBtc = {}; // Track BTC released when LTV drops below threshold - changed to let for reassignment
     const liquidatedBtc = {}; // Track BTC liquidated due to LTV breach
     const liquidationEvents = []; // Track liquidation events by year
 
@@ -611,6 +611,18 @@ export default function FinancialPlan() {
       
       // Get BTC growth rate for this year (needed early for collateral calculations)
       const yearBtcGrowth = getBtcGrowthRate(i, effectiveInflation);
+
+      // Add released BTC back to runningBtc for liquidity if applicable for the current year
+      // This needs to happen BEFORE any withdrawals from assets, including from BTC itself.
+      const totalReleasedBtcValueThisYear = Object.values(releasedBtc).reduce((sum, btcAmount) => {
+        const btcPriceThisYear = currentPrice * Math.pow(1 + yearBtcGrowth / 100, i);
+        return sum + (btcAmount * btcPriceThisYear);
+      }, 0);
+      if (totalReleasedBtcValueThisYear > 0) {
+          runningBtc += totalReleasedBtcValueThisYear;
+      }
+      // Reset releasedBtc for the next year's calculation, as it's an annual tracking variable
+      releasedBtc = {};
       
       // Calculate life event impacts for this year (with income growth applied)
         let eventImpact = 0;
@@ -794,9 +806,12 @@ export default function FinancialPlan() {
             });
           }
           // RELEASE: If LTV drops below release threshold
-          else if (currentLTV <= releaseLTV && releasedBtc[liability.id] === 0 && liquidatedBtc[liability.id] === 0) {
-            releasedBtc[liability.id] = encumberedBtc[liability.id];
-            encumberedBtc[liability.id] = 0;
+          else if (currentLTV <= releaseLTV && liquidatedBtc[liability.id] === 0) {
+            // Only release if not already released this year
+            if (!releasedBtc[liability.id] || releasedBtc[liability.id] === 0) {
+                releasedBtc[liability.id] = encumberedBtc[liability.id];
+                encumberedBtc[liability.id] = 0;
+            }
           }
         }
       });
@@ -1002,17 +1017,41 @@ export default function FinancialPlan() {
         runningTaxDeferred = Math.max(0, runningTaxDeferred - withdrawFromTaxDeferred);
         runningTaxFree = Math.max(0, runningTaxFree - withdrawFromTaxFree);
         
-        // Withdraw proportionally from asset types based on actual total withdrawal
+        // Withdraw from assets in prioritized order: liquid assets first, then illiquid (real estate)
         const actualWithdrawalFromAccounts = withdrawFromTaxable + withdrawFromTaxDeferred + withdrawFromTaxFree;
-        const totalAssetValue = runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther + runningSavings;
-        if (totalAssetValue > 0 && actualWithdrawalFromAccounts > 0) {
-          const withdrawRatio = Math.min(1, actualWithdrawalFromAccounts / totalAssetValue);
-          runningBtc = Math.max(0, runningBtc * (1 - withdrawRatio));
-          runningStocks = Math.max(0, runningStocks * (1 - withdrawRatio));
-          runningRealEstate = Math.max(0, runningRealEstate * (1 - withdrawRatio));
-          runningBonds = Math.max(0, runningBonds * (1 - withdrawRatio));
-          runningOther = Math.max(0, runningOther * (1 - withdrawRatio));
-          runningSavings = Math.max(0, runningSavings * (1 - withdrawRatio));
+        let totalAmountToWithdrawFromAssets = actualWithdrawalFromAccounts;
+
+        if (totalAmountToWithdrawFromAssets > 0) {
+            // Calculate currently encumbered BTC for this year in USD
+            const btcPriceThisYear = currentPrice * Math.pow(1 + yearBtcGrowth / 100, i);
+            const currentEncumberedBtcValue = Object.values(encumberedBtc).reduce((sum, btcAmount) => sum + (btcAmount * btcPriceThisYear), 0);
+
+            // Determine truly liquid BTC
+            const trulyLiquidBtcValue = Math.max(0, runningBtc - currentEncumberedBtcValue);
+
+            // Step 1: Withdraw proportionally from truly liquid assets (BTC, Stocks, Bonds, Other, Savings)
+            const liquidAssetsExcludingRealEstate = trulyLiquidBtcValue + runningStocks + runningBonds + runningOther + runningSavings;
+            if (liquidAssetsExcludingRealEstate > 0) {
+                const withdrawRatio = Math.min(1, totalAmountToWithdrawFromAssets / liquidAssetsExcludingRealEstate);
+
+                const withdrawnLiquidBtc = trulyLiquidBtcValue * withdrawRatio;
+                runningBtc = Math.max(0, runningBtc - withdrawnLiquidBtc);
+                runningStocks = Math.max(0, runningStocks * (1 - withdrawRatio));
+                runningBonds = Math.max(0, runningBonds * (1 - withdrawRatio));
+                runningOther = Math.max(0, runningOther * (1 - withdrawRatio));
+                runningSavings = Math.max(0, runningSavings * (1 - withdrawRatio));
+
+                // Update remaining amount to withdraw if liquid assets were not enough
+                const actualWithdrawn = Math.min(totalAmountToWithdrawFromAssets, liquidAssetsExcludingRealEstate);
+                totalAmountToWithdrawFromAssets = Math.max(0, totalAmountToWithdrawFromAssets - actualWithdrawn);
+            }
+
+            // Step 2: If there's still a withdrawal need, draw from Real Estate (illiquid last)
+            if (totalAmountToWithdrawFromAssets > 0 && runningRealEstate > 0) {
+                runningRealEstate = Math.max(0, runningRealEstate - totalAmountToWithdrawFromAssets);
+                // After drawing from real estate, the totalAmountToWithdrawFromAssets should be 0 or less
+                totalAmountToWithdrawFromAssets = 0;
+            }
         }
       }
 
