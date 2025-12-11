@@ -320,11 +320,6 @@ export default function FinancialPlan() {
     queryFn: () => base44.entities.Account.list(),
   });
 
-  const { data: collateralizedLoans = [] } = useQuery({
-    queryKey: ['collateralizedLoans'],
-    queryFn: () => base44.entities.CollateralizedLoan.list(),
-  });
-
   const { data: userSettings = [] } = useQuery({
     queryKey: ['userSettings'],
     queryFn: () => base44.entities.UserSettings.list(),
