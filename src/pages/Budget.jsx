@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { Plus, Pencil, Trash2, ArrowUpRight, ArrowDownRight, TrendingUp, Wallet } from 'lucide-react';
 import { Button } from "@/components/ui/button";
-import { calculateCurrentMonthlyDebtPayments } from '@/utils/calculateDebtPayments';
+import { calculateCurrentMonthlyDebtPayments } from '@/components/shared/debtCalculations';
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
