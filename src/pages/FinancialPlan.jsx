@@ -666,9 +666,9 @@ export default function FinancialPlan() {
           }
         });
 
-      // Include goals marked as "will_be_spent" at their target date
+      // Include goals marked as "will_be_spent" at their target date (exclude debt_payoff goals - handled separately)
       goals.forEach(goal => {
-        if (goal.will_be_spent && goal.target_date) {
+        if (goal.will_be_spent && goal.target_date && goal.goal_type !== 'debt_payoff') {
           const goalYear = new Date(goal.target_date).getFullYear();
           if (goalYear === year) {
             const goalAmount = goal.target_amount || 0;
