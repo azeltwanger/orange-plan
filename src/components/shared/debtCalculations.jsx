@@ -38,21 +38,29 @@ export const calculateCurrentYearDebtPayments = (liabilities, currentYear, curre
       let remainingBalance = liability.current_balance || 0;
       const hasInterest = liability.interest_rate && liability.interest_rate > 0;
 
-      // Simulate from the start of the year up through the end of the year
-      for (let month = 0; month < 12; month++) {
-        if (remainingBalance <= 0) {
-          break; // Liability already paid off
-        }
-
-        const monthlyInterest = hasInterest
-          ? remainingBalance * (liability.interest_rate / 100 / 12)
-          : 0;
-
+      // Calculate payments already made this year (months 0 to currentMonth)
+      let tempBalance = remainingBalance;
+      for (let month = 0; month <= currentMonth; month++) {
+        if (tempBalance <= 0) break;
+        
+        const monthlyInterest = hasInterest ? tempBalance * (liability.interest_rate / 100 / 12) : 0;
         const principalPayment = Math.max(0, liability.monthly_payment - monthlyInterest);
-        const paymentThisMonth = Math.min(remainingBalance + monthlyInterest, liability.monthly_payment);
+        const paymentThisMonth = Math.min(tempBalance + monthlyInterest, liability.monthly_payment);
+        
+        totalYearDebtPayments += paymentThisMonth;
+        tempBalance = Math.max(0, tempBalance - principalPayment);
+      }
+
+      // Calculate remaining payments for the rest of the year (currentMonth+1 to 11)
+      for (let month = currentMonth + 1; month < 12; month++) {
+        if (tempBalance <= 0) break;
+
+        const monthlyInterest = hasInterest ? tempBalance * (liability.interest_rate / 100 / 12) : 0;
+        const principalPayment = Math.max(0, liability.monthly_payment - monthlyInterest);
+        const paymentThisMonth = Math.min(tempBalance + monthlyInterest, liability.monthly_payment);
 
         totalYearDebtPayments += paymentThisMonth;
-        remainingBalance = Math.max(0, remainingBalance - principalPayment);
+        tempBalance = Math.max(0, tempBalance - principalPayment);
       }
     }
   }
