@@ -237,7 +237,7 @@ export default function Budget() {
           <p className="text-3xl font-bold text-rose-400">${totalMonthlyExpenses.toLocaleString()}</p>
           <p className="text-xs text-zinc-500 mt-1">
             ${annualExpenses.toLocaleString()} / year
-            {annualDebtPayments > 0 && ` (includes $${annualDebtPayments.toLocaleString()}/yr debt)`}
+            {annualDebtPayments > 0 && ` ($${annualDebtPayments.toLocaleString()} remaining in debt payments)`}
           </p>
         </div>
 
