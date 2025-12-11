@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -74,7 +75,6 @@ const runMonteCarloSimulation = (params, numSimulations = 1000) => {
     let runningTaxFree = taxFreeValue;
     let runningSavings = 0;
     let ranOutOfMoney = false;
-    let initial4PercentWithdrawal = 0;
     
     const path = [startingPortfolio];
     const withdrawalPath = [0];
@@ -110,11 +110,13 @@ const runMonteCarloSimulation = (params, numSimulations = 1000) => {
         otherPct * stocksReturn
       ) / 100;
       
-      // Grow all account buckets
-      runningTaxable = Math.max(0, runningTaxable * (1 + portfolioReturn));
-      runningTaxDeferred = Math.max(0, runningTaxDeferred * (1 + portfolioReturn));
-      runningTaxFree = Math.max(0, runningTaxFree * (1 + portfolioReturn));
-      runningSavings = Math.max(0, runningSavings * (1 + portfolioReturn));
+      // Only grow if not already out of money
+      if (!ranOutOfMoney) {
+        runningTaxable = Math.max(0, runningTaxable * (1 + portfolioReturn));
+        runningTaxDeferred = Math.max(0, runningTaxDeferred * (1 + portfolioReturn));
+        runningTaxFree = Math.max(0, runningTaxFree * (1 + portfolioReturn));
+        runningSavings = Math.max(0, runningSavings * (1 + portfolioReturn));
+      }
       
       let yearWithdrawal = 0;
       
@@ -575,6 +577,8 @@ export default function FinancialPlan() {
     let runningTaxDeferred = taxDeferredValue;
     let runningTaxFree = taxFreeValue;
     
+    let ranOutOfMoney = false; // Flag to indicate if the portfolio has been depleted
+    
     // Track cost basis for taxable accounts to dynamically estimate capital gains
     const initialTaxableCostBasis = taxableHoldings.reduce((sum, h) => sum + (h.cost_basis_total || 0), 0);
     let runningTaxableBasis = initialTaxableCostBasis;
@@ -603,9 +607,6 @@ export default function FinancialPlan() {
       }
     });
     
-    // Initial 4% withdrawal amount (set on first retirement year)
-    let initial4PercentWithdrawal = 0;
-
     for (let i = 0; i <= years; i++) {
       const year = currentYear + i;
       
@@ -830,7 +831,7 @@ export default function FinancialPlan() {
       let retirementSpendingOnly = 0;
       let totalWithdrawalForTaxCalculation = 0;
       
-      if (i > 0) {
+      if (i > 0 && !ranOutOfMoney) { // Only grow if portfolio is not depleted
         // Grow assets by their respective rates
         runningBtc = runningBtc * (1 + yearBtcGrowth / 100);
         runningStocks = runningStocks * (1 + effectiveStocksCagr / 100);
@@ -1087,10 +1088,24 @@ export default function FinancialPlan() {
       
       let total = totalBeforeEvent + adjustedEventImpact;
       
-      // Check if portfolio ran out of money (allow it to go to zero or negative, then clamp for display)
+      // Check if portfolio ran out of money (set flag once account total hits zero)
       const accountTotal = runningTaxable + runningTaxDeferred + runningTaxFree;
-      if (accountTotal <= 0 && isRetired) {
-        total = 0; // Portfolio has been depleted
+      if (accountTotal <= 0 && !ranOutOfMoney) {
+        ranOutOfMoney = true;
+      }
+      
+      // Once out of money, zero everything for this year and subsequent years
+      if (ranOutOfMoney) {
+        total = 0;
+        runningBtc = 0;
+        runningStocks = 0;
+        runningRealEstate = 0;
+        runningBonds = 0;
+        runningOther = 0;
+        runningSavings = 0;
+        runningTaxable = 0;
+        runningTaxDeferred = 0;
+        runningTaxFree = 0;
       }
       
       const realTotal = total / Math.pow(1 + effectiveInflation / 100, i);
@@ -1231,21 +1246,10 @@ export default function FinancialPlan() {
       };
     }
 
-    // Check spending sustainability FIRST - even if you can retire "early", if you can't afford your spending, you're not on track
-    if (!canAffordDesiredSpending && maxSustainableSpending > 0) {
-      const shortfallPercent = ((retirementAnnualSpending - maxSustainableSpending) / retirementAnnualSpending * 100).toFixed(0);
-      return {
-        type: 'critical',
-        title: 'At Risk: Spending Not Sustainable',
-        description: `Portfolio can only support ${formatNumber(maxSustainableSpending)}/yr (today's $), ${shortfallPercent}% below your ${formatNumber(retirementAnnualSpending)}/yr target.`,
-        icon: <AlertTriangle className="w-5 h-5" />
-      };
-    }
-
-    // Now check the timing (gap analysis)
+    // Now check the timing (gap analysis) and spending sustainability
     const gap = earliestRetirementAge ? earliestRetirementAge - retirementAge : null;
 
-    if (gap === null || gap > 10) {
+    if (gap === null) {
       return {
         type: 'critical',
         title: 'At Risk: Major Shortfall',
