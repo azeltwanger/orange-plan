@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -2252,7 +2251,7 @@ export default function FinancialPlan() {
                               )}
                               {goals.filter(g => g.will_be_spent).length > 0 && (
                                 <div className="flex items-center gap-2">
-                                  <div className="w-6 h-0.5 bg-orange-400" style={{backgroundImage: 'repeating-linear-gradient(90deg, #fb923c 0, #fb923c 6px, transparent 6px, transparent 10px)'}} />
+                                  <div className="w-6 h-0.5 bg-blue-400" style={{backgroundImage: 'repeating-linear-gradient(90deg, #60a5fa 0, #60a5fa 6px, transparent 6px, transparent 10px)'}} />
                                   <span className="text-zinc-400">Goal Funding</span>
                                 </div>
                               )}
@@ -2344,13 +2343,6 @@ export default function FinancialPlan() {
                             stroke="#10b981"
                             strokeDasharray="5 5"
                             strokeOpacity={0.6}
-                            label={{
-                              value: `✓ ${debtNames}`,
-                              fill: '#10b981',
-                              fontSize: 9,
-                              position: position,
-                              offset: 10
-                            }}
                             yAxisId="left"
                           />
                         );
