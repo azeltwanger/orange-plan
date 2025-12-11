@@ -474,16 +474,19 @@ export default function TaxCenter() {
 
   const currentPrice = btcPrice || 97000;
   
-  // Get current prices for all tickers from holdings - updated in real-time
+  // Get current prices for all tickers - BTC always uses live price
   const pricesByTicker = useMemo(() => {
-    const prices = { BTC: currentPrice };
+    const prices = {};
     
-    // Add prices from holdings (these are kept up-to-date via APIs on Dashboard/Performance)
+    // Add prices from holdings first
     holdings.forEach(h => {
       if (h.ticker && h.current_price) {
         prices[h.ticker] = h.current_price;
       }
     });
+    
+    // Always override BTC with live fetched price (updated every 60s)
+    prices['BTC'] = currentPrice;
     
     // For any tickers in transactions but not in holdings, use the transaction price as fallback
     allTransactions.forEach(tx => {
