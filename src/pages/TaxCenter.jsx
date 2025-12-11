@@ -194,8 +194,8 @@ export default function TaxCenter() {
     queryFn: () => base44.entities.Transaction.list('-date'),
   });
 
-  // Filter transactions by selected year
-  const transactions = allTransactions.filter(t => {
+  // Filter transactions by selected year (for tax calculations only, not display)
+  const transactionsForTaxCalc = allTransactions.filter(t => {
     const txDate = new Date(t.date);
     return txDate.getFullYear() === selectedYear;
   });
@@ -409,10 +409,10 @@ export default function TaxCenter() {
   };
 
   const toggleSelectAll = () => {
-    if (selectedTxIds.length === transactions.length) {
+    if (selectedTxIds.length === allTransactions.length) {
       setSelectedTxIds([]);
     } else {
-      setSelectedTxIds(transactions.map(tx => tx.id));
+      setSelectedTxIds(allTransactions.map(tx => tx.id));
     }
   };
 
@@ -474,16 +474,26 @@ export default function TaxCenter() {
 
   const currentPrice = btcPrice || 97000;
   
-  // Get current prices for all tickers from holdings
+  // Get current prices for all tickers from holdings - updated in real-time
   const pricesByTicker = useMemo(() => {
     const prices = { BTC: currentPrice };
+    
+    // Add prices from holdings (these are kept up-to-date via APIs on Dashboard/Performance)
     holdings.forEach(h => {
       if (h.ticker && h.current_price) {
         prices[h.ticker] = h.current_price;
       }
     });
+    
+    // For any tickers in transactions but not in holdings, use the transaction price as fallback
+    allTransactions.forEach(tx => {
+      if (tx.asset_ticker && !prices[tx.asset_ticker]) {
+        prices[tx.asset_ticker] = tx.price_per_unit || 0;
+      }
+    });
+    
     return prices;
-  }, [holdings, currentPrice]);
+  }, [holdings, currentPrice, allTransactions]);
 
   // Get taxable holdings only (exclude retirement accounts for harvest analysis)
   const taxableHoldings = holdings.filter(h => 
@@ -718,7 +728,7 @@ export default function TaxCenter() {
   };
 
   // Tax calculations - filtered by selected year
-  const sellTxs = transactions.filter(t => t.type === 'sell');
+  const sellTxs = transactionsForTaxCalc.filter(t => t.type === 'sell');
   const shortTermGains = sellTxs.filter(t => t.holding_period === 'short_term').reduce((sum, t) => sum + (t.realized_gain_loss || 0), 0);
   const longTermGains = sellTxs.filter(t => t.holding_period === 'long_term').reduce((sum, t) => sum + (t.realized_gain_loss || 0), 0);
   const totalRealized = shortTermGains + longTermGains;
@@ -1490,22 +1500,22 @@ export default function TaxCenter() {
             </div>
 
             {/* Select All */}
-            {transactions.length > 0 && (
+            {allTransactions.length > 0 && (
               <div className="flex items-center gap-2 mb-4 pb-3 border-b border-zinc-800">
                 <input
                   type="checkbox"
-                  checked={selectedTxIds.length === transactions.length && transactions.length > 0}
+                  checked={selectedTxIds.length === allTransactions.length && allTransactions.length > 0}
                   onChange={toggleSelectAll}
                   className="w-4 h-4 rounded border-zinc-600 bg-zinc-800"
                 />
-                <span className="text-sm text-zinc-400">Select all ({transactions.length})</span>
+                <span className="text-sm text-zinc-400">Select all ({allTransactions.length})</span>
               </div>
             )}
-            {transactions.length === 0 ? (
+            {allTransactions.length === 0 ? (
               <p className="text-center text-zinc-500 py-12">No transactions recorded yet</p>
             ) : (
               <div className="space-y-3">
-                {[...transactions]
+                {[...allTransactions]
                   .filter(tx => {
                     if (assetTypeFilter === 'all') return true;
                     const holding = holdings.find(h => h.ticker === tx.asset_ticker);
