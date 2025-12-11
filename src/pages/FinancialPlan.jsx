@@ -1110,7 +1110,10 @@ export default function FinancialPlan() {
       const totalLiquidatedBtc = Object.values(liquidatedBtc).reduce((sum, amount) => sum + amount, 0);
       const yearLiquidations = liquidationEvents.filter(e => e.year === year);
 
-      let total = totalBeforeEvent + adjustedEventImpact;
+      // Total assets calculation (should NOT include flows like income or savings)
+      const totalAssetsThisYear = runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther;
+      
+      let total = totalAssetsThisYear + adjustedEventImpact;
 
       // Check if portfolio ran out of money (set flag once account total hits zero)
       const accountTotal = runningTaxable + runningTaxDeferred + runningTaxFree;
