@@ -3,28 +3,20 @@ export const calculateCurrentMonthlyDebtPayments = (liabilities, currentYear, cu
 
   for (const liability of liabilities) {
     if (liability.monthly_payment && liability.monthly_payment > 0) {
-      // Simulate month-by-month for the current year up to the current month
-      let remainingBalance = liability.current_balance || 0;
-      const hasInterest = liability.interest_rate && liability.interest_rate > 0;
-
-      for (let month = 0; month <= currentMonth; month++) {
-        if (remainingBalance <= 0) {
-          break; // Liability already paid off
-        }
-
-        const monthlyInterest = hasInterest
-          ? remainingBalance * (liability.interest_rate / 100 / 12)
-          : 0;
-
-        const principalPayment = Math.max(0, liability.monthly_payment - monthlyInterest);
-        const paymentThisMonth = Math.min(remainingBalance + monthlyInterest, liability.monthly_payment);
-
-        if (month === currentMonth) {
-          // This is the payment for the current month
-          totalCurrentMonthlyDebtPayment += paymentThisMonth;
-        }
-        remainingBalance = Math.max(0, remainingBalance - principalPayment);
+      // Calculate payment for current month based on current balance
+      const remainingBalance = liability.current_balance || 0;
+      
+      if (remainingBalance <= 0) {
+        continue; // Liability already paid off
       }
+
+      const hasInterest = liability.interest_rate && liability.interest_rate > 0;
+      const monthlyInterest = hasInterest
+        ? remainingBalance * (liability.interest_rate / 100 / 12)
+        : 0;
+
+      const paymentThisMonth = Math.min(remainingBalance + monthlyInterest, liability.monthly_payment);
+      totalCurrentMonthlyDebtPayment += paymentThisMonth;
     }
   }
   return totalCurrentMonthlyDebtPayment;
