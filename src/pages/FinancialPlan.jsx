@@ -75,8 +75,6 @@ const runMonteCarloSimulation = (params, numSimulations = 1000) => {
     let runningTaxFree = taxFreeValue;
     let runningSavings = 0;
     let ranOutOfMoney = false;
-    let cumulativeIncomeAdjustment = 0;
-    let cumulativeExpenseAdjustment = 0;
 
     const path = [startingPortfolio];
     const withdrawalPath = [0];
@@ -87,18 +85,29 @@ const runMonteCarloSimulation = (params, numSimulations = 1000) => {
       const yearsIntoRetirement = isRetired ? year - yearsToRetirement : 0;
       const simulationAbsoluteYear = currentSimYear + year;
 
-      // Apply income/expense change events
+      // Calculate active income/expense adjustments for THIS year only
+      let activeIncomeAdjustment = 0;
+      let activeExpenseAdjustment = 0;
+      
       lifeEvents.forEach(event => {
-        if (event.year === simulationAbsoluteYear || (event.is_recurring && event.year <= simulationAbsoluteYear && simulationAbsoluteYear < event.year + (event.recurring_years || 1))) {
-          if (event.event_type === 'income_change' && event.year === simulationAbsoluteYear) {
-            cumulativeIncomeAdjustment += event.amount;
-          } else if (event.event_type === 'expense_change' && event.year === simulationAbsoluteYear) {
-            cumulativeExpenseAdjustment += event.amount;
+        if (event.event_type === 'income_change') {
+          const eventEndYear = event.year + (event.is_recurring ? (event.recurring_years || 1) : 1);
+          const isActive = simulationAbsoluteYear >= event.year && simulationAbsoluteYear < eventEndYear;
+          if (isActive) {
+            activeIncomeAdjustment += event.amount;
           }
-          
-          if (event.event_type === 'home_purchase' && event.year === simulationAbsoluteYear && event.monthly_expense_impact > 0) {
-            cumulativeExpenseAdjustment += event.monthly_expense_impact * 12;
+        }
+        
+        if (event.event_type === 'expense_change') {
+          const eventEndYear = event.year + (event.is_recurring ? (event.recurring_years || 1) : 1);
+          const isActive = simulationAbsoluteYear >= event.year && simulationAbsoluteYear < eventEndYear;
+          if (isActive) {
+            activeExpenseAdjustment += event.amount;
           }
+        }
+        
+        if (event.event_type === 'home_purchase' && event.year <= simulationAbsoluteYear && event.monthly_expense_impact > 0) {
+          activeExpenseAdjustment += event.monthly_expense_impact * 12;
         }
       });
 
@@ -141,7 +150,7 @@ const runMonteCarloSimulation = (params, numSimulations = 1000) => {
 
       if (!isRetired) {
         // Add annual net cash flow to taxable (can be positive or negative), adjusted by life events
-        const adjustedAnnualSavings = annualSavings + cumulativeIncomeAdjustment - cumulativeExpenseAdjustment;
+        const adjustedAnnualSavings = annualSavings + activeIncomeAdjustment - activeExpenseAdjustment;
         const yearNetCashFlow = adjustedAnnualSavings * Math.pow(1 + incomeGrowth / 100, year);
         runningSavings += yearNetCashFlow;
         runningTaxable += yearNetCashFlow;
@@ -678,9 +687,6 @@ export default function FinancialPlan() {
       }
     });
 
-    // DEBUG: Log life events at start of projection
-    console.log("Life Events:", lifeEvents);
-
     for (let i = 0; i <= years; i++) {
       const year = currentYear + i;
 
@@ -699,15 +705,41 @@ export default function FinancialPlan() {
       // Reset releasedBtc for the next year's calculation, as it's an annual tracking variable
       releasedBtc = {};
 
+      // Calculate active income/expense adjustments for THIS year only
+      let activeIncomeAdjustment = 0;
+      let activeExpenseAdjustment = 0;
+      
+      lifeEvents.forEach(event => {
+        // Check if income_change event is active this year
+        if (event.event_type === 'income_change') {
+          const eventEndYear = event.year + (event.is_recurring ? (event.recurring_years || 1) : 1);
+          const isActive = year >= event.year && year < eventEndYear;
+          if (isActive) {
+            activeIncomeAdjustment += event.amount;
+          }
+        }
+        
+        // Check if expense_change event is active this year
+        if (event.event_type === 'expense_change') {
+          const eventEndYear = event.year + (event.is_recurring ? (event.recurring_years || 1) : 1);
+          const isActive = year >= event.year && year < eventEndYear;
+          if (isActive) {
+            activeExpenseAdjustment += event.amount;
+          }
+        }
+        
+        // Check if home_purchase ongoing expenses are active this year (from event year forward indefinitely)
+        if (event.event_type === 'home_purchase' && event.year <= year && event.monthly_expense_impact > 0) {
+          activeExpenseAdjustment += event.monthly_expense_impact * 12;
+        }
+      });
+
       // Calculate life event impacts for this year (with income growth applied)
         let eventImpact = 0;
         let yearGoalWithdrawal = 0; // Track goal-specific withdrawals for this year
         const yearGoalNames = []; // Track which goals are funded this year
 
         lifeEvents.forEach(event => {
-          // DEBUG: Log each event being processed
-          console.log("Processing event:", event.name, "Type:", event.event_type, "Year:", event.year, "Amount:", event.amount, "Recurring:", event.is_recurring, "Recurring Years:", event.recurring_years);
-          
           if (event.year === year || (event.is_recurring && event.year <= year && year < event.year + (event.recurring_years || 1))) {
             if (event.affects === 'assets') {
               const eventAmount = event.amount;
@@ -728,33 +760,10 @@ export default function FinancialPlan() {
                 runningBonds += eventAmount * bondsAlloc;
                 runningOther += eventAmount * (cashAlloc + otherAlloc);
               }
-            } else if (event.event_type === 'income_change') {
-              // DEBUG: Log income_change check
-              console.log("Checking income_change condition:", event.event_type === 'income_change', "Current projection year:", year, "Event year:", event.year, "Matches:", event.year === year);
-              
-              // Income changes are cumulative and ongoing from the event year forward
-              if (event.year === year) {
-                console.log("APPLYING INCOME CHANGE! Amount:", event.amount, "New cumulative:", cumulativeIncomeAdjustment + event.amount);
-                cumulativeIncomeAdjustment += event.amount;
-              }
-            } else if (event.event_type === 'expense_change') {
-              // Expense changes are cumulative and ongoing from the event year forward
-              if (event.year === year) {
-                cumulativeExpenseAdjustment += event.amount;
-              }
-            } else if (event.affects === 'expenses') {
-              // Legacy support for affects field
-              if (event.year === year) {
-                cumulativeExpenseAdjustment += event.amount;
-              }
             }
 
             if (event.event_type === 'home_purchase' && event.year === year) {
               eventImpact -= (event.down_payment || 0);
-              // Monthly expense impact becomes ongoing annual expense from this year forward
-              if (event.monthly_expense_impact > 0) {
-                cumulativeExpenseAdjustment += event.monthly_expense_impact * 12;
-              }
             }
           }
         });
@@ -1076,12 +1085,7 @@ export default function FinancialPlan() {
       if (!isRetired) {
         // Calculate gross income with income growth and life event adjustments
         const baseGrossIncome = grossAnnualIncome * Math.pow(1 + incomeGrowth / 100, i);
-        const yearGrossIncome = baseGrossIncome + (cumulativeIncomeAdjustment * Math.pow(1 + incomeGrowth / 100, i));
-        
-        // DEBUG: Log income calculation
-        if (year === 2026 || year === 2027) {
-          console.log("Year:", year, "Base Income:", baseGrossIncome, "Cumulative Income Adj:", cumulativeIncomeAdjustment, "Final yearGrossIncome:", yearGrossIncome);
-        }
+        const yearGrossIncome = baseGrossIncome + activeIncomeAdjustment;
         
         // Calculate taxes on adjusted gross income
         const yearTaxableIncome = Math.max(0, yearGrossIncome - currentStandardDeduction);
@@ -1089,7 +1093,7 @@ export default function FinancialPlan() {
         taxesPaid = yearTaxesPaid;
 
         // Track components for tooltip
-        const yearSpending = (currentAnnualSpending * Math.pow(1 + inflationRate / 100, i)) + (cumulativeExpenseAdjustment * Math.pow(1 + inflationRate / 100, i));
+        const yearSpending = (currentAnnualSpending * Math.pow(1 + inflationRate / 100, i)) + activeExpenseAdjustment;
         
         // Net savings = gross income - taxes - spending
         yearSavings = yearGrossIncome - yearTaxesPaid - yearSpending;
@@ -1346,8 +1350,8 @@ export default function FinancialPlan() {
         bonds: Math.round(runningBonds),
         savings: Math.round(runningSavings),
         yearSavingsForTooltip: isRetired ? 0 : Math.round(yearSavings),
-        yearGrossIncome: !isRetired ? Math.round((grossAnnualIncome * Math.pow(1 + incomeGrowth / 100, i)) + (cumulativeIncomeAdjustment * Math.pow(1 + incomeGrowth / 100, i))) : 0,
-        yearSpending: !isRetired ? Math.round((currentAnnualSpending * Math.pow(1 + inflationRate / 100, i)) + (cumulativeExpenseAdjustment * Math.pow(1 + inflationRate / 100, i))) : 0,
+        yearGrossIncome: !isRetired ? Math.round((grossAnnualIncome * Math.pow(1 + incomeGrowth / 100, i)) + activeIncomeAdjustment) : 0,
+        yearSpending: !isRetired ? Math.round((currentAnnualSpending * Math.pow(1 + inflationRate / 100, i)) + activeExpenseAdjustment) : 0,
         total: Math.round(total),
         realTotal: Math.round(realTotal),
         hasEvent: lifeEvents.some(e => e.year === year) ||
@@ -1560,34 +1564,39 @@ export default function FinancialPlan() {
 
           portfolio = portfolio * (1 + blendedGrowthRate);
 
-          // Apply life events and goals impacts for this year
-          let eventImpact = 0;
+          // Calculate active income/expense adjustments for THIS year only
           let yearIncomeAdjustment = 0;
           let yearExpenseAdjustment = 0;
+          let eventImpact = 0;
 
           lifeEvents.forEach(event => {
+            if (event.event_type === 'income_change') {
+              const eventEndYear = event.year + (event.is_recurring ? (event.recurring_years || 1) : 1);
+              const isActive = simulationYear >= event.year && simulationYear < eventEndYear;
+              if (isActive) {
+                yearIncomeAdjustment += event.amount;
+              }
+            }
+            
+            if (event.event_type === 'expense_change') {
+              const eventEndYear = event.year + (event.is_recurring ? (event.recurring_years || 1) : 1);
+              const isActive = simulationYear >= event.year && simulationYear < eventEndYear;
+              if (isActive) {
+                yearExpenseAdjustment += event.amount;
+              }
+            }
+            
+            if (event.event_type === 'home_purchase' && event.year <= simulationYear && event.monthly_expense_impact > 0) {
+              yearExpenseAdjustment += event.monthly_expense_impact * 12;
+            }
+            
             if (event.year === simulationYear || (event.is_recurring && event.year <= simulationYear && simulationYear < event.year + (event.recurring_years || 1))) {
               if (event.affects === 'assets') {
                 eventImpact += event.amount;
-              } else if (event.event_type === 'income_change') {
-                // Income changes are cumulative from event year forward
-                if (event.year <= simulationYear) {
-                  yearIncomeAdjustment += event.amount;
-                }
-              } else if (event.event_type === 'expense_change') {
-                // Expense changes are cumulative from event year forward
-                if (event.year <= simulationYear) {
-                  yearExpenseAdjustment += event.amount;
-                }
               }
 
               if (event.event_type === 'home_purchase' && event.year === simulationYear) {
                 eventImpact -= (event.down_payment || 0);
-              }
-              
-              // Home purchase monthly expenses become ongoing from event year forward
-              if (event.event_type === 'home_purchase' && event.year <= simulationYear && event.monthly_expense_impact > 0) {
-                yearExpenseAdjustment += event.monthly_expense_impact * 12;
               }
             }
           });
@@ -1680,8 +1689,6 @@ export default function FinancialPlan() {
       for (let testAge = currentAge + 1; testAge <= lifeExpectancy - 5; testAge++) {
         let portfolio = startingPortfolio;
         let canSustain = true;
-        let cumulativeIncomeAdj = 0;
-        let cumulativeExpenseAdj = 0;
 
         // Simulate from now until life expectancy
         for (let year = 1; year <= lifeExpectancy - currentAge; year++) {
@@ -1701,24 +1708,35 @@ export default function FinancialPlan() {
 
           portfolio = portfolio * (1 + blendedGrowthRate);
 
-          // Track income and expense adjustments from life events
+          // Calculate active income/expense adjustments for THIS year only
+          let activeIncomeAdj = 0;
+          let activeExpenseAdj = 0;
+          
           lifeEvents.forEach(event => {
-            if (event.year === simulationYear || (event.is_recurring && event.year <= simulationYear && simulationYear < event.year + (event.recurring_years || 1))) {
-              if (event.event_type === 'income_change' && event.year === simulationYear) {
-                cumulativeIncomeAdj += event.amount;
-              } else if (event.event_type === 'expense_change' && event.year === simulationYear) {
-                cumulativeExpenseAdj += event.amount;
+            if (event.event_type === 'income_change') {
+              const eventEndYear = event.year + (event.is_recurring ? (event.recurring_years || 1) : 1);
+              const isActive = simulationYear >= event.year && simulationYear < eventEndYear;
+              if (isActive) {
+                activeIncomeAdj += event.amount;
               }
-              
-              if (event.event_type === 'home_purchase' && event.year === simulationYear && event.monthly_expense_impact > 0) {
-                cumulativeExpenseAdj += event.monthly_expense_impact * 12;
+            }
+            
+            if (event.event_type === 'expense_change') {
+              const eventEndYear = event.year + (event.is_recurring ? (event.recurring_years || 1) : 1);
+              const isActive = simulationYear >= event.year && simulationYear < eventEndYear;
+              if (isActive) {
+                activeExpenseAdj += event.amount;
               }
+            }
+            
+            if (event.event_type === 'home_purchase' && event.year <= simulationYear && event.monthly_expense_impact > 0) {
+              activeExpenseAdj += event.monthly_expense_impact * 12;
             }
           });
 
           if (!isRetired) {
             // Add net cash flow (can be negative) adjusted for income/expense life events
-            const adjustedAnnualIncome = annualSavings + cumulativeIncomeAdj - cumulativeExpenseAdj;
+            const adjustedAnnualIncome = annualSavings + activeIncomeAdj - activeExpenseAdj;
             const yearNetCashFlow = adjustedAnnualIncome * Math.pow(1 + incomeGrowth / 100, year);
             portfolio += yearNetCashFlow;
           } else {
