@@ -90,9 +90,9 @@ const runMonteCarloSimulation = (params, numSimulations = 1000) => {
       // Apply income/expense change events
       lifeEvents.forEach(event => {
         if (event.year === simulationAbsoluteYear || (event.is_recurring && event.year <= simulationAbsoluteYear && simulationAbsoluteYear < event.year + (event.recurring_years || 1))) {
-          if (event.affects === 'income' && event.year === simulationAbsoluteYear) {
+          if (event.event_type === 'income_change' && event.year === simulationAbsoluteYear) {
             cumulativeIncomeAdjustment += event.amount;
-          } else if (event.affects === 'expenses' && event.year === simulationAbsoluteYear) {
+          } else if (event.event_type === 'expense_change' && event.year === simulationAbsoluteYear) {
             cumulativeExpenseAdjustment += event.amount;
           }
           
@@ -722,13 +722,18 @@ export default function FinancialPlan() {
                 runningBonds += eventAmount * bondsAlloc;
                 runningOther += eventAmount * (cashAlloc + otherAlloc);
               }
-            } else if (event.affects === 'income') {
+            } else if (event.event_type === 'income_change') {
               // Income changes are cumulative and ongoing from the event year forward
               if (event.year === year) {
                 cumulativeIncomeAdjustment += event.amount;
               }
-            } else if (event.affects === 'expenses') {
+            } else if (event.event_type === 'expense_change') {
               // Expense changes are cumulative and ongoing from the event year forward
+              if (event.year === year) {
+                cumulativeExpenseAdjustment += event.amount;
+              }
+            } else if (event.affects === 'expenses') {
+              // Legacy support for affects field
               if (event.year === year) {
                 cumulativeExpenseAdjustment += event.amount;
               }
@@ -1549,12 +1554,12 @@ export default function FinancialPlan() {
             if (event.year === simulationYear || (event.is_recurring && event.year <= simulationYear && simulationYear < event.year + (event.recurring_years || 1))) {
               if (event.affects === 'assets') {
                 eventImpact += event.amount;
-              } else if (event.affects === 'income') {
+              } else if (event.event_type === 'income_change') {
                 // Income changes are cumulative from event year forward
                 if (event.year <= simulationYear) {
                   yearIncomeAdjustment += event.amount;
                 }
-              } else if (event.affects === 'expenses') {
+              } else if (event.event_type === 'expense_change') {
                 // Expense changes are cumulative from event year forward
                 if (event.year <= simulationYear) {
                   yearExpenseAdjustment += event.amount;
@@ -1684,9 +1689,9 @@ export default function FinancialPlan() {
           // Track income and expense adjustments from life events
           lifeEvents.forEach(event => {
             if (event.year === simulationYear || (event.is_recurring && event.year <= simulationYear && simulationYear < event.year + (event.recurring_years || 1))) {
-              if (event.affects === 'income' && event.year === simulationYear) {
+              if (event.event_type === 'income_change' && event.year === simulationYear) {
                 cumulativeIncomeAdj += event.amount;
-              } else if (event.affects === 'expenses' && event.year === simulationYear) {
+              } else if (event.event_type === 'expense_change' && event.year === simulationYear) {
                 cumulativeExpenseAdj += event.amount;
               }
               
