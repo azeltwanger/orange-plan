@@ -678,6 +678,9 @@ export default function FinancialPlan() {
       }
     });
 
+    // DEBUG: Log life events at start of projection
+    console.log("Life Events:", lifeEvents);
+
     for (let i = 0; i <= years; i++) {
       const year = currentYear + i;
 
@@ -702,6 +705,9 @@ export default function FinancialPlan() {
         const yearGoalNames = []; // Track which goals are funded this year
 
         lifeEvents.forEach(event => {
+          // DEBUG: Log each event being processed
+          console.log("Processing event:", event.name, "Type:", event.event_type, "Year:", event.year, "Amount:", event.amount, "Recurring:", event.is_recurring, "Recurring Years:", event.recurring_years);
+          
           if (event.year === year || (event.is_recurring && event.year <= year && year < event.year + (event.recurring_years || 1))) {
             if (event.affects === 'assets') {
               const eventAmount = event.amount;
@@ -723,8 +729,12 @@ export default function FinancialPlan() {
                 runningOther += eventAmount * (cashAlloc + otherAlloc);
               }
             } else if (event.event_type === 'income_change') {
+              // DEBUG: Log income_change check
+              console.log("Checking income_change condition:", event.event_type === 'income_change', "Current projection year:", year, "Event year:", event.year, "Matches:", event.year === year);
+              
               // Income changes are cumulative and ongoing from the event year forward
               if (event.year === year) {
+                console.log("APPLYING INCOME CHANGE! Amount:", event.amount, "New cumulative:", cumulativeIncomeAdjustment + event.amount);
                 cumulativeIncomeAdjustment += event.amount;
               }
             } else if (event.event_type === 'expense_change') {
@@ -1067,6 +1077,11 @@ export default function FinancialPlan() {
         // Calculate gross income with income growth and life event adjustments
         const baseGrossIncome = grossAnnualIncome * Math.pow(1 + incomeGrowth / 100, i);
         const yearGrossIncome = baseGrossIncome + (cumulativeIncomeAdjustment * Math.pow(1 + incomeGrowth / 100, i));
+        
+        // DEBUG: Log income calculation
+        if (year === 2026 || year === 2027) {
+          console.log("Year:", year, "Base Income:", baseGrossIncome, "Cumulative Income Adj:", cumulativeIncomeAdjustment, "Final yearGrossIncome:", yearGrossIncome);
+        }
         
         // Calculate taxes on adjusted gross income
         const yearTaxableIncome = Math.max(0, yearGrossIncome - currentStandardDeduction);
