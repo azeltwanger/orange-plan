@@ -851,7 +851,7 @@ export default function Goals() {
                     <SelectItem value="home_purchase" className="text-zinc-100">🏠 Home Purchase</SelectItem>
                     <SelectItem value="major_expense" className="text-zinc-100">💸 Major Expense</SelectItem>
                     <SelectItem value="expense_change" className="text-zinc-100">📊 Expense Change</SelectItem>
-                    <SelectItem value="income_change" className="text-zinc-100">💼 Income Change</SelectItem>
+                    <SelectItem value="income_change" className="text-zinc-100">💼 Additional Income</SelectItem>
                     <SelectItem value="inheritance" className="text-zinc-100">🎁 Inheritance</SelectItem>
                     <SelectItem value="other" className="text-zinc-100">📝 Other</SelectItem>
                   </SelectContent>
@@ -881,8 +881,13 @@ export default function Goals() {
               </>
             ) : (
               <div className="space-y-2">
-                <Label className="text-zinc-400">Amount ($)</Label>
-                <Input type="number" value={eventForm.amount} onChange={(e) => setEventForm({ ...eventForm, amount: e.target.value })} placeholder="-50000 (negative = expense)" className="bg-zinc-900 border-zinc-700 text-zinc-100" required />
+                <Label className="text-zinc-400">
+                  {eventForm.event_type === 'income_change' ? 'Additional Annual Income ($)' : 'Amount ($)'}
+                </Label>
+                <Input type="number" value={eventForm.amount} onChange={(e) => setEventForm({ ...eventForm, amount: e.target.value })} placeholder={eventForm.event_type === 'income_change' ? '50000' : '-50000 (negative = expense)'} className="bg-zinc-900 border-zinc-700 text-zinc-100" required />
+                {eventForm.event_type === 'income_change' && (
+                  <p className="text-xs text-zinc-500">This amount will be added to your base income for the specified duration</p>
+                )}
               </div>
             )}
 
@@ -896,8 +901,8 @@ export default function Goals() {
               </div>
             </div>
 
-            {/* Investment Allocation - Only show for positive asset impacts (inheritance, windfall, etc.) */}
-            {eventForm.affects === 'assets' && parseFloat(eventForm.amount) > 0 && (
+            {/* Investment Allocation - Only show for lump-sum inflows (inheritance, asset_sale, etc.) */}
+            {eventForm.affects === 'assets' && parseFloat(eventForm.amount) > 0 && eventForm.event_type !== 'income_change' && (
               <div className="p-4 rounded-xl bg-orange-500/10 border border-orange-500/20 space-y-4">
                 <div className="flex items-center gap-2">
                   <TrendingUp className="w-5 h-5 text-orange-400" />
