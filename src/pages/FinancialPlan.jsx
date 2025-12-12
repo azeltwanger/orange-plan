@@ -2239,9 +2239,9 @@ export default function FinancialPlan() {
               {goals.filter(g => g.will_be_spent).length > 0 && `${goals.filter(g => g.will_be_spent).length} planned expense${goals.filter(g => g.will_be_spent).length !== 1 ? 's' : ''} • `}
               {goals.length > 0 && `${goals.length} goal${goals.length !== 1 ? 's' : ''} tracked`}
             </p>
-            <div className="h-96"> {/* Increased height from h-80 to h-96 */}
+            <div className="h-[500px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={projections} margin={{ top: 10, right: 30, left: 0, bottom: 60 }}> {/* Added margin */}
+                  <AreaChart data={projections} margin={{ top: 10, right: 30, left: 0, bottom: 20 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
                     <XAxis dataKey="age" stroke="#71717a" fontSize={12} />
                     <YAxis yAxisId="left" stroke="#71717a" fontSize={12} tickFormatter={(v) => `$${(v/1000000).toFixed(1)}M`} />
@@ -2256,98 +2256,101 @@ export default function FinancialPlan() {
                         const hasLiquidation = p.liquidations && p.liquidations.length > 0;
 
                         return (
-                          <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-3 text-sm min-w-[200px] max-h-[400px] overflow-y-auto"> {/* Added max-h and overflow */}
-                            <p className="font-semibold text-zinc-200 mb-2">Age {label} {p.hasEvent ? '📅' : ''} {hasLiquidation ? '⚠️' : ''}</p>
-                            <div className="space-y-1">
-                              <div className="flex justify-between gap-4">
-                                <span className="text-orange-400">Bitcoin:</span>
-                                <span className="text-zinc-200">${(p.btc || 0).toLocaleString()}</span>
+                          <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-4 text-sm min-w-[240px] max-h-[500px] overflow-y-auto shadow-xl">
+                            <p className="font-bold text-lg text-zinc-100 mb-4">Age {label} {p.hasEvent ? '📅' : ''} {hasLiquidation ? '⚠️' : ''}</p>
+                            <div className="space-y-2">
+                              <div className="flex justify-between gap-6">
+                                <span className="text-orange-400 font-light">Bitcoin:</span>
+                                <span className="text-zinc-200 font-medium text-right">${(p.btc || 0).toLocaleString()}</span>
                               </div>
-                              <div className="flex justify-between gap-4">
-                                <span className="text-blue-400">Stocks:</span>
-                                <span className="text-zinc-200">${(p.stocks || 0).toLocaleString()}</span>
+                              <div className="flex justify-between gap-6">
+                                <span className="text-blue-400 font-light">Stocks:</span>
+                                <span className="text-zinc-200 font-medium text-right">${(p.stocks || 0).toLocaleString()}</span>
                               </div>
-                              <div className="flex justify-between gap-4">
-                                <span className="text-emerald-400">Real Estate:</span>
-                                <span className="text-zinc-200">${(p.realEstate || 0).toLocaleString()}</span>
+                              <div className="flex justify-between gap-6">
+                                <span className="text-emerald-400 font-light">Real Estate:</span>
+                                <span className="text-zinc-200 font-medium text-right">${(p.realEstate || 0).toLocaleString()}</span>
                               </div>
-                              <div className="flex justify-between gap-4">
-                                <span className="text-purple-400">Bonds:</span>
-                                <span className="text-zinc-200">${(p.bonds || 0).toLocaleString()}</span>
+                              <div className="flex justify-between gap-6">
+                                <span className="text-purple-400 font-light">Bonds:</span>
+                                <span className="text-zinc-200 font-medium text-right">${(p.bonds || 0).toLocaleString()}</span>
                               </div>
-                              <div className="pt-2 mt-2 border-t border-zinc-700">
-                                <div className="flex justify-between gap-4">
-                                  <span className="text-white font-semibold">Total Assets:</span>
-                                  <span className="text-white font-semibold">${(p.total || 0).toLocaleString()}</span>
+                              <div className="pt-3 mt-3 border-t border-zinc-700/70 space-y-1.5">
+                                <div className="flex justify-between gap-6">
+                                  <span className="text-zinc-100 font-semibold">Total Assets:</span>
+                                  <span className="text-zinc-100 font-semibold text-right">${(p.total || 0).toLocaleString()}</span>
                                 </div>
                                 {p.totalDebt > 0 && (
                                   <>
-                                    <div className="flex justify-between gap-4 mt-1">
-                                      <span className="text-rose-400 font-semibold">Total Debt:</span>
-                                      <span className="text-rose-400 font-semibold">-${(p.totalDebt || 0).toLocaleString()}</span>
+                                    <div className="flex justify-between gap-6">
+                                      <span className="text-rose-300 font-semibold">Total Debt:</span>
+                                      <span className="text-rose-300 font-semibold text-right">-${(p.totalDebt || 0).toLocaleString()}</span>
                                     </div>
-                                    <div className="flex justify-between gap-4 mt-1 pt-1 border-t border-zinc-700/50">
-                                      <span className={cn("font-semibold", (p.total - p.totalDebt) > 0 ? "text-emerald-400" : "text-rose-400")}>Net Worth:</span>
-                                      <span className={cn("font-semibold", (p.total - p.totalDebt) > 0 ? "text-emerald-400" : "text-rose-400")}>${((p.total || 0) - (p.totalDebt || 0)).toLocaleString()}</span>
+                                    <div className="flex justify-between gap-6 pt-1.5 border-t border-zinc-700/40">
+                                      <span className={cn("font-semibold", (p.total - p.totalDebt) > 0 ? "text-emerald-400" : "text-rose-300")}>Net Worth:</span>
+                                      <span className={cn("font-semibold text-right", (p.total - p.totalDebt) > 0 ? "text-emerald-400" : "text-rose-300")}>${((p.total || 0) - (p.totalDebt || 0)).toLocaleString()}</span>
                                     </div>
                                   </>
                                 )}
                               </div>
                               {!p.isRetired && p.yearSavingsForTooltip !== 0 && (
-                                <div className="pt-2 mt-2 border-t border-zinc-700">
+                                <div className="pt-3 mt-3 border-t border-zinc-700/70">
                                   {p.yearSavingsForTooltip < 0 ? (
                                     <>
-                                      <div className="text-xs space-y-0.5 text-zinc-400 mb-1">
-                                        <div className="flex justify-between">
+                                      <p className="text-zinc-400 mb-2 font-medium text-xs">Annual Outflow:</p>
+                                      <div className="text-xs space-y-1.5 text-zinc-500 mb-2">
+                                        <div className="flex justify-between gap-6">
                                           <span>• Spending:</span>
-                                          <span className="text-zinc-300">${(currentAnnualSpending * Math.pow(1 + inflationRate / 100, p.age - currentAge)).toLocaleString(undefined, {maximumFractionDigits: 0})}</span>
+                                          <span className="text-zinc-300 text-right">${(currentAnnualSpending * Math.pow(1 + inflationRate / 100, p.age - currentAge)).toLocaleString(undefined, {maximumFractionDigits: 0})}</span>
                                         </div>
                                         {p.hasGoalWithdrawal && p.yearGoalWithdrawal > 0 && (
-                                          <div className="flex justify-between">
+                                          <div className="flex justify-between gap-6">
                                             <span>• Goal Funding:</span>
-                                            <span className="text-zinc-300">${p.yearGoalWithdrawal.toLocaleString()}</span>
+                                            <span className="text-zinc-300 text-right">${p.yearGoalWithdrawal.toLocaleString()}</span>
                                           </div>
                                         )}
                                         {p.taxesPaid > 0 && (
-                                          <div className="flex justify-between">
+                                          <div className="flex justify-between gap-6">
                                             <span>• Taxes Paid:</span>
-                                            <span className="text-rose-400">${p.taxesPaid.toLocaleString()}</span>
+                                            <span className="text-rose-300 text-right">${p.taxesPaid.toLocaleString()}</span>
                                           </div>
                                         )}
                                         {p.penaltyPaid > 0 && (
-                                          <div className="flex justify-between">
+                                          <div className="flex justify-between gap-6">
                                             <span>• Penalty Paid:</span>
-                                            <span className="text-rose-400">${p.penaltyPaid.toLocaleString()}</span>
+                                            <span className="text-rose-300 text-right">${p.penaltyPaid.toLocaleString()}</span>
                                           </div>
                                         )}
                                       </div>
                                       {p.debtPayments > 0 && (
-                                        <div className="text-xs text-zinc-500 mb-1">
+                                        <div className="text-xs text-zinc-500 mb-2">
                                           (Debt Payments: ${p.debtPayments.toLocaleString()} - tracked separately)
                                         </div>
                                       )}
-                                      <p className="font-medium text-rose-400">
-                                        Total Annual Outflow: ${((currentAnnualSpending * Math.pow(1 + inflationRate / 100, p.age - currentAge)) + (p.yearGoalWithdrawal || 0) + (p.taxesPaid || 0) + (p.penaltyPaid || 0)).toLocaleString(undefined, {maximumFractionDigits: 0})}
-                                      </p>
+                                      <div className="pt-2 border-t border-zinc-700/40">
+                                        <p className="font-semibold text-rose-300 text-sm">
+                                          Total Outflow: ${((currentAnnualSpending * Math.pow(1 + inflationRate / 100, p.age - currentAge)) + (p.yearGoalWithdrawal || 0) + (p.taxesPaid || 0) + (p.penaltyPaid || 0)).toLocaleString(undefined, {maximumFractionDigits: 0})}
+                                        </p>
+                                      </div>
                                       {(p.withdrawFromTaxable > 0 || p.withdrawFromTaxDeferred > 0 || p.withdrawFromTaxFree > 0) && (
-                                        <div className="text-xs space-y-0.5 text-zinc-400 mt-2 pt-2 border-t border-zinc-700/50">
-                                          <p className="text-zinc-300 font-medium mb-1">Withdrawal Sources:</p>
+                                        <div className="text-xs space-y-1.5 text-zinc-500 mt-3 pt-3 border-t border-zinc-700/40">
+                                          <p className="text-zinc-400 font-medium mb-1">Withdrawal Sources:</p>
                                           {p.withdrawFromTaxable > 0 && (
-                                            <div className="flex justify-between">
+                                            <div className="flex justify-between gap-6">
                                               <span>From Taxable:</span>
-                                              <span className="text-emerald-400">${p.withdrawFromTaxable.toLocaleString()}</span>
+                                              <span className="text-emerald-400 text-right">${p.withdrawFromTaxable.toLocaleString()}</span>
                                             </div>
                                           )}
                                           {p.withdrawFromTaxDeferred > 0 && (
-                                            <div className="flex justify-between">
+                                            <div className="flex justify-between gap-6">
                                               <span>From Tax-Deferred:</span>
-                                              <span className="text-amber-400">${p.withdrawFromTaxDeferred.toLocaleString()}</span>
+                                              <span className="text-amber-400 text-right">${p.withdrawFromTaxDeferred.toLocaleString()}</span>
                                             </div>
                                           )}
                                           {p.withdrawFromTaxFree > 0 && (
-                                            <div className="flex justify-between">
+                                            <div className="flex justify-between gap-6">
                                               <span>From Tax-Free:</span>
-                                              <span className="text-purple-400">${p.withdrawFromTaxFree.toLocaleString()}</span>
+                                              <span className="text-purple-400 text-right">${p.withdrawFromTaxFree.toLocaleString()}</span>
                                             </div>
                                           )}
                                         </div>
@@ -2355,104 +2358,112 @@ export default function FinancialPlan() {
                                     </>
                                   ) : (
                                     <>
-                                      <div className="text-xs space-y-0.5 text-zinc-400 mb-1">
-                                        <div className="flex justify-between">
+                                      <p className="text-zinc-400 mb-2 font-medium text-xs">Annual Inflow:</p>
+                                      <div className="text-xs space-y-1.5 text-zinc-500 mb-2">
+                                        <div className="flex justify-between gap-6">
                                           <span>• Income:</span>
-                                          <span className="text-emerald-400">${Math.abs(p.yearSavingsForTooltip).toLocaleString()}</span>
+                                          <span className="text-emerald-400 text-right">${Math.abs(p.yearSavingsForTooltip).toLocaleString()}</span>
                                         </div>
                                         {p.taxesPaid > 0 && (
-                                          <div className="flex justify-between">
+                                          <div className="flex justify-between gap-6">
                                             <span>• Taxes:</span>
-                                            <span className="text-rose-400">-${p.taxesPaid.toLocaleString()}</span>
+                                            <span className="text-rose-300 text-right">-${p.taxesPaid.toLocaleString()}</span>
                                           </div>
                                         )}
                                       </div>
-                                      <p className="font-medium text-emerald-400">
-                                        Total Annual Inflow: ${Math.abs(p.yearSavingsForTooltip).toLocaleString()}
-                                      </p>
+                                      <div className="pt-2 border-t border-zinc-700/40">
+                                        <p className="font-semibold text-emerald-400 text-sm">
+                                          Total Inflow: ${Math.abs(p.yearSavingsForTooltip).toLocaleString()}
+                                        </p>
+                                      </div>
                                     </>
                                   )}
                                 </div>
                               )}
                               {p.debtPayoffs && p.debtPayoffs.length > 0 && (
-                                <div className="pt-2 mt-2 border-t border-zinc-700">
-                                  <p className="text-xs font-medium text-emerald-400 mb-1">🎉 Debt Paid Off:</p>
-                                  {p.debtPayoffs.map((d, idx) => {
-                                    const monthName = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.month - 1];
-                                    return (
-                                      <p key={idx} className="text-[10px] text-emerald-400">
-                                        ✓ {d.name} ({monthName})
-                                      </p>
-                                    );
+                                <div className="pt-3 mt-3 border-t border-zinc-700/70">
+                                  <p className="text-xs font-semibold text-emerald-400 mb-2">🎉 Debt Paid Off:</p>
+                                  <div className="space-y-1">
+                                    {p.debtPayoffs.map((d, idx) => {
+                                      const monthName = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.month - 1];
+                                      return (
+                                        <p key={idx} className="text-xs text-emerald-400 font-light">
+                                          ✓ {d.name} ({monthName})
+                                        </p>
+                                      );
                                     })}
+                                  </div>
+                                </div>
+                              )}
+                              {p.liquidations && p.liquidations.length > 0 && (
+                                <div className="pt-3 mt-3 border-t border-zinc-700/70">
+                                  <p className="text-xs font-semibold text-rose-300 mb-2">⚠️ Liquidation Event:</p>
+                                  {p.liquidations.map((liq, idx) => (
+                                    <div key={idx} className="text-xs text-zinc-400 space-y-1">
+                                      <p className="text-rose-300">• {liq.liabilityName}</p>
+                                      <p className="ml-3 text-zinc-500">Liquidated: {liq.btcAmount.toFixed(4)} BTC (${liq.proceeds.toLocaleString()})</p>
+                                      {liq.remainingDebt > 0 && (
+                                        <p className="ml-3 text-zinc-500">Remaining debt: ${liq.remainingDebt.toLocaleString()}</p>
+                                      )}
                                     </div>
-                                    )}
-                                    {p.liquidations && p.liquidations.length > 0 && (
-                                    <div className="pt-2 mt-2 border-t border-zinc-700">
-                                    <p className="text-xs font-medium text-rose-400 mb-1">⚠️ Liquidation Event:</p>
-                                    {p.liquidations.map((liq, idx) => (
-                                    <div key={idx} className="text-[10px] text-rose-400 space-y-0.5">
-                                     <p>• {liq.liabilityName}</p>
-                                     <p className="ml-2 text-zinc-500">Liquidated: {liq.btcAmount.toFixed(4)} BTC (${liq.proceeds.toLocaleString()})</p>
-                                     {liq.remainingDebt > 0 && (
-                                       <p className="ml-2 text-zinc-500">Remaining debt: ${liq.remainingDebt.toLocaleString()}</p>
-                                     )}
-                                    </div>
-                                    ))}
-                                    </div>
-                                    )}
-                                    {p.isRetired && (p.yearWithdrawal > 0 || p.yearGoalWithdrawal > 0) && (
-                                <div className="pt-2 mt-2 border-t border-zinc-700">
-                                  <div className="text-xs space-y-0.5 text-zinc-400 mb-1">
-                                    <div className="flex justify-between">
+                                  ))}
+                                </div>
+                              )}
+                              {p.isRetired && (p.yearWithdrawal > 0 || p.yearGoalWithdrawal > 0) && (
+                                <div className="pt-3 mt-3 border-t border-zinc-700/70">
+                                  <p className="text-zinc-400 mb-2 font-medium text-xs">Annual Outflow:</p>
+                                  <div className="text-xs space-y-1.5 text-zinc-500 mb-2">
+                                    <div className="flex justify-between gap-6">
                                       <span>• Spending:</span>
-                                      <span className="text-zinc-300">${(p.retirementSpendingOnly || 0).toLocaleString()}</span>
+                                      <span className="text-zinc-300 text-right">${(p.retirementSpendingOnly || 0).toLocaleString()}</span>
                                     </div>
                                     {p.yearGoalWithdrawal > 0 && (
-                                      <div className="flex justify-between">
+                                      <div className="flex justify-between gap-6">
                                         <span>• Goal Funding:</span>
-                                        <span className="text-zinc-300">${p.yearGoalWithdrawal.toLocaleString()}</span>
+                                        <span className="text-zinc-300 text-right">${p.yearGoalWithdrawal.toLocaleString()}</span>
                                       </div>
                                     )}
                                     {p.taxesPaid > 0 && (
-                                      <div className="flex justify-between">
+                                      <div className="flex justify-between gap-6">
                                         <span>• Taxes Paid:</span>
-                                        <span className="text-rose-400">${p.taxesPaid.toLocaleString()}</span>
+                                        <span className="text-rose-300 text-right">${p.taxesPaid.toLocaleString()}</span>
                                       </div>
                                     )}
                                     {p.penaltyPaid > 0 && (
-                                      <div className="flex justify-between">
+                                      <div className="flex justify-between gap-6">
                                         <span>• Penalty Paid:</span>
-                                        <span className="text-rose-400">${p.penaltyPaid.toLocaleString()}</span>
+                                        <span className="text-rose-300 text-right">${p.penaltyPaid.toLocaleString()}</span>
                                       </div>
                                     )}
                                   </div>
                                   {p.debtPayments > 0 && (
-                                    <div className="text-xs text-zinc-500 mb-1">
+                                    <div className="text-xs text-zinc-500 mb-2">
                                       (Debt Payments: ${p.debtPayments.toLocaleString()} - tracked separately)
                                     </div>
                                   )}
-                                  <p className="font-medium text-rose-400">
-                                    Total Annual Outflow: ${((p.retirementSpendingOnly || 0) + (p.yearGoalWithdrawal || 0) + (p.taxesPaid || 0) + (p.penaltyPaid || 0)).toLocaleString()}
-                                  </p>
-                                  <div className="text-xs space-y-0.5 text-zinc-400 mt-2 pt-2 border-t border-zinc-700/50">
-                                    <p className="text-zinc-300 font-medium mb-1">Withdrawal Sources:</p>
+                                  <div className="pt-2 border-t border-zinc-700/40">
+                                    <p className="font-semibold text-rose-300 text-sm">
+                                      Total Outflow: ${((p.retirementSpendingOnly || 0) + (p.yearGoalWithdrawal || 0) + (p.taxesPaid || 0) + (p.penaltyPaid || 0)).toLocaleString()}
+                                    </p>
+                                  </div>
+                                  <div className="text-xs space-y-1.5 text-zinc-500 mt-3 pt-3 border-t border-zinc-700/40">
+                                    <p className="text-zinc-400 font-medium mb-1">Withdrawal Sources:</p>
                                     {p.withdrawFromTaxable > 0 && (
-                                      <div className="flex justify-between">
+                                      <div className="flex justify-between gap-6">
                                         <span>From Taxable:</span>
-                                        <span className="text-emerald-400">${p.withdrawFromTaxable.toLocaleString()}</span>
+                                        <span className="text-emerald-400 text-right">${p.withdrawFromTaxable.toLocaleString()}</span>
                                       </div>
                                     )}
                                     {p.withdrawFromTaxDeferred > 0 && (
-                                      <div className="flex justify-between">
+                                      <div className="flex justify-between gap-6">
                                         <span>From Tax-Deferred:</span>
-                                        <span className="text-amber-400">${p.withdrawFromTaxDeferred.toLocaleString()}</span>
+                                        <span className="text-amber-400 text-right">${p.withdrawFromTaxDeferred.toLocaleString()}</span>
                                       </div>
                                     )}
                                     {p.withdrawFromTaxFree > 0 && (
-                                      <div className="flex justify-between">
+                                      <div className="flex justify-between gap-6">
                                         <span>From Tax-Free:</span>
-                                        <span className="text-purple-400">${p.withdrawFromTaxFree.toLocaleString()}</span>
+                                        <span className="text-purple-400 text-right">${p.withdrawFromTaxFree.toLocaleString()}</span>
                                       </div>
                                     )}
                                   </div>
@@ -2464,14 +2475,12 @@ export default function FinancialPlan() {
                       }}
                       labelFormatter={(age) => {
                         const year = new Date().getFullYear() + (age - currentAge);
-                        const yearEvents = lifeEvents.filter(e => e.year === year);
-                        const yearGoals = goals.filter(g => g.will_be_spent && g.target_date && new Date(g.target_date).getFullYear() === year);
+                        const hasYearEvents = lifeEvents.some(e => e.year === year);
+                        const hasYearGoals = goals.some(g => g.will_be_spent && g.target_date && new Date(g.target_date).getFullYear() === year);
+                        
                         let label = `Age ${age}`;
-                        if (yearEvents.length > 0) {
-                          label += ` • ${yearEvents.map(e => e.name).join(', ')}`;
-                        }
-                        if (yearGoals.length > 0) {
-                          label += ` • ${yearGoals.map(g => `${g.name} (-$${(g.target_amount/1000).toFixed(0)}k)`).join(', ')}`;
+                        if (hasYearEvents || hasYearGoals) {
+                          label += ' *';
                         }
                         return label;
                       }}
