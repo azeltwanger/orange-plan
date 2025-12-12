@@ -612,9 +612,6 @@ export default function FinancialPlan() {
     let cumulativeIncomeAdjustment = 0;
     let cumulativeExpenseAdjustment = 0;
 
-    // Track cumulative income adjustments from life events
-    let cumulativeIncomeAdjustment = 0;
-
     // Track debt balances for all liabilities with month-by-month amortization
     // Initialize these mutable liability states once outside the loop
     const tempRunningDebt = {};
@@ -705,7 +702,6 @@ export default function FinancialPlan() {
         const yearGoalNames = []; // Track which goals are funded this year
 
         lifeEvents.forEach(event => {
-          const yearsFromEventStart = year - event.year;
           if (event.year === year || (event.is_recurring && event.year <= year && year < event.year + (event.recurring_years || 1))) {
             if (event.affects === 'assets') {
               const eventAmount = event.amount;
@@ -731,10 +727,19 @@ export default function FinancialPlan() {
               if (event.year === year) {
                 cumulativeIncomeAdjustment += event.amount;
               }
+            } else if (event.affects === 'expenses') {
+              // Expense changes are cumulative and ongoing from the event year forward
+              if (event.year === year) {
+                cumulativeExpenseAdjustment += event.amount;
+              }
             }
 
             if (event.event_type === 'home_purchase' && event.year === year) {
               eventImpact -= (event.down_payment || 0);
+              // Monthly expense impact becomes ongoing annual expense from this year forward
+              if (event.monthly_expense_impact > 0) {
+                cumulativeExpenseAdjustment += event.monthly_expense_impact * 12;
+              }
             }
           }
         });
@@ -1054,8 +1059,8 @@ export default function FinancialPlan() {
       }
 
       if (!isRetired) {
-        // Apply income growth to base savings PLUS cumulative income adjustments from life events
-        const adjustedAnnualIncome = annualSavings + cumulativeIncomeAdjustment;
+        // Apply income growth to base savings PLUS cumulative adjustments from life events
+        const adjustedAnnualIncome = annualSavings + cumulativeIncomeAdjustment - cumulativeExpenseAdjustment;
         yearSavings = adjustedAnnualIncome * Math.pow(1 + incomeGrowth / 100, i);
         runningSavings += yearSavings;
         cumulativeSavings += yearSavings;
@@ -1534,6 +1539,7 @@ export default function FinancialPlan() {
           // Apply life events and goals impacts for this year
           let eventImpact = 0;
           let yearIncomeAdjustment = 0;
+          let yearExpenseAdjustment = 0;
 
           lifeEvents.forEach(event => {
             if (event.year === simulationYear || (event.is_recurring && event.year <= simulationYear && simulationYear < event.year + (event.recurring_years || 1))) {
@@ -1544,10 +1550,20 @@ export default function FinancialPlan() {
                 if (event.year <= simulationYear) {
                   yearIncomeAdjustment += event.amount;
                 }
+              } else if (event.affects === 'expenses') {
+                // Expense changes are cumulative from event year forward
+                if (event.year <= simulationYear) {
+                  yearExpenseAdjustment += event.amount;
+                }
               }
 
               if (event.event_type === 'home_purchase' && event.year === simulationYear) {
                 eventImpact -= (event.down_payment || 0);
+              }
+              
+              // Home purchase monthly expenses become ongoing from event year forward
+              if (event.event_type === 'home_purchase' && event.year <= simulationYear && event.monthly_expense_impact > 0) {
+                yearExpenseAdjustment += event.monthly_expense_impact * 12;
               }
             }
           });
@@ -1587,8 +1603,8 @@ export default function FinancialPlan() {
           portfolio += eventImpact;
 
           if (!isRetired) {
-            // Add savings (now net cash flow) adjusted for income life events
-            const adjustedAnnualIncome = annualSavings + yearIncomeAdjustment;
+            // Add savings (now net cash flow) adjusted for income/expense life events
+            const adjustedAnnualIncome = annualSavings + yearIncomeAdjustment - yearExpenseAdjustment;
             const yearNetCashFlow = adjustedAnnualIncome * Math.pow(1 + incomeGrowth / 100, year);
             portfolio += yearNetCashFlow;
           } else {
@@ -1641,6 +1657,7 @@ export default function FinancialPlan() {
         let portfolio = startingPortfolio;
         let canSustain = true;
         let cumulativeIncomeAdj = 0;
+        let cumulativeExpenseAdj = 0;
 
         // Simulate from now until life expectancy
         for (let year = 1; year <= lifeExpectancy - currentAge; year++) {
@@ -1660,16 +1677,24 @@ export default function FinancialPlan() {
 
           portfolio = portfolio * (1 + blendedGrowthRate);
 
-          // Track income adjustments from life events
+          // Track income and expense adjustments from life events
           lifeEvents.forEach(event => {
-            if (event.affects === 'income' && event.year === simulationYear) {
-              cumulativeIncomeAdj += event.amount;
+            if (event.year === simulationYear || (event.is_recurring && event.year <= simulationYear && simulationYear < event.year + (event.recurring_years || 1))) {
+              if (event.affects === 'income' && event.year === simulationYear) {
+                cumulativeIncomeAdj += event.amount;
+              } else if (event.affects === 'expenses' && event.year === simulationYear) {
+                cumulativeExpenseAdj += event.amount;
+              }
+              
+              if (event.event_type === 'home_purchase' && event.year === simulationYear && event.monthly_expense_impact > 0) {
+                cumulativeExpenseAdj += event.monthly_expense_impact * 12;
+              }
             }
           });
 
           if (!isRetired) {
-            // Add net cash flow (can be negative) adjusted for income life events
-            const adjustedAnnualIncome = annualSavings + cumulativeIncomeAdj;
+            // Add net cash flow (can be negative) adjusted for income/expense life events
+            const adjustedAnnualIncome = annualSavings + cumulativeIncomeAdj - cumulativeExpenseAdj;
             const yearNetCashFlow = adjustedAnnualIncome * Math.pow(1 + incomeGrowth / 100, year);
             portfolio += yearNetCashFlow;
           } else {
