@@ -1059,20 +1059,22 @@ export default function FinancialPlan() {
       }
 
       if (!isRetired) {
-        // Apply income growth to base savings PLUS cumulative adjustments from life events
-        const adjustedAnnualIncome = annualSavings + cumulativeIncomeAdjustment - cumulativeExpenseAdjustment;
-        yearSavings = adjustedAnnualIncome * Math.pow(1 + incomeGrowth / 100, i);
-        runningSavings += yearSavings;
-        cumulativeSavings += yearSavings;
-
-        // Calculate pre-retirement taxes for this year
-        const yearGrossIncome = grossAnnualIncome * Math.pow(1 + incomeGrowth / 100, i);
+        // Calculate gross income with income growth and life event adjustments
+        const baseGrossIncome = grossAnnualIncome * Math.pow(1 + incomeGrowth / 100, i);
+        const yearGrossIncome = baseGrossIncome + (cumulativeIncomeAdjustment * Math.pow(1 + incomeGrowth / 100, i));
+        
+        // Calculate taxes on adjusted gross income
         const yearTaxableIncome = Math.max(0, yearGrossIncome - currentStandardDeduction);
         const yearTaxesPaid = calculateProgressiveIncomeTax(yearTaxableIncome, filingStatus, year);
         taxesPaid = yearTaxesPaid;
 
         // Track components for tooltip
-        const yearSpending = currentAnnualSpending * Math.pow(1 + inflationRate / 100, i);
+        const yearSpending = (currentAnnualSpending * Math.pow(1 + inflationRate / 100, i)) + (cumulativeExpenseAdjustment * Math.pow(1 + inflationRate / 100, i));
+        
+        // Net savings = gross income - taxes - spending
+        yearSavings = yearGrossIncome - yearTaxesPaid - yearSpending;
+        runningSavings += yearSavings;
+        cumulativeSavings += yearSavings;
 
         // Allocate net cash flow to taxable accounts (can be negative = drawdown)
         // If negative, we're withdrawing - track sources and calculate taxes
@@ -1324,6 +1326,8 @@ export default function FinancialPlan() {
         bonds: Math.round(runningBonds),
         savings: Math.round(runningSavings),
         yearSavingsForTooltip: isRetired ? 0 : Math.round(yearSavings),
+        yearGrossIncome: !isRetired ? Math.round((grossAnnualIncome * Math.pow(1 + incomeGrowth / 100, i)) + (cumulativeIncomeAdjustment * Math.pow(1 + incomeGrowth / 100, i))) : 0,
+        yearSpending: !isRetired ? Math.round((currentAnnualSpending * Math.pow(1 + inflationRate / 100, i)) + (cumulativeExpenseAdjustment * Math.pow(1 + inflationRate / 100, i))) : 0,
         total: Math.round(total),
         realTotal: Math.round(realTotal),
         hasEvent: lifeEvents.some(e => e.year === year) ||
@@ -2297,28 +2301,26 @@ export default function FinancialPlan() {
                                 <div className="pt-3 mt-3 border-t border-zinc-700/70">
                                   {p.yearSavingsForTooltip < 0 ? (
                                     <>
-                                      <p className="text-zinc-400 mb-2 font-medium text-xs">Annual Outflow:</p>
+                                      <p className="text-zinc-400 mb-2 font-medium text-xs">Annual Cash Flow:</p>
                                       <div className="text-xs space-y-1.5 text-zinc-500 mb-2">
                                         <div className="flex justify-between gap-6">
+                                          <span>• Gross Income:</span>
+                                          <span className="text-emerald-400 text-right">${(p.yearGrossIncome || 0).toLocaleString()}</span>
+                                        </div>
+                                        {p.taxesPaid > 0 && (
+                                          <div className="flex justify-between gap-6">
+                                            <span>• Taxes Paid:</span>
+                                            <span className="text-rose-300 text-right">-${p.taxesPaid.toLocaleString()}</span>
+                                          </div>
+                                        )}
+                                        <div className="flex justify-between gap-6">
                                           <span>• Spending:</span>
-                                          <span className="text-zinc-300 text-right">${(currentAnnualSpending * Math.pow(1 + inflationRate / 100, p.age - currentAge)).toLocaleString(undefined, {maximumFractionDigits: 0})}</span>
+                                          <span className="text-zinc-300 text-right">-${(p.yearSpending || 0).toLocaleString()}</span>
                                         </div>
                                         {p.hasGoalWithdrawal && p.yearGoalWithdrawal > 0 && (
                                           <div className="flex justify-between gap-6">
                                             <span>• Goal Funding:</span>
-                                            <span className="text-zinc-300 text-right">${p.yearGoalWithdrawal.toLocaleString()}</span>
-                                          </div>
-                                        )}
-                                        {p.taxesPaid > 0 && (
-                                          <div className="flex justify-between gap-6">
-                                            <span>• Taxes Paid:</span>
-                                            <span className="text-rose-300 text-right">${p.taxesPaid.toLocaleString()}</span>
-                                          </div>
-                                        )}
-                                        {p.penaltyPaid > 0 && (
-                                          <div className="flex justify-between gap-6">
-                                            <span>• Penalty Paid:</span>
-                                            <span className="text-rose-300 text-right">${p.penaltyPaid.toLocaleString()}</span>
+                                            <span className="text-zinc-300 text-right">-${p.yearGoalWithdrawal.toLocaleString()}</span>
                                           </div>
                                         )}
                                       </div>
@@ -2329,7 +2331,7 @@ export default function FinancialPlan() {
                                       )}
                                       <div className="pt-2 border-t border-zinc-700/40">
                                         <p className="font-semibold text-rose-300 text-sm">
-                                          Total Outflow: ${((currentAnnualSpending * Math.pow(1 + inflationRate / 100, p.age - currentAge)) + (p.yearGoalWithdrawal || 0) + (p.taxesPaid || 0) + (p.penaltyPaid || 0)).toLocaleString(undefined, {maximumFractionDigits: 0})}
+                                          Net Savings: ${(p.yearSavingsForTooltip || 0).toLocaleString()}
                                         </p>
                                       </div>
                                       {(p.withdrawFromTaxable > 0 || p.withdrawFromTaxDeferred > 0 || p.withdrawFromTaxFree > 0) && (
@@ -2358,22 +2360,26 @@ export default function FinancialPlan() {
                                     </>
                                   ) : (
                                     <>
-                                      <p className="text-zinc-400 mb-2 font-medium text-xs">Annual Inflow:</p>
+                                      <p className="text-zinc-400 mb-2 font-medium text-xs">Annual Cash Flow:</p>
                                       <div className="text-xs space-y-1.5 text-zinc-500 mb-2">
                                         <div className="flex justify-between gap-6">
-                                          <span>• Income:</span>
-                                          <span className="text-emerald-400 text-right">${Math.abs(p.yearSavingsForTooltip).toLocaleString()}</span>
+                                          <span>• Gross Income:</span>
+                                          <span className="text-emerald-400 text-right">${(p.yearGrossIncome || 0).toLocaleString()}</span>
                                         </div>
                                         {p.taxesPaid > 0 && (
                                           <div className="flex justify-between gap-6">
-                                            <span>• Taxes:</span>
+                                            <span>• Taxes Paid:</span>
                                             <span className="text-rose-300 text-right">-${p.taxesPaid.toLocaleString()}</span>
                                           </div>
                                         )}
+                                        <div className="flex justify-between gap-6">
+                                          <span>• Spending:</span>
+                                          <span className="text-zinc-300 text-right">-${(p.yearSpending || 0).toLocaleString()}</span>
+                                        </div>
                                       </div>
                                       <div className="pt-2 border-t border-zinc-700/40">
                                         <p className="font-semibold text-emerald-400 text-sm">
-                                          Total Inflow: ${Math.abs(p.yearSavingsForTooltip).toLocaleString()}
+                                          Net Savings: ${Math.abs(p.yearSavingsForTooltip).toLocaleString()}
                                         </p>
                                       </div>
                                     </>
