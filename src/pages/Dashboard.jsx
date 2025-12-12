@@ -18,6 +18,7 @@ export default function Dashboard() {
   const [btcPrice, setBtcPrice] = useState(null);
   const [priceLoading, setPriceLoading] = useState(true);
   const [priceChange, setPriceChange] = useState(null);
+  const [exchangeRates, setExchangeRates] = useState({ USD: 1 });
 
   // Fetch live BTC price
   useEffect(() => {
@@ -37,6 +38,21 @@ export default function Dashboard() {
     fetchPrice();
     const interval = setInterval(fetchPrice, 60000);
     return () => clearInterval(interval);
+  }, []);
+
+  // Fetch exchange rates
+  useEffect(() => {
+    const fetchRates = async () => {
+      try {
+        const response = await base44.functions.invoke('getExchangeRates');
+        if (response.data?.rates) {
+          setExchangeRates(response.data.rates);
+        }
+      } catch (error) {
+        console.error('Failed to fetch exchange rates:', error);
+      }
+    };
+    fetchRates();
   }, []);
 
   const currentPrice = btcPrice || 97000;
@@ -163,10 +179,25 @@ export default function Dashboard() {
     },
   });
 
+  // Helper to convert prices to USD
+  const convertToUSD = (price, currency) => {
+    if (!currency || currency === 'USD') return price;
+    const rate = exchangeRates[currency];
+    if (rate) {
+      return price * rate;
+    }
+    console.warn(`No exchange rate for ${currency}, returning unconverted price`);
+    return price;
+  };
+
   // Get live price for a holding (BTC, stocks, or manual)
       const getHoldingPrice = (holding) => {
         if (holding.ticker === 'BTC') return currentPrice;
-        if (assetPrices[holding.ticker]?.price) return assetPrices[holding.ticker].price;
+        if (assetPrices[holding.ticker]?.price) {
+          const price = assetPrices[holding.ticker].price;
+          const currency = assetPrices[holding.ticker].currency || 'USD';
+          return convertToUSD(price, currency);
+        }
         return holding.current_price || 0;
       };
 

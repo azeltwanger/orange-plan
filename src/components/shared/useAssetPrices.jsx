@@ -49,37 +49,21 @@ export default function useAssetPrices(tickers = []) {
           }
         }
 
-        // Fetch stock prices using LLM with internet (avoids CORS issues)
+        // Fetch stock prices from Yahoo Finance backend
         if (stockTickers.length > 0) {
           try {
-            const tickerList = stockTickers.join(', ');
-            const result = await base44.integrations.Core.InvokeLLM({
-              prompt: `Get the current stock prices for these tickers: ${tickerList}. Return the current price for each ticker.`,
-              add_context_from_internet: true,
-              response_json_schema: {
-                type: "object",
-                properties: {
-                  prices: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        ticker: { type: "string" },
-                        price: { type: "number" },
-                        change_percent: { type: "number" }
-                      }
-                    }
-                  }
-                }
-              }
+            const response = await base44.functions.invoke('getStockPrices', {
+              tickers: stockTickers,
+              days: 365
             });
             
-            if (result?.prices) {
-              for (const item of result.prices) {
-                if (item.ticker && item.price > 0) {
-                  newPrices[item.ticker.toUpperCase()] = {
-                    price: item.price,
-                    change24h: item.change_percent || 0,
+            if (response.data) {
+              for (const [ticker, data] of Object.entries(response.data)) {
+                if (data.currentPrice > 0) {
+                  newPrices[ticker.toUpperCase()] = {
+                    price: data.currentPrice,
+                    currency: data.currency || 'USD',
+                    change24h: 0,
                   };
                 }
               }

@@ -51,9 +51,11 @@ Deno.serve(async (req) => {
         
         // Get current price from meta
         const currentPrice = result.meta?.regularMarketPrice;
+        const currency = result.meta?.currency || 'USD';
 
         results[ticker] = {
           currentPrice,
+          currency,
           historical: timestamps.map((ts, i) => ({
             date: ts * 1000, // Convert to milliseconds
             price: closes[i]
