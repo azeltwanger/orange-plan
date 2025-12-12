@@ -46,6 +46,7 @@ const runMonteCarloSimulation = (params, numSimulations = 1000) => {
     currentAge, retirementAge, lifeExpectancy,
     getBtcGrowthRate, stocksCagr, realEstateCagr, bondsCagr, inflationRate,
     annualSavings, incomeGrowth, retirementAnnualSpending,
+    lifeEvents = [],
     stocksVolatility = 15
   } = params;
 
@@ -74,13 +75,32 @@ const runMonteCarloSimulation = (params, numSimulations = 1000) => {
     let runningTaxFree = taxFreeValue;
     let runningSavings = 0;
     let ranOutOfMoney = false;
+    let cumulativeIncomeAdjustment = 0;
+    let cumulativeExpenseAdjustment = 0;
 
     const path = [startingPortfolio];
     const withdrawalPath = [0];
+    const currentSimYear = new Date().getFullYear();
 
     for (let year = 1; year <= years; year++) {
       const isRetired = year > yearsToRetirement;
       const yearsIntoRetirement = isRetired ? year - yearsToRetirement : 0;
+      const simulationAbsoluteYear = currentSimYear + year;
+
+      // Apply income/expense change events
+      lifeEvents.forEach(event => {
+        if (event.year === simulationAbsoluteYear || (event.is_recurring && event.year <= simulationAbsoluteYear && simulationAbsoluteYear < event.year + (event.recurring_years || 1))) {
+          if (event.affects === 'income' && event.year === simulationAbsoluteYear) {
+            cumulativeIncomeAdjustment += event.amount;
+          } else if (event.affects === 'expenses' && event.year === simulationAbsoluteYear) {
+            cumulativeExpenseAdjustment += event.amount;
+          }
+          
+          if (event.event_type === 'home_purchase' && event.year === simulationAbsoluteYear && event.monthly_expense_impact > 0) {
+            cumulativeExpenseAdjustment += event.monthly_expense_impact * 12;
+          }
+        }
+      });
 
       // Get expected BTC return based on model
       const expectedBtcReturn = getBtcGrowthRate(year, inflationRate);
@@ -120,8 +140,9 @@ const runMonteCarloSimulation = (params, numSimulations = 1000) => {
       let yearWithdrawal = 0;
 
       if (!isRetired) {
-        // Add annual net cash flow to taxable (can be positive or negative)
-        const yearNetCashFlow = annualSavings * Math.pow(1 + incomeGrowth / 100, year);
+        // Add annual net cash flow to taxable (can be positive or negative), adjusted by life events
+        const adjustedAnnualSavings = annualSavings + cumulativeIncomeAdjustment - cumulativeExpenseAdjustment;
+        const yearNetCashFlow = adjustedAnnualSavings * Math.pow(1 + incomeGrowth / 100, year);
         runningSavings += yearNetCashFlow;
         runningTaxable += yearNetCashFlow;
       } else {
@@ -586,6 +607,10 @@ export default function FinancialPlan() {
     // Track cost basis for taxable accounts to dynamically estimate capital gains
     const initialTaxableCostBasis = taxableHoldings.reduce((sum, h) => sum + (h.cost_basis_total || 0), 0);
     let runningTaxableBasis = initialTaxableCostBasis;
+
+    // Track cumulative income and expense adjustments from life events
+    let cumulativeIncomeAdjustment = 0;
+    let cumulativeExpenseAdjustment = 0;
 
     // Track cumulative income adjustments from life events
     let cumulativeIncomeAdjustment = 0;
@@ -1356,6 +1381,7 @@ export default function FinancialPlan() {
       annualSavings,
       incomeGrowth,
       retirementAnnualSpending,
+      lifeEvents,
       btcVolatility: 60,
       stocksVolatility,
     }, 1000);
