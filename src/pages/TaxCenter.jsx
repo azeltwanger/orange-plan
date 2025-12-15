@@ -1826,7 +1826,7 @@ export default function TaxCenter() {
                     const dateA = new Date(a.date);
                     const dateB = new Date(b.date);
                     return lotSortOrder === 'asc' ? dateA - dateB : dateB - dateA;
-                  }).map((lot) => (
+                  }).map((lot) => {
                   const accountLabels = {
                     taxable: 'Taxable',
                     traditional_401k: '401(k)',
