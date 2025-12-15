@@ -23,96 +23,84 @@ import { base44 } from '@/api/base44Client';
  * @param {string} accountId - Account ID (optional, defaults to null for unassigned)
  */
 export async function syncHoldingFromLots(ticker, accountId = null) {
-  console.log("=== SYNCING HOLDING FROM LOTS ===");
-  console.log("Ticker:", ticker, "| Account:", accountId || "unassigned");
+  console.log("=== SYNC HOLDING FROM LOTS ===");
+  console.log("Ticker:", ticker);
+  console.log("Account ID:", accountId);
   
   try {
-    // 1. Get all buy transactions (lots) for this ticker and account
-    const allTransactions = await base44.entities.Transaction.list('-date');
-    const lots = allTransactions.filter(tx => {
-      if (tx.type !== 'buy' || tx.asset_ticker !== ticker) return false;
-      
-      // Match by account_id
-      const txAccountId = tx.account_id || null;
-      return txAccountId === accountId;
-    });
+    // Get all transactions
+    const allTransactions = await base44.entities.Transaction.list();
     
-    console.log(`Found ${lots.length} lots for ${ticker}`);
+    // Get all buy transactions for this ticker (IGNORE account_id for now)
+    // This ensures we capture ALL lots for the ticker
+    const lotsForTicker = allTransactions.filter(tx => 
+      tx.asset_ticker === ticker && 
+      tx.type === 'buy'
+    );
     
-    // 2. Calculate correct quantity from lot.remaining_quantity
-    const correctQuantity = lots.reduce((sum, lot) => {
-      const remaining = lot.remaining_quantity ?? lot.quantity ?? 0;
-      console.log(`  Lot ${lot.id}: original=${lot.quantity}, remaining=${remaining}`);
-      return sum + remaining;
+    console.log("Found lots for", ticker + ":", lotsForTicker.length);
+    
+    // Calculate total remaining quantity from all lots
+    const totalFromLots = lotsForTicker.reduce((sum, lot) => {
+      const qty = lot.remaining_quantity ?? lot.quantity ?? 0;
+      return sum + qty;
     }, 0);
     
-    console.log(`Calculated quantity from lots: ${correctQuantity.toFixed(8)}`);
+    console.log("Total from lots:", totalFromLots);
     
-    // 3. Calculate correct cost basis
-    const correctCostBasis = lots.reduce((sum, lot) => {
-      const remaining = lot.remaining_quantity ?? lot.quantity ?? 0;
-      const originalQty = lot.quantity ?? 0;
-      
-      // Proportional cost basis based on remaining quantity
-      if (originalQty > 0) {
-        const proportion = remaining / originalQty;
-        return sum + ((lot.cost_basis || 0) * proportion);
-      }
-      return sum;
-    }, 0);
-    
-    console.log(`Calculated cost basis: $${correctCostBasis.toFixed(2)}`);
-    
-    // 4. Find existing holding by ticker AND account_id
+    // Get all holdings for this ticker
     const allHoldings = await base44.entities.Holding.list();
-    const holding = allHoldings.find(h => {
-      if (h.ticker !== ticker) return false;
-      const hAccountId = h.account_id || null;
-      return hAccountId === accountId;
-    });
+    const holdingsForTicker = allHoldings.filter(h => h.ticker === ticker);
     
-    const currentQuantity = holding?.quantity || 0;
-    console.log(`Current stored quantity: ${currentQuantity.toFixed(8)}`);
+    console.log("Found holdings for", ticker + ":", holdingsForTicker.length);
     
-    // 5. Update or create holding if needed
-    if (correctQuantity > 0.00000001) {
-      // Holding should exist
-      if (holding) {
-        // Update existing holding
-        const quantityDiff = Math.abs(correctQuantity - currentQuantity);
-        if (quantityDiff > 0.00000001) {
-          console.log(`✅ UPDATING holding: ${currentQuantity.toFixed(8)} -> ${correctQuantity.toFixed(8)}`);
-          await base44.entities.Holding.update(holding.id, {
-            quantity: correctQuantity,
-            cost_basis_total: correctCostBasis,
+    // Sum current holdings
+    const totalFromHoldings = holdingsForTicker.reduce((sum, h) => sum + (h.quantity || 0), 0);
+    console.log("Current total in holdings:", totalFromHoldings);
+    
+    // If there's a mismatch, update holdings
+    const diff = Math.abs(totalFromLots - totalFromHoldings);
+    if (diff > 0.00000001) {
+      console.log("MISMATCH DETECTED - Updating holdings...");
+      
+      if (holdingsForTicker.length === 1) {
+        // Simple case: one holding, update it
+        await base44.entities.Holding.update(holdingsForTicker[0].id, {
+          quantity: totalFromLots
+        });
+        console.log("Updated single holding to:", totalFromLots);
+        
+      } else if (holdingsForTicker.length > 1) {
+        // Multiple holdings: set first one to total, zero out others
+        // (or implement smarter distribution by account_id if needed)
+        await base44.entities.Holding.update(holdingsForTicker[0].id, {
+          quantity: totalFromLots
+        });
+        for (let i = 1; i < holdingsForTicker.length; i++) {
+          await base44.entities.Holding.update(holdingsForTicker[i].id, {
+            quantity: 0
           });
-        } else {
-          console.log(`✅ Holding already in sync`);
         }
+        console.log("Updated first holding to:", totalFromLots, "zeroed others");
+        
       } else {
-        console.log(`✅ CREATING new holding with quantity ${correctQuantity.toFixed(8)}`);
-        // Create new holding (should have been created with first buy, but just in case)
-        // Note: This shouldn't normally happen, but provides a safety net
-        console.warn(`Warning: Creating holding that should already exist for ${ticker}`);
+        // No holdings exist - create one
+        console.log("No holding found, creating new one");
+        await base44.entities.Holding.create({
+          ticker: ticker,
+          quantity: totalFromLots,
+          account_id: accountId
+        });
       }
     } else {
-      // No remaining quantity - holding should be deleted or set to 0
-      if (holding && currentQuantity > 0.00000001) {
-        console.log(`✅ ZEROING holding (all lots sold/used)`);
-        await base44.entities.Holding.update(holding.id, {
-          quantity: 0,
-          cost_basis_total: 0,
-        });
-      } else {
-        console.log(`✅ No holding needed (quantity is 0)`);
-      }
+      console.log("Holdings already in sync");
     }
     
-    console.log("=================================");
-    return correctQuantity;
+    console.log("=== SYNC COMPLETE ===\n");
+    return totalFromLots;
     
   } catch (error) {
-    console.error("❌ Error syncing holding:", error);
+    console.error("Sync error:", error);
     throw error;
   }
 }

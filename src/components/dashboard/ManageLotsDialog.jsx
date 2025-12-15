@@ -447,6 +447,22 @@ export default function ManageLotsDialog({ open, onClose, holding, btcPrice }) {
               Add Lot for Remaining {unallocated.toFixed(holding.ticker === 'BTC' ? 8 : 2)} {holding.ticker}
             </Button>
           )}
+
+          {/* TEST BUTTON - Temporary manual sync trigger */}
+          <div className="pt-4 border-t border-zinc-800">
+            <Button
+              variant="outline"
+              onClick={async () => {
+                console.log("🧪 TEST: Manual sync triggered");
+                await syncHoldingFromLots(holding.ticker, holding.account_id || null);
+                queryClient.invalidateQueries({ queryKey: ['holdings'] });
+                queryClient.invalidateQueries({ queryKey: ['transactions'] });
+              }}
+              className="w-full bg-purple-500/10 border-purple-500/50 text-purple-400 hover:bg-purple-500/20"
+            >
+              🧪 TEST: Sync Holdings from Lots
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
