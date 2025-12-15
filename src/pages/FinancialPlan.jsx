@@ -1080,6 +1080,19 @@ export default function FinancialPlan() {
         runningTaxable = runningTaxable * (1 + blendedGrowthRate);
         runningTaxDeferred = runningTaxDeferred * (1 + blendedGrowthRate);
         runningTaxFree = runningTaxFree * (1 + blendedGrowthRate);
+
+        // Sync account totals with asset totals after growth
+        // Assets grow at individual CAGRs, accounts grow at blended rate - this can cause drift over time
+        // Recalculate account totals to match asset total while preserving account allocation
+        const totalFromAssets = runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther;
+        const currentAccountTotal = runningTaxable + runningTaxDeferred + runningTaxFree;
+        
+        if (currentAccountTotal > 0 && Math.abs(totalFromAssets - currentAccountTotal) > 1) {
+          const syncRatio = totalFromAssets / currentAccountTotal;
+          runningTaxable = runningTaxable * syncRatio;
+          runningTaxDeferred = runningTaxDeferred * syncRatio;
+          runningTaxFree = runningTaxFree * syncRatio;
+        }
       }
 
       if (!isRetired) {
