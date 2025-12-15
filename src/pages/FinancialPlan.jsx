@@ -1667,12 +1667,33 @@ export default function FinancialPlan() {
             const nominalTestSpendingAtRetirement = testSpending * Math.pow(1 + effectiveInflation / 100, Math.max(0, retirementAge - currentAge));
             const withdrawal = nominalTestSpendingAtRetirement * Math.pow(1 + effectiveInflation / 100, yearsIntoRetirement);
 
-            if (portfolio < withdrawal) {
+            // Estimate taxes on withdrawal using simplified account-mix approach
+            // Calculate current account mix ratios (they evolve over time as portfolio grows)
+            const totalAccounts = portfolio; // In this simplified model, portfolio represents all accounts
+            
+            // Estimate account allocation based on initial portfolio composition
+            const taxableRatio = totalAccounts > 0 ? taxableValue / (taxableValue + taxDeferredValue + taxFreeValue) : 0.33;
+            const taxDeferredRatio = totalAccounts > 0 ? taxDeferredValue / (taxableValue + taxDeferredValue + taxFreeValue) : 0.33;
+            const taxFreeRatio = totalAccounts > 0 ? taxFreeValue / (taxableValue + taxDeferredValue + taxFreeValue) : 0.34;
+            
+            // Estimate effective tax rate:
+            // - Taxable: ~15% LTCG on 80% of value (assume high gains after decades of growth)
+            // - Tax-deferred: ~22% ordinary income (middle bracket estimate)
+            // - Tax-free: 0%
+            const estimatedTaxRate = 
+              (taxableRatio * 0.15 * 0.80) +  // 15% LTCG on 80% gains
+              (taxDeferredRatio * 0.22) +      // 22% ordinary income
+              (taxFreeRatio * 0);              // 0% tax-free
+            
+            // Gross withdrawal needed to net the spending amount after taxes
+            const grossWithdrawal = withdrawal / (1 - estimatedTaxRate);
+
+            if (portfolio < grossWithdrawal) {
               canSustain = false;
               break;
             }
 
-            portfolio -= withdrawal;
+            portfolio -= grossWithdrawal;
           }
         }
 
