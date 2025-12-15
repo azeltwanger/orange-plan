@@ -725,9 +725,35 @@ export default function FinancialPlan() {
 
     for (let i = 0; i <= years; i++) {
       const year = currentYear + i;
+      const age = currentAge + i;
 
       // Get BTC growth rate for this year (needed early for collateral calculations)
       const yearBtcGrowth = getBtcGrowthRate(i, effectiveInflation);
+
+      // Debug logging for ages 35-38
+      if (age >= 35 && age <= 38) {
+        console.log("Year Debug:", year, "Age:", age, {
+          "BTC start of year": Math.round(runningBtc),
+          "BTC after growth": Math.round(runningBtc * (1 + yearBtcGrowth / 100)),
+          "Goals processed this year": goals.filter(g => {
+            if (g.will_be_spent && g.target_date && new Date(g.target_date).getFullYear() === year) return true;
+            if (g.goal_type === 'debt_payoff' && g.linked_liability_id) {
+              const payoffStrategy = g.payoff_strategy || 'spread_payments';
+              if (payoffStrategy === 'spread_payments' && g.payoff_years > 0) {
+                const startYear = g.target_date ? new Date(g.target_date).getFullYear() : currentYear;
+                const endYear = startYear + g.payoff_years;
+                return year >= startYear && year < endYear;
+              } else if (payoffStrategy === 'lump_sum' && g.target_date) {
+                return year === new Date(g.target_date).getFullYear();
+              }
+            }
+            return false;
+          }).map(g => g.name),
+          "Debt events this year": Object.values(tempRunningDebt).filter(d => !d.paid_off && d.current_balance > 0).length,
+          "Any collateral released": Object.values(releasedBtc).reduce((sum, amount) => sum + amount, 0),
+          "BTC end of year (after all operations)": "Will be logged at end"
+        });
+      }
 
       // Add released BTC back to runningBtc for liquidity if applicable for the current year
       // This needs to happen BEFORE any withdrawals from assets, including from BTC itself.
@@ -1399,6 +1425,17 @@ export default function FinancialPlan() {
       }
 
       const realTotal = total / Math.pow(1 + effectiveInflation / 100, i);
+
+      // Debug logging end of year for ages 35-38
+      if (age >= 35 && age <= 38) {
+        console.log("End of Year:", year, "Age:", age, {
+          "BTC end of year": Math.round(runningBtc),
+          "Stocks end": Math.round(runningStocks),
+          "Total Assets": Math.round(runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther),
+          "Year event impact": eventImpact,
+          "Year goal withdrawal": yearGoalWithdrawal
+        });
+      }
 
       data.push({
         age: currentAge + i,
