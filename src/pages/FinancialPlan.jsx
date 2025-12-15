@@ -1155,7 +1155,14 @@ export default function FinancialPlan() {
           runningTaxDeferred = Math.max(0, runningTaxDeferred - withdrawFromTaxDeferred);
           runningTaxFree = Math.max(0, runningTaxFree - withdrawFromTaxFree);
         } else {
-          runningTaxable += yearSavings;
+          // Positive savings - add to taxable accounts
+          // New contributions have 100% cost basis (no embedded gain yet)
+          if (yearSavings > 0) {
+            runningTaxable += yearSavings;
+            runningTaxableBasis += yearSavings;
+          } else {
+            runningTaxable += yearSavings; // Should not happen (this else is for positive only)
+          }
         }
       } else {
         // Calculate withdrawal based on strategy
