@@ -1706,8 +1706,104 @@ export default function TaxCenter() {
 
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-6">
+          {/* Tax-Free Gain Harvesting Card */}
+          {canHarvestGainsTaxFree && gainHarvestOpportunities.length > 0 && (
+            <div className={cn(
+              "card-premium rounded-2xl p-6 border",
+              washTradeAnalysis.gain.isWorthwhile ? "border-emerald-400/30 bg-emerald-400/5" : "border-zinc-800/50"
+            )}>
+              <div className="flex items-center gap-2 mb-2">
+                <Sparkles className="w-5 h-5 text-emerald-400" />
+                <h3 className={cn("font-semibold text-lg", washTradeAnalysis.gain.isWorthwhile ? "text-emerald-400" : "text-zinc-300")}>
+                  Tax-Free Gain Harvesting {washTradeAnalysis.gain.isWorthwhile && 'Available!'}
+                </h3>
+              </div>
+              
+              <p className="text-zinc-400 text-sm mb-4">
+                {washTradeAnalysis.gain.isWorthwhile 
+                  ? 'Your income qualifies for 0% LTCG. Sell and rebuy to raise cost basis and avoid future 15% tax.'
+                  : 'Fees currently exceed tax savings. Consider lower-fee exchanges or waiting for larger gains.'}
+              </p>
+              
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div>
+                  <p className="text-xs text-zinc-500">Room in 0% Bracket</p>
+                  <p className="text-emerald-400 font-semibold text-lg">${ltcgBracketRoom.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-zinc-500">Optimal Harvest</p>
+                  <p className="text-orange-400 font-semibold text-lg">${washTradeAnalysis.gain.optimalHarvest.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-zinc-500">Est. Trading Fees</p>
+                  <p className="text-amber-400 font-semibold text-lg">-${washTradeAnalysis.gain.tradingFees.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-zinc-500">Net Benefit</p>
+                  <p className={cn("font-semibold text-lg", washTradeAnalysis.gain.isWorthwhile ? "text-emerald-400" : "text-rose-400")}>
+                    {washTradeAnalysis.gain.netBenefit >= 0 ? '+' : ''}${washTradeAnalysis.gain.netBenefit.toLocaleString()}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex justify-end mt-4">
+                <Button onClick={() => setActiveTab('harvest-gain')} variant="outline" size="sm" className="bg-transparent border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/10">
+                  View Details →
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Tax Loss Harvesting Card */}
+          {harvestLossOpportunities.length > 0 && (
+            <div className={cn(
+              "card-premium rounded-2xl p-6 border",
+              washTradeAnalysis.loss.isWorthwhile ? "border-rose-400/30 bg-rose-400/5" : "border-zinc-800/50"
+            )}>
+              <div className="flex items-center gap-2 mb-2">
+                <TrendingDown className="w-5 h-5 text-rose-400" />
+                <h3 className={cn("font-semibold text-lg", washTradeAnalysis.loss.isWorthwhile ? "text-rose-400" : "text-zinc-300")}>
+                  Tax Loss Harvesting {washTradeAnalysis.loss.isWorthwhile && 'Available!'}
+                </h3>
+              </div>
+              
+              <p className="text-zinc-400 text-sm mb-4">
+                {washTradeAnalysis.loss.isWorthwhile 
+                  ? 'Harvest losses to offset gains or reduce taxable income by up to $3,000/year.'
+                  : 'Fees currently exceed tax savings at your rate. Consider lower-fee exchanges or waiting for larger losses.'}
+              </p>
+              
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div>
+                  <p className="text-xs text-zinc-500">Harvestable Losses</p>
+                  <p className="text-rose-400 font-semibold text-lg">-${washTradeAnalysis.loss.harvestableLoss.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-zinc-500">Tax Savings ({(effectiveSTCGRate * 100).toFixed(0)}%)</p>
+                  <p className="text-emerald-400 font-semibold text-lg">+${washTradeAnalysis.loss.taxSavings.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-zinc-500">Est. Trading Fees</p>
+                  <p className="text-amber-400 font-semibold text-lg">-${washTradeAnalysis.loss.tradingFees.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-zinc-500">Net Benefit</p>
+                  <p className={cn("font-semibold text-lg", washTradeAnalysis.loss.isWorthwhile ? "text-emerald-400" : "text-rose-400")}>
+                    {washTradeAnalysis.loss.netBenefit >= 0 ? '+' : ''}${washTradeAnalysis.loss.netBenefit.toLocaleString()}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex justify-end mt-4">
+                <Button onClick={() => setActiveTab('harvest-loss')} variant="outline" size="sm" className="bg-transparent border-rose-500/50 text-rose-400 hover:bg-rose-500/10">
+                  View Details →
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* No harvesting opportunities message */}
-          {!canHarvestGainsTaxFree && !washTradeAnalysis.loss.isWorthwhile && (
+          {!canHarvestGainsTaxFree && !washTradeAnalysis.loss.isWorthwhile && harvestLossOpportunities.length === 0 && gainHarvestOpportunities.length === 0 && (
             <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
               <p className="text-center text-zinc-400">
                 No harvesting opportunities right now. Check back after market moves or income changes.
