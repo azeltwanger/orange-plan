@@ -355,6 +355,7 @@ export default function TaxCenter() {
         
         console.log("\n📉 UPDATING HOLDING AFTER SALE");
         console.log("Database table: Holding entity");
+        console.log("Holding found via:", data.account_id ? "account_id match" : "FALLBACK (first holding for ticker)");
         console.log("BEFORE UPDATE:", {
           holdingId: existingHolding.id,
           ticker: data.asset_ticker,
@@ -375,14 +376,18 @@ export default function TaxCenter() {
           costBasisReduction: oldCostBasis - newCostBasis
         });
         
-        console.log("Calling Holding.update()...");
+        console.log("🔄 Calling base44.entities.Holding.update()...");
+        console.log("Update payload:", { quantity: newQty, cost_basis_total: newCostBasis });
+        
         const updateResult = await base44.entities.Holding.update(existingHolding.id, {
           quantity: newQty,
           cost_basis_total: newCostBasis,
         });
         
-        console.log("✅ Holding updated successfully!");
-        console.log("Update result:", updateResult);
+        console.log("✅ Holding.update() DATABASE CALL COMPLETED!");
+        console.log("Update result from database:", updateResult);
+        console.log("Result quantity:", updateResult?.quantity);
+        console.log("Expected quantity:", newQty);
       } else if (data.type === 'sell' && !existingHolding) {
         console.log("\n⚠️ WARNING: No holding found to update for sale!");
         console.log({
