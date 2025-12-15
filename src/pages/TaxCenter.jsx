@@ -915,9 +915,8 @@ export default function TaxCenter() {
       return;
     }
 
-    // Determine account_id from the lots being used
-    const lotsForAsset = taxLots.filter(lot => lot.asset_ticker === saleForm.asset_ticker);
-    const accountId = lotsForAsset.length > 0 ? lotsForAsset[0].account_id : null;
+    // Determine account_id from the lots being used in the sale (not just any lot for that ticker)
+    const accountId = outcome.lotsUsed.length > 0 ? outcome.lotsUsed[0].account_id : null;
 
     console.log("Sale details:", {
       asset: saleForm.asset_ticker,
