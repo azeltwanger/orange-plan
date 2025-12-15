@@ -57,52 +57,46 @@ export default function Dashboard() {
 
   // DEBUG: Check for duplicate BTC lots
   useEffect(() => {
-    const debugLots = async () => {
+    const debugAllBtcData = async () => {
+      console.log("=== DASHBOARD DEBUG: ALL BTC DATA ===");
+      
+      // Get all transactions
       const allTransactions = await base44.entities.Transaction.list();
       const btcBuys = allTransactions.filter(tx => 
         tx.asset_ticker === 'BTC' && tx.type === 'buy'
       );
-
-      console.log("=== DEBUG BTC LOTS ===");
+      
       console.log("Total BTC buy transactions:", btcBuys.length);
-
-      // Find potential duplicates (same date, amount, price)
-      const seen = new Map();
-      const duplicates = [];
-
+      
+      // Group by account_id
+      const byAccount = {};
       btcBuys.forEach(tx => {
-        const key = `${tx.date}-${tx.quantity}-${tx.price_per_unit}`;
-        if (seen.has(key)) {
-          duplicates.push({
-            original: seen.get(key),
-            duplicate: tx
-          });
-        } else {
-          seen.set(key, tx);
-        }
+        const accId = tx.account_id || 'NULL';
+        if (!byAccount[accId]) byAccount[accId] = { count: 0, qty: 0 };
+        byAccount[accId].count++;
+        byAccount[accId].qty += (tx.remaining_quantity ?? tx.quantity ?? 0);
       });
-
-      console.log("Potential duplicates found:", duplicates.length);
-      if (duplicates.length > 0) {
-        console.log("Duplicate transactions:", duplicates);
-      }
-
-      // Sum all quantities
-      const totalQty = btcBuys.reduce((sum, tx) => 
-        sum + (tx.remaining_quantity ?? tx.quantity ?? 0), 0
-      );
-      console.log("Total BTC quantity in lots:", totalQty);
       
-      // Show breakdown by remaining_quantity vs quantity
-      const withRemaining = btcBuys.filter(tx => tx.remaining_quantity !== undefined);
-      const withoutRemaining = btcBuys.filter(tx => tx.remaining_quantity === undefined);
-      console.log("Lots with remaining_quantity set:", withRemaining.length);
-      console.log("Lots without remaining_quantity:", withoutRemaining.length);
+      console.log("BTC lots by account_id:", byAccount);
       
-      console.log("=== END DEBUG ===");
+      // Total
+      const totalBtc = Object.values(byAccount).reduce((sum, a) => sum + a.qty, 0);
+      console.log("TOTAL BTC across all accounts:", totalBtc);
+      
+      // Get holdings
+      const holdings = await base44.entities.Holding.list();
+      const btcHoldings = holdings.filter(h => h.ticker === 'BTC');
+      
+      console.log("BTC Holdings:", btcHoldings.map(h => ({
+        id: h.id,
+        account_id: h.account_id,
+        quantity: h.quantity
+      })));
+      
+      console.log("=== END DASHBOARD DEBUG ===");
     };
     
-    debugLots();
+    debugAllBtcData();
   }, []);
 
   const currentPrice = btcPrice || 97000;
