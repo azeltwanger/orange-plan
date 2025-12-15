@@ -88,6 +88,7 @@ export default function TaxCenter() {
   const [csvImportOpen, setCsvImportOpen] = useState(false);
   const [txSortOrder, setTxSortOrder] = useState('desc'); // 'desc' (newest first), 'asc' (oldest first)
   const [lotSortOrder, setLotSortOrder] = useState('asc'); // 'asc' (oldest first), 'desc' (newest first)
+  const [lotStatusFilter, setLotStatusFilter] = useState('all'); // 'all', 'available', 'sold'
   const [selectedTxIds, setSelectedTxIds] = useState([]);
   const [bulkAccountType, setBulkAccountType] = useState('taxable');
   const [assetTypeFilter, setAssetTypeFilter] = useState('all');
@@ -281,6 +282,8 @@ export default function TaxCenter() {
         cost_basis: data.type === 'buy' ? total : data.cost_basis,
         holding_period: data.holding_period || 'short_term',
         realized_gain_loss: data.realized_gain_loss,
+        // Initialize new buy lots with full remaining quantity
+        remaining_quantity: data.type === 'buy' ? data.quantity : undefined,
       };
 
       const tx = await base44.entities.Transaction.create(txData);
@@ -757,13 +760,18 @@ export default function TaxCenter() {
       const txDate = tx.date ? new Date(tx.date) : new Date();
       const daysSincePurchase = isNaN(txDate.getTime()) ? 0 : differenceInDays(new Date(), txDate);
       const isLongTerm = daysSincePurchase > 365;
-      
+
       // Get account type and tax treatment from the transaction itself first, then fall back to holding
       const holding = holdings.find(h => h.ticker === tx.asset_ticker && 
         (tx.account_id ? h.account_id === tx.account_id : true));
       const accountType = tx.account_type || holding?.account_type || 'taxable';
       const taxTreatment = getTaxTreatment(accountType);
-      
+
+      // Determine lot status
+      const status = remainingQuantity <= 0 ? 'fully_sold' 
+        : remainingQuantity < tx.quantity ? 'partially_sold' 
+        : 'available';
+
         return {
           ...tx,
           originalQuantity: tx.quantity,
@@ -776,6 +784,7 @@ export default function TaxCenter() {
           daysSincePurchase,
           accountType,
           taxTreatment,
+          status,
         };
       }).filter(lot => lot.remainingQuantity > 0);
       
@@ -1647,26 +1656,43 @@ export default function TaxCenter() {
         {/* Tax Lots Tab */}
         <TabsContent value="lots">
           <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
               <div>
                 <h3 className="font-semibold">Tax Lots (Unrealized)</h3>
                 <p className="text-sm text-zinc-500">{taxLots.length} taxable lots across {Object.keys(totalAssetsByTicker).length} assets</p>
               </div>
-              <Select value={lotSortOrder} onValueChange={setLotSortOrder}>
-                <SelectTrigger className="w-36 bg-zinc-800 border-zinc-700 h-9 text-sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-zinc-900 border-zinc-700">
-                  <SelectItem value="asc">Oldest First</SelectItem>
-                  <SelectItem value="desc">Newest First</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex gap-2">
+                <Select value={lotStatusFilter} onValueChange={setLotStatusFilter}>
+                  <SelectTrigger className="w-32 bg-zinc-800 border-zinc-700 h-9 text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-zinc-900 border-zinc-700">
+                    <SelectItem value="all">All Lots</SelectItem>
+                    <SelectItem value="available">Available</SelectItem>
+                    <SelectItem value="partial">Partial</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={lotSortOrder} onValueChange={setLotSortOrder}>
+                  <SelectTrigger className="w-36 bg-zinc-800 border-zinc-700 h-9 text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-zinc-900 border-zinc-700">
+                    <SelectItem value="asc">Oldest First</SelectItem>
+                    <SelectItem value="desc">Newest First</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             {taxLots.length === 0 ? (
               <p className="text-center text-zinc-500 py-12">No tax lots. Add buy transactions to create lots.</p>
             ) : (
               <div className="space-y-3">
                 {[...taxLots]
+                  .filter((lot) => {
+                    if (lotStatusFilter === 'available') return lot.status === 'available';
+                    if (lotStatusFilter === 'partial') return lot.status === 'partially_sold';
+                    return true;
+                  })
                   .sort((a, b) => {
                     const dateA = new Date(a.date);
                     const dateB = new Date(b.date);
@@ -1696,12 +1722,35 @@ export default function TaxCenter() {
                   return (
                   <div key={lot.id} className="p-4 rounded-xl bg-zinc-800/30 border border-zinc-800">
                     <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className="font-medium">{displayQty} {lot.asset_ticker}</p>
-                          {lot.originalQuantity !== lot.remainingQuantity && (
-                            <span className="text-xs text-zinc-500">(of {lot.originalQuantity} original)</span>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 flex-wrap mb-2">
+                          {/* Quantity display with remaining */}
+                          {lot.remainingQuantity !== lot.originalQuantity ? (
+                            <div className="flex items-baseline gap-1.5">
+                              <p className="font-medium text-lg">{displayQty} {lot.asset_ticker}</p>
+                              <span className="text-xs text-zinc-500">/ {(() => {
+                                const isCrypto = holding?.asset_type === 'crypto' || COINGECKO_IDS[lot.asset_ticker];
+                                return isCrypto ? lot.originalQuantity.toFixed(8) : lot.originalQuantity.toFixed(2);
+                              })()}</span>
+                              <span className="text-xs text-amber-400 ml-1">
+                                ({((lot.remainingQuantity / lot.originalQuantity) * 100).toFixed(1)}% left)
+                              </span>
+                            </div>
+                          ) : (
+                            <p className="font-medium text-lg">{displayQty} {lot.asset_ticker}</p>
                           )}
+
+                          {/* Status badge */}
+                          <Badge className={cn("text-xs border-0", 
+                            lot.status === 'fully_sold' ? 'bg-rose-500/20 text-rose-400' :
+                            lot.status === 'partially_sold' ? 'bg-amber-500/20 text-amber-400' :
+                            'bg-emerald-500/20 text-emerald-400'
+                          )}>
+                            {lot.status === 'fully_sold' ? 'Sold' :
+                             lot.status === 'partially_sold' ? 'Partial' :
+                             'Available'}
+                          </Badge>
+
                           <Badge variant="outline" className={cn("text-xs", lot.isLongTerm ? 'border-emerald-400/50 text-emerald-400' : 'border-amber-400/50 text-amber-400')}>
                             {lot.isLongTerm ? 'Long-term' : `${lot.daysSincePurchase}d`}
                           </Badge>
@@ -1720,10 +1769,23 @@ export default function TaxCenter() {
                             <Badge className="bg-emerald-400/20 text-emerald-400 border-0">0% Tax Eligible</Badge>
                           )}
                         </div>
+
+                        {/* Progress bar for partially sold lots */}
+                        {lot.status === 'partially_sold' && (
+                          <div className="w-full max-w-xs mb-2">
+                            <div className="h-1.5 bg-zinc-700 rounded-full overflow-hidden">
+                              <div 
+                                className="h-full bg-amber-400 transition-all"
+                                style={{ width: `${(lot.remainingQuantity / lot.originalQuantity) * 100}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
+
                         <p className="text-sm text-zinc-500">
                           Bought {lot.date ? format(new Date(lot.date), 'MMM d, yyyy') : 'Unknown date'} @ ${(lot.price_per_unit || 0).toLocaleString()}
                         </p>
-                      </div>
+                        </div>
                       <div className="text-right">
                         <p className={cn("text-lg font-bold", lot.unrealizedGain >= 0 ? "text-emerald-400" : "text-rose-400")}>
                           {lot.unrealizedGain >= 0 ? '+' : ''}{(lot.unrealizedGainPercent || 0).toFixed(1)}%
