@@ -1524,110 +1524,7 @@ export default function TaxCenter() {
         </div>
       </div>
 
-      {/* Tax Loss Harvesting Alert */}
-      {harvestLossOpportunities.length > 0 && washTradeAnalysis.loss.isWorthwhile && (
-        <div className="card-premium rounded-2xl p-6 border border-rose-400/30">
-          <div className="flex items-start gap-4">
-            <div className="p-3 rounded-xl bg-rose-400/10">
-              <TrendingDown className="w-6 h-6 text-rose-400" />
-            </div>
-            <div className="flex-1">
-              <h3 className="font-semibold text-rose-400 text-lg mb-2">📉 Tax Loss Harvesting Available!</h3>
-              <p className="text-zinc-300 mb-4">
-                Harvest losses to offset gains or reduce income by up to $3,000/year.
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-5 gap-4 p-4 rounded-xl bg-zinc-800/50">
-                <div>
-                  <p className="text-sm text-zinc-400">Unrealized Losses</p>
-                  <p className="text-xl font-bold text-rose-400">-${washTradeAnalysis.loss.harvestableLoss.toLocaleString()}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-zinc-400">Offsets Your Realized Gains</p>
-                  <p className="text-xl font-bold text-zinc-200">${Math.min(washTradeAnalysis.loss.harvestableLoss, Math.max(0, totalRealized)).toLocaleString()}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-zinc-400">Income Deduction</p>
-                  <p className="text-xl font-bold text-zinc-200">${Math.min(3000, Math.max(0, washTradeAnalysis.loss.harvestableLoss - Math.max(0, totalRealized))).toLocaleString()}</p>
-                  <p className="text-xs text-zinc-500 mt-0.5">(max $3k/yr)</p>
-                </div>
-                <div>
-                  <p className="text-sm text-zinc-400">Est. Tax Savings</p>
-                  <p className="text-xl font-bold text-emerald-400">+${washTradeAnalysis.loss.taxSavings.toLocaleString()}</p>
-                  <p className="text-xs text-zinc-500 mt-0.5">(at {(effectiveSTCGRate * 100).toFixed(0)}%)</p>
-                </div>
-                <div>
-                  <p className="text-sm text-zinc-400">Net Benefit</p>
-                  <p className="text-xl font-bold text-emerald-400">+${washTradeAnalysis.loss.netBenefit.toLocaleString()}</p>
-                  <p className="text-xs text-zinc-500 mt-0.5">after fees</p>
-                </div>
-              </div>
-              <div className="flex items-center justify-between mt-3">
-                <p className="text-sm text-zinc-500">
-                  💡 Crypto not subject to wash sale rules—can rebuy immediately
-                </p>
-                <Button onClick={() => setActiveTab('harvest-loss')} variant="outline" size="sm" className="bg-transparent border-rose-500/50 text-rose-400 hover:bg-rose-500/10">
-                  View Details →
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 0% Tax Bracket Alert */}
-      {canHarvestGainsTaxFree && gainHarvestOpportunities.length > 0 && (
-        <div className="card-premium rounded-2xl p-6 border border-emerald-400/30">
-          <div className="flex items-start gap-4">
-            <div className="p-3 rounded-xl bg-emerald-400/10">
-              <Sparkles className="w-6 h-6 text-emerald-400" />
-            </div>
-            <div className="flex-1">
-              <h3 className="font-semibold text-emerald-400 text-lg mb-2">✨ Tax-Free Gain Harvesting Available!</h3>
-              <p className="text-zinc-300 mb-4">
-                Your income qualifies for 0% LTCG. Sell and rebuy to raise cost basis.
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-5 gap-4 p-4 rounded-xl bg-zinc-800/50">
-                <div>
-                  <p className="text-sm text-zinc-400">Room in 0%</p>
-                  <p className="text-xl font-bold text-emerald-400">${ltcgBracketRoom.toLocaleString()}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-zinc-400">Optimal Harvest</p>
-                  <p className="text-xl font-bold text-orange-400">${washTradeAnalysis.gain.optimalHarvest.toLocaleString()}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-zinc-400">Future Tax Saved</p>
-                  <p className="text-xl font-bold text-emerald-400">+${washTradeAnalysis.gain.futureTaxSavings.toLocaleString()}</p>
-                  <p className="text-xs text-zinc-500 mt-0.5">(15% avoided)</p>
-                </div>
-                <div>
-                  <p className="text-sm text-zinc-400">Fees</p>
-                  <p className="text-xl font-bold text-amber-400">-${washTradeAnalysis.gain.tradingFees.toLocaleString()}</p>
-                  <p className="text-xs text-zinc-500 mt-0.5">({avgFeePercent.toFixed(1)}%)</p>
-                </div>
-                <div>
-                  <p className="text-sm text-zinc-400">Net</p>
-                  <p className={cn("text-xl font-bold", washTradeAnalysis.gain.isWorthwhile ? "text-emerald-400" : "text-rose-400")}>
-                    {washTradeAnalysis.gain.netBenefit >= 0 ? '+' : ''}${washTradeAnalysis.gain.netBenefit.toLocaleString()}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center justify-between mt-3">
-                {!washTradeAnalysis.gain.isWorthwhile && washTradeAnalysis.gain.optimalHarvest > 0 ? (
-                  <p className="text-sm text-amber-400">
-                    ⚠️ Trading fees may exceed tax savings. Consider lower-fee exchanges.
-                  </p>
-                ) : (
-                  <div />
-                )}
-                <Button onClick={() => setActiveTab('harvest-gain')} variant="outline" size="sm" className="bg-transparent border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/10">
-                  View Details →
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Summary Cards - NO DUPLICATE CARDS HERE */}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -1639,7 +1536,7 @@ export default function TaxCenter() {
             </div>
           </div>
           <p className={cn("text-2xl font-bold", netShortTerm >= 0 ? "text-emerald-400" : "text-rose-400")}>
-            {netShortTerm >= 0 ? '+' : ''}${Math.round(Math.abs(netShortTerm)).toLocaleString()}
+            {netShortTerm >= 0 ? '+' : '-'}${Math.round(Math.abs(netShortTerm)).toLocaleString()}
           </p>
           <p className="text-xs text-zinc-500 mt-1">{netShortTerm === 0 ? 'No ST sales' : `Taxed at ${(effectiveSTCGRate * 100).toFixed(0)}%`}</p>
         </div>
@@ -1735,7 +1632,7 @@ export default function TaxCenter() {
                   <p className="text-orange-400 font-semibold text-lg">${washTradeAnalysis.gain.optimalHarvest.toLocaleString()}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-zinc-500">Est. Trading Fees</p>
+                  <p className="text-xs text-zinc-500">Est. Fees (sell + rebuy)</p>
                   <p className="text-amber-400 font-semibold text-lg">-${washTradeAnalysis.gain.tradingFees.toLocaleString()}</p>
                 </div>
                 <div>
@@ -1783,7 +1680,7 @@ export default function TaxCenter() {
                   <p className="text-emerald-400 font-semibold text-lg">+${washTradeAnalysis.loss.taxSavings.toLocaleString()}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-zinc-500">Est. Trading Fees</p>
+                  <p className="text-xs text-zinc-500">Est. Fees (sell + rebuy)</p>
                   <p className="text-amber-400 font-semibold text-lg">-${washTradeAnalysis.loss.tradingFees.toLocaleString()}</p>
                 </div>
                 <div>
@@ -2307,7 +2204,7 @@ export default function TaxCenter() {
                   <p className="text-xl font-bold text-emerald-400">+${washTradeAnalysis.loss.taxSavings.toLocaleString()}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-zinc-400">Est. Trading Fees ({avgFeePercent.toFixed(1)}%)</p>
+                  <p className="text-sm text-zinc-400">Est. Fees (sell + rebuy)</p>
                   <p className="text-xl font-bold text-amber-400">-${washTradeAnalysis.loss.tradingFees.toLocaleString()}</p>
                   <p className="text-xs text-zinc-500">{avgFeePercent.toFixed(1)}% round trip</p>
                 </div>
@@ -2467,7 +2364,7 @@ export default function TaxCenter() {
                   <p className="text-xl font-bold text-orange-400">${washTradeAnalysis.gain.optimalHarvest.toLocaleString()}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-zinc-300">Est. Trading Fees</p>
+                  <p className="text-sm text-zinc-300">Est. Fees (sell + rebuy)</p>
                   <p className="text-xl font-bold text-amber-400">-${washTradeAnalysis.gain.tradingFees.toLocaleString()}</p>
                   <p className="text-xs text-zinc-400">{avgFeePercent.toFixed(1)}% round trip</p>
                 </div>
