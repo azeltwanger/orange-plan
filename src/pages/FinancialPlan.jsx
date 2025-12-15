@@ -3052,33 +3052,98 @@ export default function FinancialPlan() {
                   </div>
                 </div>
 
-                {/* Remaining to Taxable Summary */}
+                {/* Cash Flow Summary */}
                 <div className="mt-4 p-4 rounded-xl bg-zinc-800/30">
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-zinc-400">Net Income (after tax):</span>
-                      <span className="text-zinc-200">{formatNumber(netIncome)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-zinc-400">Spending:</span>
-                      <span className="text-zinc-200">-{formatNumber(currentAnnualSpending)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-zinc-400">Roth IRA (after-tax):</span>
-                      <span className="text-zinc-200">-{formatNumber(actualRoth)}</span>
-                    </div>
-                    <div className="flex justify-between border-t border-zinc-700 pt-2">
-                      <span className="text-zinc-300 font-medium">Remaining to Taxable:</span>
-                      <span className={cn("font-semibold", annualSavings >= 0 ? "text-emerald-400" : "text-rose-400")}>
-                        {annualSavings >= 0 ? '+' : ''}{formatNumber(annualSavings)}
-                      </span>
-                    </div>
-                    {annualSavings < 0 && (
-                      <p className="text-xs text-rose-400 pt-1">
-                        ⚠️ Negative savings means you're withdrawing from taxable accounts
-                      </p>
-                    )}
-                  </div>
+                  {(() => {
+                    // Calculate cash flow BEFORE retirement contributions
+                    const cashFlowBeforeSavings = netIncome - currentAnnualSpending;
+                    const hasRetirementContributions = actualRoth > 0;
+
+                    if (cashFlowBeforeSavings >= 0) {
+                      // Positive cash flow - normal display
+                      return (
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-zinc-400">Net Income (after tax):</span>
+                            <span className="text-zinc-200">{formatNumber(netIncome)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-zinc-400">Spending:</span>
+                            <span className="text-zinc-200">-{formatNumber(currentAnnualSpending)}</span>
+                          </div>
+                          {hasRetirementContributions && (
+                            <div className="flex justify-between">
+                              <span className="text-zinc-400">Roth IRA:</span>
+                              <span className="text-zinc-200">-{formatNumber(actualRoth)}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between border-t border-zinc-700 pt-2">
+                            <span className="text-zinc-300 font-medium">Remaining to Taxable:</span>
+                            <span className={cn("font-semibold", annualSavings >= 0 ? "text-emerald-400" : "text-rose-400")}>
+                              {annualSavings >= 0 ? '+' : ''}{formatNumber(annualSavings)}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    } else if (hasRetirementContributions) {
+                      // Negative cash flow WITH retirement contributions
+                      return (
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-zinc-400">Net Income (after tax):</span>
+                            <span className="text-zinc-200">{formatNumber(netIncome)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-zinc-400">Spending:</span>
+                            <span className="text-zinc-200">-{formatNumber(currentAnnualSpending)}</span>
+                          </div>
+                          <div className="flex justify-between border-t border-zinc-700 pt-2">
+                            <span className="text-zinc-300 font-medium">Cash Flow:</span>
+                            <span className="font-semibold text-rose-400">{formatNumber(cashFlowBeforeSavings)}</span>
+                          </div>
+                          <div className="pt-2 mt-2 border-t border-zinc-700/50">
+                            <p className="text-xs text-zinc-400 mb-2 font-medium">Retirement Contributions from Savings:</p>
+                            <div className="flex justify-between pl-2">
+                              <span className="text-zinc-400">• Roth IRA:</span>
+                              <span className="text-purple-400">${actualRoth.toLocaleString()}</span>
+                            </div>
+                          </div>
+                          <div className="flex justify-between border-t border-zinc-700 pt-2 mt-2">
+                            <span className="text-zinc-300 font-medium">Net Withdrawal from Taxable:</span>
+                            <span className="font-semibold text-rose-400">{formatNumber(annualSavings)}</span>
+                          </div>
+                          <div className="mt-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                            <p className="text-xs text-amber-400">
+                              ⚠️ Cash flow is negative. Retirement contributions will be funded by withdrawing from taxable accounts.
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    } else {
+                      // Negative cash flow WITHOUT retirement contributions
+                      return (
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-zinc-400">Net Income (after tax):</span>
+                            <span className="text-zinc-200">{formatNumber(netIncome)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-zinc-400">Spending:</span>
+                            <span className="text-zinc-200">-{formatNumber(currentAnnualSpending)}</span>
+                          </div>
+                          <div className="flex justify-between border-t border-zinc-700 pt-2">
+                            <span className="text-zinc-300 font-medium">Net Withdrawal from Taxable:</span>
+                            <span className="font-semibold text-rose-400">{formatNumber(annualSavings)}</span>
+                          </div>
+                          <div className="mt-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                            <p className="text-xs text-amber-400">
+                              ⚠️ Spending exceeds income. You're withdrawing from taxable accounts.
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    }
+                  })()}
                 </div>
               </div>
 
