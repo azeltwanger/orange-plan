@@ -1,14 +1,14 @@
 // Import centralized tax configuration
 import { 
-  TAX_CONFIG, 
   getTaxConfigForYear,
-  getIncomeTaxRate as getIncomeTaxRateFromConfig,
-  getLTCGRate as getLTCGRateFromConfig,
-  calculateProgressiveIncomeTax as calculateProgressiveIncomeTaxFromConfig,
-  getStandardDeduction as getStandardDeductionFromConfig,
+  getIncomeTaxRate,
+  getLTCGRate,
+  getSTCGRate,
+  calculateProgressiveIncomeTax,
+  getStandardDeduction,
   STANDARD_DEDUCTIONS,
   INCOME_TAX_BRACKETS,
-  getTaxDataForYear as getTaxDataForYearFromConfig
+  getTaxDataForYear
 } from '@/components/shared/taxConfig';
 
 // Re-export for backward compatibility
@@ -18,17 +18,11 @@ export {
   getTaxConfigForYear,
   getIncomeTaxRate,
   getLTCGRate,
+  getSTCGRate,
   calculateProgressiveIncomeTax,
   getStandardDeduction,
   getTaxDataForYear
 };
-
-// Use re-exported functions from central config
-export const getIncomeTaxRate = getIncomeTaxRateFromConfig;
-export const getLTCGRate = getLTCGRateFromConfig;
-export const calculateProgressiveIncomeTax = calculateProgressiveIncomeTaxFromConfig;
-export const getStandardDeduction = getStandardDeductionFromConfig;
-export const getTaxDataForYear = getTaxDataForYearFromConfig;
 
 // Backward compatibility
 export const STANDARD_DEDUCTION_2024 = STANDARD_DEDUCTIONS[2025];
