@@ -391,6 +391,11 @@ export const getLTCGRate = (taxableIncome, filingStatus = 'single', year = 2025)
   return 0.20;
 };
 
+// Get short-term capital gains rate (same as ordinary income tax rate)
+export const getSTCGRate = (taxableIncome, filingStatus = 'single', year = 2025) => {
+  return getIncomeTaxRate(taxableIncome, filingStatus, year);
+};
+
 // Calculate progressive income tax on a given amount
 export const calculateProgressiveIncomeTax = (taxableIncome, filingStatus = 'single', year = 2025) => {
   const config = getTaxConfigForYear(year);
