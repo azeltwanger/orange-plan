@@ -1235,9 +1235,13 @@ export default function FinancialPlan() {
         // Combine retirement withdrawal and goal withdrawal for tax estimation
         totalWithdrawalForTaxCalculation = retirementSpendingOnly + yearGoalWithdrawal;
 
+        // Cap withdrawal to available balance
+        const totalAvailableBalance = runningTaxable + runningTaxDeferred + runningTaxFree;
+        const cappedWithdrawal = Math.min(totalWithdrawalForTaxCalculation, totalAvailableBalance);
+
         // Use tax calculation utility for accurate withdrawal taxes
         const taxEstimate = estimateRetirementWithdrawalTaxes({
-          withdrawalNeeded: totalWithdrawalForTaxCalculation,
+          withdrawalNeeded: cappedWithdrawal,
           taxableBalance: runningTaxable,
           taxDeferredBalance: runningTaxDeferred,
           taxFreeBalance: runningTaxFree,
@@ -1339,9 +1343,11 @@ export default function FinancialPlan() {
       
       let total = totalAssetsThisYear + adjustedEventImpact;
 
-      // Check if portfolio ran out of money (set flag once account total hits zero)
+      // Check if portfolio ran out of money based on total assets
+      const totalAssetsThisYearCheck = runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther;
       const accountTotal = runningTaxable + runningTaxDeferred + runningTaxFree;
-      if (accountTotal <= 0 && !ranOutOfMoney) {
+      
+      if ((totalAssetsThisYearCheck <= 0 || accountTotal <= 0) && !ranOutOfMoney) {
         ranOutOfMoney = true;
       }
 
