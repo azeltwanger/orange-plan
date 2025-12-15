@@ -1827,28 +1827,28 @@ export default function TaxCenter() {
                     const dateB = new Date(b.date);
                     return lotSortOrder === 'asc' ? dateA - dateB : dateB - dateA;
                   }).map((lot) => {
-                  const accountLabels = {
-                    taxable: 'Taxable',
-                    traditional_401k: '401(k)',
-                    roth_401k: 'Roth 401(k)',
-                    traditional_ira: 'Trad IRA',
-                    roth_ira: 'Roth IRA',
-                    hsa: 'HSA',
-                    '529': '529',
-                  };
-                  const taxTreatmentLabels = {
-                    taxable: 'Taxable',
-                    tax_deferred: 'Tax-Deferred',
-                    tax_free: 'Tax-Free',
-                  };
-                  const isTaxable = lot.taxTreatment === 'taxable';
-                  
-                  const holding = holdings.find(h => h.ticker === lot.asset_ticker);
-                  const isCrypto = holding?.asset_type === 'crypto' || COINGECKO_IDS[lot.asset_ticker];
-                  const displayQty = isCrypto ? lot.remainingQuantity.toFixed(8) : lot.remainingQuantity.toFixed(2);
-                  const isFullyUsed = lot.status === 'fully_sold' || lot.remainingQuantity === 0;
+                    const accountLabels = {
+                      taxable: 'Taxable',
+                      traditional_401k: '401(k)',
+                      roth_401k: 'Roth 401(k)',
+                      traditional_ira: 'Trad IRA',
+                      roth_ira: 'Roth IRA',
+                      hsa: 'HSA',
+                      '529': '529',
+                    };
+                    const taxTreatmentLabels = {
+                      taxable: 'Taxable',
+                      tax_deferred: 'Tax-Deferred',
+                      tax_free: 'Tax-Free',
+                    };
+                    const isTaxable = lot.taxTreatment === 'taxable';
+                    
+                    const holding = holdings.find(h => h.ticker === lot.asset_ticker);
+                    const isCrypto = holding?.asset_type === 'crypto' || COINGECKO_IDS[lot.asset_ticker];
+                    const displayQty = isCrypto ? lot.remainingQuantity.toFixed(8) : lot.remainingQuantity.toFixed(2);
+                    const isFullyUsed = lot.status === 'fully_sold' || lot.remainingQuantity === 0;
 
-                  return (
+                    return (
                   <div key={lot.id} className={cn("p-4 rounded-xl border", 
                     isFullyUsed ? "bg-rose-900/10 border-rose-500/20 opacity-50" : "bg-zinc-800/30 border-zinc-800"
                   )}>
