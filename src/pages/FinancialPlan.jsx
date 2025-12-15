@@ -616,7 +616,6 @@ export default function FinancialPlan() {
     // Track cost basis for taxable accounts to dynamically estimate capital gains
     const initialTaxableCostBasis = taxableHoldings.reduce((sum, h) => sum + (h.cost_basis_total || 0), 0);
     let runningTaxableBasis = initialTaxableCostBasis;
-    console.log("Initial taxable:", runningTaxable, "Initial basis:", runningTaxableBasis);
 
     // Track cumulative income and expense adjustments from life events
     let cumulativeIncomeAdjustment = 0;
@@ -1109,7 +1108,6 @@ export default function FinancialPlan() {
           // Dynamically calculate capital gains ratio based on current value vs cost basis
           const effectiveRunningTaxableBasis = Math.min(runningTaxable, runningTaxableBasis);
           const estimatedCurrentGainRatio = runningTaxable > 0 ? Math.max(0, (runningTaxable - effectiveRunningTaxableBasis) / runningTaxable) : 0;
-          console.log("Year:", year, "Gain %:", (estimatedCurrentGainRatio * 100).toFixed(1) + "%");
 
           // Calculate Social Security income for this year (if eligible) - typically not applicable pre-retirement
           const currentAgeInYearForSS = currentAge + i;
@@ -1162,7 +1160,6 @@ export default function FinancialPlan() {
           if (yearSavings > 0) {
             runningTaxable += yearSavings;
             runningTaxableBasis += yearSavings;
-            console.log("Year:", year, "Savings:", yearSavings, "New taxable:", runningTaxable, "New basis:", runningTaxableBasis);
           } else {
             runningTaxable += yearSavings; // Should not happen (this else is for positive only)
           }
@@ -1207,7 +1204,6 @@ export default function FinancialPlan() {
         // Dynamically calculate capital gains ratio based on current value vs cost basis
         const effectiveRunningTaxableBasis = Math.min(runningTaxable, runningTaxableBasis);
         const estimatedCurrentGainRatio = runningTaxable > 0 ? Math.max(0, (runningTaxable - effectiveRunningTaxableBasis) / runningTaxable) : 0;
-        console.log("Year (retirement):", year, "Gain %:", (estimatedCurrentGainRatio * 100).toFixed(1) + "%");
 
         // Calculate Social Security income for this year (inflation-adjusted from start age)
         const currentAgeInYearForSS = currentAge + i;
@@ -1246,20 +1242,10 @@ export default function FinancialPlan() {
         penaltyPaid = taxEstimate.totalPenalty || 0;
 
         // Adjust cost basis after taxable withdrawal (proportionally reduce basis)
-        const taxableBeforeWithdrawal = runningTaxable;
-        const basisBeforeWithdrawal = runningTaxableBasis;
         if (withdrawFromTaxable > 0 && runningTaxable > 0) {
           const basisRatio = runningTaxableBasis / runningTaxable;
           runningTaxableBasis = Math.max(0, runningTaxableBasis - (withdrawFromTaxable * basisRatio));
         }
-
-        console.log("Retirement withdrawal - Year:", year, 
-          "Taxable before:", taxableBeforeWithdrawal.toFixed(0),
-          "Basis before:", basisBeforeWithdrawal.toFixed(0),
-          "Withdrawal:", withdrawFromTaxable?.toFixed(0) || 0,
-          "Taxable after:", (runningTaxable - (withdrawFromTaxable || 0)).toFixed(0),
-          "Basis after:", runningTaxableBasis.toFixed(0)
-        );
 
         // Update running account balances
         runningTaxable = Math.max(0, runningTaxable - withdrawFromTaxable);
