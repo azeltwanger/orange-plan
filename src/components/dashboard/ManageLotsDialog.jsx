@@ -242,9 +242,9 @@ export default function ManageLotsDialog({ open, onClose, holding, btcPrice }) {
               <p className="text-xs text-zinc-500 mt-1">Stored balance</p>
             </div>
             <div className="p-4 rounded-xl bg-zinc-800/30">
-              <p className="text-sm text-zinc-500">Allocated to Lots</p>
+              <p className="text-sm text-zinc-500">Remaining in Lots</p>
               <p className="text-xl font-bold text-zinc-400">{allocatedToLots.toFixed(holding.ticker === 'BTC' ? 8 : 2)}</p>
-              <p className="text-xs text-zinc-500 mt-1">Tracked in tax lots</p>
+              <p className="text-xs text-zinc-500 mt-1">After sales (from lots)</p>
             </div>
             <div className="p-4 rounded-xl bg-zinc-800/30">
               <p className="text-sm text-zinc-500">Unallocated</p>
