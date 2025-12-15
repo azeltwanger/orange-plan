@@ -1608,28 +1608,28 @@ export default function TaxCenter() {
         <div className="card-premium rounded-xl p-5 border border-zinc-800/50">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs text-zinc-500 uppercase tracking-wider">{selectedYear} Realized Short-Term</span>
-            <div className={cn("p-1.5 rounded-lg", shortTermGains >= 0 ? "bg-emerald-400/10" : "bg-rose-400/10")}>
-              {shortTermGains >= 0 ? <TrendingUp className="w-4 h-4 text-emerald-400" /> : <TrendingDown className="w-4 h-4 text-rose-400" />}
+            <div className={cn("p-1.5 rounded-lg", netShortTerm >= 0 ? "bg-emerald-400/10" : "bg-rose-400/10")}>
+              {netShortTerm >= 0 ? <TrendingUp className="w-4 h-4 text-emerald-400" /> : <TrendingDown className="w-4 h-4 text-rose-400" />}
             </div>
           </div>
-          <p className={cn("text-2xl font-bold", shortTermGains >= 0 ? "text-emerald-400" : "text-rose-400")}>
-            {shortTermGains >= 0 ? '+' : ''}${shortTermGains.toLocaleString()}
+          <p className={cn("text-2xl font-bold", netShortTerm >= 0 ? "text-emerald-400" : "text-rose-400")}>
+            {netShortTerm >= 0 ? '+' : ''}${Math.round(Math.abs(netShortTerm)).toLocaleString()}
           </p>
-          <p className="text-xs text-zinc-500 mt-1">{shortTermGains === 0 ? 'No ST sales' : `Taxed at ${(effectiveSTCGRate * 100).toFixed(0)}%`}</p>
+          <p className="text-xs text-zinc-500 mt-1">{netShortTerm === 0 ? 'No ST sales' : `Taxed at ${(effectiveSTCGRate * 100).toFixed(0)}%`}</p>
         </div>
 
         <div className="card-premium rounded-xl p-5 border border-zinc-800/50">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs text-zinc-500 uppercase tracking-wider">{selectedYear} Realized Long-Term</span>
-            <div className={cn("p-1.5 rounded-lg", longTermGains >= 0 ? "bg-emerald-400/10" : "bg-rose-400/10")}>
-              {longTermGains >= 0 ? <TrendingUp className="w-4 h-4 text-emerald-400" /> : <TrendingDown className="w-4 h-4 text-rose-400" />}
+            <div className={cn("p-1.5 rounded-lg", netLongTerm >= 0 ? "bg-emerald-400/10" : "bg-rose-400/10")}>
+              {netLongTerm >= 0 ? <TrendingUp className="w-4 h-4 text-emerald-400" /> : <TrendingDown className="w-4 h-4 text-rose-400" />}
             </div>
           </div>
-          <p className={cn("text-2xl font-bold", longTermGains >= 0 ? "text-emerald-400" : "text-rose-400")}>
-            {longTermGains >= 0 ? '+' : ''}${longTermGains.toLocaleString()}
+          <p className={cn("text-2xl font-bold", netLongTerm >= 0 ? "text-emerald-400" : "text-rose-400")}>
+            {netLongTerm >= 0 ? '+' : ''}${Math.round(Math.abs(netLongTerm)).toLocaleString()}
           </p>
-          <p className={cn("text-xs mt-1", longTermGains === 0 ? "text-zinc-500" : effectiveLTCGRate === 0 ? "text-emerald-400" : "text-zinc-500")}>
-            {longTermGains === 0 ? 'No LT sales' : effectiveLTCGRate === 0 ? '0% TAX!' : `Taxed at ${(effectiveLTCGRate * 100).toFixed(0)}%`}
+          <p className={cn("text-xs mt-1", netLongTerm === 0 ? "text-zinc-500" : effectiveLTCGRate === 0 ? "text-emerald-400" : "text-zinc-500")}>
+            {netLongTerm === 0 ? 'No LT sales' : effectiveLTCGRate === 0 ? '0% TAX!' : `Taxed at ${(effectiveLTCGRate * 100).toFixed(0)}%`}
           </p>
         </div>
 
