@@ -1688,15 +1688,6 @@ export default function FinancialPlan() {
             // Gross withdrawal needed to net the spending amount after taxes
             const grossWithdrawal = withdrawal / (1 - estimatedTaxRate);
 
-            // Debug log for final iterations of binary search
-            if (high - low < 1000 && year === 1) {
-              console.log("Max Spending Test:", 
-                "Test spending:", Math.round(testSpending),
-                "Gross withdrawal:", Math.round(grossWithdrawal),
-                "Estimated tax rate:", (estimatedTaxRate * 100).toFixed(1) + "%"
-              );
-            }
-
             if (portfolio < grossWithdrawal) {
               canSustain = false;
               break;
