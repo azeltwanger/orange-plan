@@ -516,6 +516,9 @@ export default function TaxCenter() {
   // Build tax lots from buy transactions, accounting for sales
   // Only include transactions from TAXABLE accounts (exclude 401k, IRA, etc.)
   const taxLots = useMemo(() => {
+    console.log("=== TAX LOTS RECALCULATION ===");
+    console.log("All transactions count:", allTransactions.length);
+    
     // Group by asset ticker to process each separately
     const allTickers = [...new Set(allTransactions.map(t => t.asset_ticker))];
     const allLots = [];
@@ -523,6 +526,8 @@ export default function TaxCenter() {
     for (const ticker of allTickers) {
       const buyTxs = allTransactions.filter(t => t.type === 'buy' && t.asset_ticker === ticker && isTaxableTransaction(t));
       const sellTxs = allTransactions.filter(t => t.type === 'sell' && t.asset_ticker === ticker && isTaxableTransaction(t));
+      
+      console.log(`Processing ${ticker}: ${buyTxs.length} buys, ${sellTxs.length} sells`);
       
       // Calculate total sold quantity for this ticker
       const totalSold = sellTxs.reduce((sum, t) => sum + (t.quantity || 0), 0);
@@ -548,6 +553,19 @@ export default function TaxCenter() {
       const currentValue = remainingQuantity * tickerPrice;
       const perUnitCost = tx.price_per_unit || 0;
       const costBasis = remainingQuantity * perUnitCost;
+      
+      // DEBUG: Log if price is suspiciously high
+      if (perUnitCost > 150000) {
+        console.log("⚠️ HIGH PRICE DETECTED:", {
+          ticker,
+          txId: tx.id,
+          date: tx.date,
+          pricePerUnit: perUnitCost,
+          quantity: tx.quantity,
+          remainingQuantity,
+          rawTx: tx
+        });
+      }
       const unrealizedGain = currentValue - costBasis;
       const txDate = tx.date ? new Date(tx.date) : new Date();
       const daysSincePurchase = isNaN(txDate.getTime()) ? 0 : differenceInDays(new Date(), txDate);
@@ -576,6 +594,17 @@ export default function TaxCenter() {
       
       allLots.push(...tickerLots);
     }
+    
+    console.log("=== TAX LOTS RESULT ===");
+    console.log("Total lots created:", allLots.length);
+    console.log("BTC lots:", allLots.filter(l => l.asset_ticker === 'BTC').map(l => ({
+      id: l.id,
+      date: l.date,
+      pricePerUnit: l.price_per_unit,
+      remainingQty: l.remainingQuantity,
+      costBasis: l.costBasis
+    })));
+    console.log("========================");
     
     return allLots;
   }, [allTransactions, pricesByTicker, holdings]);
