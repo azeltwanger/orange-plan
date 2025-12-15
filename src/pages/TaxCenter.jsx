@@ -1566,7 +1566,7 @@ export default function TaxCenter() {
                   💡 Crypto not subject to wash sale rules—can rebuy immediately
                 </p>
                 <Button onClick={() => setActiveTab('harvest-loss')} variant="outline" size="sm" className="bg-transparent border-rose-500/50 text-rose-400 hover:bg-rose-500/10">
-                  Harvest Now →
+                  View Details →
                 </Button>
               </div>
             </div>
@@ -1621,7 +1621,7 @@ export default function TaxCenter() {
                   <div />
                 )}
                 <Button onClick={() => setActiveTab('harvest-gain')} variant="outline" size="sm" className="bg-transparent border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/10">
-                  Harvest Now →
+                  View Details →
                 </Button>
               </div>
             </div>
