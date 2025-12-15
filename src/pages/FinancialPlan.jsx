@@ -616,6 +616,7 @@ export default function FinancialPlan() {
     // Track cost basis for taxable accounts to dynamically estimate capital gains
     const initialTaxableCostBasis = taxableHoldings.reduce((sum, h) => sum + (h.cost_basis_total || 0), 0);
     let runningTaxableBasis = initialTaxableCostBasis;
+    console.log("Initial taxable:", runningTaxable, "Initial basis:", runningTaxableBasis);
 
     // Track cumulative income and expense adjustments from life events
     let cumulativeIncomeAdjustment = 0;
@@ -1108,6 +1109,7 @@ export default function FinancialPlan() {
           // Dynamically calculate capital gains ratio based on current value vs cost basis
           const effectiveRunningTaxableBasis = Math.min(runningTaxable, runningTaxableBasis);
           const estimatedCurrentGainRatio = runningTaxable > 0 ? Math.max(0, (runningTaxable - effectiveRunningTaxableBasis) / runningTaxable) : 0;
+          console.log("Year:", year, "Gain %:", (estimatedCurrentGainRatio * 100).toFixed(1) + "%");
 
           // Calculate Social Security income for this year (if eligible) - typically not applicable pre-retirement
           const currentAgeInYearForSS = currentAge + i;
@@ -1160,6 +1162,7 @@ export default function FinancialPlan() {
           if (yearSavings > 0) {
             runningTaxable += yearSavings;
             runningTaxableBasis += yearSavings;
+            console.log("Year:", year, "Savings:", yearSavings, "New taxable:", runningTaxable, "New basis:", runningTaxableBasis);
           } else {
             runningTaxable += yearSavings; // Should not happen (this else is for positive only)
           }
@@ -1204,6 +1207,7 @@ export default function FinancialPlan() {
         // Dynamically calculate capital gains ratio based on current value vs cost basis
         const effectiveRunningTaxableBasis = Math.min(runningTaxable, runningTaxableBasis);
         const estimatedCurrentGainRatio = runningTaxable > 0 ? Math.max(0, (runningTaxable - effectiveRunningTaxableBasis) / runningTaxable) : 0;
+        console.log("Year (retirement):", year, "Gain %:", (estimatedCurrentGainRatio * 100).toFixed(1) + "%");
 
         // Calculate Social Security income for this year (inflation-adjusted from start age)
         const currentAgeInYearForSS = currentAge + i;
