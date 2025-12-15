@@ -13,7 +13,6 @@ import ManageLotsDialog from '@/components/dashboard/ManageLotsDialog';
 import AccountGroup from '@/components/dashboard/AccountGroup';
 import CreateAccountDialog from '@/components/accounts/CreateAccountDialog';
 import EditAccountDialog from '@/components/accounts/EditAccountDialog';
-import { syncHoldingFromLots } from '@/components/shared/syncHoldings';
 
 export default function Dashboard() {
   const [btcPrice, setBtcPrice] = useState(null);
@@ -66,7 +65,7 @@ export default function Dashboard() {
   const [showAllLiabilities, setShowAllLiabilities] = useState(false);
   const queryClient = useQueryClient();
 
-  const { data: holdings = [], isLoading: holdingsLoading, refetch: refetchHoldings } = useQuery({
+  const { data: holdings = [], isLoading: holdingsLoading } = useQuery({
     queryKey: ['holdings'],
     queryFn: () => base44.entities.Holding.list(),
   });
@@ -75,28 +74,6 @@ export default function Dashboard() {
     queryKey: ['accounts'],
     queryFn: () => base44.entities.Account.list(),
   });
-
-  // AUTO-SYNC: Sync all holdings from lots on page load
-  useEffect(() => {
-    const syncAllHoldings = async () => {
-      if (!holdings || holdings.length === 0) return;
-
-      console.log("=== DASHBOARD LOAD: SYNCING ALL HOLDINGS ===");
-
-      for (const holding of holdings) {
-        if (holding.ticker) {
-          await syncHoldingFromLots(holding.ticker, holding.account_id || null);
-        }
-      }
-
-      console.log("=== ALL HOLDINGS SYNCED ===");
-      refetchHoldings();
-    };
-
-    if (holdings.length > 0) {
-      syncAllHoldings();
-    }
-  }, [holdings.length]); // Run when holdings are initially loaded
 
   // Get unique tickers for price fetching (stocks and crypto except BTC which is handled separately)
   const priceTickers = useMemo(() => {
