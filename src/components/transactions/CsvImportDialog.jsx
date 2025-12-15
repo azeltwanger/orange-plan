@@ -223,7 +223,19 @@ export default function CsvImportDialog({ open, onClose }) {
             availableLots.sort((a, b) => new Date(b.date) - new Date(a.date));
             break;
           case 'HIFO':
+            console.log('HIFO DEBUG - Before sorting:', availableLots.map(l => ({
+              ticker: l.asset_ticker,
+              date: l.date,
+              price: l.price_per_unit,
+              qty: l.remainingQuantity,
+              isExisting: l.isExisting
+            })));
             availableLots.sort((a, b) => (b.price_per_unit || 0) - (a.price_per_unit || 0));
+            console.log('HIFO DEBUG - After sorting (highest first):', availableLots.map(l => ({
+              ticker: l.asset_ticker,
+              price: l.price_per_unit,
+              qty: l.remainingQuantity
+            })));
             break;
           case 'AVG':
             // For average, we'll calculate weighted average cost
@@ -257,10 +269,17 @@ export default function CsvImportDialog({ open, onClose }) {
           }
         } else {
           // Use specific lot selection
+          console.log(`HIFO DEBUG - Selling ${tx.quantity} ${tx.asset_ticker} @ $${tx.price_per_unit} using ${method}`);
+          console.log('Available lots count:', availableLots.length);
+          
           for (const lot of availableLots) {
             if (remainingToSell <= 0) break;
             const qtyFromLot = Math.min(remainingToSell, lot.remainingQuantity);
-            totalCostBasis += qtyFromLot * (lot.price_per_unit || 0);
+            const costFromLot = qtyFromLot * (lot.price_per_unit || 0);
+            
+            console.log(`Using lot: ${qtyFromLot.toFixed(8)} @ $${lot.price_per_unit} = $${costFromLot.toFixed(2)} basis`);
+            
+            totalCostBasis += costFromLot;
             lot.remainingQuantity -= qtyFromLot;
             remainingToSell -= qtyFromLot;
             
@@ -268,6 +287,15 @@ export default function CsvImportDialog({ open, onClose }) {
             if (daysSincePurchase > 365) hasLongTerm = true;
             else hasShortTerm = true;
           }
+          
+          console.log(`HIFO DEBUG - Sale Summary:`, {
+            sold: tx.quantity,
+            salePrice: tx.price_per_unit,
+            proceeds: tx.quantity * tx.price_per_unit,
+            totalCostBasis: totalCostBasis.toFixed(2),
+            gain: (tx.quantity * tx.price_per_unit - totalCostBasis).toFixed(2),
+            remainingUnsold: remainingToSell.toFixed(8)
+          });
         }
 
         const saleProceeds = (tx.quantity * tx.price_per_unit) - (tx.trading_fee || 0);
