@@ -1093,17 +1093,6 @@ export default function FinancialPlan() {
           runningTaxDeferred = runningTaxDeferred * syncRatio;
           runningTaxFree = runningTaxFree * syncRatio;
         }
-
-        // Debug logging for specific years
-        if ([2025, 2035, 2045, 2055, 2065, 2075].includes(year)) {
-          const assetTotal = runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther;
-          const accountTotal = runningTaxable + runningTaxDeferred + runningTaxFree;
-          console.log("Year:", year, 
-            "Asset total:", Math.round(assetTotal),
-            "Account total:", Math.round(accountTotal),
-            "Difference:", Math.round(assetTotal - accountTotal)
-          );
-        }
       }
 
       if (!isRetired) {
