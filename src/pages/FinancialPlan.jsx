@@ -1042,6 +1042,7 @@ export default function FinancialPlan() {
 
       const isRetired = currentAge + i >= retirementAge;
       const yearsIntoRetirement = isRetired ? currentAge + i - retirementAge : 0;
+      const currentAgeThisYear = currentAge + i;
 
       // Pre-retirement: save and grow. Post-retirement: grow then withdraw
       let yearSavings = 0;
@@ -1112,6 +1113,16 @@ export default function FinancialPlan() {
         yearSavings = yearGrossIncome - yearTaxesPaid - yearSpending;
         runningSavings += yearSavings;
         cumulativeSavings += yearSavings;
+
+        // Debug log for pre-retirement savings
+        if ([31, 32, 33, 50, 51, 52, 53, 54, 55, 60].includes(currentAgeThisYear)) {
+          console.log("Pre-retirement savings:", "Year:", year, "Age:", currentAgeThisYear,
+            "Gross Income:", Math.round(yearGrossIncome),
+            "Taxes:", Math.round(yearTaxesPaid),
+            "Spending:", Math.round(yearSpending),
+            "Net Savings:", Math.round(yearSavings)
+          );
+        }
 
         // Allocate net cash flow to taxable accounts
         // If savings is negative, we're drawing down the portfolio pre-retirement
@@ -1361,6 +1372,16 @@ export default function FinancialPlan() {
       
       if ((totalAssetsAfterWithdrawals <= 0 || accountTotalAfterWithdrawals <= 0) && !ranOutOfMoney) {
         ranOutOfMoney = true;
+      }
+
+      // Debug log for key years
+      if ([31, 32, 33, 50, 51, 52, 53, 54, 55, 60].includes(currentAgeThisYear)) {
+        console.log("Year:", year, "Age:", currentAgeThisYear,
+          "Total Assets:", Math.round(totalAssetsAfterWithdrawals),
+          "Year Withdrawal:", Math.round(yearWithdrawal || 0),
+          "Total Withdrawal (incl goals):", Math.round(totalWithdrawalForTaxCalculation || 0),
+          "Portfolio Depleted:", ranOutOfMoney ? "YES" : "NO"
+        );
       }
 
       // Once out of money, zero everything for this year and subsequent years
