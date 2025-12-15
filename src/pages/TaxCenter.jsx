@@ -628,7 +628,7 @@ export default function TaxCenter() {
   };
 
   // Calculate sale outcome for different methods
-  const calculateSaleOutcome = (saleQty, salePricePerUnit, fee, method, selectedLots = [], specificLotQuantities = {}) => {
+  const calculateSaleOutcome = (saleQty, salePricePerUnit, fee, method, selectedLots = [], specificLotQuantities = {}, assetTicker = 'BTC') => {
     const saleProceeds = (saleQty * salePricePerUnit) - (parseFloat(fee) || 0);
     let remainingQty = saleQty;
     let totalCostBasis = 0;
@@ -636,17 +636,25 @@ export default function TaxCenter() {
     let hasShortTerm = false;
     const lotsUsed = [];
 
+    // CRITICAL FIX: Filter tax lots to only include the asset being sold
+    const lotsForAsset = taxLots.filter(lot => lot.asset_ticker === assetTicker);
+
+    console.log(`=== SALE CALCULATION FOR ${assetTicker} ===`);
+    console.log(`All tax lots count: ${taxLots.length}`);
+    console.log(`Lots for ${assetTicker}: ${lotsForAsset.length}`);
+    console.log(`Method: ${method}`);
+
     // Handle Average Cost method
     if (method === 'AVG') {
-      const avgCost = calculateAverageCostBasis(taxLots);
-      const totalAvailable = taxLots.reduce((sum, lot) => sum + lot.remainingQuantity, 0);
+      const avgCost = calculateAverageCostBasis(lotsForAsset);
+      const totalAvailable = lotsForAsset.reduce((sum, lot) => sum + lot.remainingQuantity, 0);
       
       if (saleQty <= totalAvailable) {
         totalCostBasis = saleQty * avgCost;
         // For avg cost, determine holding period based on weighted average of lots
         let longTermQty = 0;
         let shortTermQty = 0;
-        taxLots.forEach(lot => {
+        lotsForAsset.forEach(lot => {
           if (lot.isLongTerm) longTermQty += lot.remainingQuantity;
           else shortTermQty += lot.remainingQuantity;
         });
@@ -670,7 +678,7 @@ export default function TaxCenter() {
     }
     // Handle Specific ID method with custom quantities per lot
     else if (method === 'SPECIFIC' && selectedLots.length > 0) {
-      const lotsToUse = taxLots.filter(l => selectedLots.includes(l.id));
+      const lotsToUse = lotsForAsset.filter(l => selectedLots.includes(l.id));
       
       for (const lot of lotsToUse) {
         if (remainingQty <= 0) break;
@@ -692,19 +700,23 @@ export default function TaxCenter() {
     }
     // Handle FIFO, LIFO, HIFO, LOFO
     else {
-      const lotsToUse = sortLotsByMethod(taxLots, method);
+      const lotsToUse = sortLotsByMethod(lotsForAsset, method);
 
       if (method === 'HIFO') {
         console.log("=== HIFO DEBUG ===");
-        console.log("All tax lots:", taxLots.map(l => ({
+        console.log(`Selling ${assetTicker}`);
+        console.log("All tax lots (all assets):", taxLots.map(l => ({
           ticker: l.asset_ticker,
           date: l.date,
           pricePerUnit: l.price_per_unit,
-          remainingQty: l.remainingQuantity,
-          costBasis: l.costBasis
+          remainingQty: l.remainingQuantity
         })));
-        console.log("Lots sorted by price (highest first):", lotsToUse.map(l => ({
-          ticker: l.asset_ticker,
+        console.log(`Filtered to ${assetTicker} only:`, lotsForAsset.map(l => ({
+          date: l.date,
+          pricePerUnit: l.price_per_unit,
+          remainingQty: l.remainingQuantity
+        })));
+        console.log("After HIFO sort (highest first):", lotsToUse.map(l => ({
           date: l.date,
           pricePerUnit: l.price_per_unit,
           remainingQty: l.remainingQuantity
@@ -764,14 +776,15 @@ export default function TaxCenter() {
     const qty = parseFloat(saleForm.quantity);
     const price = parseFloat(saleForm.price_per_unit);
     const fee = parseFloat(saleForm.fee) || 0;
+    const assetTicker = 'BTC'; // Currently hardcoded to BTC in sale form
 
     return {
-      FIFO: calculateSaleOutcome(qty, price, fee, 'FIFO'),
-      LIFO: calculateSaleOutcome(qty, price, fee, 'LIFO'),
-      HIFO: calculateSaleOutcome(qty, price, fee, 'HIFO'),
-      LOFO: calculateSaleOutcome(qty, price, fee, 'LOFO'),
-      AVG: calculateSaleOutcome(qty, price, fee, 'AVG'),
-      SPECIFIC: calculateSaleOutcome(qty, price, fee, 'SPECIFIC', saleForm.selected_lots, specificLotQuantities),
+      FIFO: calculateSaleOutcome(qty, price, fee, 'FIFO', [], {}, assetTicker),
+      LIFO: calculateSaleOutcome(qty, price, fee, 'LIFO', [], {}, assetTicker),
+      HIFO: calculateSaleOutcome(qty, price, fee, 'HIFO', [], {}, assetTicker),
+      LOFO: calculateSaleOutcome(qty, price, fee, 'LOFO', [], {}, assetTicker),
+      AVG: calculateSaleOutcome(qty, price, fee, 'AVG', [], {}, assetTicker),
+      SPECIFIC: calculateSaleOutcome(qty, price, fee, 'SPECIFIC', saleForm.selected_lots, specificLotQuantities, assetTicker),
     };
   }, [saleForm.quantity, saleForm.price_per_unit, saleForm.fee, saleForm.selected_lots, specificLotQuantities, taxLots]);
 
