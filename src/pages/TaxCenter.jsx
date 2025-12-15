@@ -398,6 +398,14 @@ export default function TaxCenter() {
       
       console.log("=== SALE SUBMISSION COMPLETE ===\n");
     },
+    onError: (error) => {
+      console.error("\n❌ === TRANSACTION MUTATION ERROR ===");
+      console.error("Error object:", error);
+      console.error("Error message:", error.message);
+      console.error("Error stack:", error.stack);
+      alert(error.message || 'Failed to create transaction');
+      console.log("=== SALE SUBMISSION FAILED ===\n");
+    },
   });
 
   const updateTx = useMutation({
