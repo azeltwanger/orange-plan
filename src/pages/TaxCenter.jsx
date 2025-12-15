@@ -1072,7 +1072,38 @@ export default function TaxCenter() {
   const shortTermGains = sellTxs.filter(t => t.holding_period === 'short_term').reduce((sum, t) => sum + (t.realized_gain_loss || 0), 0);
   const longTermGains = sellTxs.filter(t => t.holding_period === 'long_term').reduce((sum, t) => sum + (t.realized_gain_loss || 0), 0);
   const totalRealized = shortTermGains + longTermGains;
+  
+  // Total assets from taxable holdings (grouped by ticker)
+  const totalAssetsByTicker = taxLots.reduce((acc, lot) => {
+    if (!acc[lot.asset_ticker]) acc[lot.asset_ticker] = 0;
+    acc[lot.asset_ticker] += lot.remainingQuantity;
+    return acc;
+  }, {});
+  const totalBtcHeld = totalAssetsByTicker.BTC || 0;
 
+  // Get brackets based on filing status and selected year
+  const { brackets: currentBrackets, standardDeductions } = getTaxDataForYear(selectedYear);
+  const yearBrackets = currentBrackets[filingStatus] || currentBrackets.single;
+
+  const getLTCGRateForYear = (income) => {
+    if (!yearBrackets?.ltcg) return 0.15;
+    for (const bracket of yearBrackets.ltcg) {
+      if (income <= bracket.max) return bracket.rate;
+    }
+    return 0.20;
+  };
+
+  const getSTCGRateForYear = (income) => {
+    if (!yearBrackets?.income) return 0.24;
+    for (const bracket of yearBrackets.income) {
+      if (income <= bracket.max) return bracket.rate;
+    }
+    return 0.37;
+  };
+
+  const effectiveLTCGRate = getLTCGRateForYear(annualIncome);
+  const effectiveSTCGRate = getSTCGRateForYear(annualIncome);
+  
   // Calculate ACTUAL tax savings from realized transactions
   const calculateActualTaxSavings = () => {
     const hasNetLoss = totalRealized < 0;
@@ -1109,37 +1140,6 @@ export default function TaxCenter() {
   };
 
   const actualTaxSavings = calculateActualTaxSavings();
-  
-  // Total assets from taxable holdings (grouped by ticker)
-  const totalAssetsByTicker = taxLots.reduce((acc, lot) => {
-    if (!acc[lot.asset_ticker]) acc[lot.asset_ticker] = 0;
-    acc[lot.asset_ticker] += lot.remainingQuantity;
-    return acc;
-  }, {});
-  const totalBtcHeld = totalAssetsByTicker.BTC || 0;
-
-  // Get brackets based on filing status and selected year
-  const { brackets: currentBrackets, standardDeductions } = getTaxDataForYear(selectedYear);
-  const yearBrackets = currentBrackets[filingStatus] || currentBrackets.single;
-
-  const getLTCGRateForYear = (income) => {
-    if (!yearBrackets?.ltcg) return 0.15;
-    for (const bracket of yearBrackets.ltcg) {
-      if (income <= bracket.max) return bracket.rate;
-    }
-    return 0.20;
-  };
-
-  const getSTCGRateForYear = (income) => {
-    if (!yearBrackets?.income) return 0.24;
-    for (const bracket of yearBrackets.income) {
-      if (income <= bracket.max) return bracket.rate;
-    }
-    return 0.37;
-  };
-
-  const effectiveLTCGRate = getLTCGRateForYear(annualIncome);
-  const effectiveSTCGRate = getSTCGRateForYear(annualIncome);
   
   // Standard deduction effectively increases the 0% LTCG bracket
   // Taxable income = Gross income - Standard deduction
