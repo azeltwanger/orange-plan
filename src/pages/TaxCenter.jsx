@@ -1101,6 +1101,15 @@ export default function TaxCenter() {
   const netLongTerm = longTermGains - longTermLosses;
   const totalRealized = netShortTerm + netLongTerm;
   
+  console.log("Short-term gains:", shortTermGains);
+  console.log("Short-term losses:", shortTermLosses);
+  console.log("Net short-term:", netShortTerm);
+  console.log("Long-term gains:", longTermGains);
+  console.log("Long-term losses:", longTermLosses);
+  console.log("Net long-term:", netLongTerm);
+  console.log("Total realized:", totalRealized);
+  console.log("============================");
+  
   // Total assets from taxable holdings (grouped by ticker)
   const totalAssetsByTicker = taxLots.reduce((acc, lot) => {
     if (!acc[lot.asset_ticker]) acc[lot.asset_ticker] = 0;
