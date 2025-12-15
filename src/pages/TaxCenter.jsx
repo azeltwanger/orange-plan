@@ -1070,9 +1070,19 @@ export default function TaxCenter() {
 
   // Tax calculations - filtered by selected year
   const sellTxs = transactionsForTaxCalc.filter(t => t.type === 'sell');
-  const shortTermGains = sellTxs.filter(t => t.holding_period === 'short_term').reduce((sum, t) => sum + (t.realized_gain_loss || 0), 0);
-  const longTermGains = sellTxs.filter(t => t.holding_period === 'long_term').reduce((sum, t) => sum + (t.realized_gain_loss || 0), 0);
-  const totalRealized = shortTermGains + longTermGains;
+  
+  // Separate gains from losses for proper IRS netting
+  const shortTermSales = sellTxs.filter(t => t.holding_period === 'short_term');
+  const longTermSales = sellTxs.filter(t => t.holding_period === 'long_term');
+  
+  const shortTermGains = shortTermSales.filter(t => (t.realized_gain_loss || 0) >= 0).reduce((sum, t) => sum + (t.realized_gain_loss || 0), 0);
+  const shortTermLosses = shortTermSales.filter(t => (t.realized_gain_loss || 0) < 0).reduce((sum, t) => sum + Math.abs(t.realized_gain_loss || 0), 0);
+  const longTermGains = longTermSales.filter(t => (t.realized_gain_loss || 0) >= 0).reduce((sum, t) => sum + (t.realized_gain_loss || 0), 0);
+  const longTermLosses = longTermSales.filter(t => (t.realized_gain_loss || 0) < 0).reduce((sum, t) => sum + Math.abs(t.realized_gain_loss || 0), 0);
+  
+  const netShortTerm = shortTermGains - shortTermLosses;
+  const netLongTerm = longTermGains - longTermLosses;
+  const totalRealized = netShortTerm + netLongTerm;
   
   // Total assets from taxable holdings (grouped by ticker)
   const totalAssetsByTicker = taxLots.reduce((acc, lot) => {
@@ -1105,38 +1115,52 @@ export default function TaxCenter() {
   const effectiveLTCGRate = getLTCGRateForYear(annualIncome);
   const effectiveSTCGRate = getSTCGRateForYear(annualIncome);
   
-  // Calculate ACTUAL tax savings from realized transactions
+  // Calculate ACTUAL tax savings from realized transactions (IRS rules)
   const calculateActualTaxSavings = () => {
-    const hasNetLoss = totalRealized < 0;
+    // Count gains harvested at 0% LTCG rate (those in 0% bracket)
+    const gainsHarvestedAtZero = effectiveLTCGRate === 0 && netLongTerm > 0 
+      ? Math.min(netLongTerm, ltcgBracketRoom) 
+      : 0;
     
-    if (!hasNetLoss) return { taxSavings: 0, breakdown: null };
+    let taxSavings = 0;
+    let carryforwardLoss = 0;
+    let taxOwed = 0;
     
-    const netLoss = Math.abs(totalRealized);
-    const gainsToOffset = 0; // No realized gains to offset
-    const lossesUsedForGains = Math.min(netLoss, gainsToOffset);
-    const savingsFromGainOffset = lossesUsedForGains * effectiveSTCGRate;
-    
-    // Remaining losses offset ordinary income (MAX $3,000/year IRS rule)
-    const remainingLoss = netLoss - lossesUsedForGains;
-    const lossesUsedForIncome = Math.min(3000, remainingLoss);
-    const marginalIncomeRate = effectiveSTCGRate; // Use user's tax rate
-    const savingsFromIncomeOffset = lossesUsedForIncome * marginalIncomeRate;
-    
-    // Carryforward (no immediate tax benefit)
-    const carryforwardLoss = remainingLoss - lossesUsedForIncome;
-    
-    const taxSavings = savingsFromGainOffset + savingsFromIncomeOffset;
+    if (totalRealized < 0) {
+      // NET LOSS SITUATION
+      const netLoss = Math.abs(totalRealized);
+      
+      // Losses offset ordinary income (MAX $3,000/year)
+      const lossesOffsettingIncome = Math.min(3000, netLoss);
+      const savingsFromIncomeOffset = lossesOffsettingIncome * effectiveSTCGRate;
+      
+      // Remaining losses carry forward
+      carryforwardLoss = netLoss - lossesOffsettingIncome;
+      
+      taxSavings = savingsFromIncomeOffset;
+      
+    } else if (totalRealized > 0) {
+      // NET GAIN SITUATION - calculate tax owed
+      
+      // If gains were harvested at 0% rate, that's a future savings
+      const futureSavings = gainsHarvestedAtZero * 0.15; // Assume 15% future LTCG
+      taxSavings = futureSavings;
+      
+      // Calculate tax owed on net gains
+      if (netShortTerm > 0) {
+        taxOwed += netShortTerm * effectiveSTCGRate;
+      }
+      if (netLongTerm > 0) {
+        taxOwed += netLongTerm * effectiveLTCGRate;
+      }
+    }
     
     return {
       taxSavings,
-      breakdown: {
-        netLoss,
-        lossesOffsettingGains: lossesUsedForGains,
-        savingsFromGainOffset,
-        lossesOffsettingIncome: lossesUsedForIncome,
-        savingsFromIncomeOffset,
-        carryforwardLoss,
-      }
+      carryforwardLoss,
+      taxOwed,
+      isNetLoss: totalRealized < 0,
+      isNetGain: totalRealized > 0,
     };
   };
 
@@ -1628,12 +1652,14 @@ export default function TaxCenter() {
             </div>
           </div>
           <p className="text-2xl font-bold text-emerald-400">
-            +${actualTaxSavings.taxSavings.toLocaleString()}
+            +${Math.round(actualTaxSavings.taxSavings).toLocaleString()}
           </p>
-          <p className="text-xs text-zinc-500 mt-1">From realized losses</p>
-          {actualTaxSavings.breakdown?.carryforwardLoss > 0 && (
-            <p className="text-xs text-zinc-400 mt-1">
-              +${actualTaxSavings.breakdown.carryforwardLoss.toLocaleString()} loss carryforward
+          <p className="text-xs text-zinc-500 mt-1">
+            {actualTaxSavings.isNetLoss ? 'From realized losses' : 'From 0% harvesting'}
+          </p>
+          {actualTaxSavings.carryforwardLoss > 0 && (
+            <p className="text-xs text-amber-400 mt-1">
+              +${Math.round(actualTaxSavings.carryforwardLoss).toLocaleString()} loss carryforward
             </p>
           )}
         </div>
