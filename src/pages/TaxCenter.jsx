@@ -225,6 +225,9 @@ export default function TaxCenter() {
 
   const createTx = useMutation({
     mutationFn: async (data) => {
+      console.log("=== CREATE TRANSACTION ===");
+      console.log("Transaction data:", data);
+      
       const total = data.quantity * data.price_per_unit;
       const lotId = `${data.asset_ticker}-${Date.now()}`;
       
@@ -280,6 +283,23 @@ export default function TaxCenter() {
         h.ticker === data.asset_ticker && 
         (data.account_id ? h.account_id === data.account_id : !h.account_id)
       );
+      
+      console.log("Finding holding to update:", {
+        ticker: data.asset_ticker,
+        accountId: data.account_id,
+        foundHolding: existingHolding ? {
+          id: existingHolding.id,
+          ticker: existingHolding.ticker,
+          quantity: existingHolding.quantity,
+          accountId: existingHolding.account_id
+        } : null,
+        allHoldingsForTicker: holdings.filter(h => h.ticker === data.asset_ticker).map(h => ({
+          id: h.id,
+          quantity: h.quantity,
+          accountId: h.account_id
+        }))
+      });
+      
       const knownCrypto = ['BTC', 'ETH', 'SOL', 'XRP', 'ADA', 'DOGE', 'DOT', 'AVAX', 'MATIC', 'LINK', 'LTC'];
       const taxTreatment = getTaxTreatment(finalAccountType);
       
@@ -309,12 +329,35 @@ export default function TaxCenter() {
         }
       } else if (data.type === 'sell' && existingHolding) {
         // Reduce holding quantity on sell
-        const newQty = Math.max(0, (existingHolding.quantity || 0) - data.quantity);
-        // Reduce cost basis by the cost basis of sold units
-        const newCostBasis = Math.max(0, (existingHolding.cost_basis_total || 0) - (data.cost_basis || 0));
+        const oldQty = existingHolding.quantity || 0;
+        const oldCostBasis = existingHolding.cost_basis_total || 0;
+        const newQty = Math.max(0, oldQty - data.quantity);
+        const newCostBasis = Math.max(0, oldCostBasis - (data.cost_basis || 0));
+        
+        console.log("=== UPDATING HOLDING AFTER SALE ===");
+        console.log({
+          holdingId: existingHolding.id,
+          ticker: data.asset_ticker,
+          accountId: existingHolding.account_id,
+          previousQuantity: oldQty,
+          soldQuantity: data.quantity,
+          newQuantity: newQty,
+          previousCostBasis: oldCostBasis,
+          costBasisOfSold: data.cost_basis,
+          newCostBasis: newCostBasis
+        });
+        
         await base44.entities.Holding.update(existingHolding.id, {
           quantity: newQty,
           cost_basis_total: newCostBasis,
+        });
+        
+        console.log("Holding updated successfully");
+      } else if (data.type === 'sell' && !existingHolding) {
+        console.log("⚠️ WARNING: No holding found to update for sale!", {
+          ticker: data.asset_ticker,
+          accountId: data.account_id,
+          quantity: data.quantity
         });
       }
 
@@ -827,6 +870,25 @@ export default function TaxCenter() {
     const outcome = saleOutcomes[saleForm.lot_method];
     if (!outcome || !outcome.isComplete) return;
 
+    // Determine account_id from the lots being used
+    // If specific lots selected, use their account
+    // Otherwise use the first lot's account (they should all be same account for same ticker)
+    const lotsForAsset = taxLots.filter(lot => lot.asset_ticker === saleForm.asset_ticker);
+    const accountId = lotsForAsset.length > 0 ? lotsForAsset[0].account_id : null;
+
+    console.log("=== SUBMITTING SALE ===");
+    console.log({
+      asset: saleForm.asset_ticker,
+      quantity: parseFloat(saleForm.quantity),
+      method: saleForm.lot_method,
+      accountId: accountId,
+      lotsUsed: outcome.lotsUsed.map(l => ({
+        id: l.id,
+        qty: l.qtyUsed,
+        price: l.price_per_unit
+      }))
+    });
+
     createTx.mutate({
       type: 'sell',
       asset_ticker: saleForm.asset_ticker,
@@ -834,6 +896,7 @@ export default function TaxCenter() {
       price_per_unit: parseFloat(saleForm.price_per_unit),
       date: saleForm.date,
       exchange: saleForm.exchange,
+      account_id: accountId,
       cost_basis: outcome.totalCostBasis,
       realized_gain_loss: outcome.realizedGain,
       holding_period: outcome.holdingPeriod,
