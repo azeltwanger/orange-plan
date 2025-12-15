@@ -730,6 +730,7 @@ export default function TaxCenter() {
       const tickerLots = sortedBuys.map(tx => {
       // Use remaining_quantity if set, otherwise use original quantity
       let remainingQuantity = tx.remaining_quantity !== undefined ? tx.remaining_quantity : (tx.quantity || 0);
+      const originalQuantity = tx.quantity || 0;
       
       // Reduce this lot's quantity by sold amount (FIFO)
       if (remainingSold > 0) {
@@ -769,12 +770,12 @@ export default function TaxCenter() {
 
       // Determine lot status
       const status = remainingQuantity <= 0 ? 'fully_sold' 
-        : remainingQuantity < tx.quantity ? 'partially_sold' 
+        : remainingQuantity < originalQuantity ? 'partially_sold' 
         : 'available';
 
         return {
           ...tx,
-          originalQuantity: tx.quantity,
+          originalQuantity,
           remainingQuantity,
           currentValue,
           costBasis,
