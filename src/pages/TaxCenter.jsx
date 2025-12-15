@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format, differenceInDays } from 'date-fns';
 import { Plus, Pencil, Trash2, Receipt, TrendingUp, TrendingDown, Calendar, AlertTriangle, CheckCircle, Sparkles, RefreshCw, Info, Download, Calculator, DollarSign, Scale, ChevronRight, Upload, Loader2 } from 'lucide-react';
 import { getTaxDataForYear } from '@/components/tax/taxCalculations';
+import { syncHoldingFromLots } from '@/components/shared/syncHoldings';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -288,144 +289,9 @@ export default function TaxCenter() {
 
       const tx = await base44.entities.Transaction.create(txData);
 
-      // Sync to Holdings - match by ticker AND account_id
-      let existingHolding = holdings.find(h => 
-        h.ticker === data.asset_ticker && 
-        (data.account_id ? h.account_id === data.account_id : !h.account_id)
-      );
-      
-      // PART 1 FIX: If no holding found and account_id is null, fall back to first holding for ticker
-      if (!existingHolding && !data.account_id) {
-        const holdingsForTicker = holdings.filter(h => h.ticker === data.asset_ticker);
-        if (holdingsForTicker.length > 0) {
-          existingHolding = holdingsForTicker[0];
-          console.log(`⚠️ FALLBACK: Using first ${data.asset_ticker} holding (account_id is null)`, {
-            holdingId: existingHolding.id,
-            quantity: existingHolding.quantity
-          });
-        }
-      }
-      
-      console.log("Finding holding to update:", {
-        ticker: data.asset_ticker,
-        accountId: data.account_id,
-        foundHolding: existingHolding ? {
-          id: existingHolding.id,
-          ticker: existingHolding.ticker,
-          quantity: existingHolding.quantity,
-          accountId: existingHolding.account_id
-        } : null,
-        allHoldingsForTicker: holdings.filter(h => h.ticker === data.asset_ticker).map(h => ({
-          id: h.id,
-          quantity: h.quantity,
-          accountId: h.account_id
-        }))
-      });
-      
-      const knownCrypto = ['BTC', 'ETH', 'SOL', 'XRP', 'ADA', 'DOGE', 'DOT', 'AVAX', 'MATIC', 'LINK', 'LTC'];
-      const taxTreatment = getTaxTreatment(finalAccountType);
-      
-      if (data.type === 'buy') {
-        if (existingHolding) {
-          // Update existing holding
-          const newQty = (existingHolding.quantity || 0) + data.quantity;
-          const newCostBasis = (existingHolding.cost_basis_total || 0) + total;
-          await base44.entities.Holding.update(existingHolding.id, {
-            quantity: newQty,
-            cost_basis_total: newCostBasis,
-            current_price: data.price_per_unit,
-          });
-        } else {
-          // Create new holding with proper account type and tax treatment
-          await base44.entities.Holding.create({
-            asset_name: data.asset_ticker,
-            asset_type: knownCrypto.includes(data.asset_ticker) ? 'crypto' : 'stocks',
-            ticker: data.asset_ticker,
-            quantity: data.quantity,
-            current_price: data.price_per_unit,
-            cost_basis_total: total,
-            account_type: finalAccountType,
-            tax_treatment: taxTreatment,
-            account_id: data.account_id || undefined,
-          });
-        }
-      } else if (data.type === 'sell') {
-        console.log("\n=== SALE RECORDED - UPDATING DATA ===");
-        
-        // A) UPDATE TAX LOTS (reduce remainingQuantity)
-        if (data.lots_used && data.lots_used.length > 0) {
-          console.log("📦 Updating", data.lots_used.length, "tax lots:");
-          
-          for (const lotUsage of data.lots_used) {
-            const buyTx = allTransactions.find(t => t.id === lotUsage.lot_id);
-            if (buyTx) {
-              // Calculate new remaining quantity
-              const currentRemaining = buyTx.remaining_quantity ?? buyTx.quantity;
-              const newRemaining = Math.max(0, currentRemaining - lotUsage.quantity_sold);
-              
-              console.log(`  Lot ${buyTx.id}:`, {
-                before: currentRemaining,
-                sold: lotUsage.quantity_sold,
-                after: newRemaining
-              });
-              
-              await base44.entities.Transaction.update(buyTx.id, {
-                remaining_quantity: newRemaining
-              });
-            }
-          }
-          console.log("✅ Tax lots updated");
-        }
-        
-        // B) UPDATE ACCOUNT BALANCE (holding)
-        const holdingsForTicker = holdings.filter(h => h.ticker === data.asset_ticker);
-        let holdingToUpdate = null;
-        
-        // Match by account_id first
-        if (data.account_id) {
-          holdingToUpdate = holdingsForTicker.find(h => h.account_id === data.account_id);
-        }
-        
-        // Fallback: match by exchange name or use largest
-        if (!holdingToUpdate) {
-          const saleExchange = data.exchange_or_wallet || data.exchange;
-          if (saleExchange) {
-            const allAccounts = await base44.entities.Account.list();
-            holdingToUpdate = holdingsForTicker.find(h => {
-              const account = allAccounts.find(a => a.id === h.account_id);
-              const accountName = account?.name?.toLowerCase() || '';
-              const exchange = saleExchange.toLowerCase();
-              return accountName.includes(exchange) || exchange.includes(accountName);
-            });
-          }
-          if (!holdingToUpdate && holdingsForTicker.length > 0) {
-            holdingToUpdate = holdingsForTicker.sort((a, b) => b.quantity - a.quantity)[0];
-          }
-        }
-        
-        if (holdingToUpdate) {
-          const newQty = Math.max(0, holdingToUpdate.quantity - data.quantity);
-          const newCostBasis = Math.max(0, (holdingToUpdate.cost_basis_total || 0) - (data.cost_basis || 0));
-          
-          console.log("💰 Account balance update:", {
-            account: holdingToUpdate.account_id,
-            before: holdingToUpdate.quantity,
-            after: newQty,
-            reduction: data.quantity
-          });
-          
-          await base44.entities.Holding.update(holdingToUpdate.id, {
-            quantity: newQty,
-            cost_basis_total: newCostBasis,
-          });
-          
-          console.log("✅ Account balance updated");
-        } else {
-          console.error("❌ No holding found for", data.asset_ticker);
-        }
-        
-        console.log("=== SALE RECORDED SUCCESSFULLY ===\n");
-      }
+      // SYNC HOLDINGS FROM LOTS (source of truth) - handles both buys and sells
+      console.log("🔄 Syncing holdings from lots after transaction creation...");
+      await syncHoldingFromLots(data.asset_ticker, data.account_id || null);
 
       return tx;
     },
@@ -476,10 +342,10 @@ export default function TaxCenter() {
       console.log("Quantity:", tx?.quantity);
       
       if (tx && tx.type === 'sell') {
-        // REVERSE THE SALE
+        // REVERSE THE SALE - restore tax lots
         console.log("🔄 Reversing sale transaction...");
         
-        // A) Restore tax lots
+        // Restore tax lots by adding back the sold quantity
         if (tx.lots_used && tx.lots_used.length > 0) {
           console.log("📦 Restoring", tx.lots_used.length, "tax lots:");
           
@@ -502,62 +368,18 @@ export default function TaxCenter() {
           }
           console.log("✅ Tax lots restored");
         }
-        
-        // B) Restore account balance
-        const holdingsForTicker = holdings.filter(h => h.ticker === tx.asset_ticker);
-        
-        if (holdingsForTicker.length > 0) {
-          // Match by account_id or use largest
-          let holdingToUpdate = tx.account_id 
-            ? holdingsForTicker.find(h => h.account_id === tx.account_id)
-            : holdingsForTicker.sort((a, b) => b.quantity - a.quantity)[0];
-          
-          if (!holdingToUpdate) {
-            holdingToUpdate = holdingsForTicker[0];
-          }
-          
-          const newQuantity = holdingToUpdate.quantity + tx.quantity;
-          const newCostBasis = (holdingToUpdate.cost_basis_total || 0) + (tx.cost_basis || 0);
-          
-          console.log("💰 Account balance restore:", {
-            account: holdingToUpdate.account_id,
-            before: holdingToUpdate.quantity,
-            after: newQuantity,
-            restored: tx.quantity
-          });
-          
-          await base44.entities.Holding.update(holdingToUpdate.id, { 
-            quantity: newQuantity,
-            cost_basis_total: newCostBasis
-          });
-          console.log("✅ Account balance restored");
-        }
-      } else if (tx && tx.type === 'buy') {
-        // For buys: reduce holding quantity
-        const existingHolding = holdings.find(h => 
-          h.ticker === tx.asset_ticker && 
-          (tx.account_id ? h.account_id === tx.account_id : !h.account_id)
-        );
-        
-        if (existingHolding) {
-          const newQty = Math.max(0, existingHolding.quantity - tx.quantity);
-          const newCostBasis = Math.max(0, (existingHolding.cost_basis_total || 0) - (tx.total_value || 0));
-          
-          if (newQty <= 0) {
-            await base44.entities.Holding.delete(existingHolding.id);
-            console.log("✅ Deleted holding (quantity = 0)");
-          } else {
-            await base44.entities.Holding.update(existingHolding.id, {
-              quantity: newQty,
-              cost_basis_total: newCostBasis,
-            });
-            console.log("✅ Reduced holding after buy deletion");
-          }
-        }
       }
       
-      // C) Delete the transaction
+      // Delete the transaction (buy or sell)
       await base44.entities.Transaction.delete(id);
+      console.log("=== TRANSACTION DELETED ===");
+      
+      // SYNC HOLDINGS FROM LOTS (source of truth) - recalculates holding from remaining lots
+      if (tx) {
+        console.log("🔄 Syncing holdings from lots after transaction deletion...");
+        await syncHoldingFromLots(tx.asset_ticker, tx.account_id || null);
+      }
+      
       console.log("=== TRANSACTION DELETED & REVERSED ===\n");
     },
     onSuccess: () => {
