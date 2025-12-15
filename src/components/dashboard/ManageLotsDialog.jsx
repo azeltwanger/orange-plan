@@ -46,18 +46,65 @@ export default function ManageLotsDialog({ open, onClose, holding, btcPrice }) {
   const correctHoldingQty = remainingInLots; // What it SHOULD be
   const unallocated = holdingQty - totalFromLots; // Unallocated from ORIGINAL purchases
 
-  // Debug logging
+  // ENHANCED Debug logging
   console.log("=== HOLDINGS VS LOTS DEBUG ===");
-  console.log("Holding.quantity (stored, may be wrong):", holdingQty);
-  console.log("Correct holding (from lots):", correctHoldingQty);
-  console.log("Sum of lot.quantity (original purchases):", totalFromLots);
-  console.log("Unallocated (original - lots):", unallocated);
-  console.log("Lots:", lots.map(l => ({
-    id: l.id,
-    quantity: l.quantity,
-    remaining_quantity: l.remaining_quantity,
-    date: l.date
-  })));
+  console.log("\nHolding entity:", {
+    id: holding?.id,
+    ticker: holding?.ticker,
+    storedQuantity: holdingQty,
+    costBasisTotal: holding?.cost_basis_total,
+    currentPrice: holding?.current_price,
+    accountType: holding?.account_type,
+  });
+  
+  console.log("\nTax Lots for this holding:");
+  lots.forEach((lot, i) => {
+    console.log(`  Lot ${i + 1}:`, {
+      id: lot.id,
+      date: lot.date,
+      quantity: lot.quantity,
+      remainingQuantity: lot.remaining_quantity ?? lot.quantity,
+      pricePerUnit: lot.price_per_unit,
+      costBasis: lot.cost_basis,
+      accountType: lot.account_type,
+    });
+  });
+  
+  const sumLotQuantity = lots.reduce((sum, lot) => sum + (lot.quantity || 0), 0);
+  const sumLotRemaining = lots.reduce((sum, lot) => sum + (lot.remaining_quantity ?? lot.quantity || 0), 0);
+  
+  console.log("\n📊 Calculation breakdown:");
+  console.log("  Total Holding (holding.quantity, STORED VALUE):", holdingQty.toFixed(8));
+  console.log("  Sum of lot.quantity (ORIGINAL purchases):", sumLotQuantity.toFixed(8));
+  console.log("  Sum of lot.remainingQuantity (AFTER sales):", sumLotRemaining.toFixed(8));
+  console.log("  Allocated to Lots (using lot.quantity):", totalFromLots.toFixed(8));
+  console.log("  Unallocated (holding.quantity - sum lot.quantity):", unallocated.toFixed(8));
+  
+  console.log("\n❓ KEY QUESTIONS:");
+  console.log("  1. Is 'Total Holding' pulled from holding.quantity?", "YES →", holdingQty.toFixed(8));
+  console.log("  2. Is 'Allocated to Lots' using lot.quantity (original)?", "YES →", totalFromLots.toFixed(8));
+  console.log("  3. What SHOULD holding.quantity be?", "sum of remainingQuantity →", sumLotRemaining.toFixed(8));
+  
+  console.log("\n⚠️ ISSUE ANALYSIS:");
+  if (unallocated < 0) {
+    console.log("  ❌ NEGATIVE UNALLOCATED:", unallocated.toFixed(8));
+    console.log("  This means: sum(lot.quantity) > holding.quantity");
+    console.log("  Likely cause: Lots were created but holding.quantity wasn't updated");
+    console.log("  OR: Sales reduced holding.quantity but not lot.remainingQuantity");
+  } else if (Math.abs(holdingQty - sumLotRemaining) > 0.00000001) {
+    console.log("  ⚠️ MISMATCH: holding.quantity ≠ sum(lot.remainingQuantity)");
+    console.log("  Difference:", (holdingQty - sumLotRemaining).toFixed(8));
+    console.log("  Stored holding:", holdingQty.toFixed(8));
+    console.log("  Should be:", sumLotRemaining.toFixed(8));
+  } else {
+    console.log("  ✅ SYNC OK: holding.quantity matches sum(lot.remainingQuantity)");
+  }
+  
+  console.log("\n✅ CORRECT BEHAVIOR:");
+  console.log("  After a sale is recorded:");
+  console.log("    - lot.remainingQuantity should be reduced");
+  console.log("    - holding.quantity should be reduced by same amount");
+  console.log("    - Both should stay in sync!");
   console.log("==============================");
 
   const createLot = useMutation({
