@@ -1127,64 +1127,22 @@ export default function FinancialPlan() {
         // Allocate net cash flow to taxable accounts
         // If savings is negative, we're drawing down the portfolio pre-retirement
         if (yearSavings < 0) {
-        const withdrawalNeeded = Math.abs(yearSavings);
+          const deficit = Math.abs(yearSavings);
 
-        // Cap withdrawal to available balance
-        const totalAvailableBalance = runningTaxable + runningTaxDeferred + runningTaxFree;
-        const actualWithdrawalNeeded = Math.min(withdrawalNeeded, totalAvailableBalance);
+          // Withdraw from taxable account first (simplest approach for pre-retirement)
+          const withdrawFromTaxablePreRet = Math.min(deficit, runningTaxable);
+          runningTaxable -= withdrawFromTaxablePreRet;
 
-          // Dynamically calculate capital gains ratio based on current value vs cost basis
-          const effectiveRunningTaxableBasis = Math.min(runningTaxable, runningTaxableBasis);
-          const estimatedCurrentGainRatio = runningTaxable > 0 ? Math.max(0, (runningTaxable - effectiveRunningTaxableBasis) / runningTaxable) : 0;
-
-          // Calculate Social Security income for this year (if eligible) - typically not applicable pre-retirement
-          const currentAgeInYearForSS = currentAge + i;
-          let socialSecurityIncome = 0;
-          if (currentAgeInYearForSS >= socialSecurityStartAge && socialSecurityAmount > 0) {
-            const yearsOfSSInflation = currentAgeInYearForSS - socialSecurityStartAge;
-            socialSecurityIncome = socialSecurityAmount * Math.pow(1 + effectiveInflation / 100, yearsOfSSInflation);
+          // Reduce basis proportionally
+          if (withdrawFromTaxablePreRet > 0 && runningTaxable > 0) {
+            const withdrawRatio = withdrawFromTaxablePreRet / (runningTaxable + withdrawFromTaxablePreRet);
+            runningTaxableBasis = Math.max(0, runningTaxableBasis - (runningTaxableBasis * withdrawRatio));
+          } else if (runningTaxable === 0) {
+            runningTaxableBasis = 0;
           }
 
-          // Total other income = other retirement income + Social Security (if eligible)
-          const totalOtherIncome = otherRetirementIncome + socialSecurityIncome;
-
-          // Use tax calculation utility for accurate withdrawal taxes (including capital gains)
-          const currentAgeInYearForWithdrawal = currentAge + i;
-          const taxEstimate = estimateRetirementWithdrawalTaxes({
-            withdrawalNeeded: actualWithdrawalNeeded,
-            taxableBalance: runningTaxable,
-            taxDeferredBalance: runningTaxDeferred,
-            taxFreeBalance: runningTaxFree,
-            taxableGainPercent: estimatedCurrentGainRatio,
-            isLongTermGain: true, // Assume long-term for projections
-            filingStatus,
-            age: currentAgeInYearForWithdrawal,
-            otherIncome: totalOtherIncome,
-          });
-
-          withdrawFromTaxable = taxEstimate.fromTaxable || 0;
-          withdrawFromTaxDeferred = taxEstimate.fromTaxDeferred || 0;
-          withdrawFromTaxFree = taxEstimate.fromTaxFree || 0;
-
-          // Add withdrawal taxes and penalties to total taxes paid for the year
-          const withdrawalTaxes = taxEstimate.totalTax || 0;
-          const withdrawalPenalties = taxEstimate.totalPenalty || 0;
-          taxesPaid += withdrawalTaxes;
-          penaltyPaid = withdrawalPenalties;
-
-          // Adjust cost basis after taxable withdrawal (proportionally reduce basis)
-          if (withdrawFromTaxable > 0 && runningTaxable > 0) {
-            const basisRatio = runningTaxableBasis / runningTaxable;
-            runningTaxableBasis = Math.max(0, runningTaxableBasis - (withdrawFromTaxable * basisRatio));
-          }
-
-          // Update running account balances and prevent negatives
-          runningTaxable = Math.max(0, runningTaxable - withdrawFromTaxable);
-          runningTaxDeferred = Math.max(0, runningTaxDeferred - withdrawFromTaxDeferred);
-          runningTaxFree = Math.max(0, runningTaxFree - withdrawFromTaxFree);
-          
-          // If we couldn't fully fund the deficit, mark depletion
-          if (actualWithdrawalNeeded < withdrawalNeeded && !ranOutOfMoney) {
+          // If taxable isn't enough, mark as depleted
+          if (withdrawFromTaxablePreRet < deficit && !ranOutOfMoney) {
             ranOutOfMoney = true;
           }
         } else if (yearSavings > 0) {
@@ -1202,7 +1160,11 @@ export default function FinancialPlan() {
         // Income-based: withdraw exactly what you need, inflation-adjusted
         // Inflate to retirement age once, then from that nominal base inflate each year in retirement
         const nominalSpendingAtRetirement = retirementAnnualSpending * Math.pow(1 + effectiveInflation / 100, Math.max(0, retirementAge - currentAge));
-        yearWithdrawal = nominalSpendingAtRetirement * Math.pow(1 + effectiveInflation / 100, yearsIntoRetirement);
+        const desiredWithdrawal = nominalSpendingAtRetirement * Math.pow(1 + effectiveInflation / 100, yearsIntoRetirement);
+        
+        // Cap withdrawal to what's actually available
+        const totalAvailableForWithdrawal = Math.max(0, accountTotalBeforeWithdrawal);
+        yearWithdrawal = Math.min(desiredWithdrawal, totalAvailableForWithdrawal);
 
         // Smart withdrawal order based on age and account types with TAX CALCULATION
         const currentAgeInYear = currentAge + i;
