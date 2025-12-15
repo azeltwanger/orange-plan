@@ -1436,6 +1436,48 @@ export default function TaxCenter() {
         </div>
       </div>
 
+      {/* Tax Loss Harvesting Alert */}
+      {harvestLossOpportunities.length > 0 && washTradeAnalysis.loss.isWorthwhile && (
+        <div className="card-premium rounded-2xl p-6 border border-rose-400/30">
+          <div className="flex items-start gap-4">
+            <div className="p-3 rounded-xl bg-rose-400/10">
+              <TrendingDown className="w-6 h-6 text-rose-400" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-rose-400 text-lg mb-2">Tax Loss Harvesting Available!</h3>
+              <p className="text-zinc-300 mb-4">
+                You have unrealized losses that could offset gains or reduce taxable income by up to $3,000/year.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-5 gap-4 p-4 rounded-xl bg-zinc-800/50">
+                <div>
+                  <p className="text-sm text-zinc-400">Available Losses</p>
+                  <p className="text-xl font-bold text-rose-400">-${washTradeAnalysis.loss.harvestableLoss.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-zinc-400">Offsets Gains</p>
+                  <p className="text-xl font-bold text-zinc-200">${Math.min(washTradeAnalysis.loss.harvestableLoss, Math.max(0, totalRealized)).toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-zinc-400">Income Offset</p>
+                  <p className="text-xl font-bold text-zinc-200">${Math.min(3000, Math.max(0, washTradeAnalysis.loss.harvestableLoss - Math.max(0, totalRealized))).toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-zinc-400">Est. Tax Savings</p>
+                  <p className="text-xl font-bold text-emerald-400">+${washTradeAnalysis.loss.taxSavings.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-zinc-400">Est. Trading Fees ({avgFeePercent.toFixed(1)}%)</p>
+                  <p className="text-xl font-bold text-amber-400">-${washTradeAnalysis.loss.tradingFees.toLocaleString()}</p>
+                </div>
+              </div>
+              <p className="text-sm text-amber-400 mt-3">
+                ⚠️ Wash sale rule: Can't rebuy same asset within 30 days for stocks. Crypto not subject to wash sale rules.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 0% Tax Bracket Alert */}
       {canHarvestGainsTaxFree && gainHarvestOpportunities.length > 0 && (
         <div className="card-premium rounded-2xl p-6 border border-emerald-400/30">
@@ -1513,14 +1555,29 @@ export default function TaxCenter() {
         </div>
 
         <div className="card-premium rounded-xl p-5 border border-zinc-800/50">
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-xs text-zinc-500 uppercase tracking-wider">Estimated Tax</span>
-          <div className="p-1.5 rounded-lg bg-orange-400/10">
-            <Receipt className="w-4 h-4 text-orange-400" />
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs text-zinc-500 uppercase tracking-wider">Estimated Tax</span>
+            <div className="p-1.5 rounded-lg bg-orange-400/10">
+              <Receipt className="w-4 h-4 text-orange-400" />
+            </div>
           </div>
+          <p className="text-2xl font-bold text-orange-400">${estimatedTax.toLocaleString()}</p>
+          <p className="text-xs text-zinc-500 mt-1">For {selectedYear}</p>
         </div>
-        <p className="text-2xl font-bold text-orange-400">${estimatedTax.toLocaleString()}</p>
-        <p className="text-xs text-zinc-500 mt-1">For {selectedYear}</p>
+
+        <div className="card-premium rounded-xl p-5 border border-zinc-800/50">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs text-zinc-500 uppercase tracking-wider">{selectedYear} Net Tax Position</span>
+            <div className={cn("p-1.5 rounded-lg", estimatedTax > 0 ? "bg-rose-400/10" : "bg-emerald-400/10")}>
+              <Scale className="w-4 h-4" className={estimatedTax > 0 ? "text-rose-400" : "text-emerald-400"} />
+            </div>
+          </div>
+          <p className={cn("text-2xl font-bold", estimatedTax > 0 ? "text-rose-400" : "text-emerald-400")}>
+            {estimatedTax > 0 ? `Owing ~$${estimatedTax.toLocaleString()}` : `Saving $${Math.abs(estimatedTax).toLocaleString()}`}
+          </p>
+          <p className="text-xs text-zinc-500 mt-1">
+            {totalRealized > 0 ? 'Net Gains' : totalRealized < 0 ? 'Net Losses' : 'Break Even'}
+          </p>
         </div>
 
         <div className="card-premium rounded-xl p-5 border border-zinc-800/50">
@@ -2023,8 +2080,22 @@ export default function TaxCenter() {
         {/* Loss Harvest Tab */}
         <TabsContent value="harvest-loss">
           <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
-            <h3 className="font-semibold mb-2">Tax Loss Harvesting</h3>
-            <p className="text-sm text-zinc-400 mb-6">Sell taxable lots at a loss to offset gains. Watch for wash sales (30-day rule)!</p>
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="font-semibold mb-2">Tax Loss Harvesting</h3>
+                <p className="text-sm text-zinc-400">Sell taxable lots at a loss to offset gains. Watch for wash sales (30-day rule)!</p>
+              </div>
+              <Select value={lotStatusFilter} onValueChange={setLotStatusFilter}>
+                <SelectTrigger className="w-32 bg-zinc-800 border-zinc-700 h-9 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-zinc-900 border-zinc-700">
+                  <SelectItem value="all">All Lots</SelectItem>
+                  <SelectItem value="available">Available</SelectItem>
+                  <SelectItem value="partial">Partial</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             
             {harvestLossOpportunities.length > 0 && (
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 p-4 rounded-xl bg-zinc-800/30 border border-zinc-700/50 mb-6">
@@ -2066,7 +2137,13 @@ export default function TaxCenter() {
               </div>
             ) : (
               <div className="space-y-3">
-                {harvestLossOpportunities.map((lot) => {
+                {harvestLossOpportunities
+                  .filter((lot) => {
+                    if (lotStatusFilter === 'available') return lot.status === 'available';
+                    if (lotStatusFilter === 'partial') return lot.status === 'partially_sold';
+                    return true;
+                  })
+                  .map((lot) => {
                   const lotValue = lot.currentValue;
                   const lotFees = lotValue * (avgFeePercent / 100);
                   const lotTaxSavings = Math.abs(lot.unrealizedGain) * effectiveSTCGRate;
@@ -2117,8 +2194,22 @@ export default function TaxCenter() {
         {/* Gain Harvest Tab */}
         <TabsContent value="harvest-gain">
           <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
-            <h3 className="font-semibold mb-2">Tax-Free Gain Harvesting</h3>
-            <p className="text-sm text-zinc-400 mb-6">Reset cost basis by selling and rebuying at 0% LTCG rate</p>
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="font-semibold mb-2">Tax-Free Gain Harvesting</h3>
+                <p className="text-sm text-zinc-400">Reset cost basis by selling and rebuying at 0% LTCG rate</p>
+              </div>
+              <Select value={lotStatusFilter} onValueChange={setLotStatusFilter}>
+                <SelectTrigger className="w-32 bg-zinc-800 border-zinc-700 h-9 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-zinc-900 border-zinc-700">
+                  <SelectItem value="all">All Lots</SelectItem>
+                  <SelectItem value="available">Available</SelectItem>
+                  <SelectItem value="partial">Partial</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
             {!canHarvestGainsTaxFree ? (
               <div className="p-4 rounded-xl bg-amber-400/10 border border-amber-400/20 mb-6">
@@ -2169,7 +2260,13 @@ export default function TaxCenter() {
               </div>
             ) : (
               <div className="space-y-3">
-                {gainHarvestOpportunities.map((lot) => {
+                {gainHarvestOpportunities
+                  .filter((lot) => {
+                    if (lotStatusFilter === 'available') return lot.status === 'available';
+                    if (lotStatusFilter === 'partial') return lot.status === 'partially_sold';
+                    return true;
+                  })
+                  .map((lot) => {
                   const lotFees = lot.currentValue * (avgFeePercent / 100);
                   const lotFutureTaxSavings = lot.unrealizedGain * 0.15; // Future 15% LTCG avoided
                   const lotNetBenefit = canHarvestGainsTaxFree ? lotFutureTaxSavings - lotFees : -lotFees;
