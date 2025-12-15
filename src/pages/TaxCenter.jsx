@@ -1770,7 +1770,14 @@ export default function TaxCenter() {
                 <p className="text-sm text-zinc-500">{taxLots.length} taxable lots across {Object.keys(totalAssetsByTicker).length} assets</p>
               </div>
               <div className="flex gap-2">
-                <Select value={lotStatusFilter} onValueChange={setLotStatusFilter}>
+                <Select value={lotStatusFilter} onValueChange={(val) => {
+                  console.log("=== LOT FILTER DEBUG ===");
+                  console.log("Filter value:", val);
+                  console.log("Total lots:", taxLots.length);
+                  console.log("Lots with status='fully_sold':", taxLots.filter(l => l.status === 'fully_sold').length);
+                  console.log("Lots with remainingQuantity=0:", taxLots.filter(l => l.remainingQuantity === 0).length);
+                  setLotStatusFilter(val);
+                }}>
                   <SelectTrigger className="w-36 bg-zinc-800 border-zinc-700 h-9 text-sm">
                     <SelectValue />
                   </SelectTrigger>
@@ -1796,18 +1803,30 @@ export default function TaxCenter() {
               <p className="text-center text-zinc-500 py-12">No tax lots. Add buy transactions to create lots.</p>
             ) : (
               <div className="space-y-3">
-                {[...taxLots]
-                  .filter((lot) => {
-                    if (lotStatusFilter === 'available') return lot.status === 'available';
-                    if (lotStatusFilter === 'partial') return lot.status === 'partially_sold';
-                    return true;
-                  })
-                  .sort((a, b) => {
+                {(() => {
+                  const filtered = [...taxLots].filter((lot) => {
+                    switch (lotStatusFilter) {
+                      case 'available':
+                        return (lot.status === 'available' || !lot.status) && (lot.remainingQuantity ?? lot.quantity) > 0;
+                      case 'partial':
+                        return lot.status === 'partially_sold' || 
+                          (lot.remainingQuantity !== undefined && lot.remainingQuantity > 0 && lot.remainingQuantity < lot.quantity);
+                      case 'used':
+                        return lot.status === 'fully_sold' || lot.remainingQuantity === 0 || 
+                          (lot.remainingQuantity !== undefined && lot.remainingQuantity <= 0);
+                      default:
+                        return true;
+                    }
+                  });
+
+                  console.log("Filtered result count:", filtered.length);
+                  console.log("========================");
+
+                  return filtered.sort((a, b) => {
                     const dateA = new Date(a.date);
                     const dateB = new Date(b.date);
                     return lotSortOrder === 'asc' ? dateA - dateB : dateB - dateA;
-                  })
-                  .map((lot) => {
+                  }).map((lot) => {
                   const accountLabels = {
                     taxable: 'Taxable',
                     traditional_401k: '401(k)',
@@ -1827,9 +1846,12 @@ export default function TaxCenter() {
                   const holding = holdings.find(h => h.ticker === lot.asset_ticker);
                   const isCrypto = holding?.asset_type === 'crypto' || COINGECKO_IDS[lot.asset_ticker];
                   const displayQty = isCrypto ? lot.remainingQuantity.toFixed(8) : lot.remainingQuantity.toFixed(2);
-                  
+                  const isFullyUsed = lot.status === 'fully_sold' || lot.remainingQuantity === 0;
+
                   return (
-                  <div key={lot.id} className="p-4 rounded-xl bg-zinc-800/30 border border-zinc-800">
+                  <div key={lot.id} className={cn("p-4 rounded-xl border", 
+                    isFullyUsed ? "bg-rose-900/10 border-rose-500/20 opacity-50" : "bg-zinc-800/30 border-zinc-800"
+                  )}>
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 flex-wrap mb-2">
@@ -1851,11 +1873,11 @@ export default function TaxCenter() {
 
                           {/* Status badge */}
                           <Badge className={cn("text-xs border-0", 
-                            lot.status === 'fully_sold' ? 'bg-rose-500/20 text-rose-400' :
+                            isFullyUsed ? 'bg-rose-500/20 text-rose-400' :
                             lot.status === 'partially_sold' ? 'bg-amber-500/20 text-amber-400' :
                             'bg-emerald-500/20 text-emerald-400'
                           )}>
-                            {lot.status === 'fully_sold' ? 'Sold' :
+                            {isFullyUsed ? 'Used' :
                              lot.status === 'partially_sold' ? 'Partial' :
                              'Available'}
                           </Badge>
@@ -1888,34 +1910,34 @@ export default function TaxCenter() {
                                 style={{ width: `${(lot.remainingQuantity / lot.originalQuantity) * 100}%` }}
                               />
                             </div>
-                          </div>
-                        )}
-
-                        <p className="text-sm text-zinc-500">
-                          Bought {lot.date ? format(new Date(lot.date), 'MMM d, yyyy') : 'Unknown date'} @ ${(lot.price_per_unit || 0).toLocaleString()}
-                        </p>
+                            </div>
+                            )}
+                            </div>
+                      {!isFullyUsed && (
+                        <div className="text-right">
+                          <p className={cn("text-lg font-bold", lot.unrealizedGain >= 0 ? "text-emerald-400" : "text-rose-400")}>
+                            {lot.unrealizedGain >= 0 ? '+' : ''}{(lot.unrealizedGainPercent || 0).toFixed(1)}%
+                          </p>
+                          <p className="text-sm text-zinc-500">{lot.unrealizedGain >= 0 ? '+' : ''}${(lot.unrealizedGain || 0).toLocaleString()}</p>
                         </div>
-                      <div className="text-right">
-                        <p className={cn("text-lg font-bold", lot.unrealizedGain >= 0 ? "text-emerald-400" : "text-rose-400")}>
-                          {lot.unrealizedGain >= 0 ? '+' : ''}{(lot.unrealizedGainPercent || 0).toFixed(1)}%
-                        </p>
-                        <p className="text-sm text-zinc-500">{lot.unrealizedGain >= 0 ? '+' : ''}${(lot.unrealizedGain || 0).toLocaleString()}</p>
-                      </div>
+                      )}
                     </div>
-                    <div className="grid grid-cols-3 gap-4 text-sm">
-                      <div>
-                        <p className="text-zinc-500">Cost Basis</p>
-                        <p className="font-medium">${(lot.costBasis || 0).toLocaleString()}</p>
+                    {!isFullyUsed && (
+                      <div className="grid grid-cols-3 gap-4 text-sm">
+                        <div>
+                          <p className="text-zinc-500">Cost Basis</p>
+                          <p className="font-medium">${(lot.costBasis || 0).toLocaleString()}</p>
+                        </div>
+                        <div>
+                          <p className="text-zinc-500">Current Value</p>
+                          <p className="font-medium">${(lot.currentValue || 0).toLocaleString()}</p>
+                        </div>
+                        <div>
+                          <p className="text-zinc-500">Per BTC Cost</p>
+                          <p className="font-medium">${(lot.price_per_unit || 0).toLocaleString()}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-zinc-500">Current Value</p>
-                        <p className="font-medium">${(lot.currentValue || 0).toLocaleString()}</p>
-                      </div>
-                      <div>
-                        <p className="text-zinc-500">Per BTC Cost</p>
-                        <p className="font-medium">${(lot.price_per_unit || 0).toLocaleString()}</p>
-                      </div>
-                    </div>
+                    )}
                   </div>
                 );})}
               </div>
