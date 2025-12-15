@@ -918,6 +918,12 @@ export default function TaxCenter() {
     // Determine account_id from the lots being used in the sale (not just any lot for that ticker)
     const accountId = outcome.lotsUsed.length > 0 ? outcome.lotsUsed[0].account_id : null;
 
+    console.log("🔍 ACCOUNT ID EXTRACTION:");
+    console.log("outcome.lotsUsed:", outcome.lotsUsed);
+    console.log("First lot:", outcome.lotsUsed[0]);
+    console.log("First lot's account_id:", outcome.lotsUsed[0]?.account_id);
+    console.log("Extracted accountId:", accountId);
+
     console.log("Sale details:", {
       asset: saleForm.asset_ticker,
       quantity: parseFloat(saleForm.quantity),
