@@ -176,6 +176,38 @@ export default function ManageLotsDialog({ open, onClose, holding, btcPrice }) {
     },
   });
 
+  // AUTO-SYNC on dialog open if mismatch detected
+  useEffect(() => {
+    const fixExistingMismatch = async () => {
+      if (!lots || lots.length === 0 || !holding) return;
+      
+      const remainingInLots = lots.reduce((sum, lot) => {
+        return sum + (lot.remaining_quantity ?? lot.quantity ?? 0);
+      }, 0);
+      
+      const currentHolding = holding.quantity || 0;
+      const diff = Math.abs(remainingInLots - currentHolding);
+      
+      console.log("=== AUTO-SYNC CHECK ===");
+      console.log("Holding:", currentHolding, "Lots:", remainingInLots, "Diff:", diff);
+      
+      if (diff > 0.00000001) {
+        console.log("⚠️ MISMATCH DETECTED - AUTO-SYNCING NOW...");
+        await syncHoldingFromLots(holding.ticker, holding.account_id || null);
+        console.log("✅ AUTO-SYNC COMPLETE - refreshing queries...");
+        queryClient.invalidateQueries({ queryKey: ['holdings'] });
+        queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      } else {
+        console.log("✅ Already in sync");
+      }
+      console.log("========================");
+    };
+    
+    if (open) {
+      fixExistingMismatch();
+    }
+  }, [open, holding?.id]);
+
   const handleAddLot = (e) => {
     e.preventDefault();
     if (editingLot) {
