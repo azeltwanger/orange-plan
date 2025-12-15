@@ -1113,10 +1113,14 @@ export default function FinancialPlan() {
         runningSavings += yearSavings;
         cumulativeSavings += yearSavings;
 
-        // Allocate net cash flow to taxable accounts (can be negative = drawdown)
-        // If negative, we're withdrawing - track sources and calculate taxes
+        // Allocate net cash flow to taxable accounts
+        // If savings is negative, we're drawing down the portfolio pre-retirement
         if (yearSavings < 0) {
-          const withdrawalNeeded = Math.abs(yearSavings);
+        const withdrawalNeeded = Math.abs(yearSavings);
+
+        // Cap withdrawal to available balance
+        const totalAvailableBalance = runningTaxable + runningTaxDeferred + runningTaxFree;
+        const actualWithdrawalNeeded = Math.min(withdrawalNeeded, totalAvailableBalance);
 
           // Dynamically calculate capital gains ratio based on current value vs cost basis
           const effectiveRunningTaxableBasis = Math.min(runningTaxable, runningTaxableBasis);
@@ -1136,7 +1140,7 @@ export default function FinancialPlan() {
           // Use tax calculation utility for accurate withdrawal taxes (including capital gains)
           const currentAgeInYearForWithdrawal = currentAge + i;
           const taxEstimate = estimateRetirementWithdrawalTaxes({
-            withdrawalNeeded: withdrawalNeeded,
+            withdrawalNeeded: actualWithdrawalNeeded,
             taxableBalance: runningTaxable,
             taxDeferredBalance: runningTaxDeferred,
             taxFreeBalance: runningTaxFree,
@@ -1163,20 +1167,22 @@ export default function FinancialPlan() {
             runningTaxableBasis = Math.max(0, runningTaxableBasis - (withdrawFromTaxable * basisRatio));
           }
 
-          // Update running account balances
+          // Update running account balances and prevent negatives
           runningTaxable = Math.max(0, runningTaxable - withdrawFromTaxable);
           runningTaxDeferred = Math.max(0, runningTaxDeferred - withdrawFromTaxDeferred);
           runningTaxFree = Math.max(0, runningTaxFree - withdrawFromTaxFree);
-        } else {
+          
+          // If we couldn't fully fund the deficit, mark depletion
+          if (actualWithdrawalNeeded < withdrawalNeeded && !ranOutOfMoney) {
+            ranOutOfMoney = true;
+          }
+        } else if (yearSavings > 0) {
           // Positive savings - add to taxable accounts
           // New contributions have 100% cost basis (no embedded gain yet)
-          if (yearSavings > 0) {
-            runningTaxable += yearSavings;
-            runningTaxableBasis += yearSavings;
-          } else {
-            runningTaxable += yearSavings; // Should not happen (this else is for positive only)
-          }
+          runningTaxable += yearSavings;
+          runningTaxableBasis += yearSavings;
         }
+        // If yearSavings is exactly 0, do nothing
       } else {
         // Calculate withdrawal based on strategy
         const totalBeforeWithdrawal = runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther + runningSavings;
@@ -1264,10 +1270,16 @@ export default function FinancialPlan() {
           runningTaxableBasis = Math.max(0, runningTaxableBasis - (withdrawFromTaxable * basisRatio));
         }
 
-        // Update running account balances
+        // Update running account balances and prevent negatives
         runningTaxable = Math.max(0, runningTaxable - withdrawFromTaxable);
         runningTaxDeferred = Math.max(0, runningTaxDeferred - withdrawFromTaxDeferred);
         runningTaxFree = Math.max(0, runningTaxFree - withdrawFromTaxFree);
+        
+        // If we couldn't fully fund the withdrawal, mark depletion
+        const actualTotalWithdrawn = withdrawFromTaxable + withdrawFromTaxDeferred + withdrawFromTaxFree;
+        if (actualTotalWithdrawn < cappedWithdrawal && !ranOutOfMoney) {
+          ranOutOfMoney = true;
+        }
 
         // Withdraw from assets in prioritized order: liquid assets first, then illiquid (real estate)
         const actualWithdrawalFromAccounts = withdrawFromTaxable + withdrawFromTaxDeferred + withdrawFromTaxFree;
@@ -1343,11 +1355,11 @@ export default function FinancialPlan() {
       
       let total = totalAssetsThisYear + adjustedEventImpact;
 
-      // Check if portfolio ran out of money based on total assets
-      const totalAssetsThisYearCheck = runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther;
-      const accountTotal = runningTaxable + runningTaxDeferred + runningTaxFree;
+      // Check if portfolio ran out of money AFTER withdrawals are processed
+      const totalAssetsAfterWithdrawals = runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther;
+      const accountTotalAfterWithdrawals = runningTaxable + runningTaxDeferred + runningTaxFree;
       
-      if ((totalAssetsThisYearCheck <= 0 || accountTotal <= 0) && !ranOutOfMoney) {
+      if ((totalAssetsAfterWithdrawals <= 0 || accountTotalAfterWithdrawals <= 0) && !ranOutOfMoney) {
         ranOutOfMoney = true;
       }
 
@@ -2823,8 +2835,8 @@ export default function FinancialPlan() {
             </div>
 
 
-            {retirementAge < 59.5 && (() => {
-                const yearsUntilPenaltyFree = Math.ceil(59.5 - retirementAge);
+            {retirementAge < PENALTY_FREE_AGE && (() => {
+                const yearsUntilPenaltyFree = Math.ceil(PENALTY_FREE_AGE - retirementAge);
                 const annualNeedAtRetirement = retirementAnnualSpending * Math.pow(1 + inflationRate / 100, retirementAge - currentAge);
 
                 // Calculate blended growth rate based on actual LIQUID taxable portfolio composition
@@ -2885,11 +2897,11 @@ export default function FinancialPlan() {
                 return (
                   <div className="mt-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
                     <p className="text-sm text-amber-400 font-medium mb-2">
-                      ⚠️ Early Retirement Warning (Before Age 59.5)
+                      ⚠️ Early Retirement Warning (Before Age {PENALTY_FREE_AGE})
                     </p>
                     <p className="text-sm text-zinc-300">
                       Retiring at {retirementAge} means {yearsUntilPenaltyFree} years before penalty-free access to retirement account earnings.
-                      You'll need <span className="font-bold text-amber-400">{formatNumber(bridgeFundsNeeded)}</span> in accessible funds (liquid taxable + Roth contributions) to cover {formatNumber(annualNeedAtRetirement)}/yr for {yearsUntilPenaltyFree} years.
+                      At {formatNumber(annualNeedAtRetirement)}/yr spending for {yearsUntilPenaltyFree} years, you'll need approximately <span className="font-bold text-amber-400">{formatNumber(bridgeFundsNeeded)}</span> in accessible funds (liquid taxable + Roth contributions), assuming {(bridgeGrowthRate * 100).toFixed(1)}% portfolio growth during this period.
                     </p>
                     <div className="text-xs text-zinc-400 mt-2 space-y-1">
                       <div>• Liquid Taxable (today): {formatNumber(taxableLiquidValue)}</div>
