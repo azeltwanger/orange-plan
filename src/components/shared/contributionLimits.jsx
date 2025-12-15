@@ -1,3 +1,4 @@
+
 // TODO: Update limits annually when IRS announces new figures (usually October/November)
 // Source: https://www.irs.gov/retirement-plans/plan-participant-employee/retirement-topics-401k-and-profit-sharing-plan-contribution-limits
 // Last updated: 2025 limits
@@ -36,23 +37,9 @@ export function getLimitsForYear(year) {
   return CONTRIBUTION_LIMITS[knownYears[0]];
 }
 
-// Helper to get limit with catch-up if applicable
-export function get401kLimit(year, age) {
-  const limits = getLimitsForYear(year);
-  return age >= 50 
-    ? limits.traditional401k + limits.traditional401k_catchUp 
-    : limits.traditional401k;
-}
-
-export function getRothIRALimit(year, age) {
-  const limits = getLimitsForYear(year);
-  return age >= 50 
-    ? limits.rothIRA + limits.rothIRA_catchUp 
-    : limits.rothIRA;
-}
-
-export function getHSALimit(year, age, familyCoverage = false) {
-  const limits = getLimitsForYear(year);
-  const base = familyCoverage ? limits.hsaFamily : limits.hsaIndividual;
-  return age >= 55 ? base + limits.hsa_catchUp : base;
-}
+// Re-export from centralized tax config for backward compatibility
+export { 
+  get401kLimit, 
+  getRothIRALimit, 
+  getHSALimit 
+} from './taxConfig';

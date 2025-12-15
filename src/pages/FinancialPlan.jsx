@@ -12,7 +12,7 @@ import {
   estimateRetirementWithdrawalTaxes,
   getTaxDataForYear
 } from '@/components/tax/taxCalculations';
-import { get401kLimit, getRothIRALimit, getHSALimit } from '@/components/shared/contributionLimits';
+import { get401kLimit, getRothIRALimit, getHSALimit } from '@/components/shared/taxConfig';
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
