@@ -665,6 +665,23 @@ export default function TaxCenter() {
     else {
       const lotsToUse = sortLotsByMethod(taxLots, method);
 
+      if (method === 'HIFO') {
+        console.log("=== HIFO DEBUG ===");
+        console.log("All tax lots:", taxLots.map(l => ({
+          ticker: l.asset_ticker,
+          date: l.date,
+          pricePerUnit: l.price_per_unit,
+          remainingQty: l.remainingQuantity,
+          costBasis: l.costBasis
+        })));
+        console.log("Lots sorted by price (highest first):", lotsToUse.map(l => ({
+          ticker: l.asset_ticker,
+          date: l.date,
+          pricePerUnit: l.price_per_unit,
+          remainingQty: l.remainingQuantity
+        })));
+      }
+
       for (const lot of lotsToUse) {
         if (remainingQty <= 0) break;
         const qtyFromLot = Math.min(remainingQty, lot.remainingQuantity);
@@ -673,6 +690,24 @@ export default function TaxCenter() {
         else hasShortTerm = true;
         lotsUsed.push({ ...lot, qtyUsed: qtyFromLot });
         remainingQty -= qtyFromLot;
+
+        if (method === 'HIFO') {
+          console.log("Selected lot:", {
+            ticker: lot.asset_ticker,
+            qtyUsed: qtyFromLot,
+            pricePerUnit: lot.price_per_unit,
+            costBasisPerBTC: lot.price_per_unit,
+            totalFromThisLot: qtyFromLot * (lot.price_per_unit || 0)
+          });
+        }
+      }
+
+      if (method === 'HIFO') {
+        console.log("HIFO Summary:", {
+          totalCostBasis: totalCostBasis.toFixed(2),
+          lotsUsedCount: lotsUsed.length
+        });
+        console.log("==================");
       }
     }
 

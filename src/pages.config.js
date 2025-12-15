@@ -1,4 +1,3 @@
-import Home from './pages/Home';
 import Budget from './pages/Budget';
 import DCAStrategy from './pages/DCAStrategy';
 import Dashboard from './pages/Dashboard';
@@ -7,6 +6,7 @@ import Features from './pages/Features';
 import FeeAnalysis from './pages/FeeAnalysis';
 import FinancialPlan from './pages/FinancialPlan';
 import Goals from './pages/Goals';
+import Home from './pages/Home';
 import Landing from './pages/Landing';
 import Liabilities from './pages/Liabilities';
 import Performance from './pages/Performance';
@@ -18,7 +18,6 @@ import __Layout from './Layout.jsx';
 
 
 export const PAGES = {
-    "Home": Home,
     "Budget": Budget,
     "DCAStrategy": DCAStrategy,
     "Dashboard": Dashboard,
@@ -27,6 +26,7 @@ export const PAGES = {
     "FeeAnalysis": FeeAnalysis,
     "FinancialPlan": FinancialPlan,
     "Goals": Goals,
+    "Home": Home,
     "Landing": Landing,
     "Liabilities": Liabilities,
     "Performance": Performance,
