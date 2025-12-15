@@ -1429,7 +1429,7 @@ export default function FinancialPlan() {
         taxable: Math.round(runningTaxable),
         taxDeferred: Math.round(runningTaxDeferred),
         taxFree: Math.round(runningTaxFree),
-        accountTotal: Math.round(accountTotal),
+        accountTotal: Math.round(accountTotalAfterWithdrawals),
         canAccessPenaltyFree: currentAge + i >= PENALTY_FREE_AGE,
         penaltyPaid: isRetired ? Math.round(penaltyPaid) : 0,
         taxesPaid: Math.round(taxesPaid),
