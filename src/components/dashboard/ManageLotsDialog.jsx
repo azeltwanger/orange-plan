@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { syncHoldingFromLots } from '@/utils/syncHoldings';
 
 export default function ManageLotsDialog({ open, onClose, holding, btcPrice }) {
   const queryClient = useQueryClient();
@@ -124,13 +125,11 @@ export default function ManageLotsDialog({ open, onClose, holding, btcPrice }) {
         exchange_or_wallet: data.exchange_or_wallet,
         holding_id: holding.id,
         account_type: holding.account_type || 'taxable',
+        account_id: holding.account_id || undefined,
       });
 
-      // Update holding cost basis
-      const newCostBasis = (holding.cost_basis_total || 0) + total;
-      await base44.entities.Holding.update(holding.id, {
-        cost_basis_total: newCostBasis,
-      });
+      // SYNC HOLDINGS FROM LOTS (source of truth)
+      await syncHoldingFromLots(holding.ticker, holding.account_id || null);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
@@ -143,7 +142,6 @@ export default function ManageLotsDialog({ open, onClose, holding, btcPrice }) {
   const updateLot = useMutation({
     mutationFn: async ({ lot, data }) => {
       const total = data.quantity * data.price_per_unit;
-      const oldTotal = lot.total_value || 0;
       
       await base44.entities.Transaction.update(lot.id, {
         quantity: data.quantity,
@@ -154,11 +152,8 @@ export default function ManageLotsDialog({ open, onClose, holding, btcPrice }) {
         exchange_or_wallet: data.exchange_or_wallet,
       });
 
-      // Update holding cost basis
-      const newCostBasis = (holding.cost_basis_total || 0) - oldTotal + total;
-      await base44.entities.Holding.update(holding.id, {
-        cost_basis_total: newCostBasis,
-      });
+      // SYNC HOLDINGS FROM LOTS (source of truth)
+      await syncHoldingFromLots(holding.ticker, holding.account_id || null);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
@@ -172,11 +167,8 @@ export default function ManageLotsDialog({ open, onClose, holding, btcPrice }) {
     mutationFn: async (lot) => {
       await base44.entities.Transaction.delete(lot.id);
       
-      // Update holding cost basis
-      const newCostBasis = Math.max(0, (holding.cost_basis_total || 0) - (lot.total_value || 0));
-      await base44.entities.Holding.update(holding.id, {
-        cost_basis_total: newCostBasis,
-      });
+      // SYNC HOLDINGS FROM LOTS (source of truth)
+      await syncHoldingFromLots(holding.ticker, holding.account_id || null);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });

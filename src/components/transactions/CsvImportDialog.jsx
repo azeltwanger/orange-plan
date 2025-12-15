@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { differenceInDays } from 'date-fns';
 import AccountSelector from '@/components/accounts/AccountSelector';
 import CreateAccountDialog from '@/components/accounts/CreateAccountDialog';
+import { syncAllHoldingsForAccount } from '@/utils/syncHoldings';
 
 const TRANSACTION_FIELDS = [
   { key: 'type', label: 'Type (buy/sell)', required: true, description: 'Transaction type' },
@@ -513,50 +514,13 @@ export default function CsvImportDialog({ open, onClose }) {
         holdingUpdates[ticker].lastPrice = tx.price_per_unit;
       }
 
-      // Determine tax treatment based on account type
-      const taxTreatmentMap = {
-        taxable: 'taxable',
-        traditional_401k: 'tax_deferred',
-        roth_401k: 'tax_free',
-        traditional_ira: 'tax_deferred',
-        roth_ira: 'tax_free',
-        hsa: 'tax_free',
-        '529': 'tax_free',
-      };
-
-      // Update or create holdings - match by ticker AND account_id
-      for (const [ticker, data] of Object.entries(holdingUpdates)) {
-        const existingHolding = existingHoldings.find(h => 
-          h.ticker === ticker && 
-          (finalAccountId ? h.account_id === finalAccountId : !h.account_id)
-        );
-        if (existingHolding) {
-          // Update existing holding for this account
-          const newQty = Math.max(0, (existingHolding.quantity || 0) + data.quantity);
-          const newCostBasis = (existingHolding.cost_basis_total || 0) + data.costBasis;
-          await base44.entities.Holding.update(existingHolding.id, {
-            quantity: newQty,
-            cost_basis_total: newCostBasis,
-            current_price: data.lastPrice,
-          });
-        } else if (data.quantity > 0) {
-          // Create new holding for this account
-          await base44.entities.Holding.create({
-            asset_name: ticker,
-            asset_type: ['BTC', 'ETH', 'SOL', 'XRP', 'ADA', 'DOGE', 'DOT', 'AVAX', 'MATIC', 'LINK', 'LTC'].includes(ticker) ? 'crypto' : 'stocks',
-            ticker: ticker,
-            quantity: data.quantity,
-            current_price: data.lastPrice,
-            cost_basis_total: data.costBasis,
-            account_type: legacyAccountType,
-            tax_treatment: taxTreatment,
-            account_id: finalAccountId || undefined,
-          });
-        }
-      }
+      // SYNC HOLDINGS FROM LOTS (source of truth)
+      // This replaces manual holding updates - lots are the source of truth
+      console.log("🔄 Syncing all holdings for account after CSV import...");
+      await syncAllHoldingsForAccount(finalAccountId || null);
 
       return { count: successfulTransactions.length, stats };
-    },
+      },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['holdings'] });
