@@ -457,11 +457,27 @@ export default function CsvImportDialog({ open, onClose }) {
         finalAccountId = undefined;
       }
 
-      const transactionsToCreate = processedTransactions.map(tx => ({
-        ...tx,
-        account_type: legacyAccountType,
-        account_id: finalAccountId || undefined,
-      }));
+      // PART 2 FIX: Match exchange_or_wallet to account names for existing accounts
+      const transactionsToCreate = processedTransactions.map(tx => {
+        let txAccountId = finalAccountId;
+        
+        // If no account explicitly selected, try to match exchange_or_wallet to existing account names
+        if (!finalAccountId && tx.exchange_or_wallet) {
+          const matchingAccount = accounts.find(a => 
+            a.name.toLowerCase().trim() === tx.exchange_or_wallet.toLowerCase().trim()
+          );
+          if (matchingAccount) {
+            txAccountId = matchingAccount.id;
+            console.log(`✅ Matched "${tx.exchange_or_wallet}" to account "${matchingAccount.name}" (${matchingAccount.id})`);
+          }
+        }
+        
+        return {
+          ...tx,
+          account_type: legacyAccountType,
+          account_id: txAccountId || undefined,
+        };
+      });
       
       try {
         await base44.entities.Transaction.bulkCreate(transactionsToCreate);

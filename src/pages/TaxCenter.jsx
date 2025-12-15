@@ -286,10 +286,22 @@ export default function TaxCenter() {
       const tx = await base44.entities.Transaction.create(txData);
 
       // Sync to Holdings - match by ticker AND account_id
-      const existingHolding = holdings.find(h => 
+      let existingHolding = holdings.find(h => 
         h.ticker === data.asset_ticker && 
         (data.account_id ? h.account_id === data.account_id : !h.account_id)
       );
+      
+      // PART 1 FIX: If no holding found and account_id is null, fall back to first holding for ticker
+      if (!existingHolding && !data.account_id) {
+        const holdingsForTicker = holdings.filter(h => h.ticker === data.asset_ticker);
+        if (holdingsForTicker.length > 0) {
+          existingHolding = holdingsForTicker[0];
+          console.log(`⚠️ FALLBACK: Using first ${data.asset_ticker} holding (account_id is null)`, {
+            holdingId: existingHolding.id,
+            quantity: existingHolding.quantity
+          });
+        }
+      }
       
       console.log("Finding holding to update:", {
         ticker: data.asset_ticker,
