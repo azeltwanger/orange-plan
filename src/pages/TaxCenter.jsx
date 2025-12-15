@@ -102,6 +102,7 @@ export default function TaxCenter() {
 
   // Sale form state
   const [saleForm, setSaleForm] = useState({
+    asset_ticker: 'BTC',
     quantity: '',
     price_per_unit: '',
     date: format(new Date(), 'yyyy-MM-dd'),
@@ -418,7 +419,7 @@ export default function TaxCenter() {
 
   const resetForm = () => {
     setFormData({ type: 'buy', asset_ticker: 'BTC', quantity: '', price_per_unit: '', date: format(new Date(), 'yyyy-MM-dd'), exchange: '', account_id: '', trading_fee: '', notes: '' });
-    setSaleForm({ quantity: '', price_per_unit: '', date: format(new Date(), 'yyyy-MM-dd'), fee: '', lot_method: 'HIFO', selected_lots: [], exchange: '' });
+    setSaleForm({ asset_ticker: 'BTC', quantity: '', price_per_unit: '', date: format(new Date(), 'yyyy-MM-dd'), fee: '', lot_method: 'HIFO', selected_lots: [], exchange: '' });
     setSpecificLotQuantities({});
   };
 
@@ -770,13 +771,46 @@ export default function TaxCenter() {
   // State for specific lot quantities
   const [specificLotQuantities, setSpecificLotQuantities] = useState({});
 
+  // Get available assets from tax lots
+  const availableAssets = useMemo(() => {
+    const assetMap = new Map();
+    
+    taxLots
+      .filter(lot => (lot.remainingQuantity || 0) > 0)
+      .forEach(lot => {
+        if (!assetMap.has(lot.asset_ticker)) {
+          const holding = holdings.find(h => h.ticker === lot.asset_ticker);
+          assetMap.set(lot.asset_ticker, {
+            ticker: lot.asset_ticker,
+            name: holding?.asset_name || lot.asset_ticker,
+            totalQuantity: 0
+          });
+        }
+        assetMap.get(lot.asset_ticker).totalQuantity += lot.remainingQuantity;
+      });
+    
+    return Array.from(assetMap.values());
+  }, [taxLots, holdings]);
+
+  // Auto-select first available asset if current selection has no lots
+  useEffect(() => {
+    if (saleFormOpen && availableAssets.length > 0) {
+      const currentAssetHasLots = availableAssets.some(a => a.ticker === saleForm.asset_ticker);
+      if (!currentAssetHasLots) {
+        // Default to BTC if available, otherwise first asset
+        const defaultAsset = availableAssets.find(a => a.ticker === 'BTC') || availableAssets[0];
+        setSaleForm(prev => ({ ...prev, asset_ticker: defaultAsset.ticker }));
+      }
+    }
+  }, [saleFormOpen, availableAssets]);
+
   // Calculate outcomes for all methods
   const saleOutcomes = useMemo(() => {
     if (!saleForm.quantity || !saleForm.price_per_unit) return null;
     const qty = parseFloat(saleForm.quantity);
     const price = parseFloat(saleForm.price_per_unit);
     const fee = parseFloat(saleForm.fee) || 0;
-    const assetTicker = 'BTC'; // Currently hardcoded to BTC in sale form
+    const assetTicker = saleForm.asset_ticker;
 
     return {
       FIFO: calculateSaleOutcome(qty, price, fee, 'FIFO', [], {}, assetTicker),
@@ -786,7 +820,7 @@ export default function TaxCenter() {
       AVG: calculateSaleOutcome(qty, price, fee, 'AVG', [], {}, assetTicker),
       SPECIFIC: calculateSaleOutcome(qty, price, fee, 'SPECIFIC', saleForm.selected_lots, specificLotQuantities, assetTicker),
     };
-  }, [saleForm.quantity, saleForm.price_per_unit, saleForm.fee, saleForm.selected_lots, specificLotQuantities, taxLots]);
+  }, [saleForm.quantity, saleForm.price_per_unit, saleForm.fee, saleForm.asset_ticker, saleForm.selected_lots, specificLotQuantities, taxLots]);
 
   const handleSaleSubmit = (e) => {
     e.preventDefault();
@@ -795,7 +829,7 @@ export default function TaxCenter() {
 
     createTx.mutate({
       type: 'sell',
-      asset_ticker: 'BTC',
+      asset_ticker: saleForm.asset_ticker,
       quantity: parseFloat(saleForm.quantity),
       price_per_unit: parseFloat(saleForm.price_per_unit),
       date: saleForm.date,
@@ -2014,15 +2048,39 @@ export default function TaxCenter() {
             <DialogTitle>Record Sale with Lot Selection</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSaleSubmit} className="space-y-6 mt-4">
+            {/* Asset Selector */}
+            <div className="space-y-2">
+              <Label className="text-zinc-400">Asset to Sell</Label>
+              <Select 
+                value={saleForm.asset_ticker} 
+                onValueChange={(value) => setSaleForm({ ...saleForm, asset_ticker: value, selected_lots: [] })}
+              >
+                <SelectTrigger className="bg-zinc-900 border-zinc-800">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-zinc-900 border-zinc-700">
+                  {availableAssets.length === 0 ? (
+                    <SelectItem value="_none_" disabled>No assets with lots available</SelectItem>
+                  ) : (
+                    availableAssets.map(asset => (
+                      <SelectItem key={asset.ticker} value={asset.ticker}>
+                        {asset.name} ({asset.ticker}) - {asset.totalQuantity.toFixed(asset.ticker === 'BTC' ? 8 : 2)} available
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+
             {/* Sale Details */}
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label className="text-zinc-400">Quantity (BTC)</Label>
+                <Label className="text-zinc-400">Quantity ({saleForm.asset_ticker})</Label>
                 <Input type="number" step="any" value={saleForm.quantity} onChange={(e) => setSaleForm({ ...saleForm, quantity: e.target.value })} placeholder="0.1" className="bg-zinc-900 border-zinc-800" required />
               </div>
               <div className="space-y-2">
-                <Label className="text-zinc-400">Price per BTC</Label>
-                <Input type="number" step="any" value={saleForm.price_per_unit} onChange={(e) => setSaleForm({ ...saleForm, price_per_unit: e.target.value })} placeholder={currentPrice.toString()} className="bg-zinc-900 border-zinc-800" required />
+                <Label className="text-zinc-400">Price per {saleForm.asset_ticker}</Label>
+                <Input type="number" step="any" value={saleForm.price_per_unit} onChange={(e) => setSaleForm({ ...saleForm, price_per_unit: e.target.value })} placeholder={saleForm.asset_ticker === 'BTC' ? currentPrice.toString() : ''} className="bg-zinc-900 border-zinc-800" required />
               </div>
               <div className="space-y-2">
                 <Label className="text-zinc-400">Transaction Fee</Label>
@@ -2118,10 +2176,10 @@ export default function TaxCenter() {
               <div className="space-y-4">
                 <Label className="text-zinc-400">Select Lots to Sell</Label>
                 <div className="max-h-64 overflow-y-auto space-y-2 p-2 rounded-xl bg-zinc-900/50 border border-zinc-800">
-                  {taxLots.length === 0 ? (
-                    <p className="text-sm text-zinc-500 text-center py-4">No lots available</p>
+                  {taxLots.filter(lot => lot.asset_ticker === saleForm.asset_ticker).length === 0 ? (
+                    <p className="text-sm text-zinc-500 text-center py-4">No lots available for {saleForm.asset_ticker}</p>
                   ) : (
-                    taxLots.map(lot => {
+                    taxLots.filter(lot => lot.asset_ticker === saleForm.asset_ticker).map(lot => {
                       const isSelected = saleForm.selected_lots.includes(lot.id);
                       const specifiedQty = specificLotQuantities[lot.id] || '';
                       
@@ -2216,8 +2274,7 @@ export default function TaxCenter() {
                       <span>
                         {(() => {
                           const totalQty = Object.values(specificLotQuantities).reduce((sum, qty) => sum + (qty || 0), 0);
-                          const firstLot = taxLots.find(l => saleForm.selected_lots.includes(l.id));
-                          const ticker = firstLot?.asset_ticker || 'BTC';
+                          const ticker = saleForm.asset_ticker;
                           const holding = holdings.find(h => h.ticker === ticker);
                           const isCrypto = holding?.asset_type === 'crypto' || COINGECKO_IDS[ticker];
                           return isCrypto ? `${totalQty.toFixed(8)} ${ticker}` : `${totalQty.toFixed(2)} ${ticker}`;
@@ -2263,14 +2320,19 @@ export default function TaxCenter() {
                   <div className="mt-4 pt-4 border-t border-zinc-700">
                     <p className="text-sm text-zinc-400 mb-2">Lots to be used:</p>
                     <div className="space-y-1 text-xs max-h-32 overflow-y-auto">
-                      {saleOutcomes[saleForm.lot_method].lotsUsed.map((lot, i) => (
-                        <div key={i} className="flex justify-between p-2 rounded bg-zinc-900/50">
-                          <span>{lot.qtyUsed.toFixed(8)} BTC @ ${(lot.price_per_unit || 0).toLocaleString()}</span>
-                          <span className={lot.isLongTerm ? "text-emerald-400" : "text-amber-400"}>
-                            {lot.isLongTerm ? 'LT' : 'ST'}
-                          </span>
-                        </div>
-                      ))}
+                      {saleOutcomes[saleForm.lot_method].lotsUsed.map((lot, i) => {
+                        const holding = holdings.find(h => h.ticker === saleForm.asset_ticker);
+                        const isCrypto = holding?.asset_type === 'crypto' || COINGECKO_IDS[saleForm.asset_ticker];
+                        const displayQty = isCrypto ? lot.qtyUsed.toFixed(8) : lot.qtyUsed.toFixed(2);
+                        return (
+                       <div key={i} className="flex justify-between p-2 rounded bg-zinc-900/50">
+                         <span>{displayQty} {saleForm.asset_ticker} @ ${(lot.price_per_unit || 0).toLocaleString()}</span>
+                         <span className={lot.isLongTerm ? "text-emerald-400" : "text-amber-400"}>
+                           {lot.isLongTerm ? 'LT' : 'ST'}
+                         </span>
+                       </div>
+                      );
+                      })}
                     </div>
                   </div>
                 )}
