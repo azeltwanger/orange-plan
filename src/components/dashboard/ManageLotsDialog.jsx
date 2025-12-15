@@ -38,15 +38,20 @@ export default function ManageLotsDialog({ open, onClose, holding, btcPrice }) {
 
   const totalFromLots = lots.reduce((sum, l) => sum + (l.quantity || 0), 0);
   const remainingInLots = lots.reduce((sum, l) => sum + (l.remaining_quantity !== undefined ? l.remaining_quantity : (l.quantity || 0)), 0);
+  
+  // BUG FIX: Holdings should equal remaining lots (don't store separately)
+  // When sales happen, only lot.remaining_quantity is reduced
+  // The Holding.quantity should always match sum of remaining lots
   const holdingQty = holding?.quantity || 0;
-  const unallocated = holdingQty - remainingInLots;
+  const correctHoldingQty = remainingInLots; // What it SHOULD be
+  const unallocated = holdingQty - totalFromLots; // Unallocated from ORIGINAL purchases
 
   // Debug logging
   console.log("=== HOLDINGS VS LOTS DEBUG ===");
-  console.log("Account holding (stored):", holdingQty);
-  console.log("Sum of lot.quantity (original):", totalFromLots);
-  console.log("Sum of lot.remaining_quantity:", remainingInLots);
-  console.log("Unallocated (should be >= 0):", unallocated);
+  console.log("Holding.quantity (stored, may be wrong):", holdingQty);
+  console.log("Correct holding (from lots):", correctHoldingQty);
+  console.log("Sum of lot.quantity (original purchases):", totalFromLots);
+  console.log("Unallocated (original - lots):", unallocated);
   console.log("Lots:", lots.map(l => ({
     id: l.id,
     quantity: l.quantity,
@@ -183,24 +188,23 @@ export default function ManageLotsDialog({ open, onClose, holding, btcPrice }) {
 
         <div className="space-y-6 mt-4">
           {/* Summary */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             <div className="p-4 rounded-xl bg-zinc-800/30">
-              <p className="text-sm text-zinc-500">Total Holding</p>
-              <p className="text-xl font-bold">{holdingQty.toFixed(holding.ticker === 'BTC' ? 8 : 2)} {holding.ticker}</p>
+              <p className="text-sm text-zinc-500">Current Holding</p>
+              <p className="text-xl font-bold text-emerald-400">{correctHoldingQty.toFixed(holding.ticker === 'BTC' ? 8 : 2)} {holding.ticker}</p>
+              <p className="text-xs text-zinc-500 mt-1">After sales</p>
             </div>
             <div className="p-4 rounded-xl bg-zinc-800/30">
-              <p className="text-sm text-zinc-500">Original Lots</p>
+              <p className="text-sm text-zinc-500">Original Purchases</p>
               <p className="text-xl font-bold text-zinc-400">{totalFromLots.toFixed(holding.ticker === 'BTC' ? 8 : 2)}</p>
-            </div>
-            <div className="p-4 rounded-xl bg-zinc-800/30">
-              <p className="text-sm text-zinc-500">Remaining in Lots</p>
-              <p className="text-xl font-bold text-emerald-400">{remainingInLots.toFixed(holding.ticker === 'BTC' ? 8 : 2)}</p>
+              <p className="text-xs text-zinc-500 mt-1">All buy transactions</p>
             </div>
             <div className="p-4 rounded-xl bg-zinc-800/30">
               <p className="text-sm text-zinc-500">Unallocated</p>
-              <p className={cn("text-xl font-bold", unallocated > 0.00000001 ? "text-amber-400" : unallocated < -0.00000001 ? "text-rose-400" : "text-zinc-400")}>
+              <p className={cn("text-xl font-bold", unallocated > 0.00000001 ? "text-amber-400" : "text-zinc-400")}>
                 {unallocated.toFixed(holding.ticker === 'BTC' ? 8 : 2)}
               </p>
+              <p className="text-xs text-zinc-500 mt-1">Need purchase lots</p>
             </div>
           </div>
 
@@ -211,10 +215,10 @@ export default function ManageLotsDialog({ open, onClose, holding, btcPrice }) {
             </div>
           )}
 
-          {unallocated < -0.00000001 && (
-            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-sm text-rose-400">
-              ⚠️ Warning: Remaining lots ({remainingInLots.toFixed(holding.ticker === 'BTC' ? 8 : 2)}) exceeds current holding ({holdingQty.toFixed(holding.ticker === 'BTC' ? 8 : 2)}). 
-              This indicates a data sync issue. Please review your transactions.
+          {Math.abs(holdingQty - correctHoldingQty) > 0.00000001 && (
+            <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-sm text-amber-400">
+              ℹ️ Note: Stored holding ({holdingQty.toFixed(holding.ticker === 'BTC' ? 8 : 2)}) differs from calculated ({correctHoldingQty.toFixed(holding.ticker === 'BTC' ? 8 : 2)}). 
+              This is normal - holdings are derived from remaining tax lots after sales.
             </div>
           )}
 
