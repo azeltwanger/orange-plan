@@ -346,48 +346,76 @@ export default function TaxCenter() {
             account_id: data.account_id || undefined,
           });
         }
-      } else if (data.type === 'sell' && existingHolding) {
-        // Reduce holding quantity on sell
-        const oldQty = existingHolding.quantity || 0;
-        const oldCostBasis = existingHolding.cost_basis_total || 0;
-        const newQty = Math.max(0, oldQty - data.quantity);
-        const newCostBasis = Math.max(0, oldCostBasis - (data.cost_basis || 0));
+      } else if (data.type === 'sell') {
+        // Match holding by exchange name from the lots used
+        const saleExchange = data.exchange_or_wallet || data.exchange;
+        console.log("\n📉 REDUCING HOLDING AFTER SALE");
+        console.log("🔍 Sale exchange from transaction:", saleExchange);
         
-        console.log("\n📉 UPDATING HOLDING AFTER SALE");
-        console.log("Database table: Holding entity");
-        console.log("Holding found via:", data.account_id ? "account_id match" : "FALLBACK (first holding for ticker)");
-        console.log("BEFORE UPDATE:", {
-          holdingId: existingHolding.id,
-          ticker: data.asset_ticker,
-          accountId: existingHolding.account_id,
-          previousQuantity: oldQty,
-          previousCostBasis: oldCostBasis
-        });
+        const holdingsForTicker = holdings.filter(h => h.ticker === data.asset_ticker);
+        console.log("🔍 All holdings for ticker:", holdingsForTicker.map(h => ({
+          id: h.id,
+          accountName: h.account_id ? accounts.find(a => a.id === h.account_id)?.name : 'No account',
+          quantity: h.quantity
+        })));
         
-        console.log("SALE IMPACT:", {
-          soldQuantity: data.quantity,
-          costBasisOfSold: data.cost_basis
-        });
+        let holdingToUpdate = null;
         
-        console.log("AFTER UPDATE (calculated):", {
-          newQuantity: newQty,
-          newCostBasis: newCostBasis,
-          quantityReduction: oldQty - newQty,
-          costBasisReduction: oldCostBasis - newCostBasis
-        });
+        // Try to match by account_id first (if available)
+        if (data.account_id) {
+          holdingToUpdate = holdingsForTicker.find(h => h.account_id === data.account_id);
+          if (holdingToUpdate) {
+            console.log("✅ Matched by account_id:", holdingToUpdate.account_id);
+          }
+        }
         
-        console.log("🔄 Calling base44.entities.Holding.update()...");
-        console.log("Update payload:", { quantity: newQty, cost_basis_total: newCostBasis });
+        // Try to match by exchange/wallet name
+        if (!holdingToUpdate && saleExchange) {
+          const allAccounts = await base44.entities.Account.list();
+          holdingToUpdate = holdingsForTicker.find(h => {
+            const account = allAccounts.find(a => a.id === h.account_id);
+            const accountName = account?.name?.toLowerCase() || '';
+            const exchange = saleExchange.toLowerCase();
+            return accountName.includes(exchange) || exchange.includes(accountName);
+          });
+          if (holdingToUpdate) {
+            console.log("✅ Matched by exchange name:", saleExchange);
+          }
+        }
         
-        const updateResult = await base44.entities.Holding.update(existingHolding.id, {
-          quantity: newQty,
-          cost_basis_total: newCostBasis,
-        });
+        // Fallback: use largest holding
+        if (!holdingToUpdate && holdingsForTicker.length > 0) {
+          holdingToUpdate = holdingsForTicker.sort((a, b) => b.quantity - a.quantity)[0];
+          console.log("⚠️ FALLBACK: Using largest holding");
+        }
         
-        console.log("✅ Holding.update() DATABASE CALL COMPLETED!");
-        console.log("Update result from database:", updateResult);
-        console.log("Result quantity:", updateResult?.quantity);
-        console.log("Expected quantity:", newQty);
+        if (holdingToUpdate) {
+          const oldQty = holdingToUpdate.quantity || 0;
+          const oldCostBasis = holdingToUpdate.cost_basis_total || 0;
+          const newQty = Math.max(0, oldQty - data.quantity);
+          const newCostBasis = Math.max(0, oldCostBasis - (data.cost_basis || 0));
+          
+          console.log("BEFORE UPDATE:", {
+            holdingId: holdingToUpdate.id,
+            quantity: oldQty,
+            costBasis: oldCostBasis
+          });
+          
+          console.log("AFTER UPDATE:", {
+            quantity: newQty,
+            costBasis: newCostBasis,
+            reduction: oldQty - newQty
+          });
+          
+          await base44.entities.Holding.update(holdingToUpdate.id, {
+            quantity: newQty,
+            cost_basis_total: newCostBasis,
+          });
+          
+          console.log("✅ Holding updated successfully!");
+        } else {
+          console.error("❌ No holding found to update for", data.asset_ticker);
+        }
       } else if (data.type === 'sell' && !existingHolding) {
         console.log("\n⚠️ WARNING: No holding found to update for sale!");
         console.log({
@@ -441,11 +469,14 @@ export default function TaxCenter() {
   const deleteTx = useMutation({
     mutationFn: async (id) => {
       // Get the transaction before deleting to update holdings
-      const tx = transactions.find(t => t.id === id);
+      const tx = allTransactions.find(t => t.id === id);
+      console.log("\n🗑️ DELETING TRANSACTION:", tx);
+      
       await base44.entities.Transaction.delete(id);
       
-      // Sync holdings - reduce quantity and cost basis
+      // Sync holdings
       if (tx && tx.type === 'buy') {
+        // For buys: reduce holding quantity
         const existingHolding = holdings.find(h => 
           h.ticker === tx.asset_ticker && 
           (tx.account_id ? h.account_id === tx.account_id : !h.account_id)
@@ -456,15 +487,28 @@ export default function TaxCenter() {
           const newCostBasis = Math.max(0, (existingHolding.cost_basis_total || 0) - (tx.total_value || 0));
           
           if (newQty <= 0) {
-            // Delete holding if quantity is 0
             await base44.entities.Holding.delete(existingHolding.id);
+            console.log("✅ Deleted holding (quantity = 0)");
           } else {
-            // Update holding
             await base44.entities.Holding.update(existingHolding.id, {
               quantity: newQty,
               cost_basis_total: newCostBasis,
             });
+            console.log("✅ Reduced holding after buy deletion");
           }
+        }
+      } else if (tx && tx.type === 'sell') {
+        // For sells: ADD back the quantity
+        const holdingsForTicker = holdings.filter(h => h.ticker === tx.asset_ticker);
+        
+        if (holdingsForTicker.length > 0) {
+          const holdingToUpdate = holdingsForTicker.sort((a, b) => b.quantity - a.quantity)[0];
+          const newQuantity = holdingToUpdate.quantity + tx.quantity;
+          
+          await base44.entities.Holding.update(holdingToUpdate.id, { 
+            quantity: newQuantity 
+          });
+          console.log(`✅ Restored ${tx.quantity} to holding after sell deletion`);
         }
       }
     },
