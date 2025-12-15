@@ -71,7 +71,7 @@ export default function ManageLotsDialog({ open, onClose, holding, btcPrice }) {
   });
   
   const sumLotQuantity = lots.reduce((sum, lot) => sum + (lot.quantity || 0), 0);
-  const sumLotRemaining = lots.reduce((sum, lot) => sum + (lot.remaining_quantity ?? lot.quantity || 0), 0);
+  const sumLotRemaining = lots.reduce((sum, lot) => sum + ((lot.remaining_quantity ?? lot.quantity) || 0), 0);
   
   console.log("\n📊 Calculation breakdown:");
   console.log("  Total Holding (holding.quantity, STORED VALUE):", holdingQty.toFixed(8));
