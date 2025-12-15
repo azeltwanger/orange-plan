@@ -2145,12 +2145,12 @@ export default function TaxCenter() {
                       </div>
                     </div>
                     </div>
-                    )
+                    );
                     })}
                     </div>
                     )}
-          </div>
-        </TabsContent>
+                    </div>
+                    </TabsContent>
 
         {/* Loss Harvest Tab */}
         <TabsContent value="harvest-loss">
