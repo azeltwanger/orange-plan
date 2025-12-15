@@ -2144,9 +2144,11 @@ export default function TaxCenter() {
                         </button>
                       </div>
                     </div>
-                  </div>
-                );})}
-              </div>
+                    </div>
+                    );
+                    });
+                    })()}
+                    </div>
             )}
           </div>
         </TabsContent>
