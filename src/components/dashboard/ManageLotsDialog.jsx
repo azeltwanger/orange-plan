@@ -37,8 +37,23 @@ export default function ManageLotsDialog({ open, onClose, holding, btcPrice }) {
   });
 
   const totalFromLots = lots.reduce((sum, l) => sum + (l.quantity || 0), 0);
+  const remainingInLots = lots.reduce((sum, l) => sum + (l.remaining_quantity !== undefined ? l.remaining_quantity : (l.quantity || 0)), 0);
   const holdingQty = holding?.quantity || 0;
-  const unallocated = holdingQty - totalFromLots;
+  const unallocated = holdingQty - remainingInLots;
+
+  // Debug logging
+  console.log("=== HOLDINGS VS LOTS DEBUG ===");
+  console.log("Account holding (stored):", holdingQty);
+  console.log("Sum of lot.quantity (original):", totalFromLots);
+  console.log("Sum of lot.remaining_quantity:", remainingInLots);
+  console.log("Unallocated (should be >= 0):", unallocated);
+  console.log("Lots:", lots.map(l => ({
+    id: l.id,
+    quantity: l.quantity,
+    remaining_quantity: l.remaining_quantity,
+    date: l.date
+  })));
+  console.log("==============================");
 
   const createLot = useMutation({
     mutationFn: async (data) => {
@@ -168,18 +183,22 @@ export default function ManageLotsDialog({ open, onClose, holding, btcPrice }) {
 
         <div className="space-y-6 mt-4">
           {/* Summary */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="p-4 rounded-xl bg-zinc-800/30">
               <p className="text-sm text-zinc-500">Total Holding</p>
               <p className="text-xl font-bold">{holdingQty.toFixed(holding.ticker === 'BTC' ? 8 : 2)} {holding.ticker}</p>
             </div>
             <div className="p-4 rounded-xl bg-zinc-800/30">
-              <p className="text-sm text-zinc-500">Allocated to Lots</p>
-              <p className="text-xl font-bold text-emerald-400">{totalFromLots.toFixed(holding.ticker === 'BTC' ? 8 : 2)}</p>
+              <p className="text-sm text-zinc-500">Original Lots</p>
+              <p className="text-xl font-bold text-zinc-400">{totalFromLots.toFixed(holding.ticker === 'BTC' ? 8 : 2)}</p>
+            </div>
+            <div className="p-4 rounded-xl bg-zinc-800/30">
+              <p className="text-sm text-zinc-500">Remaining in Lots</p>
+              <p className="text-xl font-bold text-emerald-400">{remainingInLots.toFixed(holding.ticker === 'BTC' ? 8 : 2)}</p>
             </div>
             <div className="p-4 rounded-xl bg-zinc-800/30">
               <p className="text-sm text-zinc-500">Unallocated</p>
-              <p className={cn("text-xl font-bold", unallocated > 0 ? "text-amber-400" : "text-zinc-400")}>
+              <p className={cn("text-xl font-bold", unallocated > 0.00000001 ? "text-amber-400" : unallocated < -0.00000001 ? "text-rose-400" : "text-zinc-400")}>
                 {unallocated.toFixed(holding.ticker === 'BTC' ? 8 : 2)}
               </p>
             </div>
@@ -194,8 +213,8 @@ export default function ManageLotsDialog({ open, onClose, holding, btcPrice }) {
 
           {unallocated < -0.00000001 && (
             <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-sm text-rose-400">
-              Warning: Lots total ({totalFromLots.toFixed(holding.ticker === 'BTC' ? 8 : 2)}) exceeds holding quantity ({holdingQty.toFixed(holding.ticker === 'BTC' ? 8 : 2)}). 
-              Remove some lots or update your holding.
+              ⚠️ Warning: Remaining lots ({remainingInLots.toFixed(holding.ticker === 'BTC' ? 8 : 2)}) exceeds current holding ({holdingQty.toFixed(holding.ticker === 'BTC' ? 8 : 2)}). 
+              This indicates a data sync issue. Please review your transactions.
             </div>
           )}
 
@@ -221,11 +240,40 @@ export default function ManageLotsDialog({ open, onClose, holding, btcPrice }) {
               </div>
             ) : (
               <div className="space-y-2 max-h-64 overflow-y-auto">
-                {lots.map((lot) => (
-                  <div key={lot.id} className="flex items-center justify-between p-3 rounded-xl bg-zinc-800/30 border border-zinc-800 hover:border-zinc-700 transition-colors">
+                {lots.map((lot) => {
+                  const remainingQty = lot.remaining_quantity !== undefined ? lot.remaining_quantity : lot.quantity;
+                  const isPartiallyUsed = remainingQty < lot.quantity;
+                  const isFullyUsed = remainingQty <= 0;
+                  
+                  return (
+                  <div key={lot.id} className={cn(
+                    "flex items-center justify-between p-3 rounded-xl border transition-colors",
+                    isFullyUsed ? "bg-rose-900/10 border-rose-500/20 opacity-50" :
+                    "bg-zinc-800/30 border-zinc-800 hover:border-zinc-700"
+                  )}>
                     <div className="flex items-center gap-4">
                       <div className="text-left">
-                        <p className="font-medium">{lot.quantity?.toFixed(holding.ticker === 'BTC' ? 8 : 2)} {holding.ticker}</p>
+                        <div className="flex items-center gap-2">
+                          {isFullyUsed ? (
+                            <p className="font-medium text-rose-400 line-through">
+                              {lot.quantity?.toFixed(holding.ticker === 'BTC' ? 8 : 2)} {holding.ticker}
+                            </p>
+                          ) : isPartiallyUsed ? (
+                            <div className="flex items-baseline gap-1.5">
+                              <p className="font-medium text-zinc-100">
+                                {remainingQty.toFixed(holding.ticker === 'BTC' ? 8 : 2)}
+                              </p>
+                              <span className="text-xs text-zinc-500">
+                                / {lot.quantity?.toFixed(holding.ticker === 'BTC' ? 8 : 2)} {holding.ticker}
+                              </span>
+                            </div>
+                          ) : (
+                            <p className="font-medium">{lot.quantity?.toFixed(holding.ticker === 'BTC' ? 8 : 2)} {holding.ticker}</p>
+                          )}
+                          
+                          {isFullyUsed && <span className="text-xs bg-rose-500/20 text-rose-400 px-2 py-0.5 rounded">Used</span>}
+                          {isPartiallyUsed && !isFullyUsed && <span className="text-xs bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded">Partial</span>}
+                        </div>
                         <p className="text-sm text-zinc-500">
                           @ ${lot.price_per_unit?.toLocaleString()} • {lot.date && format(new Date(lot.date), 'MMM d, yyyy')}
                         </p>
@@ -252,7 +300,7 @@ export default function ManageLotsDialog({ open, onClose, holding, btcPrice }) {
                       </button>
                     </div>
                   </div>
-                ))}
+                );})}
               </div>
             )}
           </div>
