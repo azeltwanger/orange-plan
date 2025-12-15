@@ -1246,10 +1246,20 @@ export default function FinancialPlan() {
         penaltyPaid = taxEstimate.totalPenalty || 0;
 
         // Adjust cost basis after taxable withdrawal (proportionally reduce basis)
+        const taxableBeforeWithdrawal = runningTaxable;
+        const basisBeforeWithdrawal = runningTaxableBasis;
         if (withdrawFromTaxable > 0 && runningTaxable > 0) {
           const basisRatio = runningTaxableBasis / runningTaxable;
           runningTaxableBasis = Math.max(0, runningTaxableBasis - (withdrawFromTaxable * basisRatio));
         }
+
+        console.log("Retirement withdrawal - Year:", year, 
+          "Taxable before:", taxableBeforeWithdrawal.toFixed(0),
+          "Basis before:", basisBeforeWithdrawal.toFixed(0),
+          "Withdrawal:", withdrawFromTaxable?.toFixed(0) || 0,
+          "Taxable after:", (runningTaxable - (withdrawFromTaxable || 0)).toFixed(0),
+          "Basis after:", runningTaxableBasis.toFixed(0)
+        );
 
         // Update running account balances
         runningTaxable = Math.max(0, runningTaxable - withdrawFromTaxable);
