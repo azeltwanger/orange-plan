@@ -306,11 +306,17 @@ export default function FinancialPlan() {
 
   // Debug: Verify tax config on mount
   useEffect(() => {
-    console.log("Tax Config Test:", {
-      year: 2025,
-      limits: getTaxConfigForYear(2025).contributionLimits,
-      brackets: getTaxConfigForYear(2025).federalBrackets.single.slice(0, 3),
-      standardDeduction: getTaxConfigForYear(2025).standardDeduction
+    console.log("Tax Config Test 2025:", {
+      "401k limit": getTaxConfigForYear(2025).contributionLimits.traditional401k,
+      "Roth IRA limit": getTaxConfigForYear(2025).contributionLimits.rothIRA,
+      "HSA individual": getTaxConfigForYear(2025).contributionLimits.hsaIndividual,
+      "Standard deduction single": getTaxConfigForYear(2025).standardDeduction.single,
+      "22% bracket starts at": getTaxConfigForYear(2025).federalBrackets.single[2].min
+    });
+
+    console.log("Tax Config Test 2024:", {
+      "401k limit": getTaxConfigForYear(2024).contributionLimits.traditional401k,
+      "Standard deduction single": getTaxConfigForYear(2024).standardDeduction.single
     });
   }, []);
 
