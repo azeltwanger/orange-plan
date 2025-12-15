@@ -1072,6 +1072,43 @@ export default function TaxCenter() {
   const shortTermGains = sellTxs.filter(t => t.holding_period === 'short_term').reduce((sum, t) => sum + (t.realized_gain_loss || 0), 0);
   const longTermGains = sellTxs.filter(t => t.holding_period === 'long_term').reduce((sum, t) => sum + (t.realized_gain_loss || 0), 0);
   const totalRealized = shortTermGains + longTermGains;
+
+  // Calculate ACTUAL tax savings from realized transactions
+  const calculateActualTaxSavings = () => {
+    const hasNetLoss = totalRealized < 0;
+    
+    if (!hasNetLoss) return { taxSavings: 0, breakdown: null };
+    
+    const netLoss = Math.abs(totalRealized);
+    const gainsToOffset = 0; // No realized gains to offset
+    const lossesUsedForGains = Math.min(netLoss, gainsToOffset);
+    const savingsFromGainOffset = lossesUsedForGains * effectiveSTCGRate;
+    
+    // Remaining losses offset ordinary income (MAX $3,000/year IRS rule)
+    const remainingLoss = netLoss - lossesUsedForGains;
+    const lossesUsedForIncome = Math.min(3000, remainingLoss);
+    const marginalIncomeRate = effectiveSTCGRate; // Use user's tax rate
+    const savingsFromIncomeOffset = lossesUsedForIncome * marginalIncomeRate;
+    
+    // Carryforward (no immediate tax benefit)
+    const carryforwardLoss = remainingLoss - lossesUsedForIncome;
+    
+    const taxSavings = savingsFromGainOffset + savingsFromIncomeOffset;
+    
+    return {
+      taxSavings,
+      breakdown: {
+        netLoss,
+        lossesOffsettingGains: lossesUsedForGains,
+        savingsFromGainOffset,
+        lossesOffsettingIncome: lossesUsedForIncome,
+        savingsFromIncomeOffset,
+        carryforwardLoss,
+      }
+    };
+  };
+
+  const actualTaxSavings = calculateActualTaxSavings();
   
   // Total assets from taxable holdings (grouped by ticker)
   const totalAssetsByTicker = taxLots.reduce((acc, lot) => {
@@ -1590,9 +1627,14 @@ export default function TaxCenter() {
             </div>
           </div>
           <p className="text-2xl font-bold text-emerald-400">
-            +${(washTradeAnalysis.gain.isWorthwhile ? washTradeAnalysis.gain.netBenefit : 0 + washTradeAnalysis.loss.isWorthwhile ? washTradeAnalysis.loss.netBenefit : 0).toLocaleString()}
+            +${actualTaxSavings.taxSavings.toLocaleString()}
           </p>
-          <p className="text-xs text-zinc-500 mt-1">From harvesting</p>
+          <p className="text-xs text-zinc-500 mt-1">From realized losses</p>
+          {actualTaxSavings.breakdown?.carryforwardLoss > 0 && (
+            <p className="text-xs text-zinc-400 mt-1">
+              +${actualTaxSavings.breakdown.carryforwardLoss.toLocaleString()} loss carryforward
+            </p>
+          )}
         </div>
       </div>
 
@@ -1702,13 +1744,14 @@ export default function TaxCenter() {
               </div>
               <div className="flex gap-2">
                 <Select value={lotStatusFilter} onValueChange={setLotStatusFilter}>
-                  <SelectTrigger className="w-32 bg-zinc-800 border-zinc-700 h-9 text-sm">
+                  <SelectTrigger className="w-36 bg-zinc-800 border-zinc-700 h-9 text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="bg-zinc-900 border-zinc-700">
                     <SelectItem value="all">All Lots</SelectItem>
                     <SelectItem value="available">Available</SelectItem>
-                    <SelectItem value="partial">Partial</SelectItem>
+                    <SelectItem value="partial">Partially Used</SelectItem>
+                    <SelectItem value="used">Fully Used</SelectItem>
                   </SelectContent>
                 </Select>
                 <Select value={lotSortOrder} onValueChange={setLotSortOrder}>
@@ -2121,8 +2164,9 @@ export default function TaxCenter() {
               <div className="space-y-3">
                 {harvestLossOpportunities
                   .filter((lot) => {
-                    if (lotStatusFilter === 'available') return lot.status === 'available';
+                    if (lotStatusFilter === 'available') return lot.status === 'available' || !lot.status;
                     if (lotStatusFilter === 'partial') return lot.status === 'partially_sold';
+                    if (lotStatusFilter === 'used') return lot.status === 'fully_sold' || lot.remainingQuantity <= 0;
                     return true;
                   })
                   .map((lot) => {
@@ -2133,42 +2177,78 @@ export default function TaxCenter() {
                   const holding = holdings.find(h => h.ticker === lot.asset_ticker);
                   const isCrypto = holding?.asset_type === 'crypto' || COINGECKO_IDS[lot.asset_ticker];
                   const displayQty = isCrypto ? lot.remainingQuantity.toFixed(8) : lot.remainingQuantity.toFixed(2);
-                  
+                  const isFullyUsed = lot.status === 'fully_sold' || lot.remainingQuantity <= 0;
+
                   return (
-                    <div key={lot.id} className={cn("p-4 rounded-xl bg-zinc-800/30", lotNetBenefit > 0 ? "border border-emerald-400/20" : "border border-zinc-700/50")}>
+                    <div key={lot.id} className={cn(
+                      "p-4 rounded-xl",
+                      isFullyUsed ? "bg-rose-900/10 border border-rose-500/20 opacity-50 cursor-not-allowed" :
+                      lotNetBenefit > 0 ? "bg-zinc-800/30 border border-emerald-400/20" : 
+                      "bg-zinc-800/30 border border-zinc-700/50"
+                    )}>
                       <div className="flex items-start justify-between mb-3">
                         <div>
-                          <p className="font-medium text-zinc-100">{displayQty} {lot.asset_ticker}</p>
-                          <p className="text-sm text-zinc-400">Bought @ ${(lot.price_per_unit || 0).toLocaleString()} • Now ${(pricesByTicker[lot.asset_ticker] || 0).toLocaleString()}</p>
+                          <div className="flex items-center gap-2">
+                            {isFullyUsed ? (
+                              <p className="font-medium text-rose-400 line-through">{displayQty} {lot.asset_ticker}</p>
+                            ) : lot.status === 'partially_sold' ? (
+                              <div className="flex items-baseline gap-1.5">
+                                <p className="font-medium text-zinc-100">{displayQty}</p>
+                                <span className="text-xs text-zinc-500">/ {isCrypto ? lot.originalQuantity.toFixed(8) : lot.originalQuantity.toFixed(2)} {lot.asset_ticker}</span>
+                              </div>
+                            ) : (
+                              <p className="font-medium text-zinc-100">{displayQty} {lot.asset_ticker}</p>
+                            )}
+
+                            {/* Status badge */}
+                            {isFullyUsed && (
+                              <Badge className="bg-rose-500/20 text-rose-400 border-0 text-xs">Used</Badge>
+                            )}
+                            {lot.status === 'partially_sold' && !isFullyUsed && (
+                              <Badge className="bg-amber-500/20 text-amber-400 border-0 text-xs">
+                                Partial ({((lot.remainingQuantity / lot.originalQuantity) * 100).toFixed(0)}% left)
+                              </Badge>
+                            )}
+                            {(lot.status === 'available' || !lot.status) && lot.remainingQuantity > 0 && (
+                              <Badge className="bg-emerald-500/20 text-emerald-400 border-0 text-xs">Available</Badge>
+                            )}
+                          </div>
+                          {isFullyUsed ? (
+                            <p className="text-sm text-zinc-500 mt-1">Already sold - no remaining balance</p>
+                          ) : (
+                            <p className="text-sm text-zinc-400">Bought @ ${(lot.price_per_unit || 0).toLocaleString()} • Now ${(pricesByTicker[lot.asset_ticker] || 0).toLocaleString()}</p>
+                          )}
                         </div>
                         <div className="text-right">
                           <p className="text-lg font-bold text-rose-400">-${Math.abs(lot.unrealizedGain).toLocaleString()}</p>
                           <p className="text-sm text-zinc-400">Harvestable loss</p>
                         </div>
-                      </div>
-                      <div className="grid grid-cols-3 gap-3 p-3 rounded-lg bg-zinc-900/50 text-sm">
-                        <div>
-                          <p className="text-zinc-500">Tax Savings</p>
-                          <p className="font-medium text-emerald-400">+${lotTaxSavings.toLocaleString()}</p>
                         </div>
-                        <div>
-                          <p className="text-zinc-500">Trading Fees</p>
-                          <p className="font-medium text-amber-400">-${lotFees.toLocaleString()}</p>
+                        {!isFullyUsed && (
+                        <div className="grid grid-cols-3 gap-3 p-3 rounded-lg bg-zinc-900/50 text-sm">
+                          <div>
+                            <p className="text-zinc-500">Tax Savings</p>
+                            <p className="font-medium text-emerald-400">+${lotTaxSavings.toLocaleString()}</p>
+                          </div>
+                          <div>
+                            <p className="text-zinc-500">Trading Fees</p>
+                            <p className="font-medium text-amber-400">-${lotFees.toLocaleString()}</p>
+                          </div>
+                          <div>
+                            <p className="text-zinc-500">Net Benefit</p>
+                            <p className={cn("font-medium", lotNetBenefit > 0 ? "text-emerald-400" : "text-rose-400")}>
+                              {lotNetBenefit >= 0 ? '+' : ''}${lotNetBenefit.toLocaleString()}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-zinc-500">Net Benefit</p>
-                          <p className={cn("font-medium", lotNetBenefit > 0 ? "text-emerald-400" : "text-rose-400")}>
-                            {lotNetBenefit >= 0 ? '+' : ''}${lotNetBenefit.toLocaleString()}
-                          </p>
-                        </div>
-                      </div>
-                      {!COINGECKO_IDS[lot.asset_ticker] && (
+                        )}
+                        {!isFullyUsed && !COINGECKO_IDS[lot.asset_ticker] && (
                         <p className="text-xs text-amber-400 mt-2">⚠️ Wash sale rule: Can't rebuy within 30 days</p>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+                        )}
+                        </div>
+                        );
+                        })}
+                        </div>
             )}
           </div>
         </TabsContent>
@@ -2244,8 +2324,9 @@ export default function TaxCenter() {
               <div className="space-y-3">
                 {gainHarvestOpportunities
                   .filter((lot) => {
-                    if (lotStatusFilter === 'available') return lot.status === 'available';
+                    if (lotStatusFilter === 'available') return lot.status === 'available' || !lot.status;
                     if (lotStatusFilter === 'partial') return lot.status === 'partially_sold';
+                    if (lotStatusFilter === 'used') return lot.status === 'fully_sold' || lot.remainingQuantity <= 0;
                     return true;
                   })
                   .map((lot) => {
@@ -2255,19 +2336,50 @@ export default function TaxCenter() {
                   const holding = holdings.find(h => h.ticker === lot.asset_ticker);
                   const isCrypto = holding?.asset_type === 'crypto' || COINGECKO_IDS[lot.asset_ticker];
                   const displayQty = isCrypto ? lot.remainingQuantity.toFixed(8) : lot.remainingQuantity.toFixed(2);
-                  
+                  const isFullyUsed = lot.status === 'fully_sold' || lot.remainingQuantity <= 0;
+
                   return (
-                    <div key={lot.id} className={cn("p-4 rounded-xl bg-zinc-800/30", canHarvestGainsTaxFree && lotNetBenefit > 0 && "border border-emerald-400/30")}>
+                    <div key={lot.id} className={cn(
+                      "p-4 rounded-xl",
+                      isFullyUsed ? "bg-rose-900/10 border border-rose-500/20 opacity-50 cursor-not-allowed" :
+                      canHarvestGainsTaxFree && lotNetBenefit > 0 ? "bg-zinc-800/30 border border-emerald-400/30" :
+                      "bg-zinc-800/30"
+                    )}>
                       <div className="flex items-start justify-between mb-3">
                         <div>
                           <div className="flex items-center gap-2">
-                            <p className="font-medium text-zinc-100">{displayQty} {lot.asset_ticker}</p>
-                            <Badge className="bg-emerald-400/20 text-emerald-400 border-0">Long-term</Badge>
-                            {canHarvestGainsTaxFree && lotNetBenefit > 0 && (
+                            {isFullyUsed ? (
+                              <p className="font-medium text-rose-400 line-through">{displayQty} {lot.asset_ticker}</p>
+                            ) : lot.status === 'partially_sold' ? (
+                              <div className="flex items-baseline gap-1.5">
+                                <p className="font-medium text-zinc-100">{displayQty}</p>
+                                <span className="text-xs text-zinc-500">/ {isCrypto ? lot.originalQuantity.toFixed(8) : lot.originalQuantity.toFixed(2)} {lot.asset_ticker}</span>
+                              </div>
+                            ) : (
+                              <p className="font-medium text-zinc-100">{displayQty} {lot.asset_ticker}</p>
+                            )}
+
+                            {/* Status badge */}
+                            {isFullyUsed && (
+                              <Badge className="bg-rose-500/20 text-rose-400 border-0 text-xs">Used</Badge>
+                            )}
+                            {lot.status === 'partially_sold' && !isFullyUsed && (
+                              <Badge className="bg-amber-500/20 text-amber-400 border-0 text-xs">
+                                Partial ({((lot.remainingQuantity / lot.originalQuantity) * 100).toFixed(0)}% left)
+                              </Badge>
+                            )}
+                            {(lot.status === 'available' || !lot.status) && lot.remainingQuantity > 0 && (
+                              <Badge className="bg-emerald-400/20 text-emerald-400 border-0">Long-term</Badge>
+                            )}
+                            {canHarvestGainsTaxFree && lotNetBenefit > 0 && !isFullyUsed && (
                               <Badge className="bg-emerald-400/20 text-emerald-400 border-0">Recommended</Badge>
                             )}
                           </div>
-                          <p className="text-sm text-zinc-400">Held for {lot.daysSincePurchase} days</p>
+                          {isFullyUsed ? (
+                            <p className="text-sm text-zinc-500 mt-1">Already sold - no remaining balance</p>
+                          ) : (
+                            <p className="text-sm text-zinc-400">Held for {lot.daysSincePurchase} days</p>
+                          )}
                         </div>
                         <div className="text-right">
                           <p className="text-lg font-bold text-emerald-400">+${lot.unrealizedGain.toLocaleString()}</p>
@@ -2275,31 +2387,33 @@ export default function TaxCenter() {
                             {canHarvestGainsTaxFree ? '0% TAX NOW' : `${(effectiveLTCGRate * 100).toFixed(0)}% tax`}
                           </p>
                         </div>
-                      </div>
-                      <div className="grid grid-cols-4 gap-3 p-3 rounded-lg bg-zinc-800/50 text-sm">
-                        <div>
-                          <p className="text-zinc-500">Current Basis</p>
-                          <p className="font-medium text-zinc-200">${lot.costBasis.toLocaleString()}</p>
                         </div>
-                        <div>
-                          <p className="text-zinc-500">New Basis</p>
-                          <p className="font-medium text-emerald-400">${lot.currentValue.toLocaleString()}</p>
+                        {!isFullyUsed && (
+                        <div className="grid grid-cols-4 gap-3 p-3 rounded-lg bg-zinc-800/50 text-sm">
+                          <div>
+                            <p className="text-zinc-500">Current Basis</p>
+                            <p className="font-medium text-zinc-200">${lot.costBasis.toLocaleString()}</p>
+                          </div>
+                          <div>
+                            <p className="text-zinc-500">New Basis</p>
+                            <p className="font-medium text-emerald-400">${lot.currentValue.toLocaleString()}</p>
+                          </div>
+                          <div>
+                            <p className="text-zinc-500">Trading Fees</p>
+                            <p className="font-medium text-amber-400">-${lotFees.toLocaleString()}</p>
+                          </div>
+                          <div>
+                            <p className="text-zinc-500">Net Benefit</p>
+                            <p className={cn("font-medium", lotNetBenefit > 0 ? "text-emerald-400" : "text-rose-400")}>
+                              {lotNetBenefit >= 0 ? '+' : ''}${lotNetBenefit.toLocaleString()}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-zinc-500">Trading Fees</p>
-                          <p className="font-medium text-amber-400">-${lotFees.toLocaleString()}</p>
+                        )}
                         </div>
-                        <div>
-                          <p className="text-zinc-500">Net Benefit</p>
-                          <p className={cn("font-medium", lotNetBenefit > 0 ? "text-emerald-400" : "text-rose-400")}>
-                            {lotNetBenefit >= 0 ? '+' : ''}${lotNetBenefit.toLocaleString()}
-                          </p>
+                        );
+                        })}
                         </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
             )}
           </div>
         </TabsContent>
