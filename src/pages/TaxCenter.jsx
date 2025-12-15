@@ -916,13 +916,23 @@ export default function TaxCenter() {
     }
 
     // Determine account_id from the lots being used in the sale (not just any lot for that ticker)
-    const accountId = outcome.lotsUsed.length > 0 ? outcome.lotsUsed[0].account_id : null;
-
-    console.log("🔍 ACCOUNT ID EXTRACTION:");
-    console.log("outcome.lotsUsed:", outcome.lotsUsed);
-    console.log("First lot:", outcome.lotsUsed[0]);
-    console.log("First lot's account_id:", outcome.lotsUsed[0]?.account_id);
-    console.log("Extracted accountId:", accountId);
+    console.log("🔍 ACCOUNT ID EXTRACTION - FULL DEBUG:");
+    console.log("outcome.lotsUsed array:", outcome.lotsUsed);
+    console.log("First lot FULL OBJECT:", JSON.stringify(outcome.lotsUsed[0], null, 2));
+    console.log("Checking various property names:");
+    console.log("  - lot.accountId:", outcome.lotsUsed[0]?.accountId);
+    console.log("  - lot.account_id:", outcome.lotsUsed[0]?.account_id);
+    console.log("  - lot.sourceAccountId:", outcome.lotsUsed[0]?.sourceAccountId);
+    console.log("  - lot.transaction?.account_id:", outcome.lotsUsed[0]?.transaction?.account_id);
+    console.log("All keys in first lot:", Object.keys(outcome.lotsUsed[0] || {}));
+    
+    const accountId = outcome.lotsUsed[0]?.account_id || 
+                      outcome.lotsUsed[0]?.accountId || 
+                      outcome.lotsUsed[0]?.sourceAccountId ||
+                      outcome.lotsUsed[0]?.transaction?.account_id ||
+                      null;
+    
+    console.log("✅ Final extracted accountId:", accountId);
 
     console.log("Sale details:", {
       asset: saleForm.asset_ticker,
