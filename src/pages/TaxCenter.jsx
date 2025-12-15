@@ -225,11 +225,15 @@ export default function TaxCenter() {
 
   const createTx = useMutation({
     mutationFn: async (data) => {
-      console.log("=== CREATE TRANSACTION ===");
-      console.log("Transaction data:", data);
+      console.log("\n=== CREATE TRANSACTION MUTATION CALLED ===");
+      console.log("Received transaction data:", data);
+      console.log("Transaction type:", data.type);
+      console.log("Database table: Transaction entity");
       
       const total = data.quantity * data.price_per_unit;
       const lotId = `${data.asset_ticker}-${Date.now()}`;
+      
+      console.log("Checking for duplicate transactions...");
       
       // Check for duplicate transaction
       const existingDuplicate = allTransactions.find(t => 
@@ -241,8 +245,11 @@ export default function TaxCenter() {
       );
       
       if (existingDuplicate) {
+        console.log("❌ DUPLICATE FOUND:", existingDuplicate);
         throw new Error('Duplicate transaction already exists');
       }
+      
+      console.log("✓ No duplicate found, proceeding...");
 
       // Get proper account type from selected account if account_id is set
       let finalAccountType = 'taxable';
@@ -334,41 +341,62 @@ export default function TaxCenter() {
         const newQty = Math.max(0, oldQty - data.quantity);
         const newCostBasis = Math.max(0, oldCostBasis - (data.cost_basis || 0));
         
-        console.log("=== UPDATING HOLDING AFTER SALE ===");
-        console.log({
+        console.log("\n📉 UPDATING HOLDING AFTER SALE");
+        console.log("Database table: Holding entity");
+        console.log("BEFORE UPDATE:", {
           holdingId: existingHolding.id,
           ticker: data.asset_ticker,
           accountId: existingHolding.account_id,
           previousQuantity: oldQty,
-          soldQuantity: data.quantity,
-          newQuantity: newQty,
-          previousCostBasis: oldCostBasis,
-          costBasisOfSold: data.cost_basis,
-          newCostBasis: newCostBasis
+          previousCostBasis: oldCostBasis
         });
         
-        await base44.entities.Holding.update(existingHolding.id, {
+        console.log("SALE IMPACT:", {
+          soldQuantity: data.quantity,
+          costBasisOfSold: data.cost_basis
+        });
+        
+        console.log("AFTER UPDATE (calculated):", {
+          newQuantity: newQty,
+          newCostBasis: newCostBasis,
+          quantityReduction: oldQty - newQty,
+          costBasisReduction: oldCostBasis - newCostBasis
+        });
+        
+        console.log("Calling Holding.update()...");
+        const updateResult = await base44.entities.Holding.update(existingHolding.id, {
           quantity: newQty,
           cost_basis_total: newCostBasis,
         });
         
-        console.log("Holding updated successfully");
+        console.log("✅ Holding updated successfully!");
+        console.log("Update result:", updateResult);
       } else if (data.type === 'sell' && !existingHolding) {
-        console.log("⚠️ WARNING: No holding found to update for sale!", {
+        console.log("\n⚠️ WARNING: No holding found to update for sale!");
+        console.log({
           ticker: data.asset_ticker,
           accountId: data.account_id,
-          quantity: data.quantity
+          quantityToSell: data.quantity,
+          allHoldingsForTicker: holdings.filter(h => h.ticker === data.asset_ticker)
         });
       }
 
       return tx;
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
+      console.log("\n=== TRANSACTION MUTATION SUCCESS ===");
+      console.log("onSuccess called with result:", result);
+      console.log("Invalidating queries: transactions, holdings");
+      
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['holdings'] });
+      
+      console.log("Closing forms and resetting state...");
       setFormOpen(false);
       setSaleFormOpen(false);
       resetForm();
+      
+      console.log("=== SALE SUBMISSION COMPLETE ===\n");
     },
   });
 
@@ -868,28 +896,72 @@ export default function TaxCenter() {
   const handleSaleSubmit = (e) => {
     e.preventDefault();
     const outcome = saleOutcomes[saleForm.lot_method];
-    if (!outcome || !outcome.isComplete) return;
+    
+    console.log("=== SALE SUBMISSION START ===");
+    
+    if (!outcome || !outcome.isComplete) {
+      console.log("❌ SALE BLOCKED: Incomplete outcome", { 
+        hasOutcome: !!outcome, 
+        isComplete: outcome?.isComplete 
+      });
+      return;
+    }
 
     // Determine account_id from the lots being used
-    // If specific lots selected, use their account
-    // Otherwise use the first lot's account (they should all be same account for same ticker)
     const lotsForAsset = taxLots.filter(lot => lot.asset_ticker === saleForm.asset_ticker);
     const accountId = lotsForAsset.length > 0 ? lotsForAsset[0].account_id : null;
 
-    console.log("=== SUBMITTING SALE ===");
-    console.log({
+    console.log("Sale details:", {
       asset: saleForm.asset_ticker,
       quantity: parseFloat(saleForm.quantity),
+      pricePerUnit: parseFloat(saleForm.price_per_unit),
+      totalValue: parseFloat(saleForm.quantity) * parseFloat(saleForm.price_per_unit),
+      saleDate: saleForm.date,
+      exchange: saleForm.exchange,
+      fee: parseFloat(saleForm.fee) || 0,
       method: saleForm.lot_method,
-      accountId: accountId,
-      lotsUsed: outcome.lotsUsed.map(l => ({
-        id: l.id,
-        qty: l.qtyUsed,
-        price: l.price_per_unit
-      }))
+      accountId: accountId
     });
 
-    createTx.mutate({
+    console.log("Lots selected for sale:", outcome.lotsUsed.map(lot => ({
+      lotId: lot.id,
+      purchaseDate: lot.purchase_date,
+      accountId: lot.account_id,
+      originalQuantity: lot.quantity,
+      remainingQuantity: lot.remainingQuantity,
+      quantityUsedInSale: lot.qtyUsed,
+      costBasisPerUnit: lot.price_per_unit,
+      totalCostBasis: lot.qtyUsed * lot.price_per_unit,
+      isLongTerm: lot.isLongTerm
+    })));
+
+    console.log("Sale outcome summary:", {
+      totalCostBasis: outcome.totalCostBasis,
+      realizedGain: outcome.realizedGain,
+      holdingPeriod: outcome.holdingPeriod,
+      taxRate: outcome.holdingPeriod === 'long_term' ? 'Long-term (0-20%)' : 'Short-term (ordinary income)',
+      lotsFullyDepleted: outcome.lotsUsed.filter(l => l.qtyUsed === l.remainingQuantity).length,
+      lotsPartiallyUsed: outcome.lotsUsed.filter(l => l.qtyUsed < l.remainingQuantity).length
+    });
+
+    console.log("=== BEFORE DATABASE UPDATES ===");
+    console.log("Current holdings for this asset:", holdings.filter(h => h.ticker === saleForm.asset_ticker).map(h => ({
+      id: h.id,
+      ticker: h.ticker,
+      quantity: h.quantity,
+      cost_basis_total: h.cost_basis_total,
+      account_id: h.account_id
+    })));
+
+    console.log("Current tax lots for this asset:", taxLots.filter(l => l.asset_ticker === saleForm.asset_ticker).map(l => ({
+      id: l.id,
+      quantity: l.quantity,
+      remainingQuantity: l.remainingQuantity,
+      account_id: l.account_id,
+      purchase_date: l.purchase_date
+    })));
+
+    const transactionData = {
       type: 'sell',
       asset_ticker: saleForm.asset_ticker,
       quantity: parseFloat(saleForm.quantity),
@@ -901,7 +973,12 @@ export default function TaxCenter() {
       realized_gain_loss: outcome.realizedGain,
       holding_period: outcome.holdingPeriod,
       notes: `Lot method: ${saleForm.lot_method}. Fee: $${saleForm.fee || 0}`,
-    });
+    };
+
+    console.log("Transaction data to be saved:", transactionData);
+    console.log("Calling createTx.mutate()...");
+
+    createTx.mutate(transactionData);
   };
 
   // Tax calculations - filtered by selected year
