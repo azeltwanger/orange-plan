@@ -12,7 +12,7 @@ import {
   estimateRetirementWithdrawalTaxes,
   getTaxDataForYear
 } from '@/components/tax/taxCalculations';
-import { get401kLimit, getRothIRALimit, getHSALimit } from '@/components/shared/taxConfig';
+import { get401kLimit, getRothIRALimit, getHSALimit, getTaxConfigForYear } from '@/components/shared/taxConfig';
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
@@ -303,6 +303,16 @@ export default function FinancialPlan() {
   });
 
 
+
+  // Debug: Verify tax config on mount
+  useEffect(() => {
+    console.log("Tax Config Test:", {
+      year: 2025,
+      limits: getTaxConfigForYear(2025).contributionLimits,
+      brackets: getTaxConfigForYear(2025).federalBrackets.single.slice(0, 3),
+      standardDeduction: getTaxConfigForYear(2025).standardDeduction
+    });
+  }, []);
 
   // Fetch BTC price
   useEffect(() => {
