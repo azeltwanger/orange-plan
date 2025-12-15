@@ -14,7 +14,7 @@ import { toast } from 'sonner';
 import { differenceInDays } from 'date-fns';
 import AccountSelector from '@/components/accounts/AccountSelector';
 import CreateAccountDialog from '@/components/accounts/CreateAccountDialog';
-import { syncAllHoldingsForAccount } from '@/utils/syncHoldings';
+import { syncAllHoldingsForAccount } from '@/components/shared/syncHoldings';
 
 const TRANSACTION_FIELDS = [
   { key: 'type', label: 'Type (buy/sell)', required: true, description: 'Transaction type' },

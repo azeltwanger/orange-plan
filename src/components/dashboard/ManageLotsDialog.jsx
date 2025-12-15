@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { syncHoldingFromLots } from '@/utils/syncHoldings';
+import { syncHoldingFromLots } from '@/components/shared/syncHoldings';
 
 export default function ManageLotsDialog({ open, onClose, holding, btcPrice }) {
   const queryClient = useQueryClient();
