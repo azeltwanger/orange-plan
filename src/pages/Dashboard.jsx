@@ -55,6 +55,56 @@ export default function Dashboard() {
     fetchRates();
   }, []);
 
+  // DEBUG: Check for duplicate BTC lots
+  useEffect(() => {
+    const debugLots = async () => {
+      const allTransactions = await base44.entities.Transaction.list();
+      const btcBuys = allTransactions.filter(tx => 
+        tx.asset_ticker === 'BTC' && tx.type === 'buy'
+      );
+
+      console.log("=== DEBUG BTC LOTS ===");
+      console.log("Total BTC buy transactions:", btcBuys.length);
+
+      // Find potential duplicates (same date, amount, price)
+      const seen = new Map();
+      const duplicates = [];
+
+      btcBuys.forEach(tx => {
+        const key = `${tx.date}-${tx.quantity}-${tx.price_per_unit}`;
+        if (seen.has(key)) {
+          duplicates.push({
+            original: seen.get(key),
+            duplicate: tx
+          });
+        } else {
+          seen.set(key, tx);
+        }
+      });
+
+      console.log("Potential duplicates found:", duplicates.length);
+      if (duplicates.length > 0) {
+        console.log("Duplicate transactions:", duplicates);
+      }
+
+      // Sum all quantities
+      const totalQty = btcBuys.reduce((sum, tx) => 
+        sum + (tx.remaining_quantity ?? tx.quantity ?? 0), 0
+      );
+      console.log("Total BTC quantity in lots:", totalQty);
+      
+      // Show breakdown by remaining_quantity vs quantity
+      const withRemaining = btcBuys.filter(tx => tx.remaining_quantity !== undefined);
+      const withoutRemaining = btcBuys.filter(tx => tx.remaining_quantity === undefined);
+      console.log("Lots with remaining_quantity set:", withRemaining.length);
+      console.log("Lots without remaining_quantity:", withoutRemaining.length);
+      
+      console.log("=== END DEBUG ===");
+    };
+    
+    debugLots();
+  }, []);
+
   const currentPrice = btcPrice || 97000;
   const [formOpen, setFormOpen] = useState(false);
   const [editingHolding, setEditingHolding] = useState(null);

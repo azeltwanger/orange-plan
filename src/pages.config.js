@@ -1,6 +1,5 @@
 import Budget from './pages/Budget';
 import DCAStrategy from './pages/DCAStrategy';
-import Dashboard from './pages/Dashboard';
 import EstateSecurity from './pages/EstateSecurity';
 import Features from './pages/Features';
 import FeeAnalysis from './pages/FeeAnalysis';
@@ -14,13 +13,13 @@ import Pricing from './pages/Pricing';
 import Scenarios from './pages/Scenarios';
 import Settings from './pages/Settings';
 import TaxCenter from './pages/TaxCenter';
+import Dashboard from './pages/Dashboard';
 import __Layout from './Layout.jsx';
 
 
 export const PAGES = {
     "Budget": Budget,
     "DCAStrategy": DCAStrategy,
-    "Dashboard": Dashboard,
     "EstateSecurity": EstateSecurity,
     "Features": Features,
     "FeeAnalysis": FeeAnalysis,
@@ -34,6 +33,7 @@ export const PAGES = {
     "Scenarios": Scenarios,
     "Settings": Settings,
     "TaxCenter": TaxCenter,
+    "Dashboard": Dashboard,
 }
 
 export const pagesConfig = {
