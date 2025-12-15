@@ -1069,7 +1069,24 @@ export default function TaxCenter() {
   };
 
   // Tax calculations - filtered by selected year
+  console.log("=== REALIZED GAINS DEBUG ===");
+  console.log("All transactions:", allTransactions.length);
+  console.log("Selected year:", selectedYear);
+  console.log("Transactions for tax calc:", transactionsForTaxCalc.length);
+  console.log("Sales only (all):", allTransactions.filter(t => t.type === 'sell' || t.type === 'sale').map(t => ({
+    id: t.id,
+    type: t.type,
+    date: t.date,
+    year: new Date(t.date).getFullYear(),
+    asset: t.asset_ticker,
+    qty: t.quantity,
+    gain_loss: t.realized_gain_loss,
+    holding_period: t.holding_period
+  })));
+  console.log("2025 sales:", transactionsForTaxCalc.filter(t => t.type === 'sell' || t.type === 'sale'));
+  
   const sellTxs = transactionsForTaxCalc.filter(t => t.type === 'sell');
+  console.log("Filtered sellTxs:", sellTxs);
   
   // Separate gains from losses for proper IRS netting
   const shortTermSales = sellTxs.filter(t => t.holding_period === 'short_term');
