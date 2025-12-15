@@ -12,6 +12,7 @@ import {
   estimateRetirementWithdrawalTaxes,
   getTaxDataForYear
 } from '@/components/tax/taxCalculations';
+import { get401kLimit, getRothIRALimit, getHSALimit } from '@/components/shared/contributionLimits';
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
@@ -269,6 +270,13 @@ export default function FinancialPlan() {
     const [socialSecurityStartAge, setSocialSecurityStartAge] = useState(67);
     const [socialSecurityAmount, setSocialSecurityAmount] = useState(0); // Other income in retirement (social security, pension, etc.)
 
+  // Retirement savings allocation
+  const [contribution401k, setContribution401k] = useState(0);
+  const [employer401kMatch, setEmployer401kMatch] = useState(0);
+  const [contributionRothIRA, setContributionRothIRA] = useState(0);
+  const [contributionHSA, setContributionHSA] = useState(0);
+  const [hsaFamilyCoverage, setHsaFamilyCoverage] = useState(false);
+
   // Settings loaded flag
   const [settingsLoaded, setSettingsLoaded] = useState(false);
 
@@ -378,6 +386,11 @@ export default function FinancialPlan() {
                   if (settings.social_security_start_age !== undefined) setSocialSecurityStartAge(settings.social_security_start_age);
                   if (settings.social_security_amount !== undefined) setSocialSecurityAmount(settings.social_security_amount);
                   if (settings.gross_annual_income !== undefined) setGrossAnnualIncome(settings.gross_annual_income);
+                  if (settings.contribution_401k !== undefined) setContribution401k(settings.contribution_401k);
+                  if (settings.employer_401k_match !== undefined) setEmployer401kMatch(settings.employer_401k_match);
+                  if (settings.contribution_roth_ira !== undefined) setContributionRothIRA(settings.contribution_roth_ira);
+                  if (settings.contribution_hsa !== undefined) setContributionHSA(settings.contribution_hsa);
+                  if (settings.hsa_family_coverage !== undefined) setHsaFamilyCoverage(settings.hsa_family_coverage);
                   setSettingsLoaded(true);
     }
   }, [userSettings, settingsLoaded]);
@@ -418,10 +431,15 @@ export default function FinancialPlan() {
                       social_security_start_age: socialSecurityStartAge || 67,
                       social_security_amount: socialSecurityAmount || 0,
                       gross_annual_income: grossAnnualIncome || 100000,
+                      contribution_401k: contribution401k || 0,
+                      employer_401k_match: employer401kMatch || 0,
+                      contribution_roth_ira: contributionRothIRA || 0,
+                      contribution_hsa: contributionHSA || 0,
+                      hsa_family_coverage: hsaFamilyCoverage || false,
                     });
     }, 1000); // Debounce 1 second
     return () => clearTimeout(timeoutId);
-  }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, otherCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, grossAnnualIncome]);
+  }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, otherCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, grossAnnualIncome, contribution401k, employer401kMatch, contributionRothIRA, contributionHSA, hsaFamilyCoverage]);
 
   // Calculate accurate debt payments for current month
   const currentMonthForDebt = new Date().getMonth();
@@ -447,15 +465,33 @@ export default function FinancialPlan() {
     return sum;
   }, 0);
 
-  // Calculate annual net cash flow after estimated income tax
+  // Calculate annual net cash flow after estimated income tax and retirement contributions
   const currentYear = new Date().getFullYear();
   const { standardDeductions } = getTaxDataForYear(currentYear);
   const currentStandardDeduction = standardDeductions[filingStatus] || standardDeductions.single;
-  const taxableGrossIncome = Math.max(0, grossAnnualIncome - currentStandardDeduction);
+  
+  // Get current contribution limits for validation
+  const currentLimit401k = get401kLimit(currentYear, currentAge);
+  const currentLimitRoth = getRothIRALimit(currentYear, currentAge);
+  const currentLimitHSA = getHSALimit(currentYear, currentAge, hsaFamilyCoverage);
+  
+  // Cap contributions to limits
+  const actual401k = Math.min(contribution401k || 0, currentLimit401k);
+  const actualRoth = Math.min(contributionRothIRA || 0, currentLimitRoth);
+  const actualHSA = Math.min(contributionHSA || 0, currentLimitHSA);
+  
+  // Pre-tax contributions (401k, HSA) reduce taxable income
+  const taxableGrossIncome = Math.max(0, grossAnnualIncome - actual401k - actualHSA - currentStandardDeduction);
   const estimatedIncomeTax = calculateProgressiveIncomeTax(taxableGrossIncome, filingStatus, currentYear);
-
-  // Annual net cash flow = grossAnnualIncome - estimatedIncomeTax - currentAnnualSpending (CAN be negative)
-  const annualSavings = grossAnnualIncome - estimatedIncomeTax - currentAnnualSpending;
+  
+  // Net income after taxes
+  const netIncome = grossAnnualIncome - estimatedIncomeTax;
+  
+  // Total retirement contributions (Roth comes from after-tax income)
+  const totalRetirementContributions = actualRoth;
+  
+  // Annual net cash flow = netIncome - spending - rothContribution (CAN be negative)
+  const annualSavings = netIncome - currentAnnualSpending - totalRetirementContributions;
 
   // Mutations
   const createGoal = useMutation({
@@ -1101,18 +1137,36 @@ export default function FinancialPlan() {
         const baseGrossIncome = grossAnnualIncome * Math.pow(1 + incomeGrowth / 100, i);
         const yearGrossIncome = baseGrossIncome + activeIncomeAdjustment;
         
-        // Calculate taxes on adjusted gross income
-        const yearTaxableIncome = Math.max(0, yearGrossIncome - currentStandardDeduction);
+        // Get contribution limits for this year
+        const yearLimit401k = get401kLimit(year, currentAgeThisYear);
+        const yearLimitRoth = getRothIRALimit(year, currentAgeThisYear);
+        const yearLimitHSA = getHSALimit(year, currentAgeThisYear, hsaFamilyCoverage);
+        
+        // Cap contributions to limits (grow with income growth)
+        const year401k = Math.min((contribution401k || 0) * Math.pow(1 + incomeGrowth / 100, i), yearLimit401k);
+        const yearRoth = Math.min((contributionRothIRA || 0) * Math.pow(1 + incomeGrowth / 100, i), yearLimitRoth);
+        const yearHSA = Math.min((contributionHSA || 0) * Math.pow(1 + incomeGrowth / 100, i), yearLimitHSA);
+        const yearEmployerMatch = (employer401kMatch || 0) * Math.pow(1 + incomeGrowth / 100, i);
+        
+        // Pre-tax contributions reduce taxable income
+        const yearTaxableIncome = Math.max(0, yearGrossIncome - year401k - yearHSA - currentStandardDeduction);
         const yearTaxesPaid = calculateProgressiveIncomeTax(yearTaxableIncome, filingStatus, year);
         taxesPaid = yearTaxesPaid;
+        
+        // Net income after taxes
+        const yearNetIncome = yearGrossIncome - yearTaxesPaid;
 
         // Track components for tooltip
         const yearSpending = (currentAnnualSpending * Math.pow(1 + inflationRate / 100, i)) + activeExpenseAdjustment;
         
-        // Net savings = gross income - taxes - spending
-        yearSavings = yearGrossIncome - yearTaxesPaid - yearSpending;
+        // Net savings = net income - spending - roth contribution (Roth is after-tax)
+        yearSavings = yearNetIncome - yearSpending - yearRoth;
         runningSavings += yearSavings;
         cumulativeSavings += yearSavings;
+        
+        // Allocate to account types
+        runningTaxDeferred += year401k + yearEmployerMatch;
+        runningTaxFree += yearRoth + yearHSA;
 
 
 
@@ -2922,10 +2976,117 @@ export default function FinancialPlan() {
                 </div>
               </div>
 
+              {/* Retirement Savings Allocation */}
+              <div className="mt-6 pt-6 border-t border-zinc-800">
+                <h4 className="font-semibold mb-4">Retirement Savings Allocation</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-zinc-400">401k/403b Contribution</Label>
+                    <Input 
+                      type="number" 
+                      value={contribution401k} 
+                      onChange={(e) => setContribution401k(parseFloat(e.target.value) || 0)} 
+                      className="bg-zinc-900 border-zinc-800" 
+                    />
+                    <p className={cn(
+                      "text-xs",
+                      contribution401k > currentLimit401k ? "text-amber-400" : "text-zinc-500"
+                    )}>
+                      {currentYear} limit: ${currentLimit401k.toLocaleString()} {currentAge >= 50 ? "(with catch-up)" : `($${(currentLimit401k + 7500).toLocaleString()} if 50+)`}
+                      {contribution401k > currentLimit401k && " ⚠️ Exceeds limit"}
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-zinc-400">Employer 401k Match</Label>
+                    <Input 
+                      type="number" 
+                      value={employer401kMatch} 
+                      onChange={(e) => setEmployer401kMatch(parseFloat(e.target.value) || 0)} 
+                      className="bg-zinc-900 border-zinc-800" 
+                    />
+                    <p className="text-xs text-zinc-500">Free money from employer</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-zinc-400">Roth IRA Contribution</Label>
+                    <Input 
+                      type="number" 
+                      value={contributionRothIRA} 
+                      onChange={(e) => setContributionRothIRA(parseFloat(e.target.value) || 0)} 
+                      className="bg-zinc-900 border-zinc-800" 
+                    />
+                    <p className={cn(
+                      "text-xs",
+                      contributionRothIRA > currentLimitRoth ? "text-amber-400" : "text-zinc-500"
+                    )}>
+                      {currentYear} limit: ${currentLimitRoth.toLocaleString()} {currentAge >= 50 ? "(with catch-up)" : `($${(currentLimitRoth + 1000).toLocaleString()} if 50+)`}
+                      {contributionRothIRA > currentLimitRoth && " ⚠️ Exceeds limit"}
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-zinc-400">HSA Contribution</Label>
+                    <Input 
+                      type="number" 
+                      value={contributionHSA} 
+                      onChange={(e) => setContributionHSA(parseFloat(e.target.value) || 0)} 
+                      className="bg-zinc-900 border-zinc-800" 
+                    />
+                    <p className={cn(
+                      "text-xs",
+                      contributionHSA > currentLimitHSA ? "text-amber-400" : "text-zinc-500"
+                    )}>
+                      {currentYear} limit: ${currentLimitHSA.toLocaleString()} ({hsaFamilyCoverage ? "family" : "individual"}{currentAge >= 55 ? ", with catch-up" : ""})
+                      {contributionHSA > currentLimitHSA && " ⚠️ Exceeds limit"}
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-zinc-400">HSA Coverage Type</Label>
+                    <Select value={hsaFamilyCoverage ? "family" : "individual"} onValueChange={(v) => setHsaFamilyCoverage(v === "family")}>
+                      <SelectTrigger className="bg-zinc-900 border-zinc-800">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="individual">Individual</SelectItem>
+                        <SelectItem value="family">Family</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Remaining to Taxable Summary */}
+                <div className="mt-4 p-4 rounded-xl bg-zinc-800/30">
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-zinc-400">Net Income (after tax):</span>
+                      <span className="text-zinc-200">{formatNumber(netIncome)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-zinc-400">Spending:</span>
+                      <span className="text-zinc-200">-{formatNumber(currentAnnualSpending)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-zinc-400">Roth IRA (after-tax):</span>
+                      <span className="text-zinc-200">-{formatNumber(actualRoth)}</span>
+                    </div>
+                    <div className="flex justify-between border-t border-zinc-700 pt-2">
+                      <span className="text-zinc-300 font-medium">Remaining to Taxable:</span>
+                      <span className={cn("font-semibold", annualSavings >= 0 ? "text-emerald-400" : "text-rose-400")}>
+                        {annualSavings >= 0 ? '+' : ''}{formatNumber(annualSavings)}
+                      </span>
+                    </div>
+                    {annualSavings < 0 && (
+                      <p className="text-xs text-rose-400 pt-1">
+                        ⚠️ Negative savings means you're withdrawing from taxable accounts
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               <div className="mt-4 space-y-2">
                 <p className="text-xs text-zinc-500">
-                  💡 Your annual net cash flow of <span className={cn("font-medium", annualSavings >= 0 ? "text-emerald-400" : "text-rose-400")}>{annualSavings >= 0 ? '+' : ''}{formatNumber(annualSavings)}</span> is calculated from your Gross Annual Income, after subtracting estimated income tax ({formatNumber(estimatedIncomeTax)}) and your Annual Spending (After Tax).
-                  A positive value means you are saving. A negative value means you are drawing down your portfolio. Debt payments ({formatNumber(monthlyDebtPayments * 12)}/yr) are tracked separately.
+                  💡 Pre-tax contributions (401k: {formatNumber(actual401k)}, HSA: {formatNumber(actualHSA)}) reduce your taxable income. 
+                  Roth IRA comes from after-tax income. Employer match ({formatNumber(employer401kMatch || 0)}) goes to tax-deferred.
+                  Debt payments ({formatNumber(monthlyDebtPayments * 12)}/yr) are tracked separately.
                 </p>
               </div>
 
