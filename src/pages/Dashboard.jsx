@@ -141,9 +141,8 @@ export default function Dashboard() {
     try {
       // Get all accounts
       const accounts = await base44.entities.Account.list();
-      console.log("Available accounts:", accounts.map(a => ({ id: a.id, name: a.name, type: a.account_type })));
       
-      // Find the Cold Storage BTC account (taxable)
+      // Find Cold Storage BTC (taxable, not IRA/401k)
       const coldStorageAccount = accounts.find(a => 
         a.name.toLowerCase().includes('cold storage') && 
         !a.account_type?.includes('ira') &&
@@ -151,8 +150,7 @@ export default function Dashboard() {
       );
       
       if (!coldStorageAccount) {
-        alert("Could not find 'Cold Storage BTC' taxable account. Available accounts:\n\n" + 
-          accounts.map(a => `${a.name} (${a.account_type})`).join('\n'));
+        alert("Could not find Cold Storage BTC account.");
         setIsRepairing(false);
         return;
       }
@@ -162,92 +160,74 @@ export default function Dashboard() {
       // Get all transactions
       const transactions = await base44.entities.Transaction.list();
       
-      // Find BTC buy transactions with NULL/undefined account_id
-      const orphanedBtcLots = transactions.filter(tx => 
+      // Find orphaned BTC lots (no account_id)
+      const orphanedLots = transactions.filter(tx => 
         tx.asset_ticker === 'BTC' && 
         tx.type === 'buy' &&
         !tx.account_id
       );
       
-      console.log("Orphaned BTC lots found:", orphanedBtcLots.length);
-      
-      if (orphanedBtcLots.length === 0) {
-        alert("No orphaned BTC lots found. All transactions already have an account assigned.");
+      if (orphanedLots.length === 0) {
+        alert("No orphaned lots found.");
         setIsRepairing(false);
         return;
       }
       
-      // Calculate total BTC in orphaned lots
-      const totalOrphanedBtc = orphanedBtcLots.reduce((sum, tx) => 
+      // Calculate actual total from orphaned lots
+      const orphanedTotal = orphanedLots.reduce((sum, tx) => 
         sum + (tx.remaining_quantity ?? tx.quantity ?? 0), 0
       );
       
-      console.log("Total BTC in orphaned lots:", totalOrphanedBtc);
+      console.log(`Found ${orphanedLots.length} orphaned lots totaling ${orphanedTotal} BTC`);
       
-      // Confirm with user
-      const confirmed = window.confirm(
-        `Found ${orphanedBtcLots.length} orphaned BTC transactions (${totalOrphanedBtc.toFixed(8)} BTC).\n\n` +
-        `Assign them to "${coldStorageAccount.name}"?\n\n` +
-        `This will link these transactions to the ${coldStorageAccount.name} account.`
-      );
-      
-      if (!confirmed) {
+      // Confirm
+      if (!window.confirm(
+        `Assign ${orphanedLots.length} orphaned lots (${orphanedTotal.toFixed(8)} BTC) to "${coldStorageAccount.name}"?`
+      )) {
         setIsRepairing(false);
         return;
       }
       
-      // Update each orphaned transaction
-      let updated = 0;
-      for (const tx of orphanedBtcLots) {
+      // Update each orphaned lot with account_id
+      for (const tx of orphanedLots) {
         await base44.entities.Transaction.update(tx.id, {
           account_id: coldStorageAccount.id,
           account_type: 'taxable'
         });
-        updated++;
-        
-        if (updated % 50 === 0) {
-          console.log(`Progress: ${updated}/${orphanedBtcLots.length} transactions updated...`);
-        }
       }
       
-      console.log(`✅ Updated ${updated} transactions with account_id: ${coldStorageAccount.id}`);
+      console.log(`✅ Assigned ${orphanedLots.length} lots to ${coldStorageAccount.name}`);
       
-      // Now update the Cold Storage BTC holding to match
-      const holdings = await base44.entities.Holding.list();
-      const coldStorageHolding = holdings.find(h => 
-        h.ticker === 'BTC' && 
-        h.account_id === coldStorageAccount.id
+      // Update holding - calculate from ALL lots now in this account
+      const allTx = await base44.entities.Transaction.list();
+      const lotsInAccount = allTx.filter(tx =>
+        tx.asset_ticker === 'BTC' &&
+        tx.type === 'buy' &&
+        tx.account_id === coldStorageAccount.id
       );
       
-      if (coldStorageHolding) {
-        // Recalculate quantity from all lots now assigned to this account
-        const updatedTransactions = await base44.entities.Transaction.list();
-        const lotsForAccount = updatedTransactions.filter(tx =>
-          tx.asset_ticker === 'BTC' &&
-          tx.type === 'buy' &&
-          tx.account_id === coldStorageAccount.id
-        );
-        
-        const correctQty = lotsForAccount.reduce((sum, tx) => 
-          sum + (tx.remaining_quantity ?? tx.quantity ?? 0), 0
-        );
-        
-        await base44.entities.Holding.update(coldStorageHolding.id, {
-          quantity: correctQty
-        });
-        
-        console.log(`✅ Updated Cold Storage BTC holding to ${correctQty} BTC`);
+      // Sum from actual lots
+      const holdingQty = lotsInAccount.reduce((sum, tx) => 
+        sum + (tx.remaining_quantity ?? tx.quantity ?? 0), 0
+      );
+      
+      // Find and update the holding
+      const holdings = await base44.entities.Holding.list();
+      const holding = holdings.find(h => 
+        h.ticker === 'BTC' && h.account_id === coldStorageAccount.id
+      );
+      
+      if (holding) {
+        await base44.entities.Holding.update(holding.id, { quantity: holdingQty });
+        console.log(`✅ Updated holding to ${holdingQty} BTC (from ${lotsInAccount.length} lots)`);
       }
       
-      console.log("=== REPAIR COMPLETE ===");
-      alert(`Successfully assigned ${updated} transactions to ${coldStorageAccount.name}.\n\nRefresh the page to see updated balances.`);
-      
-      // Refresh the page data
+      alert(`Done! Assigned ${orphanedLots.length} lots. Holding updated to ${holdingQty.toFixed(8)} BTC.\n\nRefresh the page.`);
       window.location.reload();
       
     } catch (error) {
-      console.error("Repair failed:", error);
-      alert("Error during repair: " + error.message);
+      console.error("Error:", error);
+      alert("Error: " + error.message);
     } finally {
       setIsRepairing(false);
     }
