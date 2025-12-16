@@ -197,6 +197,27 @@ export default function TaxCenter() {
     queryFn: () => base44.entities.Transaction.list('-date'),
   });
 
+  // === DEBUG TRANSACTION CHECK BY ACCOUNT ===
+  React.useEffect(() => {
+    if (allTransactions.length > 0) {
+      console.log("=== TRANSACTION CHECK BY ACCOUNT ===");
+      const fidelityAccountId = "693876e66650155eff19fbd4";
+      const fidelityTxs = allTransactions.filter(t => t.account_id === fidelityAccountId);
+      console.log("Fidelity transactions:", fidelityTxs.length);
+      console.log("Fidelity sample:", fidelityTxs.slice(0, 3));
+
+      // Also check for orphaned transactions (no account_id)
+      const orphaned = allTransactions.filter(t => !t.account_id);
+      console.log("Orphaned transactions (no account_id):", orphaned.length);
+
+      // Check all unique account_ids in transactions
+      const accountIds = [...new Set(allTransactions.map(t => t.account_id))];
+      console.log("Unique account_ids in transactions:", accountIds);
+      console.log("=================================");
+    }
+  }, [allTransactions]);
+  // === END DEBUG ===
+
   // Filter transactions by selected year (for tax calculations only, not display)
   const transactionsForTaxCalc = allTransactions.filter(t => {
     const txDate = new Date(t.date);
