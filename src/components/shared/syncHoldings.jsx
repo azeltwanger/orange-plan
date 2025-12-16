@@ -20,80 +20,64 @@ import { base44 } from '@/api/base44Client';
 /**
  * Sync a single holding from its tax lots
  * @param {string} ticker - Asset ticker (e.g., "BTC")
- * @param {string} accountId - Account ID (optional, defaults to null for unassigned)
+ * @param {string} accountId - Account ID (REQUIRED to prevent mixing tax-free and taxable lots)
  */
-export async function syncHoldingFromLots(ticker, accountId = null) {
+export async function syncHoldingFromLots(ticker, accountId) {
   console.log("=== SYNC HOLDING FROM LOTS ===");
   console.log("Ticker:", ticker);
   console.log("Account ID:", accountId);
+  
+  // REQUIRE account_id - don't sync without it to prevent mixing accounts
+  if (!accountId) {
+    console.error("❌ syncHoldingFromLots requires account_id to prevent mixing tax-free and taxable lots");
+    return;
+  }
   
   try {
     // Get all transactions
     const allTransactions = await base44.entities.Transaction.list();
     
-    // Get all buy transactions for this ticker (IGNORE account_id for now)
-    // This ensures we capture ALL lots for the ticker
-    const lotsForTicker = allTransactions.filter(tx => 
+    // CRITICAL FIX: Only get lots for THIS SPECIFIC ACCOUNT
+    // This prevents mixing taxable and tax-free (Roth IRA) lots
+    const lotsForAccount = allTransactions.filter(tx => 
       tx.asset_ticker === ticker && 
-      tx.type === 'buy'
+      tx.type === 'buy' &&
+      tx.account_id === accountId  // CRITICAL: Must match account
     );
     
-    console.log("Found lots for", ticker + ":", lotsForTicker.length);
+    console.log(`Found lots for ${ticker} in account ${accountId}:`, lotsForAccount.length);
     
-    // Calculate total remaining quantity from all lots
-    const totalFromLots = lotsForTicker.reduce((sum, lot) => {
+    // Calculate total remaining quantity from this account's lots only
+    const totalFromLots = lotsForAccount.reduce((sum, lot) => {
       const qty = lot.remaining_quantity ?? lot.quantity ?? 0;
       return sum + qty;
     }, 0);
     
     console.log("Total from lots:", totalFromLots);
     
-    // Get all holdings for this ticker
+    // Get all holdings
     const allHoldings = await base44.entities.Holding.list();
-    const holdingsForTicker = allHoldings.filter(h => h.ticker === ticker);
     
-    console.log("Found holdings for", ticker + ":", holdingsForTicker.length);
+    // Find the holding for this specific ticker AND account
+    const matchingHolding = allHoldings.find(h => 
+      h.ticker === ticker && h.account_id === accountId
+    );
     
-    // Sum current holdings
-    const totalFromHoldings = holdingsForTicker.reduce((sum, h) => sum + (h.quantity || 0), 0);
-    console.log("Current total in holdings:", totalFromHoldings);
-    
-    // If there's a mismatch, update holdings
-    const diff = Math.abs(totalFromLots - totalFromHoldings);
-    if (diff > 0.00000001) {
-      console.log("MISMATCH DETECTED - Updating holdings...");
+    if (matchingHolding) {
+      const currentQty = matchingHolding.quantity || 0;
+      const diff = Math.abs(totalFromLots - currentQty);
       
-      if (holdingsForTicker.length === 1) {
-        // Simple case: one holding, update it
-        await base44.entities.Holding.update(holdingsForTicker[0].id, {
+      if (diff > 0.00000001) {
+        console.log(`MISMATCH DETECTED - Updating ${ticker} in account ${accountId}: ${currentQty} -> ${totalFromLots}`);
+        await base44.entities.Holding.update(matchingHolding.id, {
           quantity: totalFromLots
         });
-        console.log("Updated single holding to:", totalFromLots);
-        
-      } else if (holdingsForTicker.length > 1) {
-        // Multiple holdings: set first one to total, zero out others
-        // (or implement smarter distribution by account_id if needed)
-        await base44.entities.Holding.update(holdingsForTicker[0].id, {
-          quantity: totalFromLots
-        });
-        for (let i = 1; i < holdingsForTicker.length; i++) {
-          await base44.entities.Holding.update(holdingsForTicker[i].id, {
-            quantity: 0
-          });
-        }
-        console.log("Updated first holding to:", totalFromLots, "zeroed others");
-        
+        console.log("✅ Updated holding");
       } else {
-        // No holdings exist - create one
-        console.log("No holding found, creating new one");
-        await base44.entities.Holding.create({
-          ticker: ticker,
-          quantity: totalFromLots,
-          account_id: accountId
-        });
+        console.log("✅ Holding already in sync");
       }
     } else {
-      console.log("Holdings already in sync");
+      console.log(`⚠️ No holding found for ${ticker} in account ${accountId} - skipping creation (should be created manually)`);
     }
     
     console.log("=== SYNC COMPLETE ===\n");
@@ -145,21 +129,17 @@ export async function syncAllHoldings() {
   console.log("=== SYNCING ALL HOLDINGS (ALL ACCOUNTS) ===");
   
   try {
-    const allTransactions = await base44.entities.Transaction.list('-date');
+    const allHoldings = await base44.entities.Holding.list();
     
-    // Get unique account+ticker combinations
-    const combinations = new Map();
-    allTransactions.forEach(tx => {
-      const accountId = tx.account_id || null;
-      const key = `${accountId}|${tx.asset_ticker}`;
-      combinations.set(key, { accountId, ticker: tx.asset_ticker });
-    });
+    console.log(`Found ${allHoldings.length} holdings to sync`);
     
-    console.log(`Found ${combinations.size} unique account+ticker combinations`);
-    
-    // Sync each combination
-    for (const { accountId, ticker } of combinations.values()) {
-      await syncHoldingFromLots(ticker, accountId);
+    // Sync each holding separately by its account_id
+    for (const holding of allHoldings) {
+      if (holding.ticker && holding.account_id) {
+        await syncHoldingFromLots(holding.ticker, holding.account_id);
+      } else {
+        console.log(`⚠️ Skipping holding without ticker or account_id:`, holding.id);
+      }
     }
     
     console.log("===========================================");

@@ -26,15 +26,13 @@ export default function ManageLotsDialog({ open, onClose, holding, btcPrice }) {
     queryFn: () => base44.entities.Transaction.list('-date'),
   });
 
-  // Get lots for this holding's ticker AND account type
+  // Get lots for this holding's ticker AND account_id
+  // CRITICAL: Must match by account_id to prevent mixing taxable/tax-free lots
   const lots = transactions.filter(t => {
     if (t.type !== 'buy' || t.asset_ticker !== holding?.ticker) return false;
     
-    // Match by account type - default to 'taxable' if not set
-    const txAccountType = t.account_type || 'taxable';
-    const holdingAccountType = holding?.account_type || 'taxable';
-    
-    return txAccountType === holdingAccountType;
+    // MUST match account_id to prevent mixing taxable/tax-free
+    return t.account_id === holding?.account_id;
   });
 
   const totalOriginalPurchases = lots.reduce((sum, l) => sum + (l.quantity || 0), 0);
