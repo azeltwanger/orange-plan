@@ -551,6 +551,37 @@ export default function TaxCenter() {
     console.log("=== TAX LOTS RECALCULATION ===");
     console.log("All transactions count:", allTransactions.length);
     
+    // === DEBUG START ===
+    console.log("=== DEBUG TAX LOTS FILTERING ===");
+    
+    const btcBuys = allTransactions.filter(t => t.asset_ticker === 'BTC' && t.type === 'buy');
+    console.log("BTC buy transactions:", btcBuys.length);
+    
+    // Show account_type distribution
+    const typeDistribution = {};
+    btcBuys.forEach(tx => {
+      const type = tx.account_type || 'NULL';
+      typeDistribution[type] = (typeDistribution[type] || 0) + 1;
+    });
+    console.log("Account type distribution:", typeDistribution);
+    
+    // Check isTaxableTransaction results
+    const taxAdvantaged = ['traditional_401k', 'roth_401k', 'traditional_ira', 'roth_ira', 'hsa', '529'];
+    const passingFilter = btcBuys.filter(tx => {
+      const accountType = tx.account_type || 'taxable';
+      return !taxAdvantaged.includes(accountType);
+    });
+    console.log("Pass isTaxableTransaction:", passingFilter.length);
+    
+    // Sample transactions
+    console.log("Sample BTC txs:", btcBuys.slice(0, 3).map(tx => ({
+      account_type: tx.account_type,
+      account_id: tx.account_id
+    })));
+    
+    console.log("=== END DEBUG ===");
+    // === DEBUG END ===
+    
     // Group by asset ticker to process each separately
     const allTickers = [...new Set(allTransactions.map(t => t.asset_ticker))];
     const allLots = [];
