@@ -46,66 +46,6 @@ export default function ManageLotsDialog({ open, onClose, holding, btcPrice }) {
   const allocatedToLots = remainingInLots; // Current allocated (using remaining amounts)
   const unallocated = holdingQty - allocatedToLots; // Should be ~0 if synced
 
-  // ENHANCED Debug logging
-  console.log("=== HOLDINGS VS LOTS DEBUG ===");
-  console.log("\nHolding entity:", {
-    id: holding?.id,
-    ticker: holding?.ticker,
-    storedQuantity: holdingQty,
-    costBasisTotal: holding?.cost_basis_total,
-    currentPrice: holding?.current_price,
-    accountType: holding?.account_type,
-  });
-  
-  console.log("\nTax Lots for this holding:");
-  lots.forEach((lot, i) => {
-    console.log(`  Lot ${i + 1}:`, {
-      id: lot.id,
-      date: lot.date,
-      quantity: lot.quantity,
-      remainingQuantity: lot.remaining_quantity ?? lot.quantity,
-      pricePerUnit: lot.price_per_unit,
-      costBasis: lot.cost_basis,
-      accountType: lot.account_type,
-    });
-  });
-  
-  const sumLotQuantity = lots.reduce((sum, lot) => sum + (lot.quantity || 0), 0);
-  const sumLotRemaining = lots.reduce((sum, lot) => sum + ((lot.remaining_quantity ?? lot.quantity) || 0), 0);
-  
-  console.log("\n📊 Calculation breakdown:");
-  console.log("  Total Holding (holding.quantity, STORED VALUE):", holdingQty.toFixed(8));
-  console.log("  Sum of lot.quantity (ORIGINAL purchases):", sumLotQuantity.toFixed(8));
-  console.log("  Sum of lot.remainingQuantity (AFTER sales):", sumLotRemaining.toFixed(8));
-  console.log("  Allocated to Lots (using lot.remainingQuantity):", allocatedToLots.toFixed(8));
-  console.log("  Unallocated (holding.quantity - allocated):", unallocated.toFixed(8));
-  
-  console.log("\n❓ KEY QUESTIONS:");
-  console.log("  1. Is 'Total Holding' pulled from holding.quantity?", "YES →", holdingQty.toFixed(8));
-  console.log("  2. Is 'Allocated to Lots' using lot.remainingQuantity?", "YES (FIXED) →", allocatedToLots.toFixed(8));
-  console.log("  3. What SHOULD holding.quantity be?", "sum of remainingQuantity →", sumLotRemaining.toFixed(8));
-  
-  console.log("\n⚠️ ISSUE ANALYSIS:");
-  if (unallocated < -0.00000001) {
-    console.log("  ❌ NEGATIVE UNALLOCATED:", unallocated.toFixed(8));
-    console.log("  This means: sum(lot.remainingQuantity) > holding.quantity");
-    console.log("  Likely cause: Lots were added but holding.quantity wasn't updated");
-  } else if (Math.abs(holdingQty - sumLotRemaining) > 0.00000001) {
-    console.log("  ⚠️ MISMATCH: holding.quantity ≠ sum(lot.remainingQuantity)");
-    console.log("  Difference:", (holdingQty - sumLotRemaining).toFixed(8));
-    console.log("  Stored holding:", holdingQty.toFixed(8));
-    console.log("  Should be:", sumLotRemaining.toFixed(8));
-  } else {
-    console.log("  ✅ SYNC OK: holding.quantity matches sum(lot.remainingQuantity)");
-  }
-  
-  console.log("\n✅ CORRECT BEHAVIOR:");
-  console.log("  After a sale is recorded:");
-  console.log("    - lot.remainingQuantity should be reduced");
-  console.log("    - holding.quantity should be reduced by same amount");
-  console.log("    - Both should stay in sync!");
-  console.log("==============================");
-
   const createLot = useMutation({
     mutationFn: async (data) => {
       const total = data.quantity * data.price_per_unit;
@@ -446,21 +386,6 @@ export default function ManageLotsDialog({ open, onClose, holding, btcPrice }) {
             </Button>
           )}
 
-          {/* TEST BUTTON - Temporary manual sync trigger */}
-          <div className="pt-4 border-t border-zinc-800">
-            <Button
-              variant="outline"
-              onClick={async () => {
-                console.log("🧪 TEST: Manual sync triggered");
-                await syncHoldingFromLots(holding.ticker, holding.account_id || null);
-                queryClient.invalidateQueries({ queryKey: ['holdings'] });
-                queryClient.invalidateQueries({ queryKey: ['transactions'] });
-              }}
-              className="w-full bg-purple-500/10 border-purple-500/50 text-purple-400 hover:bg-purple-500/20"
-            >
-              🧪 TEST: Sync Holdings from Lots
-            </Button>
-          </div>
         </div>
       </DialogContent>
     </Dialog>

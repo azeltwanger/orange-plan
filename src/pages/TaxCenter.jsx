@@ -197,26 +197,7 @@ export default function TaxCenter() {
     queryFn: () => base44.entities.Transaction.list('-date'),
   });
 
-  // === DEBUG TRANSACTION CHECK BY ACCOUNT ===
-  React.useEffect(() => {
-    if (allTransactions.length > 0) {
-      console.log("=== TRANSACTION CHECK BY ACCOUNT ===");
-      const fidelityAccountId = "693876e66650155eff19fbd4";
-      const fidelityTxs = allTransactions.filter(t => t.account_id === fidelityAccountId);
-      console.log("Fidelity transactions:", fidelityTxs.length);
-      console.log("Fidelity sample:", fidelityTxs.slice(0, 3));
 
-      // Also check for orphaned transactions (no account_id)
-      const orphaned = allTransactions.filter(t => !t.account_id);
-      console.log("Orphaned transactions (no account_id):", orphaned.length);
-
-      // Check all unique account_ids in transactions
-      const accountIds = [...new Set(allTransactions.map(t => t.account_id))];
-      console.log("Unique account_ids in transactions:", accountIds);
-      console.log("=================================");
-    }
-  }, [allTransactions]);
-  // === END DEBUG ===
 
   // Filter transactions by selected year (for tax calculations only, not display)
   const transactionsForTaxCalc = allTransactions.filter(t => {
@@ -248,15 +229,8 @@ export default function TaxCenter() {
 
   const createTx = useMutation({
     mutationFn: async (data) => {
-      console.log("\n=== CREATE TRANSACTION MUTATION CALLED ===");
-      console.log("Received transaction data:", data);
-      console.log("Transaction type:", data.type);
-      console.log("Database table: Transaction entity");
-      
       const total = data.quantity * data.price_per_unit;
       const lotId = `${data.asset_ticker}-${Date.now()}`;
-      
-      console.log("Checking for duplicate transactions...");
       
       // Check for duplicate transaction
       const existingDuplicate = allTransactions.find(t => 
@@ -268,11 +242,8 @@ export default function TaxCenter() {
       );
       
       if (existingDuplicate) {
-        console.log("❌ DUPLICATE FOUND:", existingDuplicate);
         throw new Error('Duplicate transaction already exists');
       }
-      
-      console.log("✓ No duplicate found, proceeding...");
 
       // Get proper account type from selected account if account_id is set
       let finalAccountType = 'taxable';
@@ -310,34 +281,21 @@ export default function TaxCenter() {
 
       const tx = await base44.entities.Transaction.create(txData);
 
-      // SYNC HOLDINGS FROM LOTS (source of truth) - handles both buys and sells
-      console.log("🔄 Syncing holdings from lots after transaction creation...");
+      // Sync holdings from lots (source of truth)
       await syncHoldingFromLots(data.asset_ticker, data.account_id || null);
 
       return tx;
     },
-    onSuccess: (result) => {
-      console.log("\n=== TRANSACTION MUTATION SUCCESS ===");
-      console.log("onSuccess called with result:", result);
-      console.log("Invalidating queries: transactions, holdings");
-      
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['holdings'] });
-      
-      console.log("Closing forms and resetting state...");
       setFormOpen(false);
       setSaleFormOpen(false);
       resetForm();
-      
-      console.log("=== SALE SUBMISSION COMPLETE ===\n");
     },
     onError: (error) => {
-      console.error("\n❌ === TRANSACTION MUTATION ERROR ===");
-      console.error("Error object:", error);
-      console.error("Error message:", error.message);
-      console.error("Error stack:", error.stack);
+      console.error('Transaction error:', error);
       alert(error.message || 'Failed to create transaction');
-      console.log("=== SALE SUBMISSION FAILED ===\n");
     },
   });
 
@@ -365,51 +323,30 @@ export default function TaxCenter() {
   const deleteTx = useMutation({
     mutationFn: async (id) => {
       const tx = allTransactions.find(t => t.id === id);
-      console.log("\n=== DELETING TRANSACTION ===");
-      console.log("Type:", tx?.type);
-      console.log("Asset:", tx?.asset_ticker);
-      console.log("Quantity:", tx?.quantity);
       
       if (tx && tx.type === 'sell') {
         // REVERSE THE SALE - restore tax lots
-        console.log("🔄 Reversing sale transaction...");
-        
-        // Restore tax lots by adding back the sold quantity
         if (tx.lots_used && tx.lots_used.length > 0) {
-          console.log("📦 Restoring", tx.lots_used.length, "tax lots:");
-          
           for (const lotUsage of tx.lots_used) {
             const buyTx = allTransactions.find(t => t.id === lotUsage.lot_id);
             if (buyTx) {
               const currentRemaining = buyTx.remaining_quantity ?? buyTx.quantity;
               const newRemaining = currentRemaining + lotUsage.quantity_sold;
-              
-              console.log(`  Lot ${buyTx.id}:`, {
-                before: currentRemaining,
-                restored: lotUsage.quantity_sold,
-                after: newRemaining
-              });
-              
               await base44.entities.Transaction.update(buyTx.id, {
                 remaining_quantity: newRemaining
               });
             }
           }
-          console.log("✅ Tax lots restored");
         }
       }
       
       // Delete the transaction (buy or sell)
       await base44.entities.Transaction.delete(id);
-      console.log("=== TRANSACTION DELETED ===");
       
-      // SYNC HOLDINGS FROM LOTS (source of truth) - recalculates holding from remaining lots
+      // Sync holdings from lots (source of truth)
       if (tx) {
-        console.log("🔄 Syncing holdings from lots after transaction deletion...");
         await syncHoldingFromLots(tx.asset_ticker, tx.account_id || null);
       }
-      
-      console.log("=== TRANSACTION DELETED & REVERSED ===\n");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
@@ -612,39 +549,6 @@ export default function TaxCenter() {
   // Build tax lots from buy transactions, accounting for sales
   // Only include transactions from TAXABLE accounts (exclude 401k, IRA, etc.)
   const taxLots = useMemo(() => {
-    console.log("=== TAX LOTS RECALCULATION ===");
-    console.log("All transactions count:", allTransactions.length);
-    
-    // === DEBUG START ===
-    console.log("=== DEBUG TAX LOTS FILTERING ===");
-    
-    const btcBuys = allTransactions.filter(t => t.asset_ticker === 'BTC' && t.type === 'buy');
-    console.log("BTC buy transactions:", btcBuys.length);
-    
-    // Show account_type distribution
-    const typeDistribution = {};
-    btcBuys.forEach(tx => {
-      const type = tx.account_type || 'NULL';
-      typeDistribution[type] = (typeDistribution[type] || 0) + 1;
-    });
-    console.log("Account type distribution:", typeDistribution);
-    
-    // Check isTaxableTransaction results
-    const taxAdvantaged = ['traditional_401k', 'roth_401k', 'traditional_ira', 'roth_ira', 'hsa', '529'];
-    const passingFilter = btcBuys.filter(tx => {
-      const accountType = tx.account_type || 'taxable';
-      return !taxAdvantaged.includes(accountType);
-    });
-    console.log("Pass isTaxableTransaction:", passingFilter.length);
-    
-    // Sample transactions
-    console.log("Sample BTC txs:", btcBuys.slice(0, 3).map(tx => ({
-      account_type: tx.account_type,
-      account_id: tx.account_id
-    })));
-    
-    console.log("=== END DEBUG ===");
-    // === DEBUG END ===
     
     // Group by asset ticker to process each separately
     const allTickers = [...new Set(allTransactions.map(t => t.asset_ticker))];
@@ -653,8 +557,6 @@ export default function TaxCenter() {
     for (const ticker of allTickers) {
       const buyTxs = allTransactions.filter(t => t.type === 'buy' && t.asset_ticker === ticker && isTaxableTransaction(t));
       const sellTxs = allTransactions.filter(t => t.type === 'sell' && t.asset_ticker === ticker && isTaxableTransaction(t));
-      
-      console.log(`Processing ${ticker}: ${buyTxs.length} buys, ${sellTxs.length} sells`);
       
       // Calculate total sold quantity for this ticker
       const totalSold = sellTxs.reduce((sum, t) => sum + (t.quantity || 0), 0);
@@ -678,39 +580,11 @@ export default function TaxCenter() {
         remainingSold -= soldFromThisLot;
       }
       
-      // === DEBUG LOT CREATION - DETAILED ===
-      if (tx.asset_ticker === 'BTC') {
-        console.log("🔍 BTC Lot iteration DETAILED:", {
-          txId: tx.id,
-          date: tx.date,
-          raw_quantity: tx.quantity,
-          raw_remaining_quantity: tx.remaining_quantity,
-          calculated_remainingQuantity: remainingQuantity,
-          originalQuantity: originalQuantity,
-          willBeFilteredOut: remainingQuantity <= 0,
-          reason: remainingQuantity <= 0 ? "remainingQuantity is <= 0" : "OK"
-        });
-      }
-      // === END DEBUG ===
-      
       // Get current price for this ticker
       const tickerPrice = pricesByTicker[ticker] || (tx.price_per_unit || 0);
       const currentValue = remainingQuantity * tickerPrice;
       const perUnitCost = tx.price_per_unit || 0;
       const costBasis = remainingQuantity * perUnitCost;
-      
-      // DEBUG: Log if price is suspiciously high
-      if (perUnitCost > 150000) {
-        console.log("⚠️ HIGH PRICE DETECTED:", {
-          ticker,
-          txId: tx.id,
-          date: tx.date,
-          pricePerUnit: perUnitCost,
-          quantity: tx.quantity,
-          remainingQuantity,
-          rawTx: tx
-        });
-      }
       const unrealizedGain = currentValue - costBasis;
       const txDate = tx.date ? new Date(tx.date) : new Date();
       const daysSincePurchase = isNaN(txDate.getTime()) ? 0 : differenceInDays(new Date(), txDate);
@@ -743,32 +617,8 @@ export default function TaxCenter() {
         };
       }).filter(lot => lot.remainingQuantity > 0);
       
-      // === DEBUG AFTER FILTER ===
-      if (ticker === 'BTC') {
-        console.log("BTC lots BEFORE filter:", sortedBuys.length);
-        console.log("BTC lots AFTER filter:", tickerLots.length);
-        console.log("Sample lot remainingQuantity values:", sortedBuys.slice(0, 5).map(tx => ({
-          id: tx.id,
-          remaining_quantity: tx.remaining_quantity,
-          quantity: tx.quantity,
-          calculated: tx.remaining_quantity !== undefined ? tx.remaining_quantity : tx.quantity
-        })));
-      }
-      // === END DEBUG ===
-      
       allLots.push(...tickerLots);
     }
-    
-    console.log("=== TAX LOTS RESULT ===");
-    console.log("Total lots created:", allLots.length);
-    console.log("BTC lots:", allLots.filter(l => l.asset_ticker === 'BTC').map(l => ({
-      id: l.id,
-      date: l.date,
-      pricePerUnit: l.price_per_unit,
-      remainingQty: l.remainingQuantity,
-      costBasis: l.costBasis
-    })));
-    console.log("========================");
     
     return allLots;
   }, [allTransactions, pricesByTicker, holdings]);
@@ -802,11 +652,6 @@ export default function TaxCenter() {
 
     // CRITICAL FIX: Filter tax lots to only include the asset being sold
     const lotsForAsset = taxLots.filter(lot => lot.asset_ticker === assetTicker);
-
-    console.log(`=== SALE CALCULATION FOR ${assetTicker} ===`);
-    console.log(`All tax lots count: ${taxLots.length}`);
-    console.log(`Lots for ${assetTicker}: ${lotsForAsset.length}`);
-    console.log(`Method: ${method}`);
 
     // Handle Average Cost method
     if (method === 'AVG') {
@@ -866,27 +711,6 @@ export default function TaxCenter() {
     else {
       const lotsToUse = sortLotsByMethod(lotsForAsset, method);
 
-      if (method === 'HIFO') {
-        console.log("=== HIFO DEBUG ===");
-        console.log(`Selling ${assetTicker}`);
-        console.log("All tax lots (all assets):", taxLots.map(l => ({
-          ticker: l.asset_ticker,
-          date: l.date,
-          pricePerUnit: l.price_per_unit,
-          remainingQty: l.remainingQuantity
-        })));
-        console.log(`Filtered to ${assetTicker} only:`, lotsForAsset.map(l => ({
-          date: l.date,
-          pricePerUnit: l.price_per_unit,
-          remainingQty: l.remainingQuantity
-        })));
-        console.log("After HIFO sort (highest first):", lotsToUse.map(l => ({
-          date: l.date,
-          pricePerUnit: l.price_per_unit,
-          remainingQty: l.remainingQuantity
-        })));
-      }
-
       for (const lot of lotsToUse) {
         if (remainingQty <= 0) break;
         const qtyFromLot = Math.min(remainingQty, lot.remainingQuantity);
@@ -895,24 +719,6 @@ export default function TaxCenter() {
         else hasShortTerm = true;
         lotsUsed.push({ ...lot, qtyUsed: qtyFromLot });
         remainingQty -= qtyFromLot;
-
-        if (method === 'HIFO') {
-          console.log("Selected lot:", {
-            ticker: lot.asset_ticker,
-            qtyUsed: qtyFromLot,
-            pricePerUnit: lot.price_per_unit,
-            costBasisPerBTC: lot.price_per_unit,
-            totalFromThisLot: qtyFromLot * (lot.price_per_unit || 0)
-          });
-        }
-      }
-
-      if (method === 'HIFO') {
-        console.log("HIFO Summary:", {
-          totalCostBasis: totalCostBasis.toFixed(2),
-          lotsUsedCount: lotsUsed.length
-        });
-        console.log("==================");
       }
     }
 
@@ -989,10 +795,7 @@ export default function TaxCenter() {
     e.preventDefault();
     const outcome = saleOutcomes[saleForm.lot_method];
     
-    console.log("\n=== SALE SUBMISSION START ===");
-    
     if (!outcome || !outcome.isComplete) {
-      console.log("❌ SALE BLOCKED: Incomplete outcome");
       return;
     }
 
@@ -1007,14 +810,6 @@ export default function TaxCenter() {
       price_per_unit: lot.price_per_unit,
       purchase_date: lot.date
     }));
-
-    console.log("📊 SALE DETAILS:");
-    console.log("  Asset:", saleForm.asset_ticker);
-    console.log("  Quantity:", parseFloat(saleForm.quantity));
-    console.log("  Account:", accountId);
-    console.log("  Lots used:", lotsUsed.length);
-    console.log("  Total cost basis:", outcome.totalCostBasis);
-    console.log("  Realized gain:", outcome.realizedGain);
 
     const transactionData = {
       type: 'sell',
@@ -1031,29 +826,11 @@ export default function TaxCenter() {
       notes: `Method: ${saleForm.lot_method}. Fee: $${saleForm.fee || 0}`,
     };
 
-    console.log("💾 Saving transaction with lots_used for reversal");
     createTx.mutate(transactionData);
   };
 
   // Tax calculations - filtered by selected year
-  console.log("=== REALIZED GAINS DEBUG ===");
-  console.log("All transactions:", allTransactions.length);
-  console.log("Selected year:", selectedYear);
-  console.log("Transactions for tax calc:", transactionsForTaxCalc.length);
-  console.log("Sales only (all):", allTransactions.filter(t => t.type === 'sell' || t.type === 'sale').map(t => ({
-    id: t.id,
-    type: t.type,
-    date: t.date,
-    year: new Date(t.date).getFullYear(),
-    asset: t.asset_ticker,
-    qty: t.quantity,
-    gain_loss: t.realized_gain_loss,
-    holding_period: t.holding_period
-  })));
-  console.log("2025 sales:", transactionsForTaxCalc.filter(t => t.type === 'sell' || t.type === 'sale'));
-  
   const sellTxs = transactionsForTaxCalc.filter(t => t.type === 'sell');
-  console.log("Filtered sellTxs:", sellTxs);
   
   // Separate gains from losses for proper IRS netting
   const shortTermSales = sellTxs.filter(t => t.holding_period === 'short_term');
@@ -1067,15 +844,6 @@ export default function TaxCenter() {
   const netShortTerm = shortTermGains - shortTermLosses;
   const netLongTerm = longTermGains - longTermLosses;
   const totalRealized = netShortTerm + netLongTerm;
-  
-  console.log("Short-term gains:", shortTermGains);
-  console.log("Short-term losses:", shortTermLosses);
-  console.log("Net short-term:", netShortTerm);
-  console.log("Long-term gains:", longTermGains);
-  console.log("Long-term losses:", longTermLosses);
-  console.log("Net long-term:", netLongTerm);
-  console.log("Total realized:", totalRealized);
-  console.log("============================");
   
   // Total assets from taxable holdings (grouped by ticker)
   const totalAssetsByTicker = taxLots.reduce((acc, lot) => {
@@ -1756,14 +1524,7 @@ export default function TaxCenter() {
                 <p className="text-sm text-zinc-500">{taxLots.length} taxable lots across {Object.keys(totalAssetsByTicker).length} assets</p>
               </div>
               <div className="flex gap-2">
-                <Select value={lotStatusFilter} onValueChange={(val) => {
-                  console.log("=== LOT FILTER DEBUG ===");
-                  console.log("Filter value:", val);
-                  console.log("Total lots:", taxLots.length);
-                  console.log("Lots with status='fully_sold':", taxLots.filter(l => l.status === 'fully_sold').length);
-                  console.log("Lots with remainingQuantity=0:", taxLots.filter(l => l.remainingQuantity === 0).length);
-                  setLotStatusFilter(val);
-                }}>
+                <Select value={lotStatusFilter} onValueChange={setLotStatusFilter}>
                   <SelectTrigger className="w-36 bg-zinc-800 border-zinc-700 h-9 text-sm">
                     <SelectValue />
                   </SelectTrigger>
@@ -1804,9 +1565,6 @@ export default function TaxCenter() {
                         return true;
                     }
                   });
-
-                  console.log("Filtered result count:", filtered.length);
-                  console.log("========================");
 
                   return filtered.sort((a, b) => {
                     const dateA = new Date(a.date);
