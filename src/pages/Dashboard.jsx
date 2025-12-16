@@ -176,53 +176,64 @@ export default function Dashboard() {
     queryClient.invalidateQueries({ queryKey: ['holdings'] });
   };
 
-  // DELETE NULL TRANSACTIONS
+  // DELETE ALL TRANSACTIONS & HOLDINGS (for clean slate)
   const [isDeleting, setIsDeleting] = useState(false);
-  
-  const deleteNullTransactions = async () => {
+  const [deleteProgress, setDeleteProgress] = useState('');
+
+  const deleteAllTransactions = async () => {
+    if (!window.confirm(
+      '⚠️ DELETE ALL TRANSACTIONS?\n\n' +
+      'This will delete ALL transactions in the system.\n' +
+      'You will need to re-import your CSVs.\n\n' +
+      'This cannot be undone.'
+    )) {
+      return;
+    }
+    
     setIsDeleting(true);
-    console.log("=== DELETING NULL TRANSACTIONS ===");
+    setDeleteProgress('Starting...');
     
     try {
-      const allTransactions = await base44.entities.Transaction.list();
-      const nullTransactions = allTransactions.filter(t => !t.account_id);
+      const transactions = await base44.entities.Transaction.list();
+      console.log(`Deleting ${transactions.length} transactions...`);
       
-      console.log(`Found ${nullTransactions.length} transactions without account_id`);
+      // Delete in small batches with longer delays
+      const batchSize = 10;
+      const delayMs = 1000; // 1 second between batches
       
-      if (nullTransactions.length === 0) {
-        alert("No null transactions found.");
-        setIsDeleting(false);
-        return;
-      }
-      
-      if (!window.confirm(`Delete ${nullTransactions.length} orphaned transactions without an account?`)) {
-        setIsDeleting(false);
-        return;
-      }
-      
-      // Delete one by one with better error handling
-      let deleted = 0;
-      for (const tx of nullTransactions) {
-        try {
+      for (let i = 0; i < transactions.length; i += batchSize) {
+        const batch = transactions.slice(i, i + batchSize);
+        
+        // Delete batch sequentially to avoid overwhelming API
+        for (const tx of batch) {
           await base44.entities.Transaction.delete(tx.id);
-          deleted++;
-          if (deleted % 10 === 0) {
-            console.log(`Deleted ${deleted}/${nullTransactions.length}...`);
-          }
-        } catch (err) {
-          console.error(`Failed to delete transaction ${tx.id}:`, err);
+        }
+        
+        const progress = Math.min(i + batchSize, transactions.length);
+        setDeleteProgress(`Deleted ${progress} / ${transactions.length}`);
+        console.log(`Deleted ${progress} / ${transactions.length}`);
+        
+        // Wait between batches
+        if (i + batchSize < transactions.length) {
+          await new Promise(resolve => setTimeout(resolve, delayMs));
         }
       }
       
-      console.log(`✅ Deleted ${deleted} of ${nullTransactions.length} null transactions`);
-      alert(`Deleted ${deleted} transactions. Refreshing...`);
-      queryClient.invalidateQueries({ queryKey: ['transactions'] });
-      queryClient.invalidateQueries({ queryKey: ['holdings'] });
+      // Also delete all holdings
+      setDeleteProgress('Deleting holdings...');
+      const holdings = await base44.entities.Holding.list();
+      for (const h of holdings) {
+        await base44.entities.Holding.delete(h.id);
+      }
+      
+      setDeleteProgress('Complete!');
+      alert('All transactions and holdings deleted. Refresh and re-import your CSVs.');
       window.location.reload();
       
     } catch (error) {
-      console.error("Error:", error);
-      alert("Error: " + error.message);
+      console.error('Delete error:', error);
+      setDeleteProgress(`Error: ${error.message}`);
+      alert(`Error: ${error.message}\n\nWait a minute and try again.`);
     } finally {
       setIsDeleting(false);
     }
@@ -579,19 +590,17 @@ export default function Dashboard() {
           </Button>
           <Button
             variant="outline"
-            onClick={deleteNullTransactions}
+            onClick={deleteAllTransactions}
             disabled={isDeleting}
-            className="bg-red-600 border-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+            className="bg-red-800 border-red-800 text-white hover:bg-red-900 disabled:opacity-50"
           >
-            {isDeleting ? (
-              <>
-                <span className="animate-spin mr-2">⏳</span>
-                Deleting...
-              </>
-            ) : (
-              <>🗑️ Delete Null Transactions</>
-            )}
+            {isDeleting ? '⏳ Deleting...' : '🗑️ Delete All & Start Fresh'}
           </Button>
+          {deleteProgress && (
+            <span className="text-sm text-zinc-400 px-2 py-1 bg-zinc-800 rounded">
+              {deleteProgress}
+            </span>
+          )}
           <Button
             variant="outline"
             onClick={assignOrphanedLotsToAccount}
