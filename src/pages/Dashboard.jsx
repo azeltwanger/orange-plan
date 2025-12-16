@@ -261,6 +261,7 @@ export default function Dashboard() {
   const [editingAccount, setEditingAccount] = useState(null);
   const [csvImportOpen, setCsvImportOpen] = useState(false);
   const [showAllLiabilities, setShowAllLiabilities] = useState(false);
+  const [isRepairing, setIsRepairing] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: holdings = [], isLoading: holdingsLoading } = useQuery({
