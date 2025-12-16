@@ -121,7 +121,7 @@ export default function Dashboard() {
         sum + (lot.remaining_quantity ?? lot.quantity ?? 0), 0
       );
       
-      console.log(`${holding.ticker} in account ${holding.account_id}: ${holding.quantity} -> ${correctQty} (${lotsForHolding.length} lots)`);
+      console.log(`${holding.ticker} in account ${holding.account_id}: ${holding.quantity} -> ${correctQty} (${lotsForHoldings.length} lots)`);
       
       await base44.entities.Holding.update(holding.id, {
         quantity: correctQty
@@ -131,6 +131,126 @@ export default function Dashboard() {
     console.log("=== REPAIR COMPLETE ===");
     alert("Holdings repaired! Refresh the page.");
     queryClient.invalidateQueries({ queryKey: ['holdings'] });
+  };
+
+  // ONE-TIME FIX: Assign orphaned BTC lots to Cold Storage BTC account
+  const assignOrphanedLotsToAccount = async () => {
+    setIsRepairing(true);
+    console.log("=== ASSIGNING ORPHANED BTC LOTS ===");
+    
+    try {
+      // Get all accounts
+      const accounts = await base44.entities.Account.list();
+      console.log("Available accounts:", accounts.map(a => ({ id: a.id, name: a.name, type: a.account_type })));
+      
+      // Find the Cold Storage BTC account (taxable)
+      const coldStorageAccount = accounts.find(a => 
+        a.name.toLowerCase().includes('cold storage') && 
+        !a.account_type?.includes('ira') &&
+        !a.account_type?.includes('401k')
+      );
+      
+      if (!coldStorageAccount) {
+        alert("Could not find 'Cold Storage BTC' taxable account. Available accounts:\n\n" + 
+          accounts.map(a => `${a.name} (${a.account_type})`).join('\n'));
+        setIsRepairing(false);
+        return;
+      }
+      
+      console.log("Target account:", coldStorageAccount.id, coldStorageAccount.name);
+      
+      // Get all transactions
+      const transactions = await base44.entities.Transaction.list();
+      
+      // Find BTC buy transactions with NULL/undefined account_id
+      const orphanedBtcLots = transactions.filter(tx => 
+        tx.asset_ticker === 'BTC' && 
+        tx.type === 'buy' &&
+        !tx.account_id
+      );
+      
+      console.log("Orphaned BTC lots found:", orphanedBtcLots.length);
+      
+      if (orphanedBtcLots.length === 0) {
+        alert("No orphaned BTC lots found. All transactions already have an account assigned.");
+        setIsRepairing(false);
+        return;
+      }
+      
+      // Calculate total BTC in orphaned lots
+      const totalOrphanedBtc = orphanedBtcLots.reduce((sum, tx) => 
+        sum + (tx.remaining_quantity ?? tx.quantity ?? 0), 0
+      );
+      
+      console.log("Total BTC in orphaned lots:", totalOrphanedBtc);
+      
+      // Confirm with user
+      const confirmed = window.confirm(
+        `Found ${orphanedBtcLots.length} orphaned BTC transactions (${totalOrphanedBtc.toFixed(8)} BTC).\n\n` +
+        `Assign them to "${coldStorageAccount.name}"?\n\n` +
+        `This will link these transactions to the ${coldStorageAccount.name} account.`
+      );
+      
+      if (!confirmed) {
+        setIsRepairing(false);
+        return;
+      }
+      
+      // Update each orphaned transaction
+      let updated = 0;
+      for (const tx of orphanedBtcLots) {
+        await base44.entities.Transaction.update(tx.id, {
+          account_id: coldStorageAccount.id,
+          account_type: 'taxable'
+        });
+        updated++;
+        
+        if (updated % 50 === 0) {
+          console.log(`Progress: ${updated}/${orphanedBtcLots.length} transactions updated...`);
+        }
+      }
+      
+      console.log(`✅ Updated ${updated} transactions with account_id: ${coldStorageAccount.id}`);
+      
+      // Now update the Cold Storage BTC holding to match
+      const holdings = await base44.entities.Holding.list();
+      const coldStorageHolding = holdings.find(h => 
+        h.ticker === 'BTC' && 
+        h.account_id === coldStorageAccount.id
+      );
+      
+      if (coldStorageHolding) {
+        // Recalculate quantity from all lots now assigned to this account
+        const updatedTransactions = await base44.entities.Transaction.list();
+        const lotsForAccount = updatedTransactions.filter(tx =>
+          tx.asset_ticker === 'BTC' &&
+          tx.type === 'buy' &&
+          tx.account_id === coldStorageAccount.id
+        );
+        
+        const correctQty = lotsForAccount.reduce((sum, tx) => 
+          sum + (tx.remaining_quantity ?? tx.quantity ?? 0), 0
+        );
+        
+        await base44.entities.Holding.update(coldStorageHolding.id, {
+          quantity: correctQty
+        });
+        
+        console.log(`✅ Updated Cold Storage BTC holding to ${correctQty} BTC`);
+      }
+      
+      console.log("=== REPAIR COMPLETE ===");
+      alert(`Successfully assigned ${updated} transactions to ${coldStorageAccount.name}.\n\nRefresh the page to see updated balances.`);
+      
+      // Refresh the page data
+      window.location.reload();
+      
+    } catch (error) {
+      console.error("Repair failed:", error);
+      alert("Error during repair: " + error.message);
+    } finally {
+      setIsRepairing(false);
+    }
   };
 
   const currentPrice = btcPrice || 97000;
@@ -380,6 +500,21 @@ export default function Dashboard() {
             className="bg-rose-600 border-rose-600 text-white hover:bg-rose-700"
           >
             🔧 Repair Holdings
+          </Button>
+          <Button
+            variant="outline"
+            onClick={assignOrphanedLotsToAccount}
+            disabled={isRepairing}
+            className="bg-orange-600 border-orange-600 text-white hover:bg-orange-700 disabled:opacity-50"
+          >
+            {isRepairing ? (
+              <>
+                <span className="animate-spin mr-2">⏳</span>
+                Assigning...
+              </>
+            ) : (
+              <>🔗 Assign Orphaned Lots</>
+            )}
           </Button>
           <Button
             variant="outline"
