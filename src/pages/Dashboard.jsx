@@ -165,7 +165,7 @@ export default function Dashboard() {
         sum + (lot.remaining_quantity ?? lot.quantity ?? 0), 0
       );
       
-      console.log(`${holding.ticker} in account ${holding.account_id}: ${holding.quantity} -> ${correctQty} (${lotsForHoldings.length} lots)`);
+      console.log(`${holding.ticker} in account ${holding.account_id}: ${holding.quantity} -> ${correctQty} (${lotsForHolding.length} lots)`);
       
       await base44.entities.Holding.update(holding.id, {
         quantity: correctQty
