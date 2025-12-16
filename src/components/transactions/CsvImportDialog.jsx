@@ -508,27 +508,64 @@ export default function CsvImportDialog({ open, onClose }) {
       const successfulTransactions = processedTransactions;
       setImportStats(stats);
 
-      // Sync Holdings - aggregate by ticker (only for successful transactions)
-      const holdingUpdates = {};
-      for (const tx of successfulTransactions) {
-        const ticker = tx.asset_ticker;
-        if (!holdingUpdates[ticker]) {
-          holdingUpdates[ticker] = { quantity: 0, costBasis: 0, lastPrice: tx.price_per_unit };
-        }
+      // After all transactions are created, create/update holdings
+      console.log("=== CREATING/UPDATING HOLDINGS ===");
+
+      // Group imported transactions by ticker
+      const holdingsByTicker = {};
+      for (const tx of transactionsToCreate) {
         if (tx.type === 'buy') {
-          holdingUpdates[ticker].quantity += tx.quantity;
-          holdingUpdates[ticker].costBasis += tx.cost_basis || (tx.quantity * tx.price_per_unit);
-        } else if (tx.type === 'sell') {
-          holdingUpdates[ticker].quantity -= tx.quantity;
-          // Cost basis reduces proportionally on sell (simplified)
+          if (!holdingsByTicker[tx.asset_ticker]) {
+            holdingsByTicker[tx.asset_ticker] = {
+              ticker: tx.asset_ticker,
+              quantity: 0,
+              cost_basis_total: 0
+            };
+          }
+          holdingsByTicker[tx.asset_ticker].quantity += tx.quantity || 0;
+          holdingsByTicker[tx.asset_ticker].cost_basis_total += (tx.quantity || 0) * (tx.price_per_unit || 0);
         }
-        holdingUpdates[ticker].lastPrice = tx.price_per_unit;
       }
 
-      // SYNC HOLDINGS FROM LOTS (source of truth)
-      // This replaces manual holding updates - lots are the source of truth
-      console.log("🔄 Syncing all holdings for account after CSV import...");
-      await syncAllHoldingsForAccount(finalAccountId || null);
+      console.log("Holdings to create/update:", holdingsByTicker);
+
+      // Get existing holdings for this account
+      const existingHoldings = await base44.entities.Holding.list();
+
+      for (const [ticker, data] of Object.entries(holdingsByTicker)) {
+        // Check if holding already exists for this ticker AND account
+        const existingHolding = existingHoldings.find(h => 
+          h.ticker === ticker && h.account_id === finalAccountId
+        );
+
+        if (existingHolding) {
+          // Update existing holding - ADD to current quantity
+          const newQty = (existingHolding.quantity || 0) + data.quantity;
+          const newCostBasis = (existingHolding.cost_basis_total || 0) + data.cost_basis_total;
+
+          await base44.entities.Holding.update(existingHolding.id, {
+            quantity: newQty,
+            cost_basis_total: newCostBasis
+          });
+          console.log(`Updated holding ${ticker}: ${existingHolding.quantity} -> ${newQty}`);
+
+        } else {
+          // Create new holding
+          await base44.entities.Holding.create({
+            ticker: ticker,
+            asset_name: ticker === 'BTC' ? 'Bitcoin' : ticker,
+            asset_type: 'crypto',
+            quantity: data.quantity,
+            cost_basis_total: data.cost_basis_total,
+            account_id: finalAccountId,
+            account_type: legacyAccountType,
+            tax_treatment: taxTreatment
+          });
+          console.log(`Created holding ${ticker}: ${data.quantity}`);
+        }
+      }
+
+      console.log("=== HOLDINGS CREATED/UPDATED ===");
 
       return { count: successfulTransactions.length, stats };
       },
