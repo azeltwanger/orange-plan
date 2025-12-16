@@ -342,10 +342,18 @@ export default function TaxCenter() {
   });
 
   const updateTx = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.Transaction.update(id, {
-      ...data,
-      total_value: data.quantity * data.price_per_unit,
-    }),
+    mutationFn: async ({ id, data }) => {
+      const tx = allTransactions.find(t => t.id === id);
+      await base44.entities.Transaction.update(id, {
+        ...data,
+        total_value: data.quantity * data.price_per_unit,
+      });
+      
+      // Sync holdings after update
+      if (tx) {
+        await syncHoldingFromLots(tx.asset_ticker, tx.account_id || null);
+      }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       setFormOpen(false);
@@ -413,6 +421,15 @@ export default function TaxCenter() {
     mutationFn: async (ids) => {
       console.log(`Deleting ${ids.length} transactions...`);
       
+      // Track affected assets for sync
+      const affectedAssets = new Set();
+      ids.forEach(id => {
+        const tx = allTransactions.find(t => t.id === id);
+        if (tx) {
+          affectedAssets.add(`${tx.asset_ticker}|${tx.account_id || ''}`);
+        }
+      });
+      
       // Delete in small batches with delays to avoid rate limits
       const batchSize = 10;
       const delayMs = 1000; // 1 second between batches
@@ -434,6 +451,15 @@ export default function TaxCenter() {
         }
       }
       
+      // Sync holdings for all affected tickers/accounts
+      console.log("Syncing holdings for affected assets...");
+      for (const key of affectedAssets) {
+        const [ticker, accountId] = key.split('|');
+        if (ticker && accountId) {
+          await syncHoldingFromLots(ticker, accountId);
+        }
+      }
+      
       return ids.length;
     },
     onSuccess: (count) => {
@@ -445,8 +471,25 @@ export default function TaxCenter() {
 
   const bulkUpdateAccountType = useMutation({
     mutationFn: async ({ ids, accountType }) => {
+      // Track affected assets for sync
+      const affectedAssets = new Set();
+      ids.forEach(id => {
+        const tx = allTransactions.find(t => t.id === id);
+        if (tx) {
+          affectedAssets.add(`${tx.asset_ticker}|${tx.account_id || ''}`);
+        }
+      });
+      
       for (const id of ids) {
         await base44.entities.Transaction.update(id, { account_type: accountType });
+      }
+      
+      // Sync holdings for all affected tickers/accounts
+      for (const key of affectedAssets) {
+        const [ticker, accountId] = key.split('|');
+        if (ticker && accountId) {
+          await syncHoldingFromLots(ticker, accountId);
+        }
       }
     },
     onSuccess: () => {

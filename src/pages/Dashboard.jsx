@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, RefreshCw, Pencil, Trash2, Bitcoin, Package, Building2, Upload } from 'lucide-react';
 import CsvImportDialog from '@/components/transactions/CsvImportDialog';
 import useAssetPrices from '@/components/shared/useAssetPrices';
+import { syncHoldingFromLots } from '@/components/shared/syncHoldings';
 import { Button } from "@/components/ui/button";
 import NetWorthCard from '@/components/dashboard/NetWorthCard';
 import AssetCard from '@/components/dashboard/AssetCard';
@@ -290,31 +291,10 @@ export default function Dashboard() {
       
       console.log(`✅ Assigned ${orphanedLots.length} lots to ${coldStorageAccount.name}`);
       
-      // Update holding - calculate from ALL lots now in this account
-      const allTx = await base44.entities.Transaction.list();
-      const lotsInAccount = allTx.filter(tx =>
-        tx.asset_ticker === 'BTC' &&
-        tx.type === 'buy' &&
-        tx.account_id === coldStorageAccount.id
-      );
+      // Sync holdings from lots (source of truth)
+      await syncHoldingFromLots('BTC', coldStorageAccount.id);
       
-      // Sum from actual lots
-      const holdingQty = lotsInAccount.reduce((sum, tx) => 
-        sum + (tx.remaining_quantity ?? tx.quantity ?? 0), 0
-      );
-      
-      // Find and update the holding
-      const holdings = await base44.entities.Holding.list();
-      const holding = holdings.find(h => 
-        h.ticker === 'BTC' && h.account_id === coldStorageAccount.id
-      );
-      
-      if (holding) {
-        await base44.entities.Holding.update(holding.id, { quantity: holdingQty });
-        console.log(`✅ Updated holding to ${holdingQty} BTC (from ${lotsInAccount.length} lots)`);
-      }
-      
-      alert(`Done! Assigned ${orphanedLots.length} lots. Holding updated to ${holdingQty.toFixed(8)} BTC.\n\nRefresh the page.`);
+      alert(`Done! Assigned ${orphanedLots.length} lots. Holdings synced from lots.\n\nRefresh the page.`);
       window.location.reload();
       
     } catch (error) {
@@ -399,6 +379,13 @@ export default function Dashboard() {
             ...tx,
             holding_id: newHolding.id,
           });
+        }
+        
+        // Sync holdings from lots after creating transactions
+        const ticker = transactions[0].asset_ticker;
+        const accountId = newHolding.account_id;
+        if (ticker && accountId) {
+          await syncHoldingFromLots(ticker, accountId);
         }
       }
       return newHolding;

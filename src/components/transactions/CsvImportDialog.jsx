@@ -508,64 +508,20 @@ export default function CsvImportDialog({ open, onClose }) {
       const successfulTransactions = processedTransactions;
       setImportStats(stats);
 
-      // After all transactions are created, create/update holdings
-      console.log("=== CREATING/UPDATING HOLDINGS ===");
-
-      // Group imported transactions by ticker
-      const holdingsByTicker = {};
-      for (const tx of transactionsToCreate) {
-        if (tx.type === 'buy') {
-          if (!holdingsByTicker[tx.asset_ticker]) {
-            holdingsByTicker[tx.asset_ticker] = {
-              ticker: tx.asset_ticker,
-              quantity: 0,
-              cost_basis_total: 0
-            };
-          }
-          holdingsByTicker[tx.asset_ticker].quantity += tx.quantity || 0;
-          holdingsByTicker[tx.asset_ticker].cost_basis_total += (tx.quantity || 0) * (tx.price_per_unit || 0);
+      // After all transactions created, sync holdings from lots (source of truth)
+      console.log("=== SYNCING HOLDINGS FROM LOTS ===");
+      
+      // Get unique asset+account combinations from imported transactions
+      const uniqueAssets = [...new Set(transactionsToCreate.map(tx => `${tx.asset_ticker}|${tx.account_id || ''}`))];
+      
+      for (const key of uniqueAssets) {
+        const [ticker, accountId] = key.split('|');
+        if (ticker && accountId) {
+          await syncHoldingFromLots(ticker, accountId);
         }
       }
-
-      console.log("Holdings to create/update:", holdingsByTicker);
-
-      // Get existing holdings for this account
-      const existingHoldings = await base44.entities.Holding.list();
-
-      for (const [ticker, data] of Object.entries(holdingsByTicker)) {
-        // Check if holding already exists for this ticker AND account
-        const existingHolding = existingHoldings.find(h => 
-          h.ticker === ticker && h.account_id === finalAccountId
-        );
-
-        if (existingHolding) {
-          // Update existing holding - ADD to current quantity
-          const newQty = (existingHolding.quantity || 0) + data.quantity;
-          const newCostBasis = (existingHolding.cost_basis_total || 0) + data.cost_basis_total;
-
-          await base44.entities.Holding.update(existingHolding.id, {
-            quantity: newQty,
-            cost_basis_total: newCostBasis
-          });
-          console.log(`Updated holding ${ticker}: ${existingHolding.quantity} -> ${newQty}`);
-
-        } else {
-          // Create new holding
-          await base44.entities.Holding.create({
-            ticker: ticker,
-            asset_name: ticker === 'BTC' ? 'Bitcoin' : ticker,
-            asset_type: 'crypto',
-            quantity: data.quantity,
-            cost_basis_total: data.cost_basis_total,
-            account_id: finalAccountId,
-            account_type: legacyAccountType,
-            tax_treatment: taxTreatment
-          });
-          console.log(`Created holding ${ticker}: ${data.quantity}`);
-        }
-      }
-
-      console.log("=== HOLDINGS CREATED/UPDATED ===");
+      
+      console.log("=== SYNC COMPLETE ===");
 
       return { count: successfulTransactions.length, stats };
       },
