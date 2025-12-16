@@ -99,6 +99,42 @@ export default function Dashboard() {
     debugAllBtcData();
   }, []);
 
+  // ONE-TIME FIX: Repair all holdings to match their account's lots
+  const repairAllHoldings = async () => {
+    console.log("=== REPAIRING ALL HOLDINGS ===");
+    
+    const allTx = await base44.entities.Transaction.list();
+    const allHoldings = await base44.entities.Holding.list();
+    
+    for (const holding of allHoldings) {
+      if (!holding.ticker || !holding.account_id) {
+        console.log("⚠️ Skipping holding without ticker/account_id:", holding);
+        continue;
+      }
+      
+      // Get lots ONLY for this specific account
+      const lotsForHolding = allTx.filter(tx => 
+        tx.type === 'buy' &&
+        tx.asset_ticker === holding.ticker &&
+        tx.account_id === holding.account_id
+      );
+      
+      const correctQty = lotsForHolding.reduce((sum, lot) => 
+        sum + (lot.remaining_quantity ?? lot.quantity ?? 0), 0
+      );
+      
+      console.log(`${holding.ticker} in account ${holding.account_id}: ${holding.quantity} -> ${correctQty} (${lotsForHolding.length} lots)`);
+      
+      await base44.entities.Holding.update(holding.id, {
+        quantity: correctQty
+      });
+    }
+    
+    console.log("=== REPAIR COMPLETE ===");
+    alert("Holdings repaired! Refresh the page.");
+    queryClient.invalidateQueries({ queryKey: ['holdings'] });
+  };
+
   const currentPrice = btcPrice || 97000;
   const [formOpen, setFormOpen] = useState(false);
   const [editingHolding, setEditingHolding] = useState(null);
@@ -340,6 +376,13 @@ export default function Dashboard() {
               </>
             )}
           </div>
+          <Button
+            variant="outline"
+            onClick={repairAllHoldings}
+            className="bg-rose-600 border-rose-600 text-white hover:bg-rose-700"
+          >
+            🔧 Repair Holdings
+          </Button>
           <Button
             variant="outline"
             onClick={() => setCsvImportOpen(true)}
