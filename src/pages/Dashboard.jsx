@@ -177,7 +177,10 @@ export default function Dashboard() {
   };
 
   // DELETE NULL TRANSACTIONS
+  const [isDeleting, setIsDeleting] = useState(false);
+  
   const deleteNullTransactions = async () => {
+    setIsDeleting(true);
     console.log("=== DELETING NULL TRANSACTIONS ===");
     
     try {
@@ -188,33 +191,40 @@ export default function Dashboard() {
       
       if (nullTransactions.length === 0) {
         alert("No null transactions found.");
+        setIsDeleting(false);
         return;
       }
       
       if (!window.confirm(`Delete ${nullTransactions.length} orphaned transactions without an account?`)) {
+        setIsDeleting(false);
         return;
       }
       
-      // Delete in batches
-      const batchSize = 20;
-      for (let i = 0; i < nullTransactions.length; i += batchSize) {
-        const batch = nullTransactions.slice(i, i + batchSize);
-        await Promise.all(batch.map(t => base44.entities.Transaction.delete(t.id)));
-        console.log(`Deleted ${Math.min(i + batchSize, nullTransactions.length)} of ${nullTransactions.length}`);
-        
-        if (i + batchSize < nullTransactions.length) {
-          await new Promise(resolve => setTimeout(resolve, 500));
+      // Delete one by one with better error handling
+      let deleted = 0;
+      for (const tx of nullTransactions) {
+        try {
+          await base44.entities.Transaction.delete(tx.id);
+          deleted++;
+          if (deleted % 10 === 0) {
+            console.log(`Deleted ${deleted}/${nullTransactions.length}...`);
+          }
+        } catch (err) {
+          console.error(`Failed to delete transaction ${tx.id}:`, err);
         }
       }
       
-      console.log(`✅ Deleted ${nullTransactions.length} null transactions`);
-      alert(`Deleted ${nullTransactions.length} orphaned transactions. Refresh the page.`);
+      console.log(`✅ Deleted ${deleted} of ${nullTransactions.length} null transactions`);
+      alert(`Deleted ${deleted} transactions. Refreshing...`);
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['holdings'] });
+      window.location.reload();
       
     } catch (error) {
       console.error("Error:", error);
       alert("Error: " + error.message);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -570,9 +580,17 @@ export default function Dashboard() {
           <Button
             variant="outline"
             onClick={deleteNullTransactions}
-            className="bg-red-600 border-red-600 text-white hover:bg-red-700"
+            disabled={isDeleting}
+            className="bg-red-600 border-red-600 text-white hover:bg-red-700 disabled:opacity-50"
           >
-            🗑️ Delete Null Transactions
+            {isDeleting ? (
+              <>
+                <span className="animate-spin mr-2">⏳</span>
+                Deleting...
+              </>
+            ) : (
+              <>🗑️ Delete Null Transactions</>
+            )}
           </Button>
           <Button
             variant="outline"
