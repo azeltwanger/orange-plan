@@ -104,7 +104,8 @@ export default function TaxCenter() {
 
   // Sale form state
   const [saleForm, setSaleForm] = useState({
-    asset_ticker: 'BTC',
+    account_id: '',
+    asset_ticker: '',
     quantity: '',
     price_per_unit: '',
     date: format(new Date(), 'yyyy-MM-dd'),
@@ -451,7 +452,7 @@ export default function TaxCenter() {
 
   const resetForm = () => {
     setFormData({ type: 'buy', asset_ticker: 'BTC', quantity: '', price_per_unit: '', date: format(new Date(), 'yyyy-MM-dd'), exchange: '', account_id: '', trading_fee: '', notes: '' });
-    setSaleForm({ asset_ticker: 'BTC', quantity: '', price_per_unit: '', date: format(new Date(), 'yyyy-MM-dd'), fee: '', lot_method: 'HIFO', selected_lots: [], exchange: '' });
+    setSaleForm({ account_id: '', asset_ticker: '', quantity: '', price_per_unit: '', date: format(new Date(), 'yyyy-MM-dd'), fee: '', lot_method: 'HIFO', selected_lots: [], exchange: '' });
     setSpecificLotQuantities({});
   };
 
@@ -642,7 +643,7 @@ export default function TaxCenter() {
   };
 
   // Calculate sale outcome for different methods
-  const calculateSaleOutcome = (saleQty, salePricePerUnit, fee, method, selectedLots = [], specificLotQuantities = {}, assetTicker = 'BTC') => {
+  const calculateSaleOutcome = (saleQty, salePricePerUnit, fee, method, selectedLots = [], specificLotQuantities = {}, assetTicker = 'BTC', accountId = null) => {
     const saleProceeds = (saleQty * salePricePerUnit) - (parseFloat(fee) || 0);
     let remainingQty = saleQty;
     let totalCostBasis = 0;
@@ -650,8 +651,35 @@ export default function TaxCenter() {
     let hasShortTerm = false;
     const lotsUsed = [];
 
-    // CRITICAL FIX: Filter tax lots to only include the asset being sold
-    const lotsForAsset = taxLots.filter(lot => lot.asset_ticker === assetTicker);
+    // Filter lots by asset AND account (for sale form with account selector)
+    // For sales, we need to get lots from ALL transactions, not just taxable
+    const lotsForAsset = allTransactions
+      .filter(tx => 
+        tx.type === 'buy' &&
+        tx.asset_ticker === assetTicker &&
+        (!accountId || tx.account_id === accountId) &&
+        (tx.remaining_quantity ?? tx.quantity) > 0
+      )
+      .map(tx => {
+        const remainingQuantity = tx.remaining_quantity ?? tx.quantity ?? 0;
+        const tickerPrice = pricesByTicker[assetTicker] || tx.price_per_unit || 0;
+        const currentValue = remainingQuantity * tickerPrice;
+        const costBasis = remainingQuantity * (tx.price_per_unit || 0);
+        const unrealizedGain = currentValue - costBasis;
+        const txDate = tx.date ? new Date(tx.date) : new Date();
+        const daysSincePurchase = differenceInDays(new Date(), txDate);
+        const isLongTerm = daysSincePurchase > 365;
+        
+        return {
+          ...tx,
+          remainingQuantity,
+          currentValue,
+          costBasis,
+          unrealizedGain,
+          isLongTerm,
+          daysSincePurchase,
+        };
+      });
 
     // Handle Average Cost method
     if (method === 'AVG') {
@@ -740,7 +768,7 @@ export default function TaxCenter() {
   // State for specific lot quantities
   const [specificLotQuantities, setSpecificLotQuantities] = useState({});
 
-  // Get available assets from tax lots
+  // Get available assets from tax lots (for taxable accounts - still used for tax analysis)
   const availableAssets = useMemo(() => {
     const assetMap = new Map();
     
@@ -761,35 +789,56 @@ export default function TaxCenter() {
     return Array.from(assetMap.values());
   }, [taxLots, holdings]);
 
-  // Auto-select first available asset if current selection has no lots
-  useEffect(() => {
-    if (saleFormOpen && availableAssets.length > 0) {
-      const currentAssetHasLots = availableAssets.some(a => a.ticker === saleForm.asset_ticker);
-      if (!currentAssetHasLots) {
-        // Default to BTC if available, otherwise first asset
-        const defaultAsset = availableAssets.find(a => a.ticker === 'BTC') || availableAssets[0];
-        setSaleForm(prev => ({ ...prev, asset_ticker: defaultAsset.ticker }));
-      }
-    }
-  }, [saleFormOpen, availableAssets]);
+  // Assets available for sale (ALL accounts, not just taxable)
+  const saleEligibleAssets = useMemo(() => {
+    const assetMap = new Map();
+    
+    allTransactions
+      .filter(tx => tx.type === 'buy' && (tx.remaining_quantity ?? tx.quantity) > 0)
+      .forEach(tx => {
+        const key = `${tx.asset_ticker}|${tx.account_id || 'unassigned'}`;
+        if (!assetMap.has(key)) {
+          const holding = holdings.find(h => h.ticker === tx.asset_ticker && h.account_id === tx.account_id);
+          assetMap.set(key, {
+            ticker: tx.asset_ticker,
+            name: holding?.asset_name || tx.asset_ticker,
+            account_id: tx.account_id,
+            totalRemaining: 0,
+            lotCount: 0
+          });
+        }
+        const asset = assetMap.get(key);
+        asset.totalRemaining += (tx.remaining_quantity ?? tx.quantity);
+        asset.lotCount++;
+      });
+    
+    return Array.from(assetMap.values());
+  }, [allTransactions, holdings]);
+
+  // Fetch accounts for sale form
+  const { data: accounts = [] } = useQuery({
+    queryKey: ['accounts'],
+    queryFn: () => base44.entities.Account.list(),
+  });
 
   // Calculate outcomes for all methods
   const saleOutcomes = useMemo(() => {
-    if (!saleForm.quantity || !saleForm.price_per_unit) return null;
+    if (!saleForm.quantity || !saleForm.price_per_unit || !saleForm.account_id) return null;
     const qty = parseFloat(saleForm.quantity);
     const price = parseFloat(saleForm.price_per_unit);
     const fee = parseFloat(saleForm.fee) || 0;
     const assetTicker = saleForm.asset_ticker;
+    const accountId = saleForm.account_id;
 
     return {
-      FIFO: calculateSaleOutcome(qty, price, fee, 'FIFO', [], {}, assetTicker),
-      LIFO: calculateSaleOutcome(qty, price, fee, 'LIFO', [], {}, assetTicker),
-      HIFO: calculateSaleOutcome(qty, price, fee, 'HIFO', [], {}, assetTicker),
-      LOFO: calculateSaleOutcome(qty, price, fee, 'LOFO', [], {}, assetTicker),
-      AVG: calculateSaleOutcome(qty, price, fee, 'AVG', [], {}, assetTicker),
-      SPECIFIC: calculateSaleOutcome(qty, price, fee, 'SPECIFIC', saleForm.selected_lots, specificLotQuantities, assetTicker),
+      FIFO: calculateSaleOutcome(qty, price, fee, 'FIFO', [], {}, assetTicker, accountId),
+      LIFO: calculateSaleOutcome(qty, price, fee, 'LIFO', [], {}, assetTicker, accountId),
+      HIFO: calculateSaleOutcome(qty, price, fee, 'HIFO', [], {}, assetTicker, accountId),
+      LOFO: calculateSaleOutcome(qty, price, fee, 'LOFO', [], {}, assetTicker, accountId),
+      AVG: calculateSaleOutcome(qty, price, fee, 'AVG', [], {}, assetTicker, accountId),
+      SPECIFIC: calculateSaleOutcome(qty, price, fee, 'SPECIFIC', saleForm.selected_lots, specificLotQuantities, assetTicker, accountId),
     };
-  }, [saleForm.quantity, saleForm.price_per_unit, saleForm.fee, saleForm.asset_ticker, saleForm.selected_lots, specificLotQuantities, taxLots]);
+  }, [saleForm.quantity, saleForm.price_per_unit, saleForm.fee, saleForm.asset_ticker, saleForm.account_id, saleForm.selected_lots, specificLotQuantities, allTransactions, pricesByTicker]);
 
   const handleSaleSubmit = (e) => {
     e.preventDefault();
@@ -818,7 +867,7 @@ export default function TaxCenter() {
       price_per_unit: parseFloat(saleForm.price_per_unit),
       date: saleForm.date,
       exchange_or_wallet: saleForm.exchange,
-      account_id: accountId,
+      account_id: saleForm.account_id,
       cost_basis: outcome.totalCostBasis,
       realized_gain_loss: outcome.realizedGain,
       holding_period: outcome.holdingPeriod,
@@ -2316,26 +2365,56 @@ export default function TaxCenter() {
             <DialogTitle>Record Sale with Lot Selection</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSaleSubmit} className="space-y-6 mt-4">
-            {/* Asset Selector */}
+            {/* Account Selector */}
+            <div className="space-y-2">
+              <Label className="text-zinc-400">Account</Label>
+              <Select
+                value={saleForm.account_id || ''}
+                onValueChange={(value) => setSaleForm({ 
+                  ...saleForm, 
+                  account_id: value,
+                  asset_ticker: '',
+                  selected_lots: []
+                })}
+              >
+                <SelectTrigger className="bg-zinc-900 border-zinc-800">
+                  <SelectValue placeholder="Select account..." />
+                </SelectTrigger>
+                <SelectContent className="bg-zinc-900 border-zinc-700">
+                  {accounts.map(account => (
+                    <SelectItem key={account.id} value={account.id}>
+                      {account.name} ({account.tax_treatment === 'tax_free' ? 'Tax-Free' : 
+                                      account.tax_treatment === 'tax_deferred' ? 'Tax-Deferred' : 'Taxable'})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Asset Selector - filtered by selected account */}
             <div className="space-y-2">
               <Label className="text-zinc-400">Asset to Sell</Label>
               <Select 
-                value={saleForm.asset_ticker} 
+                value={saleForm.asset_ticker || ''} 
                 onValueChange={(value) => setSaleForm({ ...saleForm, asset_ticker: value, selected_lots: [] })}
+                disabled={!saleForm.account_id}
               >
                 <SelectTrigger className="bg-zinc-900 border-zinc-800">
-                  <SelectValue />
+                  <SelectValue placeholder={saleForm.account_id ? "Select asset..." : "Select account first..."} />
                 </SelectTrigger>
                 <SelectContent className="bg-zinc-900 border-zinc-700">
-                  {availableAssets.length === 0 ? (
-                    <SelectItem value="_none_" disabled>No assets with lots available</SelectItem>
-                  ) : (
-                    availableAssets.map(asset => (
-                      <SelectItem key={asset.ticker} value={asset.ticker}>
-                        {asset.name} ({asset.ticker}) - {asset.totalQuantity.toFixed(asset.ticker === 'BTC' ? 8 : 2)} available
-                      </SelectItem>
-                    ))
-                  )}
+                  {(() => {
+                    const assetsForAccount = saleEligibleAssets.filter(a => a.account_id === saleForm.account_id);
+                    return assetsForAccount.length === 0 ? (
+                      <SelectItem value="_none_" disabled>No assets in this account</SelectItem>
+                    ) : (
+                      assetsForAccount.map(asset => (
+                        <SelectItem key={`${asset.ticker}-${asset.account_id}`} value={asset.ticker}>
+                          {asset.name} ({asset.ticker}) - {asset.totalRemaining.toFixed(asset.ticker === 'BTC' ? 8 : 2)} available
+                        </SelectItem>
+                      ))
+                    );
+                  })()}
                 </SelectContent>
               </Select>
             </div>
@@ -2444,10 +2523,40 @@ export default function TaxCenter() {
               <div className="space-y-4">
                 <Label className="text-zinc-400">Select Lots to Sell</Label>
                 <div className="max-h-64 overflow-y-auto space-y-2 p-2 rounded-xl bg-zinc-900/50 border border-zinc-800">
-                  {taxLots.filter(lot => lot.asset_ticker === saleForm.asset_ticker).length === 0 ? (
-                    <p className="text-sm text-zinc-500 text-center py-4">No lots available for {saleForm.asset_ticker}</p>
-                  ) : (
-                    taxLots.filter(lot => lot.asset_ticker === saleForm.asset_ticker).map(lot => {
+                  {(() => {
+                    const lotsForSale = allTransactions
+                      .filter(tx => 
+                        tx.type === 'buy' &&
+                        tx.asset_ticker === saleForm.asset_ticker &&
+                        tx.account_id === saleForm.account_id &&
+                        (tx.remaining_quantity ?? tx.quantity) > 0
+                      )
+                      .map(tx => {
+                        const remainingQuantity = tx.remaining_quantity ?? tx.quantity ?? 0;
+                        const tickerPrice = pricesByTicker[saleForm.asset_ticker] || tx.price_per_unit || 0;
+                        const currentValue = remainingQuantity * tickerPrice;
+                        const costBasis = remainingQuantity * (tx.price_per_unit || 0);
+                        const unrealizedGain = currentValue - costBasis;
+                        const txDate = tx.date ? new Date(tx.date) : new Date();
+                        const daysSincePurchase = differenceInDays(new Date(), txDate);
+                        const isLongTerm = daysSincePurchase > 365;
+                        
+                        return {
+                          ...tx,
+                          remainingQuantity,
+                          currentValue,
+                          costBasis,
+                          unrealizedGain,
+                          unrealizedGainPercent: costBasis > 0 ? (unrealizedGain / costBasis) * 100 : 0,
+                          isLongTerm,
+                          daysSincePurchase,
+                        };
+                      });
+                    
+                    return lotsForSale.length === 0 ? (
+                      <p className="text-sm text-zinc-500 text-center py-4">No lots available for {saleForm.asset_ticker}</p>
+                    ) : (
+                      lotsForSale.map(lot => {
                       const isSelected = saleForm.selected_lots.includes(lot.id);
                       const specifiedQty = specificLotQuantities[lot.id] || '';
                       
@@ -2528,9 +2637,10 @@ export default function TaxCenter() {
                           </div>
                         </div>
                       );
-                    })
-                  )}
-                </div>
+                      })
+                      );
+                      })()}
+                      </div>
                 {saleForm.selected_lots.length > 0 && (
                   <div className="p-3 rounded-lg bg-zinc-800/30 text-sm">
                     <div className="flex justify-between">
@@ -2614,7 +2724,7 @@ export default function TaxCenter() {
 
             <div className="flex gap-3 pt-4">
               <Button type="button" variant="outline" onClick={() => setSaleFormOpen(false)} className="flex-1 bg-transparent border-zinc-800">Cancel</Button>
-              <Button type="submit" className="flex-1 brand-gradient text-white font-semibold" disabled={!saleOutcomes || !saleOutcomes[saleForm.lot_method]?.isComplete}>
+              <Button type="submit" className="flex-1 brand-gradient text-white font-semibold" disabled={!saleForm.account_id || !saleForm.asset_ticker || !saleOutcomes || !saleOutcomes[saleForm.lot_method]?.isComplete}>
                 Record Sale
               </Button>
             </div>
