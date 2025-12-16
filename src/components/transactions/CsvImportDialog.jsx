@@ -165,7 +165,7 @@ export default function CsvImportDialog({ open, onClose }) {
       .filter(t => t.type === 'buy')
       .map(t => ({
         ...t,
-        remainingQuantity: t.quantity,
+        remainingQuantity: t.remaining_quantity ?? t.quantity,
         isExisting: true,
       }));
 
