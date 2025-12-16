@@ -282,6 +282,30 @@ export default function TaxCenter() {
 
       const tx = await base44.entities.Transaction.create(txData);
 
+      // If this is a SELL transaction, update the buy lots' remaining_quantity
+      if (data.type === 'sell' && data.lots_used && data.lots_used.length > 0) {
+        console.log("=== UPDATING LOT REMAINING QUANTITIES ===");
+        
+        const allTransactions = await base44.entities.Transaction.list();
+        
+        for (const lotUsage of data.lots_used) {
+          const buyLot = allTransactions.find(t => t.id === lotUsage.lot_id);
+          
+          if (buyLot) {
+            const currentRemaining = buyLot.remaining_quantity ?? buyLot.quantity;
+            const newRemaining = currentRemaining - lotUsage.quantity_sold;
+            
+            console.log(`Lot ${lotUsage.lot_id}: ${currentRemaining} - ${lotUsage.quantity_sold} = ${newRemaining}`);
+            
+            await base44.entities.Transaction.update(lotUsage.lot_id, {
+              remaining_quantity: Math.max(0, newRemaining)
+            });
+          }
+        }
+        
+        console.log("=== LOT UPDATES COMPLETE ===");
+      }
+
       // Sync holdings from lots (source of truth)
       await syncHoldingFromLots(data.asset_ticker, data.account_id || null);
 
