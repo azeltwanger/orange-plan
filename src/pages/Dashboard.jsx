@@ -55,48 +55,46 @@ export default function Dashboard() {
     fetchRates();
   }, []);
 
-  // DEBUG: Check for duplicate BTC lots
+  // DEBUG: Check account_id values
   useEffect(() => {
-    const debugAllBtcData = async () => {
-      console.log("=== DASHBOARD DEBUG: ALL BTC DATA ===");
+    const debugAccountIds = async () => {
+      console.log("=== DEBUG ACCOUNT IDS ===");
       
-      // Get all transactions
-      const allTransactions = await base44.entities.Transaction.list();
-      const btcBuys = allTransactions.filter(tx => 
-        tx.asset_ticker === 'BTC' && tx.type === 'buy'
+      // Get all accounts
+      const accounts = await base44.entities.Account.list();
+      console.log("ACCOUNTS:");
+      accounts.forEach(a => console.log(`  ${a.id}: "${a.name}" (${a.account_type})`));
+      
+      // Get all holdings
+      const holdings = await base44.entities.Holding.list();
+      console.log("\nHOLDINGS:");
+      holdings.filter(h => h.ticker === 'BTC').forEach(h => 
+        console.log(`  ${h.id}: ${h.ticker} qty=${h.quantity} account_id="${h.account_id}" account_type="${h.account_type}"`)
       );
       
-      console.log("Total BTC buy transactions:", btcBuys.length);
+      // Get BTC transactions and their account_ids
+      const transactions = await base44.entities.Transaction.list();
+      const btcBuys = transactions.filter(t => t.asset_ticker === 'BTC' && t.type === 'buy');
       
       // Group by account_id
-      const byAccount = {};
+      const byAccountId = {};
       btcBuys.forEach(tx => {
-        const accId = tx.account_id || 'NULL';
-        if (!byAccount[accId]) byAccount[accId] = { count: 0, qty: 0 };
-        byAccount[accId].count++;
-        byAccount[accId].qty += (tx.remaining_quantity ?? tx.quantity ?? 0);
+        const accId = tx.account_id || 'NULL/UNDEFINED';
+        if (!byAccountId[accId]) byAccountId[accId] = { count: 0, total: 0 };
+        byAccountId[accId].count++;
+        byAccountId[accId].total += (tx.remaining_quantity ?? tx.quantity ?? 0);
       });
       
-      console.log("BTC lots by account_id:", byAccount);
+      console.log("\nBTC TRANSACTIONS BY account_id:");
+      Object.entries(byAccountId).forEach(([accId, data]) => {
+        const account = accounts.find(a => a.id === accId);
+        console.log(`  account_id="${accId}" (${account?.name || 'NO MATCH'}): ${data.count} lots, ${data.total.toFixed(8)} BTC`);
+      });
       
-      // Total
-      const totalBtc = Object.values(byAccount).reduce((sum, a) => sum + a.qty, 0);
-      console.log("TOTAL BTC across all accounts:", totalBtc);
-      
-      // Get holdings
-      const holdings = await base44.entities.Holding.list();
-      const btcHoldings = holdings.filter(h => h.ticker === 'BTC');
-      
-      console.log("BTC Holdings:", btcHoldings.map(h => ({
-        id: h.id,
-        account_id: h.account_id,
-        quantity: h.quantity
-      })));
-      
-      console.log("=== END DASHBOARD DEBUG ===");
+      console.log("=========================");
     };
     
-    debugAllBtcData();
+    debugAccountIds();
   }, []);
 
   // ONE-TIME FIX: Repair all holdings to match their account's lots
