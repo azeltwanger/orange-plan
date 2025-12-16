@@ -606,24 +606,27 @@ export default function TaxCenter() {
       let remainingQuantity = tx.remaining_quantity !== undefined ? tx.remaining_quantity : (tx.quantity || 0);
       const originalQuantity = tx.quantity || 0;
       
-      // === DEBUG LOT CREATION ===
-      if (tx.asset_ticker === 'BTC') {
-        console.log("BTC Lot iteration:", {
-          id: tx.id,
-          date: tx.date,
-          quantity: tx.quantity,
-          remaining_quantity: tx.remaining_quantity,
-          calculated_remainingQuantity: remainingQuantity
-        });
-      }
-      // === END DEBUG ===
-      
       // Reduce this lot's quantity by sold amount (FIFO)
       if (remainingSold > 0) {
         const soldFromThisLot = Math.min(remainingSold, remainingQuantity);
         remainingQuantity -= soldFromThisLot;
         remainingSold -= soldFromThisLot;
       }
+      
+      // === DEBUG LOT CREATION - DETAILED ===
+      if (tx.asset_ticker === 'BTC') {
+        console.log("🔍 BTC Lot iteration DETAILED:", {
+          txId: tx.id,
+          date: tx.date,
+          raw_quantity: tx.quantity,
+          raw_remaining_quantity: tx.remaining_quantity,
+          calculated_remainingQuantity: remainingQuantity,
+          originalQuantity: originalQuantity,
+          willBeFilteredOut: remainingQuantity <= 0,
+          reason: remainingQuantity <= 0 ? "remainingQuantity is <= 0" : "OK"
+        });
+      }
+      // === END DEBUG ===
       
       // Get current price for this ticker
       const tickerPrice = pricesByTicker[ticker] || (tx.price_per_unit || 0);
