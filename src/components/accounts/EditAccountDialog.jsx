@@ -58,17 +58,47 @@ export default function EditAccountDialog({ open, onClose, account }) {
 
   const deleteAccount = useMutation({
     mutationFn: async () => {
-      // Reassign holdings to unassigned
-      const holdings = await base44.entities.Holding.filter({ account_id: account.id });
-      for (const h of holdings) {
-        await base44.entities.Holding.update(h.id, { account_id: null });
+      console.log("=== DELETING ACCOUNT AND ALL DATA ===", account.id, account.name);
+      
+      // Get associated holdings
+      const allHoldings = await base44.entities.Holding.list();
+      const accountHoldings = allHoldings.filter(h => h.account_id === account.id);
+      console.log(`Found ${accountHoldings.length} holdings to delete`);
+      
+      // Get associated transactions (both buys and sells)
+      const allTransactions = await base44.entities.Transaction.list();
+      const accountTransactions = allTransactions.filter(t => t.account_id === account.id);
+      console.log(`Found ${accountTransactions.length} transactions to delete`);
+      
+      // Delete holdings first
+      for (const h of accountHoldings) {
+        await base44.entities.Holding.delete(h.id);
       }
-      // Reassign transactions to unassigned
-      const transactions = await base44.entities.Transaction.filter({ account_id: account.id });
-      for (const t of transactions) {
-        await base44.entities.Transaction.update(t.id, { account_id: null });
+      console.log(`✅ Deleted ${accountHoldings.length} holdings`);
+      
+      // Delete transactions in batches to avoid rate limits
+      const batchSize = 20;
+      for (let i = 0; i < accountTransactions.length; i += batchSize) {
+        const batch = accountTransactions.slice(i, i + batchSize);
+        
+        await Promise.all(batch.map(t => 
+          base44.entities.Transaction.delete(t.id)
+        ));
+        
+        console.log(`Deleted transactions ${i + 1} to ${Math.min(i + batchSize, accountTransactions.length)} of ${accountTransactions.length}`);
+        
+        // Delay between batches to avoid rate limits
+        if (i + batchSize < accountTransactions.length) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
       }
-      return base44.entities.Account.delete(account.id);
+      console.log(`✅ Deleted ${accountTransactions.length} transactions`);
+      
+      // Now delete the account
+      await base44.entities.Account.delete(account.id);
+      console.log("✅ Account deleted");
+      
+      return true;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
@@ -76,6 +106,10 @@ export default function EditAccountDialog({ open, onClose, account }) {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       onClose();
     },
+    onError: (error) => {
+      console.error("Delete failed:", error);
+      alert("Delete failed: " + error.message);
+    }
   });
 
   const handleSubmit = (e) => {
@@ -88,7 +122,13 @@ export default function EditAccountDialog({ open, onClose, account }) {
   };
 
   const handleDelete = () => {
-    if (window.confirm(`Delete "${account?.name}"? Holdings will become unassigned.`)) {
+    if (window.confirm(
+      `Delete "${account?.name}"?\n\n` +
+      `⚠️ This will permanently delete:\n` +
+      `• All holdings in this account\n` +
+      `• All transactions (tax lots) in this account\n\n` +
+      `This cannot be undone.`
+    )) {
       deleteAccount.mutate();
     }
   };
