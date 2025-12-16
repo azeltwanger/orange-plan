@@ -176,6 +176,48 @@ export default function Dashboard() {
     queryClient.invalidateQueries({ queryKey: ['holdings'] });
   };
 
+  // DELETE NULL TRANSACTIONS
+  const deleteNullTransactions = async () => {
+    console.log("=== DELETING NULL TRANSACTIONS ===");
+    
+    try {
+      const allTransactions = await base44.entities.Transaction.list();
+      const nullTransactions = allTransactions.filter(t => !t.account_id);
+      
+      console.log(`Found ${nullTransactions.length} transactions without account_id`);
+      
+      if (nullTransactions.length === 0) {
+        alert("No null transactions found.");
+        return;
+      }
+      
+      if (!window.confirm(`Delete ${nullTransactions.length} orphaned transactions without an account?`)) {
+        return;
+      }
+      
+      // Delete in batches
+      const batchSize = 20;
+      for (let i = 0; i < nullTransactions.length; i += batchSize) {
+        const batch = nullTransactions.slice(i, i + batchSize);
+        await Promise.all(batch.map(t => base44.entities.Transaction.delete(t.id)));
+        console.log(`Deleted ${Math.min(i + batchSize, nullTransactions.length)} of ${nullTransactions.length}`);
+        
+        if (i + batchSize < nullTransactions.length) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
+      
+      console.log(`✅ Deleted ${nullTransactions.length} null transactions`);
+      alert(`Deleted ${nullTransactions.length} orphaned transactions. Refresh the page.`);
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['holdings'] });
+      
+    } catch (error) {
+      console.error("Error:", error);
+      alert("Error: " + error.message);
+    }
+  };
+
   // ONE-TIME FIX: Assign orphaned BTC lots to Cold Storage BTC account
   const assignOrphanedLotsToAccount = async () => {
     setIsRepairing(true);
@@ -524,6 +566,13 @@ export default function Dashboard() {
             className="bg-rose-600 border-rose-600 text-white hover:bg-rose-700"
           >
             🔧 Repair Holdings
+          </Button>
+          <Button
+            variant="outline"
+            onClick={deleteNullTransactions}
+            className="bg-red-600 border-red-600 text-white hover:bg-red-700"
+          >
+            🗑️ Delete Null Transactions
           </Button>
           <Button
             variant="outline"
