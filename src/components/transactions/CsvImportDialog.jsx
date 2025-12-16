@@ -508,6 +508,43 @@ export default function CsvImportDialog({ open, onClose }) {
       const successfulTransactions = processedTransactions;
       setImportStats(stats);
 
+      // After transactions are created, update remaining_quantity for lots used in sales
+      console.log("=== UPDATING LOTS USED IN CSV SALES ===");
+
+      // Get fresh list of all transactions (including just-created ones)
+      const allTxAfterImport = await base44.entities.Transaction.list();
+
+      // Get all buy lots
+      const buyLots = allTxAfterImport.filter(tx => tx.type === 'buy');
+
+      // Get all sell transactions that have lots_used
+      const sellTxs = allTxAfterImport.filter(tx => tx.type === 'sell' && tx.lots_used && tx.lots_used.length > 0);
+
+      // For each buy lot, calculate how much was sold from it
+      for (const buyLot of buyLots) {
+        let totalSold = 0;
+        
+        for (const sellTx of sellTxs) {
+          const usage = sellTx.lots_used?.find(lu => lu.lot_id === buyLot.id);
+          if (usage) {
+            totalSold += usage.quantity_sold || 0;
+          }
+        }
+        
+        const correctRemaining = (buyLot.quantity || 0) - totalSold;
+        const currentRemaining = buyLot.remaining_quantity ?? buyLot.quantity;
+        
+        // Only update if different (avoid unnecessary writes)
+        if (Math.abs(correctRemaining - currentRemaining) > 0.00000001) {
+          console.log(`Updating lot ${buyLot.id}: ${currentRemaining} -> ${correctRemaining}`);
+          await base44.entities.Transaction.update(buyLot.id, {
+            remaining_quantity: Math.max(0, correctRemaining)
+          });
+        }
+      }
+
+      console.log("=== CSV LOT UPDATES COMPLETE ===");
+
       // After all transactions created, sync holdings from lots (source of truth)
       console.log("=== SYNCING HOLDINGS FROM LOTS ===");
       
