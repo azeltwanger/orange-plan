@@ -176,8 +176,68 @@ export default function Dashboard() {
     queryClient.invalidateQueries({ queryKey: ['holdings'] });
   };
 
-  // DELETE NULL TRANSACTIONS
+  // DELETE TRANSACTIONS
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteProgress, setDeleteProgress] = useState('');
+  
+  const deleteAllTransactions = async () => {
+    if (!window.confirm(
+      '⚠️ DELETE ALL TRANSACTIONS?\n\n' +
+      'This will delete ALL transactions in the system.\n' +
+      'You will need to re-import your CSVs.\n\n' +
+      'This cannot be undone.'
+    )) {
+      return;
+    }
+    
+    setIsDeleting(true);
+    setDeleteProgress('Starting...');
+    
+    try {
+      const transactions = await base44.entities.Transaction.list();
+      console.log(`Deleting ${transactions.length} transactions...`);
+      
+      // Delete in small batches with longer delays
+      const batchSize = 10;
+      const delayMs = 1000; // 1 second between batches
+      
+      for (let i = 0; i < transactions.length; i += batchSize) {
+        const batch = transactions.slice(i, i + batchSize);
+        
+        // Delete batch sequentially to avoid overwhelming API
+        for (const tx of batch) {
+          await base44.entities.Transaction.delete(tx.id);
+        }
+        
+        const progress = Math.min(i + batchSize, transactions.length);
+        setDeleteProgress(`Deleted ${progress} / ${transactions.length}`);
+        console.log(`Deleted ${progress} / ${transactions.length}`);
+        
+        // Wait between batches
+        if (i + batchSize < transactions.length) {
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
+      }
+      
+      // Also delete all holdings
+      setDeleteProgress('Deleting holdings...');
+      const holdings = await base44.entities.Holding.list();
+      for (const h of holdings) {
+        await base44.entities.Holding.delete(h.id);
+      }
+      
+      setDeleteProgress('Complete!');
+      alert('All transactions and holdings deleted. Refresh and re-import your CSVs.');
+      window.location.reload();
+      
+    } catch (error) {
+      console.error('Delete error:', error);
+      setDeleteProgress(`Error: ${error.message}`);
+      alert(`Error: ${error.message}\n\nWait a minute and try again.`);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
   
   const deleteNullTransactions = async () => {
     setIsDeleting(true);
@@ -579,9 +639,9 @@ export default function Dashboard() {
           </Button>
           <Button
             variant="outline"
-            onClick={deleteNullTransactions}
+            onClick={deleteAllTransactions}
             disabled={isDeleting}
-            className="bg-red-600 border-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+            className="bg-red-800 border-red-800 text-white hover:bg-red-900 disabled:opacity-50"
           >
             {isDeleting ? (
               <>
@@ -589,9 +649,14 @@ export default function Dashboard() {
                 Deleting...
               </>
             ) : (
-              <>🗑️ Delete Null Transactions</>
+              <>🗑️ Delete All & Start Fresh</>
             )}
           </Button>
+          {deleteProgress && (
+            <span className="text-sm text-zinc-400 px-3 py-2 rounded bg-zinc-800/50">
+              {deleteProgress}
+            </span>
+          )}
           <Button
             variant="outline"
             onClick={assignOrphanedLotsToAccount}
