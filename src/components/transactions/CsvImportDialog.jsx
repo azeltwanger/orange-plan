@@ -60,6 +60,7 @@ export default function CsvImportDialog({ open, onClose }) {
   const [showCreateAccount, setShowCreateAccount] = useState(false);
   const [newAccountName, setNewAccountName] = useState('');
   const [newAccountType, setNewAccountType] = useState('taxable_brokerage');
+  const [newAccountInstitution, setNewAccountInstitution] = useState('');
   const [importStats, setImportStats] = useState(null);
   const queryClient = useQueryClient();
 
@@ -90,6 +91,7 @@ export default function CsvImportDialog({ open, onClose }) {
     setSelectedAccountId('');
     setNewAccountName('');
     setNewAccountType('taxable_brokerage');
+    setNewAccountInstitution('');
   }, []);
 
   const handleClose = () => {
@@ -430,14 +432,23 @@ export default function CsvImportDialog({ open, onClose }) {
       let legacyAccountType = 'taxable';
 
       if (selectedAccountId === '_new_' && newAccountName.trim()) {
-        const accountTypeInfo = ACCOUNT_TYPES.find(t => t.value === newAccountType);
+        // Determine tax treatment from account type
+        const taxTreatment = 
+          newAccountType?.includes('roth') || newAccountType === 'hsa' 
+            ? 'tax_free' 
+            : newAccountType?.includes('traditional') 
+              ? 'tax_deferred' 
+              : 'taxable';
+        
         const newAccount = await base44.entities.Account.create({
           name: newAccountName.trim(),
           account_type: newAccountType,
-          tax_treatment: accountTypeInfo?.tax || 'taxable',
+          tax_treatment: taxTreatment,
+          institution: newAccountInstitution?.trim() || undefined,
         });
+        
         finalAccountId = newAccount.id;
-        taxTreatment = accountTypeInfo?.tax || 'taxable';
+        console.log(`✅ Created new account: ${newAccount.name} (${newAccount.id})`);
         legacyAccountType = newAccountType.includes('401k') ? 
           (newAccountType.includes('roth') ? 'roth_401k' : 'traditional_401k') :
           newAccountType.includes('ira') ?
@@ -684,66 +695,110 @@ export default function CsvImportDialog({ open, onClose }) {
                 <Label className="text-zinc-200 font-medium mb-3 block">Import to Account</Label>
                 <p className="text-xs text-zinc-500 mb-3">Select an existing account or create a new one for these transactions.</p>
                 <Select
-                  value={selectedAccountId || '_none_'}
+                  value={selectedAccountId || ''}
                   onValueChange={(value) => {
                     if (value === '_create_') {
                       setSelectedAccountId('_new_');
                       setNewAccountName('');
                       setNewAccountType('taxable_brokerage');
+                      setNewAccountInstitution('');
                     } else {
-                      setSelectedAccountId(value === '_none_' ? '' : value);
-                      setNewAccountName('');
+                      setSelectedAccountId(value);
                     }
                   }}
                 >
                   <SelectTrigger className="bg-zinc-900 border-zinc-700">
-                    <SelectValue placeholder="Select an account..." />
+                    <SelectValue placeholder="Select or create an account..." />
                   </SelectTrigger>
                   <SelectContent className="bg-zinc-900 border-zinc-700">
-                    <SelectItem value="_none_" className="text-zinc-400">— No Account —</SelectItem>
                     {accounts.map(account => (
                       <SelectItem key={account.id} value={account.id}>
                         {account.name} ({account.account_type?.replace(/_/g, ' ')})
                       </SelectItem>
                     ))}
+                    <div className="border-t border-zinc-700 my-1" />
                     <SelectItem value="_create_" className="text-orange-400">
                       <Plus className="w-4 h-4 inline mr-2" /> Create New Account
                     </SelectItem>
                   </SelectContent>
                 </Select>
                 
+                {/* Helpful message prompting account selection */}
+                {!selectedAccountId && (
+                  <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-3 mt-3">
+                    <p className="text-blue-400 text-sm">
+                      📋 Select an existing account or create a new one to import these transactions.
+                    </p>
+                  </div>
+                )}
+
                 {/* Inline new account creation */}
                 {selectedAccountId === '_new_' && (
-                  <div className="mt-3 p-3 rounded-lg bg-zinc-900/50 border border-zinc-700 space-y-3">
+                  <div className="mt-4 p-4 bg-zinc-800/50 rounded-lg border border-zinc-700 space-y-4">
+                    <h4 className="text-sm font-medium text-zinc-300">Create New Account</h4>
+                    
+                    {/* Account Name - REQUIRED */}
                     <div>
-                      <Label className="text-xs text-zinc-400">New Account Name</Label>
+                      <label className="block text-xs text-zinc-400 mb-1">Account Name *</label>
                       <Input
+                        type="text"
                         value={newAccountName}
                         onChange={(e) => setNewAccountName(e.target.value)}
-                        placeholder="e.g., Coinbase, Fidelity"
-                        className="bg-zinc-900 border-zinc-700 mt-1"
+                        placeholder="e.g., Cold Storage BTC, Coinbase, Fidelity 401k"
+                        className="bg-zinc-900 border-zinc-700"
                       />
                     </div>
+                    
+                    {/* Account Type - REQUIRED */}
                     <div>
-                      <Label className="text-xs text-zinc-400">Account Type</Label>
+                      <label className="block text-xs text-zinc-400 mb-1">Account Type *</label>
                       <Select value={newAccountType} onValueChange={setNewAccountType}>
-                        <SelectTrigger className="bg-zinc-900 border-zinc-700 mt-1">
+                        <SelectTrigger className="bg-zinc-900 border-zinc-700">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent className="bg-zinc-900 border-zinc-700">
-                          {ACCOUNT_TYPES.map(type => (
-                            <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
-                          ))}
+                          <SelectItem value="taxable_brokerage">Taxable Brokerage</SelectItem>
+                          <SelectItem value="taxable_crypto">Taxable Crypto (Exchange/Wallet)</SelectItem>
+                          <SelectItem value="ira_roth">Roth IRA (Tax-Free)</SelectItem>
+                          <SelectItem value="ira_traditional">Traditional IRA (Tax-Deferred)</SelectItem>
+                          <SelectItem value="401k_roth">Roth 401k (Tax-Free)</SelectItem>
+                          <SelectItem value="401k_traditional">Traditional 401k (Tax-Deferred)</SelectItem>
+                          <SelectItem value="hsa">HSA (Tax-Free)</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
+                    
+                    {/* Institution - Optional */}
+                    <div>
+                      <label className="block text-xs text-zinc-400 mb-1">Institution (optional)</label>
+                      <Input
+                        type="text"
+                        value={newAccountInstitution}
+                        onChange={(e) => setNewAccountInstitution(e.target.value)}
+                        placeholder="e.g., Fidelity, Coinbase, Ledger"
+                        className="bg-zinc-900 border-zinc-700"
+                      />
+                    </div>
+                    
+                    {/* Tax Treatment Display */}
+                    <div className="text-xs text-zinc-500">
+                      Tax Treatment: {
+                        newAccountType?.includes('roth') || newAccountType === 'hsa' 
+                          ? '🟢 Tax-Free (no taxes on gains)' 
+                          : newAccountType?.includes('traditional') || newAccountType?.includes('401k')
+                            ? '🟡 Tax-Deferred (taxed on withdrawal)'
+                            : '🔴 Taxable (capital gains taxes apply)'
+                      }
+                    </div>
+                    
+                    {!newAccountName.trim() && (
+                      <div className="bg-yellow-900/20 border border-yellow-500/30 rounded p-2">
+                        <p className="text-yellow-400 text-xs">
+                          ⚠️ Please enter a name for your new account.
+                        </p>
+                      </div>
+                    )}
                   </div>
-                )}
-                
-                {(!selectedAccountId || selectedAccountId === '_none_') && (
-                  <p className="text-xs text-rose-400 mt-2 flex items-center gap-1">
-                    <AlertTriangle className="w-3 h-3" /> Please select or create an account to proceed.
-                  </p>
                 )}
               </div>
 
@@ -819,8 +874,7 @@ export default function CsvImportDialog({ open, onClose }) {
                   disabled={
                     importTransactions.isPending || 
                     !selectedAccountId || 
-                    selectedAccountId === '_none_' ||
-                    (selectedAccountId === '_new_' && !newAccountName.trim())
+                    (selectedAccountId === '_new_' && (!newAccountName.trim() || !newAccountType))
                   }
                   className="brand-gradient text-white"
                 >
