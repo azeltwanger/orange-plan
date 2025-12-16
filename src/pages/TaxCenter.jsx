@@ -675,6 +675,19 @@ export default function TaxCenter() {
         };
       }).filter(lot => lot.remainingQuantity > 0);
       
+      // === DEBUG AFTER FILTER ===
+      if (ticker === 'BTC') {
+        console.log("BTC lots BEFORE filter:", sortedBuys.length);
+        console.log("BTC lots AFTER filter:", tickerLots.length);
+        console.log("Sample lot remainingQuantity values:", sortedBuys.slice(0, 5).map(tx => ({
+          id: tx.id,
+          remaining_quantity: tx.remaining_quantity,
+          quantity: tx.quantity,
+          calculated: tx.remaining_quantity !== undefined ? tx.remaining_quantity : tx.quantity
+        })));
+      }
+      // === END DEBUG ===
+      
       allLots.push(...tickerLots);
     }
     
