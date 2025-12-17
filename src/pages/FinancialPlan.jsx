@@ -1201,21 +1201,77 @@ export default function FinancialPlan() {
         if (yearSavings < 0) {
           const deficit = Math.abs(yearSavings);
 
-          // Withdraw from taxable account first (simplest approach for pre-retirement)
-          const withdrawFromTaxablePreRet = Math.min(deficit, runningTaxable);
-          runningTaxable -= withdrawFromTaxablePreRet;
+          // CALCULATE TAXES ON PRE-RETIREMENT WITHDRAWALS using same logic as post-retirement
+          const effectiveRunningTaxableBasis = Math.min(runningTaxable, runningTaxableBasis);
+          const estimatedCurrentGainRatio = runningTaxable > 0 ? Math.max(0, (runningTaxable - effectiveRunningTaxableBasis) / runningTaxable) : 0;
 
-          // Reduce basis proportionally
-          if (withdrawFromTaxablePreRet > 0 && runningTaxable > 0) {
-            const withdrawRatio = withdrawFromTaxablePreRet / (runningTaxable + withdrawFromTaxablePreRet);
-            runningTaxableBasis = Math.max(0, runningTaxableBasis - (runningTaxableBasis * withdrawRatio));
-          } else if (runningTaxable === 0) {
-            runningTaxableBasis = 0;
+          const taxEstimate = estimateRetirementWithdrawalTaxes({
+            withdrawalNeeded: deficit,
+            taxableBalance: runningTaxable,
+            taxDeferredBalance: runningTaxDeferred,
+            taxFreeBalance: runningTaxFree,
+            taxableGainPercent: estimatedCurrentGainRatio,
+            isLongTermGain: true,
+            filingStatus,
+            age: currentAgeThisYear,
+            otherIncome: 0,
+          });
+
+          withdrawFromTaxable = taxEstimate.fromTaxable || 0;
+          withdrawFromTaxDeferred = taxEstimate.fromTaxDeferred || 0;
+          withdrawFromTaxFree = taxEstimate.fromTaxFree || 0;
+          taxesPaid = taxEstimate.totalTax || 0;
+          penaltyPaid = taxEstimate.totalPenalty || 0;
+
+          // Adjust cost basis after taxable withdrawal
+          if (withdrawFromTaxable > 0 && runningTaxable > 0) {
+            const basisRatio = runningTaxableBasis / runningTaxable;
+            runningTaxableBasis = Math.max(0, runningTaxableBasis - (withdrawFromTaxable * basisRatio));
           }
 
-          // If taxable isn't enough, mark as depleted
-          if (withdrawFromTaxablePreRet < deficit && !ranOutOfMoney) {
+          // Update account balances
+          runningTaxable = Math.max(0, runningTaxable - withdrawFromTaxable);
+          runningTaxDeferred = Math.max(0, runningTaxDeferred - withdrawFromTaxDeferred);
+          runningTaxFree = Math.max(0, runningTaxFree - withdrawFromTaxFree);
+
+          // Mark depletion if needed
+          const actualTotalWithdrawn = withdrawFromTaxable + withdrawFromTaxDeferred + withdrawFromTaxFree;
+          if (actualTotalWithdrawn < deficit && !ranOutOfMoney) {
             ranOutOfMoney = true;
+          }
+
+          // Withdraw from assets
+          const actualWithdrawalFromAccounts = withdrawFromTaxable + withdrawFromTaxDeferred + withdrawFromTaxFree;
+          let totalAmountToWithdrawFromAssets = actualWithdrawalFromAccounts;
+
+          if (totalAmountToWithdrawFromAssets > 0) {
+            const btcPriceThisYear = currentPrice * Math.pow(1 + yearBtcGrowth / 100, i);
+            const currentEncumberedBtcValue = Object.values(encumberedBtc).reduce((sum, btcAmount) => sum + (btcAmount * btcPriceThisYear), 0);
+            const trulyLiquidBtcValue = Math.max(0, runningBtc - currentEncumberedBtcValue);
+            const liquidAssetsExcludingRealEstate = trulyLiquidBtcValue + runningStocks + runningBonds + runningOther + runningSavings;
+            
+            if (liquidAssetsExcludingRealEstate > 0) {
+              const withdrawRatio = Math.min(1, totalAmountToWithdrawFromAssets / liquidAssetsExcludingRealEstate);
+              runningBtc = Math.max(0, runningBtc - (trulyLiquidBtcValue * withdrawRatio));
+              runningStocks = Math.max(0, runningStocks * (1 - withdrawRatio));
+              runningBonds = Math.max(0, runningBonds * (1 - withdrawRatio));
+              runningOther = Math.max(0, runningOther * (1 - withdrawRatio));
+              runningSavings = Math.max(0, runningSavings * (1 - withdrawRatio));
+              const actualWithdrawn = Math.min(totalAmountToWithdrawFromAssets, liquidAssetsExcludingRealEstate);
+              totalAmountToWithdrawFromAssets = Math.max(0, totalAmountToWithdrawFromAssets - actualWithdrawn);
+            } else {
+              runningBtc = Math.max(0, runningBtc - currentEncumberedBtcValue);
+              runningStocks = 0;
+              runningBonds = 0;
+              runningOther = 0;
+              runningSavings = 0;
+            }
+
+            if (totalAmountToWithdrawFromAssets > 0 && runningRealEstate > 0) {
+              const withdrawnRealEstate = Math.min(totalAmountToWithdrawFromAssets, runningRealEstate);
+              runningRealEstate = Math.max(0, runningRealEstate - withdrawnRealEstate);
+              totalAmountToWithdrawFromAssets = Math.max(0, totalAmountToWithdrawFromAssets - withdrawnRealEstate);
+            }
           }
         } else if (yearSavings > 0) {
           // Positive savings - add to taxable accounts
@@ -1445,7 +1501,7 @@ export default function FinancialPlan() {
         realEstate: Math.round(runningRealEstate),
         bonds: Math.round(runningBonds),
         savings: Math.round(runningSavings),
-        yearSavingsForTooltip: isRetired ? 0 : Math.round(yearSavings),
+        netCashFlow: Math.round(yearSavings),
         yearGrossIncome: !isRetired ? Math.round((grossAnnualIncome * Math.pow(1 + incomeGrowth / 100, i)) + activeIncomeAdjustment) : 0,
         yearSpending: !isRetired ? Math.round((currentAnnualSpending * Math.pow(1 + inflationRate / 100, i)) + activeExpenseAdjustment) : 0,
         total: Math.round(total),
@@ -1457,6 +1513,7 @@ export default function FinancialPlan() {
             year < (g.target_date ? new Date(g.target_date).getFullYear() : currentYear) + g.payoff_years),
         hasGoalWithdrawal: yearGoalWithdrawal > 0,
         isRetired: isRetired,
+        isWithdrawing: isRetired || yearSavings < 0,
         yearWithdrawal: isRetired ? Math.round(totalWithdrawalForTaxCalculation) : 0, // Combined outflow for the red line
         yearGoalWithdrawal: Math.round(yearGoalWithdrawal), // Keep separate for tooltip breakdown
         retirementSpendingOnly: isRetired ? Math.round(retirementSpendingOnly) : 0, // New property for tooltip breakdown
@@ -2452,93 +2509,105 @@ export default function FinancialPlan() {
                                   </>
                                 )}
                               </div>
-                              {!p.isRetired && p.yearSavingsForTooltip !== 0 && (
+                              {p.isWithdrawing && (
                                 <div className="pt-3 mt-3 border-t border-zinc-700/70">
-                                  {p.yearSavingsForTooltip < 0 ? (
-                                    <>
-                                      <p className="text-zinc-400 mb-2 font-medium text-xs">Annual Cash Flow:</p>
-                                      <div className="text-xs space-y-1.5 text-zinc-500 mb-2">
+                                  <p className="text-zinc-400 mb-2 font-medium text-xs">Annual Outflow:</p>
+                                  <div className="text-xs space-y-1.5 text-zinc-500 mb-2">
+                                    {p.isRetired ? (
+                                      <div className="flex justify-between gap-6">
+                                        <span>• Spending:</span>
+                                        <span className="text-zinc-300 text-right">${(p.retirementSpendingOnly || 0).toLocaleString()}</span>
+                                      </div>
+                                    ) : (
+                                      <>
                                         <div className="flex justify-between gap-6">
                                           <span>• Gross Income:</span>
                                           <span className="text-emerald-400 text-right">${(p.yearGrossIncome || 0).toLocaleString()}</span>
                                         </div>
-                                        {p.taxesPaid > 0 && (
-                                          <div className="flex justify-between gap-6">
-                                            <span>• Taxes Paid:</span>
-                                            <span className="text-rose-300 text-right">-${p.taxesPaid.toLocaleString()}</span>
-                                          </div>
-                                        )}
                                         <div className="flex justify-between gap-6">
                                           <span>• Spending:</span>
                                           <span className="text-zinc-300 text-right">-${(p.yearSpending || 0).toLocaleString()}</span>
                                         </div>
-                                        {p.hasGoalWithdrawal && p.yearGoalWithdrawal > 0 && (
-                                          <div className="flex justify-between gap-6">
-                                            <span>• Goal Funding:</span>
-                                            <span className="text-zinc-300 text-right">-${p.yearGoalWithdrawal.toLocaleString()}</span>
-                                          </div>
-                                        )}
+                                      </>
+                                    )}
+                                    {p.yearGoalWithdrawal > 0 && (
+                                      <div className="flex justify-between gap-6">
+                                        <span>• Goal Funding:</span>
+                                        <span className="text-zinc-300 text-right">-${p.yearGoalWithdrawal.toLocaleString()}</span>
                                       </div>
-                                      {p.debtPayments > 0 && (
-                                        <div className="text-xs text-zinc-500 mb-2">
-                                          (Debt Payments: ${p.debtPayments.toLocaleString()} - tracked separately)
-                                        </div>
-                                      )}
-                                      <div className="pt-2 border-t border-zinc-700/40">
-                                        <p className="font-semibold text-rose-300 text-sm">
-                                          Net Savings: ${(p.yearSavingsForTooltip || 0).toLocaleString()}
-                                        </p>
+                                    )}
+                                    {p.taxesPaid > 0 && (
+                                      <div className="flex justify-between gap-6">
+                                        <span>• Taxes Paid:</span>
+                                        <span className="text-rose-300 text-right">${p.taxesPaid.toLocaleString()}</span>
                                       </div>
-                                      {(p.withdrawFromTaxable > 0 || p.withdrawFromTaxDeferred > 0 || p.withdrawFromTaxFree > 0) && (
-                                        <div className="text-xs space-y-1.5 text-zinc-500 mt-3 pt-3 border-t border-zinc-700/40">
-                                          <p className="text-zinc-400 font-medium mb-1">Withdrawal Sources:</p>
-                                          {p.withdrawFromTaxable > 0 && (
-                                            <div className="flex justify-between gap-6">
-                                              <span>From Taxable:</span>
-                                              <span className="text-emerald-400 text-right">${p.withdrawFromTaxable.toLocaleString()}</span>
-                                            </div>
-                                          )}
-                                          {p.withdrawFromTaxDeferred > 0 && (
-                                            <div className="flex justify-between gap-6">
-                                              <span>From Tax-Deferred:</span>
-                                              <span className="text-amber-400 text-right">${p.withdrawFromTaxDeferred.toLocaleString()}</span>
-                                            </div>
-                                          )}
-                                          {p.withdrawFromTaxFree > 0 && (
-                                            <div className="flex justify-between gap-6">
-                                              <span>From Tax-Free:</span>
-                                              <span className="text-purple-400 text-right">${p.withdrawFromTaxFree.toLocaleString()}</span>
-                                            </div>
-                                          )}
-                                        </div>
-                                      )}
-                                    </>
-                                  ) : (
-                                    <>
-                                      <p className="text-zinc-400 mb-2 font-medium text-xs">Annual Cash Flow:</p>
-                                      <div className="text-xs space-y-1.5 text-zinc-500 mb-2">
-                                        <div className="flex justify-between gap-6">
-                                          <span>• Gross Income:</span>
-                                          <span className="text-emerald-400 text-right">${(p.yearGrossIncome || 0).toLocaleString()}</span>
-                                        </div>
-                                        {p.taxesPaid > 0 && (
-                                          <div className="flex justify-between gap-6">
-                                            <span>• Taxes Paid:</span>
-                                            <span className="text-rose-300 text-right">-${p.taxesPaid.toLocaleString()}</span>
-                                          </div>
-                                        )}
-                                        <div className="flex justify-between gap-6">
-                                          <span>• Spending:</span>
-                                          <span className="text-zinc-300 text-right">-${(p.yearSpending || 0).toLocaleString()}</span>
-                                        </div>
+                                    )}
+                                    {p.penaltyPaid > 0 && (
+                                      <div className="flex justify-between gap-6">
+                                        <span>• Penalty Paid:</span>
+                                        <span className="text-rose-300 text-right">${p.penaltyPaid.toLocaleString()}</span>
                                       </div>
-                                      <div className="pt-2 border-t border-zinc-700/40">
-                                        <p className="font-semibold text-emerald-400 text-sm">
-                                          Net Savings: ${Math.abs(p.yearSavingsForTooltip).toLocaleString()}
-                                        </p>
-                                      </div>
-                                    </>
+                                    )}
+                                  </div>
+                                  {p.debtPayments > 0 && (
+                                    <div className="text-xs text-zinc-500 mb-2">
+                                      (Debt Payments: ${p.debtPayments.toLocaleString()} - tracked separately)
+                                    </div>
                                   )}
+                                  <div className="pt-2 border-t border-zinc-700/40">
+                                    <p className="font-semibold text-rose-300 text-sm">
+                                      Net Withdrawal: ${Math.abs(p.netCashFlow).toLocaleString()}
+                                    </p>
+                                  </div>
+                                  {(p.withdrawFromTaxable > 0 || p.withdrawFromTaxDeferred > 0 || p.withdrawFromTaxFree > 0) && (
+                                    <div className="text-xs space-y-1.5 text-zinc-500 mt-3 pt-3 border-t border-zinc-700/40">
+                                      <p className="text-zinc-400 font-medium mb-1">Withdrawal Sources:</p>
+                                      {p.withdrawFromTaxable > 0 && (
+                                        <div className="flex justify-between gap-6">
+                                          <span>From Taxable:</span>
+                                          <span className="text-emerald-400 text-right">${p.withdrawFromTaxable.toLocaleString()}</span>
+                                        </div>
+                                      )}
+                                      {p.withdrawFromTaxDeferred > 0 && (
+                                        <div className="flex justify-between gap-6">
+                                          <span>From Tax-Deferred:</span>
+                                          <span className="text-amber-400 text-right">${p.withdrawFromTaxDeferred.toLocaleString()}</span>
+                                        </div>
+                                      )}
+                                      {p.withdrawFromTaxFree > 0 && (
+                                        <div className="flex justify-between gap-6">
+                                          <span>From Tax-Free:</span>
+                                          <span className="text-purple-400 text-right">${p.withdrawFromTaxFree.toLocaleString()}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                              {!p.isWithdrawing && p.netCashFlow > 0 && (
+                                <div className="pt-3 mt-3 border-t border-zinc-700/70">
+                                  <p className="text-zinc-400 mb-2 font-medium text-xs">Annual Cash Flow:</p>
+                                  <div className="text-xs space-y-1.5 text-zinc-500 mb-2">
+                                    <div className="flex justify-between gap-6">
+                                      <span>• Gross Income:</span>
+                                      <span className="text-emerald-400 text-right">${(p.yearGrossIncome || 0).toLocaleString()}</span>
+                                    </div>
+                                    {p.taxesPaid > 0 && (
+                                      <div className="flex justify-between gap-6">
+                                        <span>• Taxes Paid:</span>
+                                        <span className="text-rose-300 text-right">-${p.taxesPaid.toLocaleString()}</span>
+                                      </div>
+                                    )}
+                                    <div className="flex justify-between gap-6">
+                                      <span>• Spending:</span>
+                                      <span className="text-zinc-300 text-right">-${(p.yearSpending || 0).toLocaleString()}</span>
+                                    </div>
+                                  </div>
+                                  <div className="pt-2 border-t border-zinc-700/40">
+                                    <p className="font-semibold text-emerald-400 text-sm">
+                                      Net Savings: ${p.netCashFlow.toLocaleString()}
+                                    </p>
+                                  </div>
                                 </div>
                               )}
                               {p.debtPayoffs && p.debtPayoffs.length > 0 && (
@@ -2570,66 +2639,7 @@ export default function FinancialPlan() {
                                   ))}
                                 </div>
                               )}
-                              {p.isRetired && (p.yearWithdrawal > 0 || p.yearGoalWithdrawal > 0) && (
-                                <div className="pt-3 mt-3 border-t border-zinc-700/70">
-                                  <p className="text-zinc-400 mb-2 font-medium text-xs">Annual Outflow:</p>
-                                  <div className="text-xs space-y-1.5 text-zinc-500 mb-2">
-                                    <div className="flex justify-between gap-6">
-                                      <span>• Spending:</span>
-                                      <span className="text-zinc-300 text-right">${(p.retirementSpendingOnly || 0).toLocaleString()}</span>
-                                    </div>
-                                    {p.yearGoalWithdrawal > 0 && (
-                                      <div className="flex justify-between gap-6">
-                                        <span>• Goal Funding:</span>
-                                        <span className="text-zinc-300 text-right">${p.yearGoalWithdrawal.toLocaleString()}</span>
-                                      </div>
-                                    )}
-                                    {p.taxesPaid > 0 && (
-                                      <div className="flex justify-between gap-6">
-                                        <span>• Taxes Paid:</span>
-                                        <span className="text-rose-300 text-right">${p.taxesPaid.toLocaleString()}</span>
-                                      </div>
-                                    )}
-                                    {p.penaltyPaid > 0 && (
-                                      <div className="flex justify-between gap-6">
-                                        <span>• Penalty Paid:</span>
-                                        <span className="text-rose-300 text-right">${p.penaltyPaid.toLocaleString()}</span>
-                                      </div>
-                                    )}
-                                  </div>
-                                  {p.debtPayments > 0 && (
-                                    <div className="text-xs text-zinc-500 mb-2">
-                                      (Debt Payments: ${p.debtPayments.toLocaleString()} - tracked separately)
-                                    </div>
-                                  )}
-                                  <div className="pt-2 border-t border-zinc-700/40">
-                                    <p className="font-semibold text-rose-300 text-sm">
-                                      Total Outflow: ${((p.retirementSpendingOnly || 0) + (p.yearGoalWithdrawal || 0) + (p.taxesPaid || 0) + (p.penaltyPaid || 0)).toLocaleString()}
-                                    </p>
-                                  </div>
-                                  <div className="text-xs space-y-1.5 text-zinc-500 mt-3 pt-3 border-t border-zinc-700/40">
-                                    <p className="text-zinc-400 font-medium mb-1">Withdrawal Sources:</p>
-                                    {p.withdrawFromTaxable > 0 && (
-                                      <div className="flex justify-between gap-6">
-                                        <span>From Taxable:</span>
-                                        <span className="text-emerald-400 text-right">${p.withdrawFromTaxable.toLocaleString()}</span>
-                                      </div>
-                                    )}
-                                    {p.withdrawFromTaxDeferred > 0 && (
-                                      <div className="flex justify-between gap-6">
-                                        <span>From Tax-Deferred:</span>
-                                        <span className="text-amber-400 text-right">${p.withdrawFromTaxDeferred.toLocaleString()}</span>
-                                      </div>
-                                    )}
-                                    {p.withdrawFromTaxFree > 0 && (
-                                      <div className="flex justify-between gap-6">
-                                        <span>From Tax-Free:</span>
-                                        <span className="text-purple-400 text-right">${p.withdrawFromTaxFree.toLocaleString()}</span>
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              )}
+
                             </div>
                           </div>
                         );
