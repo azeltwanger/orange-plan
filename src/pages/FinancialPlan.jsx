@@ -2473,7 +2473,10 @@ export default function FinancialPlan() {
 
                         return (
                           <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-4 text-sm min-w-[240px] max-h-[500px] overflow-y-auto shadow-xl">
-                            <p className="font-bold text-lg text-zinc-100 mb-4">Age {label} {p.hasEvent ? '📅' : ''} {hasLiquidation ? '⚠️' : ''}</p>
+                            <div className="mb-4">
+                              <p className="font-bold text-lg text-zinc-100">Age {label} {p.hasEvent ? '📅' : ''} {hasLiquidation ? '⚠️' : ''}</p>
+                              <p className="text-xs text-zinc-500">{p.isRetired ? '(Retirement)' : '(Pre-Retirement)'}</p>
+                            </div>
                             <div className="space-y-2">
                               <div className="flex justify-between gap-6">
                                 <span className="text-orange-400 font-light">Bitcoin:</span>
@@ -2519,21 +2522,15 @@ export default function FinancialPlan() {
                                         <span className="text-zinc-300 text-right">${(p.retirementSpendingOnly || 0).toLocaleString()}</span>
                                       </div>
                                     ) : (
-                                      <>
-                                        <div className="flex justify-between gap-6">
-                                          <span>• Gross Income:</span>
-                                          <span className="text-emerald-400 text-right">${(p.yearGrossIncome || 0).toLocaleString()}</span>
-                                        </div>
-                                        <div className="flex justify-between gap-6">
-                                          <span>• Spending:</span>
-                                          <span className="text-zinc-300 text-right">-${(p.yearSpending || 0).toLocaleString()}</span>
-                                        </div>
-                                      </>
+                                      <div className="flex justify-between gap-6">
+                                        <span>• Spending:</span>
+                                        <span className="text-zinc-300 text-right">${(p.yearSpending || 0).toLocaleString()}</span>
+                                      </div>
                                     )}
                                     {p.yearGoalWithdrawal > 0 && (
                                       <div className="flex justify-between gap-6">
                                         <span>• Goal Funding:</span>
-                                        <span className="text-zinc-300 text-right">-${p.yearGoalWithdrawal.toLocaleString()}</span>
+                                        <span className="text-zinc-300 text-right">${p.yearGoalWithdrawal.toLocaleString()}</span>
                                       </div>
                                     )}
                                     {p.taxesPaid > 0 && (
@@ -2556,7 +2553,7 @@ export default function FinancialPlan() {
                                   )}
                                   <div className="pt-2 border-t border-zinc-700/40">
                                     <p className="font-semibold text-rose-300 text-sm">
-                                      Net Withdrawal: ${Math.abs(p.netCashFlow).toLocaleString()}
+                                      Net Withdrawal: ${(p.totalWithdrawalAmount || 0).toLocaleString()}
                                     </p>
                                   </div>
                                   {(p.withdrawFromTaxable > 0 || p.withdrawFromTaxDeferred > 0 || p.withdrawFromTaxFree > 0) && (
