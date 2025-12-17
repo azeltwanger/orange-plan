@@ -1493,6 +1493,13 @@ export default function FinancialPlan() {
         });
       }
 
+      // Calculate total withdrawal amount (actual cash withdrawn from accounts)
+      const totalWithdrawalAmount = isRetired 
+        ? Math.round((retirementSpendingOnly || 0) + (taxesPaid || 0) + (penaltyPaid || 0) + (yearGoalWithdrawal || 0))
+        : yearSavings < 0 
+          ? Math.round(Math.abs(yearSavings) + (taxesPaid || 0) + (penaltyPaid || 0))
+          : 0;
+
       data.push({
         age: currentAge + i,
         year,
@@ -1525,9 +1532,9 @@ export default function FinancialPlan() {
         taxFree: Math.round(runningTaxFree),
         accountTotal: Math.round(accountTotalAfterWithdrawals),
         canAccessPenaltyFree: currentAge + i >= PENALTY_FREE_AGE,
-        penaltyPaid: isRetired ? Math.round(penaltyPaid) : 0,
+        penaltyPaid: Math.round(penaltyPaid),
         taxesPaid: Math.round(taxesPaid),
-        netWithdrawal: isRetired ? Math.round(totalWithdrawalForTaxCalculation - taxesPaid - penaltyPaid) : 0,
+        totalWithdrawalAmount: totalWithdrawalAmount,
         // Withdrawal breakdown by account type - now for BOTH pre and post retirement
         withdrawFromTaxable: Math.round(withdrawFromTaxable),
         withdrawFromTaxDeferred: Math.round(withdrawFromTaxDeferred),
