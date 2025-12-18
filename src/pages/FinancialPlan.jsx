@@ -1840,7 +1840,38 @@ export default function FinancialPlan() {
     };
 
     calculateMaxSpending();
-  }, [currentAge, retirementAge, lifeExpectancy, taxableValue, taxDeferredValue, taxFreeValue, btcValue, stocksValue, realEstateValue, bondsValue, otherValue, annualSavings, effectiveInflation, incomeGrowth, effectiveStocksCagr, realEstateCagr, bondsCagr, getBtcGrowthRate, lifeEvents, goals, liabilities, btcPrice]);
+  }, [
+    currentAge,
+    retirementAge,
+    lifeExpectancy,
+    btcCagr,
+    stocksCagr,
+    realEstateCagr,
+    bondsCagr,
+    cashCagr,
+    otherCagr,
+    inflationRate,
+    incomeGrowth,
+    btcReturnModel,
+    grossAnnualIncome,
+    currentAnnualSpending,
+    retirementAnnualSpending,
+    contribution401k,
+    employer401kMatch,
+    contributionRothIRA,
+    contributionHSA,
+    hsaFamilyCoverage,
+    filingStatus,
+    otherRetirementIncome,
+    socialSecurityStartAge,
+    socialSecurityAmount,
+    holdings,
+    goals,
+    lifeEvents,
+    liabilities,
+    collateralizedLoans,
+    btcPrice
+  ]);
 
   // Calculate earliest achievable FI age (when portfolio can sustain withdrawals to life expectancy)
   useEffect(() => {
