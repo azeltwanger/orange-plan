@@ -1199,46 +1199,29 @@ export default function FinancialPlan() {
         // Allocate net cash flow to taxable accounts
         // If savings is negative, we're drawing down the portfolio pre-retirement
         if (yearSavings < 0) {
-          const netSpendingNeed = Math.abs(yearSavings);
+          const deficit = Math.abs(yearSavings);
 
-          // Iteratively calculate gross withdrawal needed (spending + taxes on that withdrawal)
+          // CALCULATE TAXES ON PRE-RETIREMENT WITHDRAWALS using same logic as post-retirement
           const effectiveRunningTaxableBasis = Math.min(runningTaxable, runningTaxableBasis);
           const estimatedCurrentGainRatio = runningTaxable > 0 ? Math.max(0, (runningTaxable - effectiveRunningTaxableBasis) / runningTaxable) : 0;
 
-          let grossWithdrawalNeeded = netSpendingNeed + yearGoalWithdrawal;
-          let iterationCount = 0;
-          let converged = false;
+          const taxEstimate = estimateRetirementWithdrawalTaxes({
+            withdrawalNeeded: deficit,
+            taxableBalance: runningTaxable,
+            taxDeferredBalance: runningTaxDeferred,
+            taxFreeBalance: runningTaxFree,
+            taxableGainPercent: estimatedCurrentGainRatio,
+            isLongTermGain: true,
+            filingStatus,
+            age: currentAgeThisYear,
+            otherIncome: 0,
+          });
 
-          // Iterate to find gross withdrawal that covers spending + taxes + penalties
-          while (!converged && iterationCount < 5) {
-            const taxEstimate = estimateRetirementWithdrawalTaxes({
-              withdrawalNeeded: grossWithdrawalNeeded,
-              taxableBalance: runningTaxable,
-              taxDeferredBalance: runningTaxDeferred,
-              taxFreeBalance: runningTaxFree,
-              taxableGainPercent: estimatedCurrentGainRatio,
-              isLongTermGain: true,
-              filingStatus,
-              age: currentAgeThisYear,
-              otherIncome: 0,
-            });
-
-            const estimatedTax = taxEstimate.totalTax || 0;
-            const estimatedPenalty = taxEstimate.totalPenalty || 0;
-            const newGrossNeeded = netSpendingNeed + yearGoalWithdrawal + estimatedTax + estimatedPenalty;
-
-            if (Math.abs(newGrossNeeded - grossWithdrawalNeeded) < 1) {
-              converged = true;
-              withdrawFromTaxable = taxEstimate.fromTaxable || 0;
-              withdrawFromTaxDeferred = taxEstimate.fromTaxDeferred || 0;
-              withdrawFromTaxFree = taxEstimate.fromTaxFree || 0;
-              taxesPaid = estimatedTax;
-              penaltyPaid = estimatedPenalty;
-            } else {
-              grossWithdrawalNeeded = newGrossNeeded;
-              iterationCount++;
-            }
-          }
+          withdrawFromTaxable = taxEstimate.fromTaxable || 0;
+          withdrawFromTaxDeferred = taxEstimate.fromTaxDeferred || 0;
+          withdrawFromTaxFree = taxEstimate.fromTaxFree || 0;
+          taxesPaid = taxEstimate.totalTax || 0;
+          penaltyPaid = taxEstimate.totalPenalty || 0;
 
           // Adjust cost basis after taxable withdrawal
           if (withdrawFromTaxable > 0 && runningTaxable > 0) {
@@ -1253,13 +1236,13 @@ export default function FinancialPlan() {
 
           // Mark depletion if needed
           const actualTotalWithdrawn = withdrawFromTaxable + withdrawFromTaxDeferred + withdrawFromTaxFree;
-          const totalNeeded = netSpendingNeed + yearGoalWithdrawal + taxesPaid + penaltyPaid;
-          if (actualTotalWithdrawn < totalNeeded && !ranOutOfMoney) {
+          if (actualTotalWithdrawn < deficit && !ranOutOfMoney) {
             ranOutOfMoney = true;
           }
 
           // Withdraw from assets
-          let totalAmountToWithdrawFromAssets = actualTotalWithdrawn;
+          const actualWithdrawalFromAccounts = withdrawFromTaxable + withdrawFromTaxDeferred + withdrawFromTaxFree;
+          let totalAmountToWithdrawFromAssets = actualWithdrawalFromAccounts;
 
           if (totalAmountToWithdrawFromAssets > 0) {
             const btcPriceThisYear = currentPrice * Math.pow(1 + yearBtcGrowth / 100, i);
@@ -1356,47 +1339,31 @@ export default function FinancialPlan() {
         // Store original retirement spending for tooltip breakdown
         retirementSpendingOnly = yearWithdrawal;
 
-        // Iteratively calculate gross withdrawal needed to cover spending + goals + taxes + penalties
-        const netSpendingNeed = retirementSpendingOnly + yearGoalWithdrawal;
+        // Combine retirement withdrawal and goal withdrawal for tax estimation
+        totalWithdrawalForTaxCalculation = retirementSpendingOnly + yearGoalWithdrawal;
+
+        // Cap withdrawal to available balance
         const totalAvailableBalance = runningTaxable + runningTaxDeferred + runningTaxFree;
-        
-        let grossWithdrawalNeeded = Math.min(netSpendingNeed, totalAvailableBalance);
-        let iterationCount = 0;
-        let converged = false;
+        const cappedWithdrawal = Math.min(totalWithdrawalForTaxCalculation, totalAvailableBalance);
 
-        // Iterate to find gross withdrawal that covers spending + taxes + penalties
-        while (!converged && iterationCount < 5) {
-          const taxEstimate = estimateRetirementWithdrawalTaxes({
-            withdrawalNeeded: grossWithdrawalNeeded,
-            taxableBalance: runningTaxable,
-            taxDeferredBalance: runningTaxDeferred,
-            taxFreeBalance: runningTaxFree,
-            taxableGainPercent: estimatedCurrentGainRatio,
-            isLongTermGain: true,
-            filingStatus,
-            age: currentAgeInYear,
-            otherIncome: totalOtherIncome,
-          });
+        // Use tax calculation utility for accurate withdrawal taxes
+        const taxEstimate = estimateRetirementWithdrawalTaxes({
+          withdrawalNeeded: cappedWithdrawal,
+          taxableBalance: runningTaxable,
+          taxDeferredBalance: runningTaxDeferred,
+          taxFreeBalance: runningTaxFree,
+          taxableGainPercent: estimatedCurrentGainRatio,
+          isLongTermGain: true, // Assume long-term for projections
+          filingStatus,
+          age: currentAgeInYear,
+          otherIncome: totalOtherIncome,
+        });
 
-          const estimatedTax = taxEstimate.totalTax || 0;
-          const estimatedPenalty = taxEstimate.totalPenalty || 0;
-          const newGrossNeeded = Math.min(
-            netSpendingNeed + estimatedTax + estimatedPenalty,
-            totalAvailableBalance
-          );
-
-          if (Math.abs(newGrossNeeded - grossWithdrawalNeeded) < 1) {
-            converged = true;
-            withdrawFromTaxable = taxEstimate.fromTaxable || 0;
-            withdrawFromTaxDeferred = taxEstimate.fromTaxDeferred || 0;
-            withdrawFromTaxFree = taxEstimate.fromTaxFree || 0;
-            taxesPaid = estimatedTax;
-            penaltyPaid = estimatedPenalty;
-          } else {
-            grossWithdrawalNeeded = newGrossNeeded;
-            iterationCount++;
-          }
-        }
+        withdrawFromTaxable = taxEstimate.fromTaxable || 0;
+        withdrawFromTaxDeferred = taxEstimate.fromTaxDeferred || 0;
+        withdrawFromTaxFree = taxEstimate.fromTaxFree || 0;
+        taxesPaid = taxEstimate.totalTax || 0;
+        penaltyPaid = taxEstimate.totalPenalty || 0;
 
         // Adjust cost basis after taxable withdrawal (proportionally reduce basis)
         if (withdrawFromTaxable > 0 && runningTaxable > 0) {
@@ -1411,8 +1378,7 @@ export default function FinancialPlan() {
         
         // If we couldn't fully fund the withdrawal, mark depletion
         const actualTotalWithdrawn = withdrawFromTaxable + withdrawFromTaxDeferred + withdrawFromTaxFree;
-        const totalNeededRetirement = retirementSpendingOnly + yearGoalWithdrawal + taxesPaid + penaltyPaid;
-        if (actualTotalWithdrawn < totalNeededRetirement && !ranOutOfMoney) {
+        if (actualTotalWithdrawn < cappedWithdrawal && !ranOutOfMoney) {
           ranOutOfMoney = true;
         }
 
