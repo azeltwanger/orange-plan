@@ -1880,7 +1880,16 @@ export default function FinancialPlan() {
     lifeEvents,
     liabilities,
     collateralizedLoans,
-    btcPrice
+    btcPrice,
+    annualSavings,
+    taxableValue,
+    taxDeferredValue,
+    taxFreeValue,
+    btcValue,
+    stocksValue,
+    realEstateValue,
+    bondsValue,
+    otherValue
   ]);
 
   // Calculate earliest achievable FI age (when portfolio can sustain withdrawals to life expectancy)
