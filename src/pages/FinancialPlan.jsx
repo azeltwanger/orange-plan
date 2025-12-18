@@ -1369,6 +1369,17 @@ export default function FinancialPlan() {
 
         // Combine retirement withdrawal and goal withdrawal for tax estimation
         totalWithdrawalForTaxCalculation = retirementSpendingOnly + yearGoalWithdrawal;
+        
+        // DEBUG: Trace withdrawal calculation
+        if (currentAge + i >= retirementAge && currentAge + i <= retirementAge + 3) {
+          console.log("WITHDRAWAL TRACE:", {
+            age: currentAge + i,
+            yearWithdrawal,
+            retirementSpendingOnly,
+            yearGoalWithdrawal,
+            totalWithdrawalForTaxCalculation
+          });
+        }
 
         // Cap withdrawal to available balance
         const totalAvailableBalance = getTotalLiquid();
