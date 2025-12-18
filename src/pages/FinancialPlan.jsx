@@ -1695,7 +1695,16 @@ export default function FinancialPlan() {
 
       // Binary search for max spending (faster than linear search)
       let low = 0;
-      let high = 1000000; // $1M max test
+      
+      // Set max test to 50% of projected portfolio at retirement (reasonable upper bound)
+      // or $10M, whichever is lower
+      const yearsToRetirement = Math.max(0, retirementAge - currentAge);
+      const projectedPortfolio = startingPortfolio * Math.pow(1.10, yearsToRetirement); // Conservative 10% growth estimate
+      let high = Math.min(projectedPortfolio * 0.5, 10000000); // Cap at $10M to prevent infinite loops
+      high = Math.max(high, 500000); // At least $500k floor for testing
+      
+      console.log("Binary search range:", { low: 0, high, startingPortfolio, projectedPortfolio });
+      
       let maxSpending = 0;
       const tolerance = 0.01; // $0.01 precision for maximum accuracy
 
