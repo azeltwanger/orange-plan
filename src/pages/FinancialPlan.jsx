@@ -1338,7 +1338,8 @@ export default function FinancialPlan() {
 
         // Required Minimum Distributions (RMDs) from tax-deferred accounts starting at age 73
         let rmdAmount = 0;
-        if (currentAgeInYear >= RMD_START_AGE && runningTaxDeferred > 0) {
+        const taxDeferredBalanceForRMD = getAccountTotal('taxDeferred');
+        if (currentAgeInYear >= RMD_START_AGE && taxDeferredBalanceForRMD > 0) {
           // Simplified RMD calculation using IRS Uniform Lifetime Table approximation
           const rmdFactor = (() => {
             if (currentAgeInYear === 73) return 26.5;
@@ -1352,7 +1353,7 @@ export default function FinancialPlan() {
             if (currentAgeInYear >= 81 && currentAgeInYear <= 85) return 19.0 - ((currentAgeInYear - 81) * 0.5);
             return Math.max(10, 16.0 - ((currentAgeInYear - 86) * 0.4)); // Conservative estimate for 86+
           })();
-          rmdAmount = runningTaxDeferred / rmdFactor;
+          rmdAmount = taxDeferredBalanceForRMD / rmdFactor;
 
           // RMDs count as taxable income and must be taken regardless of spending needs
           // If RMD > yearWithdrawal, we still need to take the full RMD
