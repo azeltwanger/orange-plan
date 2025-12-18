@@ -640,7 +640,6 @@ export default function FinancialPlan() {
     let runningRealEstate = realEstateValue;
     let runningBonds = bondsValue;
     let runningOther = otherValue;
-    let runningSavings = 0;
 
     // Track by account type - use the correctly calculated values
     let runningTaxable = taxableValue;
@@ -1223,7 +1222,7 @@ export default function FinancialPlan() {
             const btcPriceThisYear = currentPrice * Math.pow(1 + yearBtcGrowth / 100, i);
             const currentEncumberedBtcValue = Object.values(encumberedBtc).reduce((sum, btcAmount) => sum + (btcAmount * btcPriceThisYear), 0);
             const trulyLiquidBtcValue = Math.max(0, runningBtc - currentEncumberedBtcValue);
-            const liquidAssetsExcludingRealEstate = trulyLiquidBtcValue + runningStocks + runningBonds + runningOther + runningSavings;
+            const liquidAssetsExcludingRealEstate = trulyLiquidBtcValue + runningStocks + runningBonds + runningOther;
             
             if (liquidAssetsExcludingRealEstate > 0) {
               const withdrawRatio = Math.min(1, totalAmountToWithdrawFromAssets / liquidAssetsExcludingRealEstate);
@@ -1231,7 +1230,6 @@ export default function FinancialPlan() {
               runningStocks = Math.max(0, runningStocks * (1 - withdrawRatio));
               runningBonds = Math.max(0, runningBonds * (1 - withdrawRatio));
               runningOther = Math.max(0, runningOther * (1 - withdrawRatio));
-              runningSavings = Math.max(0, runningSavings * (1 - withdrawRatio));
               const actualWithdrawn = Math.min(totalAmountToWithdrawFromAssets, liquidAssetsExcludingRealEstate);
               totalAmountToWithdrawFromAssets = Math.max(0, totalAmountToWithdrawFromAssets - actualWithdrawn);
             } else {
@@ -1239,7 +1237,6 @@ export default function FinancialPlan() {
               runningStocks = 0;
               runningBonds = 0;
               runningOther = 0;
-              runningSavings = 0;
             }
 
             if (totalAmountToWithdrawFromAssets > 0 && runningRealEstate > 0) {
@@ -1369,8 +1366,8 @@ export default function FinancialPlan() {
             // Determine truly liquid BTC
             const trulyLiquidBtcValue = Math.max(0, runningBtc - currentEncumberedBtcValue);
 
-            // Step 1: Withdraw proportionally from truly liquid assets (BTC, Stocks, Bonds, Other, Savings)
-            const liquidAssetsExcludingRealEstate = trulyLiquidBtcValue + runningStocks + runningBonds + runningOther + runningSavings;
+            // Step 1: Withdraw proportionally from truly liquid assets (BTC, Stocks, Bonds, Other)
+            const liquidAssetsExcludingRealEstate = trulyLiquidBtcValue + runningStocks + runningBonds + runningOther;
             if (liquidAssetsExcludingRealEstate > 0) {
                 const withdrawRatio = Math.min(1, totalAmountToWithdrawFromAssets / liquidAssetsExcludingRealEstate);
 
@@ -1379,7 +1376,6 @@ export default function FinancialPlan() {
                 runningStocks = Math.max(0, runningStocks * (1 - withdrawRatio));
                 runningBonds = Math.max(0, runningBonds * (1 - withdrawRatio));
                 runningOther = Math.max(0, runningOther * (1 - withdrawRatio));
-                runningSavings = Math.max(0, runningSavings * (1 - withdrawRatio));
 
                 // Update remaining amount to withdraw if liquid assets were not enough
                 const actualWithdrawn = Math.min(totalAmountToWithdrawFromAssets, liquidAssetsExcludingRealEstate);
@@ -1390,7 +1386,6 @@ export default function FinancialPlan() {
                 runningStocks = 0;
                 runningBonds = 0;
                 runningOther = 0;
-                runningSavings = 0;
             }
 
             // Step 2: If there's still a withdrawal need, draw from Real Estate (illiquid last)
@@ -1426,7 +1421,7 @@ export default function FinancialPlan() {
       const totalLiquidatedBtc = Object.values(liquidatedBtc).reduce((sum, amount) => sum + amount, 0);
       const yearLiquidations = liquidationEvents.filter(e => e.year === year);
 
-      // Total assets calculation (should NOT include flows like income or savings)
+      // Total assets calculation - sum of all asset classes only
       const totalAssetsThisYear = runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther;
       
       let total = totalAssetsThisYear + adjustedEventImpact;
@@ -1449,7 +1444,6 @@ export default function FinancialPlan() {
         runningRealEstate = 0;
         runningBonds = 0;
         runningOther = 0;
-        runningSavings = 0;
         runningTaxable = 0;
         runningTaxDeferred = 0;
         runningTaxFree = 0;
@@ -1471,7 +1465,7 @@ export default function FinancialPlan() {
         stocks: Math.round(runningStocks),
         realEstate: Math.round(runningRealEstate),
         bonds: Math.round(runningBonds),
-        savings: Math.round(runningSavings),
+        savings: Math.round(cumulativeSavings),
         netCashFlow: Math.round(yearSavings),
         yearGrossIncome: !isRetired ? Math.round((grossAnnualIncome * Math.pow(1 + incomeGrowth / 100, i)) + activeIncomeAdjustment) : 0,
         yearSpending: !isRetired ? Math.round((currentAnnualSpending * Math.pow(1 + inflationRate / 100, i)) + activeExpenseAdjustment) : 0,
