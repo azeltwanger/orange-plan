@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -730,31 +731,6 @@ export default function FinancialPlan() {
       // Get BTC growth rate for this year (needed early for collateral calculations)
       const yearBtcGrowth = getBtcGrowthRate(i, effectiveInflation);
 
-      // Debug logging for ages 35-38
-      if (age >= 35 && age <= 38) {
-        console.log("Year Debug:", year, "Age:", age, {
-          "BTC start of year": Math.round(runningBtc),
-          "BTC after growth": Math.round(runningBtc * (1 + yearBtcGrowth / 100)),
-          "Goals processed this year": goals.filter(g => {
-            if (g.will_be_spent && g.target_date && new Date(g.target_date).getFullYear() === year) return true;
-            if (g.goal_type === 'debt_payoff' && g.linked_liability_id) {
-              const payoffStrategy = g.payoff_strategy || 'spread_payments';
-              if (payoffStrategy === 'spread_payments' && g.payoff_years > 0) {
-                const startYear = g.target_date ? new Date(g.target_date).getFullYear() : currentYear;
-                const endYear = startYear + g.payoff_years;
-                return year >= startYear && year < endYear;
-              } else if (payoffStrategy === 'lump_sum' && g.target_date) {
-                return year === new Date(g.target_date).getFullYear();
-              }
-            }
-            return false;
-          }).map(g => g.name),
-          "Debt events this year": Object.values(tempRunningDebt).filter(d => !d.paid_off && d.current_balance > 0).length,
-          "Any collateral released": Object.values(releasedBtc).reduce((sum, amount) => sum + amount, 0),
-          "BTC end of year (after all operations)": "Will be logged at end"
-        });
-      }
-
       // Add released BTC back to runningBtc for liquidity if applicable for the current year
       // This needs to happen BEFORE any withdrawals from assets, including from BTC itself.
       const totalReleasedBtcValueThisYear = Object.values(releasedBtc).reduce((sum, btcAmount) => {
@@ -1482,17 +1458,6 @@ export default function FinancialPlan() {
 
       const realTotal = total / Math.pow(1 + effectiveInflation / 100, i);
 
-      // Debug logging end of year for ages 35-38
-      if (age >= 35 && age <= 38) {
-        console.log("End of Year:", year, "Age:", age, {
-          "BTC end of year": Math.round(runningBtc),
-          "Stocks end": Math.round(runningStocks),
-          "Total Assets": Math.round(runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther),
-          "Year event impact": eventImpact,
-          "Year goal withdrawal": yearGoalWithdrawal
-        });
-      }
-
       // Calculate total withdrawal amount (actual cash withdrawn from accounts)
       const totalWithdrawalAmount = isRetired 
         ? Math.round((retirementSpendingOnly || 0) + (taxesPaid || 0) + (penaltyPaid || 0) + (yearGoalWithdrawal || 0))
@@ -1614,10 +1579,11 @@ export default function FinancialPlan() {
   const realRetirementValue = projections[retirementYearIndex]?.realTotal || 0;
   const endOfLifeValue = projections[projections.length - 1]?.total || 0;
   
-  // Check for portfolio depletion at ANY age (not just retirement)
+  // FIX: Check for portfolio depletion at ANY age, not just retirement
   const depletionIndex = projections.findIndex(p => p.total <= 0);
   const willRunOutOfMoney = depletionIndex !== -1;
   const runOutOfMoneyAge = willRunOutOfMoney ? projections[depletionIndex]?.age : null;
+  
   const yearsInRetirement = lifeExpectancy - retirementAge;
 
   // Calculate inflation-adjusted retirement spending need at retirement
@@ -1630,30 +1596,29 @@ export default function FinancialPlan() {
 
   // Calculate retirement status and insights
   const retirementStatus = useMemo(() => {
-    // Priority 1: If portfolio depletes at ANY point, plan is not sustainable
+    // PRIORITY 1: If portfolio depletes at any point → Critical
     if (willRunOutOfMoney) {
       return {
         type: 'critical',
         title: 'Critical: Plan Not Sustainable',
-        description: `Portfolio projected to deplete at Age ${runOutOfMoneyAge}.`,
+        description: `Portfolio projected to deplete at age ${runOutOfMoneyAge}.`,
         icon: <AlertTriangle className="w-5 h-5" />
       };
     }
 
-    // Priority 2: If no sustainable retirement age found
+    // PRIORITY 2: If no sustainable retirement age found → Critical
     if (earliestRetirementAge === null) {
       return {
         type: 'critical',
-        title: 'Critical: At Risk',
+        title: 'At Risk: Major Shortfall',
         description: `Retirement not achievable at target age ${retirementAge} with current plan.`,
         icon: <AlertTriangle className="w-5 h-5" />
       };
     }
 
-    // Calculate the gap between earliest sustainable and target retirement age
+    // PRIORITY 3: Check gap between earliest and target
     const gap = earliestRetirementAge - retirementAge;
-
-    // Priority 3: Earliest retirement is more than 3 years later than target
+    
     if (gap > 3) {
       return {
         type: 'at_risk',
@@ -1661,29 +1626,26 @@ export default function FinancialPlan() {
         description: `Earliest sustainable retirement: Age ${earliestRetirementAge} (${gap} years later than target).`,
         icon: <AlertTriangle className="w-5 h-5" />
       };
-    }
-    
-    // Priority 4: Earliest retirement is 1-3 years later than target
-    if (gap > 0) {
+    } else if (gap > 0) {
       return {
         type: 'on_track',
         title: 'Nearly On Track',
         description: `Close to target! Earliest retirement: Age ${earliestRetirementAge} (${gap} years from target).`,
         icon: <TrendingUp className="w-5 h-5" />
       };
+    } else {
+      // gap <= 0 means can retire at or before target age
+      const yearsEarly = Math.abs(gap);
+      return {
+        type: 'optimistic',
+        title: 'Ahead of Schedule!',
+        description: yearsEarly > 0
+          ? `You can retire ${yearsEarly} year${yearsEarly !== 1 ? 's' : ''} earlier at Age ${earliestRetirementAge}.`
+          : `On track to retire at Age ${retirementAge} as planned.`,
+        icon: <Sparkles className="w-5 h-5" />
+      };
     }
-    
-    // Priority 5: On track or ahead - portfolio lasts through life expectancy
-    const yearsEarly = Math.abs(gap);
-    return {
-      type: 'optimistic',
-      title: 'Ahead of Schedule!',
-      description: yearsEarly > 0
-        ? `You can retire ${yearsEarly} year${yearsEarly !== 1 ? 's' : ''} earlier at Age ${earliestRetirementAge}.`
-        : `On track to retire at Age ${retirementAge} as planned.`,
-      icon: <Sparkles className="w-5 h-5" />
-    };
-  }, [earliestRetirementAge, retirementAge, willRunOutOfMoney, runOutOfMoneyAge]);
+  }, [earliestRetirementAge, retirementAge, willRunOutOfMoney, runOutOfMoneyAge, currentAge]);
 
   // Calculate maximum sustainable spending at retirement age
   useEffect(() => {
@@ -2285,44 +2247,30 @@ export default function FinancialPlan() {
         {/* Projections Tab */}
         <TabsContent value="projections" className="space-y-6">
           {/* Earliest FI Age - Hero Card - NOW AT TOP */}
-          <div className={cn(
-            "card-premium rounded-2xl p-6 border bg-gradient-to-br",
-            willRunOutOfMoney 
-              ? "border-rose-500/30 from-rose-500/10 to-transparent"
-              : "border-orange-500/30 from-orange-500/10 to-transparent"
-          )}>
+          <div className="card-premium rounded-2xl p-6 border border-orange-500/30 bg-gradient-to-br from-orange-500/10 to-transparent">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
               <div>
-                <p className="text-sm text-zinc-400 uppercase tracking-wider mb-2">
-                  {willRunOutOfMoney ? "Portfolio Status" : "Earliest Retirement Age"}
-                </p>
+                <p className="text-sm text-zinc-400 uppercase tracking-wider mb-2">Earliest Retirement Age</p>
                 <div className="flex items-baseline gap-3">
                   <span className={cn(
                     "text-5xl font-bold",
-                    willRunOutOfMoney ? "text-rose-400" :
                     earliestRetirementAge && earliestRetirementAge <= retirementAge ? "text-emerald-400" :
                     earliestRetirementAge ? "text-orange-400" : "text-rose-400"
                   )}>
-                    {willRunOutOfMoney 
-                      ? `Depletes at Age ${runOutOfMoneyAge}`
-                      : earliestRetirementAge 
-                        ? `Age ${earliestRetirementAge}` 
-                        : "Not Yet Achievable"}
+                    {earliestRetirementAge ? `Age ${earliestRetirementAge}` : "Not Yet Achievable"}
                   </span>
-                  {!willRunOutOfMoney && earliestRetirementAge && (
+                  {earliestRetirementAge && (
                     <span className="text-zinc-500">
                       ({earliestRetirementAge - currentAge} years from now)
                     </span>
                   )}
                 </div>
                 <p className="text-sm text-zinc-400 mt-2">
-                  {willRunOutOfMoney
-                    ? "Your current plan is not sustainable. Increase savings, reduce spending, or delay retirement."
-                    : earliestRetirementAge && earliestRetirementAge <= retirementAge
-                      ? `You can retire ${retirementAge - earliestRetirementAge} years earlier than your target!`
-                      : earliestRetirementAge
-                        ? `Your target age ${retirementAge} is ${earliestRetirementAge - retirementAge} years too early based on current trajectory.`
-                        : "Increase savings or reduce spending to retire."}
+                  {earliestRetirementAge && earliestRetirementAge <= retirementAge
+                    ? `You can retire ${retirementAge - earliestRetirementAge} years earlier than your target!`
+                    : earliestRetirementAge
+                      ? `Your target age ${retirementAge} is ${earliestRetirementAge - retirementAge} years too early based on current trajectory.`
+                      : "Increase savings or reduce spending to retire."}
                 </p>
               </div>
               <div className="flex flex-col gap-2 text-sm">
@@ -2459,8 +2407,8 @@ export default function FinancialPlan() {
                   </p>
                 </div>
 
-                {/* Alternative: Delay Retirement - Only show if portfolio doesn't deplete before that age */}
-                {earliestRetirementAge && (!willRunOutOfMoney || earliestRetirementAge < runOutOfMoneyAge) && (
+                {/* Alternative: Delay Retirement */}
+                {earliestRetirementAge && (
                   <div className="card-premium rounded-xl p-4 border border-zinc-700/50">
                     <div className="flex items-center gap-2 mb-2">
                       <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
@@ -2714,7 +2662,7 @@ export default function FinancialPlan() {
                                 <div className="w-6 h-0.5 bg-emerald-400" style={{backgroundImage: 'repeating-linear-gradient(90deg, #10b981 0, #10b981 5px, transparent 5px, transparent 10px)'}} />
                                 <span className="text-zinc-400">Debt Payoff</span>
                               </div>
-                              {runOutOfMoneyAge && (
+                              {runOutOfMoneyYear && (
                                 <div className="flex items-center gap-2">
                                   <div className="w-4 h-0.5 bg-red-500" />
                                   <span className="text-rose-400">Portfolio Depleted</span>
@@ -2726,9 +2674,9 @@ export default function FinancialPlan() {
                       }}
                     />
                     <ReferenceLine x={retirementAge} stroke="#F7931A" strokeDasharray="5 5" label={{ value: 'Retire', fill: '#F7931A', fontSize: 10 }} yAxisId="left" />
-                    {runOutOfMoneyAge && (
+                    {runOutOfMoneyYear && (
                       <ReferenceLine
-                        x={runOutOfMoneyAge}
+                        x={runOutOfMoneyYear}
                         stroke="#ef4444"
                         strokeWidth={2}
                         label={{ value: '💥 Portfolio Depleted', fill: '#ef4444', fontSize: 10, position: 'top' }}
@@ -3065,7 +3013,7 @@ export default function FinancialPlan() {
                       "text-xs",
                       contribution401k > currentLimit401k ? "text-amber-400" : "text-zinc-500"
                     )}>
-                      {currentYear} limit: ${currentLimit401k.toLocaleString()} {currentAge >= 50 ? "(with catch-up)" : `($${(currentLimit401k + 7500).toLocaleString()} if 50+)`}
+                      {currentYear} limit: ${currentLimit401k.toLocaleString()} {currentAge >= 50 ? "(with catch-up)" : `(${(currentLimit401k + 7500).toLocaleString()} if 50+)`}
                       {contribution401k > currentLimit401k && " ⚠️ Exceeds limit"}
                     </p>
                   </div>
@@ -3091,7 +3039,7 @@ export default function FinancialPlan() {
                       "text-xs",
                       contributionRothIRA > currentLimitRoth ? "text-amber-400" : "text-zinc-500"
                     )}>
-                      {currentYear} limit: ${currentLimitRoth.toLocaleString()} {currentAge >= 50 ? "(with catch-up)" : `($${(currentLimitRoth + 1000).toLocaleString()} if 50+)`}
+                      {currentYear} limit: ${currentLimitRoth.toLocaleString()} {currentAge >= 50 ? "(with catch-up)" : `(${(currentLimitRoth + 1000).toLocaleString()} if 50+)`}
                       {contributionRothIRA > currentLimitRoth && " ⚠️ Exceeds limit"}
                     </p>
                   </div>
