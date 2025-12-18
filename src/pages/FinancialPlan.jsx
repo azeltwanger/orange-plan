@@ -1134,27 +1134,6 @@ export default function FinancialPlan() {
       const yearsIntoRetirement = isRetired ? currentAge + i - retirementAge : 0;
       const currentAgeThisYear = currentAge + i;
 
-      // DEBUG: Log critical years (40-44)
-      const debugAge = currentAge + i;
-      const shouldDebug = debugAge >= 40 && debugAge <= 44;
-      
-      if (shouldDebug) {
-        console.log("=== START OF YEAR ===", {
-          age: debugAge,
-          year,
-          isRetired,
-          btcTotal: getAssetTotal('btc').toFixed(0),
-          stocksTotal: getAssetTotal('stocks').toFixed(0),
-          realEstateTotal: portfolio.realEstate.toFixed(0),
-          bondsTotal: getAssetTotal('bonds').toFixed(0),
-          taxableTotal: getAccountTotal('taxable').toFixed(0),
-          taxDeferredTotal: getAccountTotal('taxDeferred').toFixed(0),
-          taxFreeTotal: getAccountTotal('taxFree').toFixed(0),
-          lifeEventsThisYear: lifeEvents.filter(e => e.year === year).map(e => ({ name: e.name, type: e.event_type, amount: e.amount })),
-          goalsThisYear: goals.filter(g => g.target_date && new Date(g.target_date).getFullYear() === year).map(g => ({ name: g.name, amount: g.target_amount, willBeSpent: g.will_be_spent })),
-        });
-      }
-
       // Pre-retirement: save and grow. Post-retirement: grow then withdraw
       let yearSavings = 0;
       let yearWithdrawal = 0;
@@ -1482,45 +1461,14 @@ export default function FinancialPlan() {
       const totalAssetsAfterWithdrawals = getTotalPortfolio();
       const accountTotalAfterWithdrawals = getTotalLiquid();
       
-      if (shouldDebug) {
-        console.log("=== AFTER WITHDRAWALS ===", {
-          age: debugAge,
-          btcTotal: getAssetTotal('btc').toFixed(0),
-          stocksTotal: getAssetTotal('stocks').toFixed(0),
-          realEstateTotal: portfolio.realEstate.toFixed(0),
-          taxableBtc: portfolio.taxable.btc.toFixed(0),
-          taxableStocks: portfolio.taxable.stocks.toFixed(0),
-          taxFreeBtc: portfolio.taxFree.btc.toFixed(0),
-          taxFreeStocks: portfolio.taxFree.stocks.toFixed(0),
-          taxableTotal: getAccountTotal('taxable').toFixed(0),
-          taxDeferredTotal: getAccountTotal('taxDeferred').toFixed(0),
-          taxFreeTotal: getAccountTotal('taxFree').toFixed(0),
-          totalLiquid: getTotalLiquid().toFixed(0),
-          totalPortfolio: getTotalPortfolio().toFixed(0),
-          withdrawFromTaxable: withdrawFromTaxable.toFixed(0),
-          withdrawFromTaxDeferred: withdrawFromTaxDeferred.toFixed(0),
-          withdrawFromTaxFree: withdrawFromTaxFree.toFixed(0),
-          eventImpact: eventImpact?.toFixed(0),
-          yearGoalWithdrawal: yearGoalWithdrawal?.toFixed(0),
-          ranOutOfMoney,
-        });
-      }
-      
       if (totalAssetsAfterWithdrawals <= 0 && !ranOutOfMoney) {
         ranOutOfMoney = true;
-        if (shouldDebug) console.log("⚠️ MARKED AS RAN OUT OF MONEY - Total Portfolio Depleted");
       }
 
 
 
       // Once out of money, zero everything for this year and subsequent years
       if (ranOutOfMoney) {
-        if (shouldDebug) {
-          console.log("⚠️ ZEROING ALL ASSETS - ranOutOfMoney = true", {
-            age: debugAge,
-            totalBeforeZeroing: total,
-          });
-        }
         total = 0;
         portfolio.taxable = { btc: 0, stocks: 0, bonds: 0, other: 0 };
         portfolio.taxDeferred = { btc: 0, stocks: 0, bonds: 0, other: 0 };
