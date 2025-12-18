@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -1101,8 +1100,8 @@ export default function FinancialPlan() {
         runningBonds = runningBonds * (1 + bondsCagr / 100);
         runningOther = runningOther * (1 + otherCagr / 100);
 
-        // Calculate blended growth rate based on current portfolio composition
-        const totalAssets = runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther + runningSavings;
+        // Calculate blended growth rate based on current portfolio composition (assets only, not savings)
+        const totalAssets = runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther;
         let blendedGrowthRate = 0.05; // default 5%
         if (totalAssets > 0) {
           blendedGrowthRate = (
@@ -1113,7 +1112,7 @@ export default function FinancialPlan() {
             (runningOther / totalAssets) * (otherCagr / 100)
           );
         }
-        runningSavings = runningSavings * (1 + blendedGrowthRate);
+        // NOTE: runningSavings is just a cumulative tracker - it does NOT compound separately
 
         // Grow account type buckets at blended rate
         runningTaxable = runningTaxable * (1 + blendedGrowthRate);
@@ -1163,7 +1162,7 @@ export default function FinancialPlan() {
         
         // Net savings = net income - spending - roth contribution (Roth is after-tax)
         yearSavings = yearNetIncome - yearSpending - yearRoth;
-        runningSavings += yearSavings;
+        // runningSavings is just a cumulative tracker for display, NOT for compounding
         cumulativeSavings += yearSavings;
         
         // Allocate to account types
