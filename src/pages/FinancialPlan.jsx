@@ -1411,7 +1411,8 @@ export default function FinancialPlan() {
         
         // If we couldn't fully fund the withdrawal, mark depletion
         const actualTotalWithdrawn = withdrawFromTaxable + withdrawFromTaxDeferred + withdrawFromTaxFree;
-        if (actualTotalWithdrawn < cappedWithdrawal && !ranOutOfMoney) {
+        const totalNeededRetirement = retirementSpendingOnly + yearGoalWithdrawal + taxesPaid + penaltyPaid;
+        if (actualTotalWithdrawn < totalNeededRetirement && !ranOutOfMoney) {
           ranOutOfMoney = true;
         }
 
