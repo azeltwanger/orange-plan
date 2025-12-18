@@ -1594,14 +1594,6 @@ export default function FinancialPlan() {
     setSimulationResults(chartData);
   };
 
-  // DEBUG: Show projection data structure
-  console.log("PROJECTION DATA STRUCTURE:", {
-    sampleProjection: projections[Math.min(10, projections.length - 1)],
-    retirementProjection: projections[Math.max(0, retirementAge - currentAge)],
-    lastProjection: projections[projections.length - 1],
-    totalProjections: projections.length
-  });
-
   const retirementYearIndex = Math.max(0, retirementAge - currentAge);
   const retirementValue = projections[retirementYearIndex]?.total || 0;
   const realRetirementValue = projections[retirementYearIndex]?.realTotal || 0;
