@@ -1451,22 +1451,27 @@ export default function FinancialPlan() {
         withdrawFromAccount('taxFree', withdrawFromTaxFree);
 
         // If still need more, withdraw from real estate (last resort)
+        // FIX: Use totalWithdrawalForTaxCalculation (the actual withdrawal needed) instead of cappedWithdrawal
+        // cappedWithdrawal was capped to liquid balance, but we need full withdrawal amount to check for shortfall
         const totalWithdrawnFromAccounts = withdrawFromTaxable + withdrawFromTaxDeferred + withdrawFromTaxFree;
         let withdrawFromRealEstate = 0;
+        
+        // Calculate actual shortfall - how much more we need beyond what liquid accounts provided
+        const actualWithdrawalNeeded = totalWithdrawalForTaxCalculation;
+        const shortfallFromLiquid = actualWithdrawalNeeded - totalWithdrawnFromAccounts;
         
         // BUG 1 DEBUG: Log real estate withdrawal check for ages 70+
         if (currentAge + i >= 70) {
           console.log("RE WITHDRAWAL CHECK age:", currentAge + i, {
-            cappedWithdrawal,
+            actualWithdrawalNeeded,
             totalWithdrawnFromAccounts,
-            shortfall: cappedWithdrawal - totalWithdrawnFromAccounts,
+            shortfallFromLiquid,
             realEstateBefore: portfolio.realEstate
           });
         }
         
-        if (totalWithdrawnFromAccounts < cappedWithdrawal && portfolio.realEstate > 0) {
-          const remaining = cappedWithdrawal - totalWithdrawnFromAccounts;
-          withdrawFromRealEstate = Math.min(remaining, portfolio.realEstate);
+        if (shortfallFromLiquid > 0 && portfolio.realEstate > 0) {
+          withdrawFromRealEstate = Math.min(shortfallFromLiquid, portfolio.realEstate);
           portfolio.realEstate = Math.max(0, portfolio.realEstate - withdrawFromRealEstate);
           
           // BUG 1 DEBUG: Log after real estate withdrawal
