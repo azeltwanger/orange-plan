@@ -521,13 +521,20 @@ export default function FinancialPlan() {
 
   // Helper to determine tax treatment from account_type or tax_treatment field
   const getTaxTreatmentFromHolding = (h) => {
-    // Check explicit tax_treatment first
+    const accountType = h.account_type || '';
+    
+    // Retirement account types have definitive tax treatments - these override any explicit tax_treatment field
+    if (['traditional_401k', 'traditional_ira', 'sep_ira', '403b'].includes(accountType)) {
+      return 'tax_deferred';
+    }
+    if (['roth_401k', 'roth_ira', 'hsa', '529'].includes(accountType)) {
+      return 'tax_free';
+    }
+    
+    // For non-retirement accounts, use explicit tax_treatment if set
     if (h.tax_treatment) return h.tax_treatment;
-
-    // Derive from account_type
-    const accountType = h.account_type || 'taxable';
-    if (['traditional_401k', 'traditional_ira'].includes(accountType)) return 'tax_deferred';
-    if (['roth_401k', 'roth_ira', 'hsa', '529'].includes(accountType)) return 'tax_free';
+    
+    // Default to taxable
     return 'taxable';
   };
 
