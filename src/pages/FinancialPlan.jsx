@@ -2657,7 +2657,7 @@ export default function FinancialPlan() {
                       }}
                     />
                     <ReferenceLine x={retirementAge} stroke="#F7931A" strokeDasharray="5 5" label={{ value: 'Retire', fill: '#F7931A', fontSize: 10 }} yAxisId="left" />
-                    {runOutOfMoneyYear && (
+                    {runOutOfMoneyAge && (
                       <ReferenceLine
                         x={runOutOfMoneyAge}
                         stroke="#ef4444"
