@@ -1373,6 +1373,23 @@ export default function FinancialPlan() {
         // Cap withdrawal to available balance
         const totalAvailableBalance = getTotalLiquid();
         const cappedWithdrawal = Math.min(totalWithdrawalForTaxCalculation, totalAvailableBalance);
+        
+        // DEBUG: Log cappedWithdrawal calculation
+        if (currentAge + i >= retirementAge && currentAge + i <= retirementAge + 5) {
+          console.log("CAPPED WITHDRAWAL CALC:", {
+            age: currentAge + i,
+            retirementAnnualSpending,
+            nominalSpendingAtRetirement,
+            desiredWithdrawal,
+            yearWithdrawal,
+            retirementSpendingOnly,
+            yearGoalWithdrawal,
+            totalWithdrawalForTaxCalculation,
+            totalAvailableBalance,
+            cappedWithdrawal,
+            yearsIntoRetirement
+          });
+        }
 
         // Use tax calculation utility for accurate withdrawal taxes
         const taxEstimate = estimateRetirementWithdrawalTaxes({
