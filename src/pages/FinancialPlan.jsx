@@ -1680,6 +1680,17 @@ export default function FinancialPlan() {
     
     const calculateMaxSpending = () => {
       const startingPortfolio = taxableValue + taxDeferredValue + taxFreeValue;
+      
+      console.log("MAX SPENDING INPUTS:", {
+        annualSavings,
+        grossAnnualIncome,
+        currentAnnualSpending,
+        startingPortfolio,
+        retirementAge,
+        currentAge,
+        yearsToRetirement: retirementAge - currentAge
+      });
+      
       if (startingPortfolio <= 0 && annualSavings <= 0) {
         setMaxSustainableSpending(0);
         return;
@@ -1807,6 +1818,17 @@ export default function FinancialPlan() {
             // Add savings (now net cash flow) adjusted for income/expense life events
             const adjustedAnnualIncome = annualSavings + yearIncomeAdjustment - yearExpenseAdjustment;
             const yearNetCashFlow = adjustedAnnualIncome * Math.pow(1 + incomeGrowth / 100, year);
+            
+            if (year === 1) {
+              console.log("YEAR 1 SIMULATION:", {
+                age,
+                isRetired,
+                portfolio: Math.round(portfolio),
+                adjustedAnnualIncome: Math.round(adjustedAnnualIncome),
+                yearNetCashFlow: Math.round(yearNetCashFlow)
+              });
+            }
+            
             portfolio += yearNetCashFlow;
           } else {
             // Withdraw test amount (inflation-adjusted from today's dollars)
