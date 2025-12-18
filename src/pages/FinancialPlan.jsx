@@ -2661,7 +2661,7 @@ export default function FinancialPlan() {
                                 <div className="w-6 h-0.5 bg-emerald-400" style={{backgroundImage: 'repeating-linear-gradient(90deg, #10b981 0, #10b981 5px, transparent 5px, transparent 10px)'}} />
                                 <span className="text-zinc-400">Debt Payoff</span>
                               </div>
-                              {runOutOfMoneyYear && (
+                              {runOutOfMoneyAge && (
                                 <div className="flex items-center gap-2">
                                   <div className="w-4 h-0.5 bg-red-500" />
                                   <span className="text-rose-400">Portfolio Depleted</span>
