@@ -1675,325 +1675,160 @@ export default function FinancialPlan() {
     }
   }, [earliestRetirementAge, retirementAge, willRunOutOfMoney, runOutOfMoneyAge, currentAge]);
 
-  // Calculate maximum sustainable spending at retirement age
-  useEffect(() => {
-    const calculateMaxSpending = () => {
-      const startingPortfolio = taxableValue + taxDeferredValue + taxFreeValue;
+  // UNIFIED: Derive earliestRetirementAge from projections array
+  // This ensures consistency with the main chart
+  const earliestRetirementAgeFromProjections = useMemo(() => {
+    if (!projections || projections.length === 0) return null;
+    
+    // For each potential retirement age, check if the portfolio survives to life expectancy
+    // We use the ACTUAL projection data which already includes all taxes, life events, etc.
+    for (let testRetireAge = currentAge + 1; testRetireAge <= lifeExpectancy - 5; testRetireAge++) {
+      // Get the projection at this potential retirement age
+      const retireIndex = testRetireAge - currentAge;
+      if (retireIndex < 0 || retireIndex >= projections.length) continue;
       
-      if (startingPortfolio <= 0 && annualSavings <= 0) {
-        setMaxSustainableSpending(0);
-        return;
-      }
-
-      // Calculate actual blended growth rate
-      const totalAssets = btcValue + stocksValue + realEstateValue + bondsValue + otherValue;
-      const btcPct = totalAssets > 0 ? btcValue / totalAssets : 0;
-      const stocksPct = totalAssets > 0 ? stocksValue / totalAssets : 0;
-      const realEstatePct = totalAssets > 0 ? realEstateValue / totalAssets : 0;
-      const bondsPct = totalAssets > 0 ? bondsValue / totalAssets : 0;
-      const otherPct = totalAssets > 0 ? otherValue / totalAssets : 0;
-
-      // Binary search for max spending (faster than linear search)
-      let low = 0;
+      const portfolioAtTestAge = projections[retireIndex]?.total || 0;
+      if (portfolioAtTestAge <= 0) continue;
       
-      // Set max test to 50% of projected portfolio at retirement (reasonable upper bound)
-      // or $10M, whichever is lower
-      const yearsToRetirement = Math.max(0, retirementAge - currentAge);
-      const projectedPortfolio = startingPortfolio * Math.pow(1.10, yearsToRetirement); // Conservative 10% growth estimate
-      let high = Math.min(projectedPortfolio * 0.5, 10000000); // Cap at $10M to prevent infinite loops
-      high = Math.max(high, 500000); // At least $500k floor for testing
+      // Simulate withdrawals from this age forward using growth rates from projections
+      let testPortfolio = portfolioAtTestAge;
+      let canSustain = true;
       
-      let maxSpending = 0;
-      const tolerance = 0.01; // $0.01 precision for maximum accuracy
-
-      while (high - low > tolerance) {
-        const testSpending = (low + high) / 2;
-        let portfolio = startingPortfolio;
-        let canSustain = true;
-        const currentYear = new Date().getFullYear();
-
-        // Simulate from now until life expectancy
-        for (let year = 1; year <= lifeExpectancy - currentAge; year++) {
-          const age = currentAge + year;
-          const isRetired = age >= retirementAge;
-          const simulationYear = currentYear + year;
-
-          // Growth
-          const yearBtcGrowth = getBtcGrowthRate(year, effectiveInflation);
-          const blendedGrowthRate = (
-            btcPct * (yearBtcGrowth / 100) +
-            stocksPct * (effectiveStocksCagr / 100) +
-            realEstatePct * (realEstateCagr / 100) +
-            bondsPct * (bondsCagr / 100) +
-            otherPct * (effectiveStocksCagr / 100)
-          );
-
-          portfolio = portfolio * (1 + blendedGrowthRate);
-
-          // Calculate active income/expense adjustments for THIS year only
-          let yearIncomeAdjustment = 0;
-          let yearExpenseAdjustment = 0;
-          let eventImpact = 0;
-
-          lifeEvents.forEach(event => {
-            if (event.event_type === 'income_change') {
-              const eventEndYear = event.year + (event.is_recurring ? (event.recurring_years || 1) : 1);
-              const isActive = simulationYear >= event.year && simulationYear < eventEndYear;
-              if (isActive) {
-                yearIncomeAdjustment += event.amount;
-              }
-            }
-            
-            if (event.event_type === 'expense_change') {
-              const eventEndYear = event.year + (event.is_recurring ? (event.recurring_years || 1) : 1);
-              const isActive = simulationYear >= event.year && simulationYear < eventEndYear;
-              if (isActive) {
-                yearExpenseAdjustment += event.amount;
-              }
-            }
-            
-            if (event.event_type === 'home_purchase' && event.year <= simulationYear && event.monthly_expense_impact > 0) {
-              yearExpenseAdjustment += event.monthly_expense_impact * 12;
-            }
-            
-            if (event.year === simulationYear || (event.is_recurring && event.year <= simulationYear && simulationYear < event.year + (event.recurring_years || 1))) {
-              if (event.affects === 'assets') {
-                eventImpact += event.amount;
-              }
-
-              if (event.event_type === 'home_purchase' && event.year === simulationYear) {
-                eventImpact -= (event.down_payment || 0);
-              }
-            }
-          });
-
-          // Include goals marked as "will_be_spent"
-          goals.forEach(goal => {
-            if (goal.will_be_spent && goal.target_date) {
-              const goalYear = new Date(goal.target_date).getFullYear();
-              if (goalYear === simulationYear) {
-                eventImpact -= (goal.target_amount || 0);
-              }
-            }
-          });
-
-          // Debt payoff goals - handle both strategies
-          goals.forEach(goal => {
-            if (goal.goal_type === 'debt_payoff' && goal.linked_liability_id) {
-              const payoffStrategy = goal.payoff_strategy || 'spread_payments';
-
-              if (payoffStrategy === 'spread_payments' && goal.payoff_years > 0) {
-                const startYear = goal.target_date ? new Date(goal.target_date).getFullYear() : currentYear;
-                const endYear = startYear + goal.payoff_years;
-
-                if (simulationYear >= startYear && simulationYear < endYear) {
-                  const annualPayment = (goal.target_amount || 0) / goal.payoff_years;
-                  eventImpact -= annualPayment;
-                }
-              } else if (payoffStrategy === 'lump_sum' && goal.target_date) {
-                const payoffYear = new Date(goal.target_date).getFullYear();
-                if (simulationYear === payoffYear) {
-                  eventImpact -= (goal.target_amount || 0);
-                }
-              }
-            }
-          });
-
-          portfolio += eventImpact;
-
-          if (!isRetired) {
-            // Add savings (now net cash flow) adjusted for income/expense life events
-            const adjustedAnnualIncome = annualSavings + yearIncomeAdjustment - yearExpenseAdjustment;
-            const yearNetCashFlow = adjustedAnnualIncome * Math.pow(1 + incomeGrowth / 100, year);
-            portfolio += yearNetCashFlow;
-          } else {
-            // Withdraw test amount (inflation-adjusted from today's dollars)
-            const yearsIntoRetirement = age - retirementAge;
-            // Inflate to retirement age once, then from that nominal base inflate each year in retirement
-            const nominalTestSpendingAtRetirement = testSpending * Math.pow(1 + effectiveInflation / 100, Math.max(0, retirementAge - currentAge));
-            const withdrawal = nominalTestSpendingAtRetirement * Math.pow(1 + effectiveInflation / 100, yearsIntoRetirement);
-
-            // Estimate taxes on withdrawal using simplified account-mix approach
-            // Calculate current account mix ratios (they evolve over time as portfolio grows)
-            const totalAccounts = portfolio; // In this simplified model, portfolio represents all accounts
-            
-            // Estimate account allocation based on initial portfolio composition
-            const taxableRatio = totalAccounts > 0 ? taxableValue / (taxableValue + taxDeferredValue + taxFreeValue) : 0.33;
-            const taxDeferredRatio = totalAccounts > 0 ? taxDeferredValue / (taxableValue + taxDeferredValue + taxFreeValue) : 0.33;
-            const taxFreeRatio = totalAccounts > 0 ? taxFreeValue / (taxableValue + taxDeferredValue + taxFreeValue) : 0.34;
-            
-            // Estimate effective tax rate:
-            // - Taxable: ~15% LTCG on 80% of value (assume high gains after decades of growth)
-            // - Tax-deferred: ~22% ordinary income (middle bracket estimate)
-            // - Tax-free: 0%
-            const estimatedTaxRate = 
-              (taxableRatio * 0.15 * 0.80) +  // 15% LTCG on 80% gains
-              (taxDeferredRatio * 0.22) +      // 22% ordinary income
-              (taxFreeRatio * 0);              // 0% tax-free
-            
-            // Gross withdrawal needed to net the spending amount after taxes
-            const grossWithdrawal = withdrawal / (1 - estimatedTaxRate);
-
-            if (portfolio < grossWithdrawal) {
-              canSustain = false;
-              break;
-            }
-
-            portfolio -= grossWithdrawal;
+      for (let yearIdx = retireIndex; yearIdx < projections.length; yearIdx++) {
+        const proj = projections[yearIdx];
+        const nextProj = projections[yearIdx + 1];
+        
+        // Calculate implied growth rate from actual projections (before withdrawal)
+        let impliedGrowthRate = 0.07; // fallback
+        if (proj && nextProj && proj.total > 0) {
+          // The projection already accounts for withdrawals, so we need to reverse-engineer the growth
+          // Growth happened, then withdrawal: nextTotal = (prevTotal * (1+g)) - withdrawal
+          // So: prevTotal * (1+g) = nextTotal + withdrawal
+          const grossNextValue = nextProj.total + (nextProj.totalWithdrawalAmount || 0);
+          if (proj.total > 0) {
+            impliedGrowthRate = (grossNextValue / proj.total) - 1;
           }
         }
-
-        if (canSustain && portfolio >= 0) {
-          maxSpending = testSpending;
-          low = testSpending;
-        } else {
-          high = testSpending;
-        }
-      }
-
-      // maxSpending is already in today's dollars from binary search
-      setMaxSustainableSpending(Math.round(maxSpending));
-    };
-
-    calculateMaxSpending();
-  }, [
-    currentAge,
-    retirementAge,
-    lifeExpectancy,
-    btcCagr,
-    stocksCagr,
-    realEstateCagr,
-    bondsCagr,
-    cashCagr,
-    otherCagr,
-    inflationRate,
-    incomeGrowth,
-    btcReturnModel,
-    grossAnnualIncome,
-    currentAnnualSpending,
-    retirementAnnualSpending,
-    contribution401k,
-    employer401kMatch,
-    contributionRothIRA,
-    contributionHSA,
-    hsaFamilyCoverage,
-    filingStatus,
-    otherRetirementIncome,
-    socialSecurityStartAge,
-    socialSecurityAmount,
-    holdings,
-    goals,
-    lifeEvents,
-    liabilities,
-    collateralizedLoans,
-    btcPrice,
-    annualSavings,
-    taxableValue,
-    taxDeferredValue,
-    taxFreeValue,
-    btcValue,
-    stocksValue,
-    realEstateValue,
-    bondsValue,
-    otherValue
-  ]);
-
-  // Calculate earliest achievable FI age (when portfolio can sustain withdrawals to life expectancy)
-  useEffect(() => {
-    const calculateEarliestFI = () => {
-      // Use account totals (same as projections) - this is the actual portfolio value
-      const startingPortfolio = taxableValue + taxDeferredValue + taxFreeValue;
-
-      // Calculate actual blended growth rate based on asset allocation
-      const totalAssets = btcValue + stocksValue + realEstateValue + bondsValue + otherValue;
-      const btcPct = totalAssets > 0 ? btcValue / totalAssets : 0;
-      const stocksPct = totalAssets > 0 ? stocksValue / totalAssets : 0;
-      const realEstatePct = totalAssets > 0 ? realEstateValue / totalAssets : 0;
-      const bondsPct = totalAssets > 0 ? bondsValue / totalAssets : 0;
-      const otherPct = totalAssets > 0 ? otherValue / totalAssets : 0;
-
-      // Try each potential FI age from current age to life expectancy
-      for (let testAge = currentAge + 1; testAge <= lifeExpectancy - 5; testAge++) {
-        let portfolio = startingPortfolio;
-        let canSustain = true;
-
-        // Simulate from now until life expectancy
-        for (let year = 1; year <= lifeExpectancy - currentAge; year++) {
-          const age = currentAge + year;
-          const isRetired = age >= testAge;
-          const simulationYear = currentYear + year;
-
-          // Growth using actual blended rate based on portfolio composition
-          const yearBtcGrowth = getBtcGrowthRate(year, effectiveInflation);
-          const blendedGrowthRate = (
-            btcPct * (yearBtcGrowth / 100) +
-            stocksPct * (effectiveStocksCagr / 100) +
-            realEstatePct * (realEstateCagr / 100) +
-            bondsPct * (bondsCagr / 100) +
-            otherPct * (effectiveStocksCagr / 100)
-          );
-
-          portfolio = portfolio * (1 + blendedGrowthRate);
-
-          // Calculate active income/expense adjustments for THIS year only
-          let activeIncomeAdj = 0;
-          let activeExpenseAdj = 0;
+        
+        // Apply growth
+        testPortfolio *= (1 + Math.max(-0.5, Math.min(1.0, impliedGrowthRate)));
+        
+        // Calculate withdrawal needed at this age (inflation-adjusted from test retirement age)
+        const yearsIntoTestRetirement = proj.age - testRetireAge;
+        if (yearsIntoTestRetirement >= 0) {
+          const nominalSpendingAtTestAge = retirementAnnualSpending * Math.pow(1 + (inflationRate || 3) / 100, testRetireAge - currentAge);
+          const inflatedWithdrawal = nominalSpendingAtTestAge * Math.pow(1 + (inflationRate || 3) / 100, yearsIntoTestRetirement);
           
-          lifeEvents.forEach(event => {
-            if (event.event_type === 'income_change') {
-              const eventEndYear = event.year + (event.is_recurring ? (event.recurring_years || 1) : 1);
-              const isActive = simulationYear >= event.year && simulationYear < eventEndYear;
-              if (isActive) {
-                activeIncomeAdj += event.amount;
-              }
+          // Use actual tax data from projections to estimate gross withdrawal needed
+          // Average effective tax rate from retirement projections
+          const retirementProjections = projections.filter(p => p.isRetired && p.totalWithdrawalAmount > 0);
+          let avgEffectiveTaxRate = 0.15; // default
+          if (retirementProjections.length > 0) {
+            const totalTaxes = retirementProjections.reduce((sum, p) => sum + (p.taxesPaid || 0) + (p.penaltyPaid || 0), 0);
+            const totalWithdrawals = retirementProjections.reduce((sum, p) => sum + (p.totalWithdrawalAmount || 0), 0);
+            if (totalWithdrawals > 0) {
+              avgEffectiveTaxRate = totalTaxes / totalWithdrawals;
             }
-            
-            if (event.event_type === 'expense_change') {
-              const eventEndYear = event.year + (event.is_recurring ? (event.recurring_years || 1) : 1);
-              const isActive = simulationYear >= event.year && simulationYear < eventEndYear;
-              if (isActive) {
-                activeExpenseAdj += event.amount;
-              }
-            }
-            
-            if (event.event_type === 'home_purchase' && event.year <= simulationYear && event.monthly_expense_impact > 0) {
-              activeExpenseAdj += event.monthly_expense_impact * 12;
-            }
-          });
-
-          if (!isRetired) {
-            // Add net cash flow (can be negative) adjusted for income/expense life events
-            const adjustedAnnualIncome = annualSavings + activeIncomeAdj - activeExpenseAdj;
-            const yearNetCashFlow = adjustedAnnualIncome * Math.pow(1 + incomeGrowth / 100, year);
-            portfolio += yearNetCashFlow;
-          } else {
-            // Income-based withdrawal
-            const yearsIntoRetirement = age - testAge;
-            const nominalRetirementSpendingAtTestAge = retirementAnnualSpending * Math.pow(1 + effectiveInflation / 100, Math.max(0, testAge - currentAge));
-            const withdrawal = nominalRetirementSpendingAtTestAge * Math.pow(1 + effectiveInflation / 100, yearsIntoRetirement);
-
-            if (portfolio < withdrawal) {
-              canSustain = false;
-              break;
-            }
-
-            portfolio -= withdrawal;
           }
-        }
-
-        if (canSustain && portfolio > 0) {
-          setEarliestRetirementAge(testAge);
-          return;
+          
+          const grossWithdrawal = inflatedWithdrawal / (1 - avgEffectiveTaxRate);
+          
+          if (testPortfolio < grossWithdrawal) {
+            canSustain = false;
+            break;
+          }
+          testPortfolio -= grossWithdrawal;
         }
       }
-      setEarliestRetirementAge(null);
-    };
-
-    // Only calculate if there's a portfolio or ongoing cash flow (positive or negative)
-    if ((taxableValue + taxDeferredValue + taxFreeValue) > 0 || annualSavings !== 0) {
-      calculateEarliestFI();
+      
+      if (canSustain && testPortfolio > 0) {
+        return testRetireAge;
+      }
     }
-  }, [currentAge, lifeExpectancy, taxableValue, taxDeferredValue, taxFreeValue, btcValue, stocksValue, realEstateValue, bondsValue, otherValue, annualSavings, retirementAnnualSpending, effectiveInflation, incomeGrowth, effectiveStocksCagr, realEstateCagr, bondsCagr, getBtcGrowthRate]);
+    
+    return null;
+  }, [projections, currentAge, lifeExpectancy, retirementAnnualSpending, inflationRate]);
+
+  // Update state when derived value changes
+  useEffect(() => {
+    setEarliestRetirementAge(earliestRetirementAgeFromProjections);
+  }, [earliestRetirementAgeFromProjections]);
+
+  // UNIFIED: Derive maxSustainableSpending from projections array
+  // This uses the SAME growth rates and tax calculations as the main chart
+  const maxSustainableSpendingFromProjections = useMemo(() => {
+    if (!projections || projections.length === 0) return 0;
+    
+    const retireIndex = Math.max(0, retirementAge - currentAge);
+    const portfolioAtRetirement = projections[retireIndex]?.total || 0;
+    
+    if (portfolioAtRetirement <= 0) return 0;
+    
+    const yearsInRetirement = lifeExpectancy - retirementAge;
+    if (yearsInRetirement <= 0) return 0;
+    
+    // Binary search for max spending using actual projection data
+    let low = 0;
+    let high = Math.min(portfolioAtRetirement * 0.3, 5000000); // Cap at 30% of portfolio or $5M
+    
+    // Get average effective tax rate from actual retirement projections
+    const retirementProjections = projections.filter(p => p.isRetired && p.totalWithdrawalAmount > 0);
+    let avgEffectiveTaxRate = 0.15;
+    if (retirementProjections.length > 0) {
+      const totalTaxes = retirementProjections.reduce((sum, p) => sum + (p.taxesPaid || 0) + (p.penaltyPaid || 0), 0);
+      const totalWithdrawals = retirementProjections.reduce((sum, p) => sum + (p.totalWithdrawalAmount || 0), 0);
+      if (totalWithdrawals > 0) {
+        avgEffectiveTaxRate = Math.min(0.4, totalTaxes / totalWithdrawals); // Cap at 40%
+      }
+    }
+    
+    while (high - low > 100) { // $100 precision
+      const testSpending = (low + high) / 2;
+      let testPortfolio = portfolioAtRetirement;
+      let canSustain = true;
+      
+      for (let yearIdx = retireIndex; yearIdx < projections.length; yearIdx++) {
+        const proj = projections[yearIdx];
+        const nextProj = projections[yearIdx + 1];
+        
+        // Get implied growth rate from actual projections
+        let impliedGrowthRate = 0.07;
+        if (proj && nextProj && proj.total > 0) {
+          const grossNextValue = nextProj.total + (nextProj.totalWithdrawalAmount || 0);
+          impliedGrowthRate = (grossNextValue / proj.total) - 1;
+        }
+        
+        // Apply growth
+        testPortfolio *= (1 + Math.max(-0.5, Math.min(1.0, impliedGrowthRate)));
+        
+        // Calculate withdrawal for this year
+        const yearsIntoRetirement = proj.age - retirementAge;
+        if (yearsIntoRetirement >= 0) {
+          const inflatedSpending = testSpending * Math.pow(1 + (inflationRate || 3) / 100, yearsIntoRetirement);
+          const grossWithdrawal = inflatedSpending / (1 - avgEffectiveTaxRate);
+          
+          if (testPortfolio < grossWithdrawal) {
+            canSustain = false;
+            break;
+          }
+          testPortfolio -= grossWithdrawal;
+        }
+      }
+      
+      if (canSustain && testPortfolio >= 0) {
+        low = testSpending;
+      } else {
+        high = testSpending;
+      }
+    }
+    
+    return Math.round(low);
+  }, [projections, retirementAge, currentAge, lifeExpectancy, inflationRate]);
+
+  // Update state when derived value changes
+  useEffect(() => {
+    setMaxSustainableSpending(maxSustainableSpendingFromProjections);
+  }, [maxSustainableSpendingFromProjections]);
 
   // Calculate lifetime tax burden in retirement
   const lifetimeTaxesPaid = projections.filter(p => p.isRetired).reduce((sum, p) => sum + (p.taxesPaid || 0), 0);
