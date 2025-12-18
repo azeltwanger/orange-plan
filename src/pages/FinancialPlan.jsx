@@ -1087,6 +1087,27 @@ export default function FinancialPlan() {
       const yearsIntoRetirement = isRetired ? currentAge + i - retirementAge : 0;
       const currentAgeThisYear = currentAge + i;
 
+      // DEBUG: Log critical years (40-44)
+      const debugAge = currentAge + i;
+      const shouldDebug = debugAge >= 40 && debugAge <= 44;
+      
+      if (shouldDebug) {
+        console.log("=== START OF YEAR ===", {
+          age: debugAge,
+          year,
+          isRetired,
+          btcStartOfYear: runningBtc.toFixed(0),
+          stocksStartOfYear: runningStocks.toFixed(0),
+          realEstateStartOfYear: runningRealEstate.toFixed(0),
+          bondsStartOfYear: runningBonds.toFixed(0),
+          taxableStartOfYear: runningTaxable.toFixed(0),
+          taxDeferredStartOfYear: runningTaxDeferred.toFixed(0),
+          taxFreeStartOfYear: runningTaxFree.toFixed(0),
+          lifeEventsThisYear: lifeEvents.filter(e => e.year === year).map(e => ({ name: e.name, type: e.event_type, amount: e.amount })),
+          goalsThisYear: goals.filter(g => g.target_date && new Date(g.target_date).getFullYear() === year).map(g => ({ name: g.name, amount: g.target_amount, willBeSpent: g.will_be_spent })),
+        });
+      }
+
       // Pre-retirement: save and grow. Post-retirement: grow then withdraw
       let yearSavings = 0;
       let yearWithdrawal = 0;
@@ -1437,14 +1458,39 @@ export default function FinancialPlan() {
       const totalAssetsAfterWithdrawals = runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther;
       const accountTotalAfterWithdrawals = runningTaxable + runningTaxDeferred + runningTaxFree;
       
+      if (shouldDebug) {
+        console.log("=== AFTER WITHDRAWALS ===", {
+          age: debugAge,
+          btcAfterWithdrawals: runningBtc.toFixed(0),
+          stocksAfterWithdrawals: runningStocks.toFixed(0),
+          realEstateAfterWithdrawals: runningRealEstate.toFixed(0),
+          taxableAfterWithdrawals: runningTaxable.toFixed(0),
+          taxDeferredAfterWithdrawals: runningTaxDeferred.toFixed(0),
+          taxFreeAfterWithdrawals: runningTaxFree.toFixed(0),
+          totalAssetsAfterWithdrawals: totalAssetsAfterWithdrawals.toFixed(0),
+          accountTotalAfterWithdrawals: accountTotalAfterWithdrawals.toFixed(0),
+          eventImpact: eventImpact?.toFixed(0),
+          yearGoalWithdrawal: yearGoalWithdrawal?.toFixed(0),
+          ranOutOfMoney,
+        });
+      }
+      
       if ((totalAssetsAfterWithdrawals <= 0 || accountTotalAfterWithdrawals <= 0) && !ranOutOfMoney) {
         ranOutOfMoney = true;
+        if (shouldDebug) console.log("⚠️ MARKED AS RAN OUT OF MONEY");
       }
 
 
 
       // Once out of money, zero everything for this year and subsequent years
       if (ranOutOfMoney) {
+        if (shouldDebug) {
+          console.log("⚠️ ZEROING ALL ASSETS - ranOutOfMoney = true", {
+            age: debugAge,
+            totalBeforeZeroing: total,
+            realEstateBeforeZeroing: runningRealEstate,
+          });
+        }
         total = 0;
         runningBtc = 0;
         runningStocks = 0;
