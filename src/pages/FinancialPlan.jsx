@@ -522,6 +522,12 @@ export default function FinancialPlan() {
   // Helper to determine tax treatment from account_type or tax_treatment field
   const getTaxTreatmentFromHolding = (h) => {
     const accountType = h.account_type || '';
+    const assetType = h.asset_type || '';
+    
+    // Real estate is illiquid - treated separately
+    if (assetType === 'real_estate' || accountType === 'taxable_real_estate') {
+      return 'real_estate';
+    }
     
     // Retirement account types have definitive tax treatments - these override any explicit tax_treatment field
     if (['traditional_401k', 'traditional_ira', 'sep_ira', '403b'].includes(accountType)) {
@@ -538,11 +544,11 @@ export default function FinancialPlan() {
     return 'taxable';
   };
 
-  // Taxable accounts (accessible anytime) - exclude real estate for liquidity
+  // Taxable accounts (accessible anytime) - excludes real estate which is separate
   const taxableHoldings = holdings.filter(h => getTaxTreatmentFromHolding(h) === 'taxable');
   const taxableValue = taxableHoldings.reduce((sum, h) => sum + getHoldingValue(h), 0);
-  const taxableLiquidHoldings = taxableHoldings.filter(h => h.asset_type !== 'real_estate');
-  const taxableLiquidValue = taxableLiquidHoldings.reduce((sum, h) => sum + getHoldingValue(h), 0);
+  const taxableLiquidHoldings = taxableHoldings; // All taxable is now liquid since RE is separate
+  const taxableLiquidValue = taxableValue;
 
   // Tax-deferred accounts (401k, Traditional IRA) - 10% penalty before 59½
   const taxDeferredHoldings = holdings.filter(h => getTaxTreatmentFromHolding(h) === 'tax_deferred');
@@ -551,6 +557,10 @@ export default function FinancialPlan() {
   // Tax-free accounts (Roth, HSA) - contributions accessible, gains after 59½
   const taxFreeHoldings = holdings.filter(h => getTaxTreatmentFromHolding(h) === 'tax_free');
   const taxFreeValue = taxFreeHoldings.reduce((sum, h) => sum + getHoldingValue(h), 0);
+
+  // Real estate (illiquid) - last resort for withdrawals
+  const realEstateHoldings = holdings.filter(h => getTaxTreatmentFromHolding(h) === 'real_estate');
+  const realEstateAccountValue = realEstateHoldings.reduce((sum, h) => sum + getHoldingValue(h), 0);
 
   // By asset type for projections
   const btcValue = holdings.filter(h => h.ticker === 'BTC').reduce((sum, h) => sum + h.quantity * currentPrice, 0);
@@ -2823,10 +2833,10 @@ export default function FinancialPlan() {
           {/* Account Type Summary */}
           <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
             <h3 className="font-semibold mb-4">Portfolio by Tax Treatment</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
                 <div className="flex items-center justify-between mb-1">
-                  <p className="text-sm text-zinc-400">Taxable (Accessible Now)</p>
+                  <p className="text-sm text-zinc-400">Taxable (Liquid)</p>
                   <Badge className="bg-emerald-500/20 text-emerald-400 text-[10px]">1st</Badge>
                 </div>
                 <p className="text-2xl font-bold text-emerald-400">{formatNumber(taxableValue)}</p>
@@ -2848,21 +2858,31 @@ export default function FinancialPlan() {
                 <p className="text-2xl font-bold text-purple-400">{formatNumber(taxFreeValue)}</p>
                 <p className="text-xs text-zinc-500">Roth IRA/401k, HSA • Contributions accessible</p>
               </div>
+              <div className="p-4 rounded-xl bg-cyan-500/10 border border-cyan-500/20">
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-sm text-zinc-400">Real Estate (Illiquid)</p>
+                  <Badge className="bg-cyan-500/20 text-cyan-400 text-[10px]">4th</Badge>
+                </div>
+                <p className="text-2xl font-bold text-cyan-400">{formatNumber(realEstateAccountValue)}</p>
+                <p className="text-xs text-zinc-500">Property • Last resort for withdrawals</p>
+              </div>
             </div>
 
             {/* Withdrawal Priority Explanation */}
             <div className="mt-4 p-3 rounded-lg bg-zinc-800/30 border border-zinc-700/50">
               <p className="text-xs font-medium text-zinc-300 mb-2">Withdrawal Priority Order</p>
-              <div className="flex items-center gap-2 text-xs text-zinc-400">
+              <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-400">
                 <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400">1. Taxable</span>
                 <span>→</span>
                 <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-400">2. Tax-Deferred</span>
                 <span>→</span>
-                <span className="px-2 py-0.5 rounded bg-purple-500/20 text-purple-400">3. Tax-Free (Last)</span>
+                <span className="px-2 py-0.5 rounded bg-purple-500/20 text-purple-400">3. Tax-Free</span>
+                <span>→</span>
+                <span className="px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-400">4. Real Estate (Last)</span>
               </div>
               <p className="text-[10px] text-zinc-500 mt-2">
-                After age 59½: Taxable first (LTCG rates), then tax-deferred (income tax), then tax-free last (preserves tax-free growth).
-                Before 59½: Taxable first, then Roth contributions, then tax-deferred with 10% penalty as last resort.
+                After age 59½: Taxable first (LTCG rates), then tax-deferred (income tax), then tax-free (preserves growth), then real estate last (illiquid).
+                Before 59½: Taxable first, then Roth contributions, then tax-deferred with 10% penalty, then real estate as last resort.
               </p>
             </div>
 
