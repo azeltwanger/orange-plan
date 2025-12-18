@@ -1669,6 +1669,15 @@ export default function FinancialPlan() {
 
   // Calculate maximum sustainable spending at retirement age
   useEffect(() => {
+    console.log("=== MAX SPENDING USEEFFECT TRIGGERED ===", new Date().toISOString(), {
+      grossAnnualIncome,
+      currentAnnualSpending,
+      retirementAnnualSpending,
+      taxableValue,
+      taxDeferredValue,
+      taxFreeValue
+    });
+    
     const calculateMaxSpending = () => {
       const startingPortfolio = taxableValue + taxDeferredValue + taxFreeValue;
       if (startingPortfolio <= 0 && annualSavings <= 0) {
@@ -1836,6 +1845,7 @@ export default function FinancialPlan() {
       }
 
       // maxSpending is already in today's dollars from binary search
+      console.log("=== SETTING MAX SPENDING ===", { oldValue: maxSustainableSpending, newValue: Math.round(maxSpending) });
       setMaxSustainableSpending(Math.round(maxSpending));
     };
 
@@ -3046,15 +3056,27 @@ export default function FinancialPlan() {
                 </div>
                 <div className="space-y-2">
                   <Label className="text-zinc-400">Gross Annual Income</Label>
-                  <Input type="number" value={grossAnnualIncome} onChange={(e) => setGrossAnnualIncome(parseFloat(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
+                  <Input type="number" value={grossAnnualIncome} onChange={(e) => {
+                    const val = parseFloat(e.target.value) || 0;
+                    console.log("INPUT: grossAnnualIncome changed to", val);
+                    setGrossAnnualIncome(val);
+                  }} className="bg-zinc-900 border-zinc-800" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-zinc-400">Annual Spending (After Tax)</Label>
-                  <Input type="number" value={currentAnnualSpending} onChange={(e) => setCurrentAnnualSpending(parseFloat(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
+                  <Input type="number" value={currentAnnualSpending} onChange={(e) => {
+                    const val = parseFloat(e.target.value) || 0;
+                    console.log("INPUT: currentAnnualSpending changed to", val);
+                    setCurrentAnnualSpending(val);
+                  }} className="bg-zinc-900 border-zinc-800" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-zinc-400">Target Retirement Spending</Label>
-                  <Input type="number" value={retirementAnnualSpending} onChange={(e) => setRetirementAnnualSpending(parseFloat(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
+                  <Input type="number" value={retirementAnnualSpending} onChange={(e) => {
+                    const val = parseFloat(e.target.value) || 0;
+                    console.log("INPUT: retirementAnnualSpending changed to", val);
+                    setRetirementAnnualSpending(val);
+                  }} className="bg-zinc-900 border-zinc-800" />
                 </div>
               </div>
 
@@ -3247,6 +3269,7 @@ export default function FinancialPlan() {
               </div>
               <div>
                 <p className="text-sm text-zinc-400">Max Sustainable Spending</p>
+                {console.log("RENDERING MAX SPENDING:", maxSustainableSpending)}
                 <p className="text-2xl font-bold text-emerald-400">{formatNumber(maxSustainableSpending)}/yr</p>
                 <p className="text-xs text-zinc-500">{formatNumber(maxSustainableSpending / 12)}/mo (today's dollars)</p>
               </div>
