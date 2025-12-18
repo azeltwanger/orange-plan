@@ -1669,27 +1669,8 @@ export default function FinancialPlan() {
 
   // Calculate maximum sustainable spending at retirement age
   useEffect(() => {
-    console.log("=== MAX SPENDING USEEFFECT TRIGGERED ===", new Date().toISOString(), {
-      grossAnnualIncome,
-      currentAnnualSpending,
-      retirementAnnualSpending,
-      taxableValue,
-      taxDeferredValue,
-      taxFreeValue
-    });
-    
     const calculateMaxSpending = () => {
       const startingPortfolio = taxableValue + taxDeferredValue + taxFreeValue;
-      
-      console.log("MAX SPENDING INPUTS:", {
-        annualSavings,
-        grossAnnualIncome,
-        currentAnnualSpending,
-        startingPortfolio,
-        retirementAge,
-        currentAge,
-        yearsToRetirement: retirementAge - currentAge
-      });
       
       if (startingPortfolio <= 0 && annualSavings <= 0) {
         setMaxSustainableSpending(0);
@@ -1713,8 +1694,6 @@ export default function FinancialPlan() {
       const projectedPortfolio = startingPortfolio * Math.pow(1.10, yearsToRetirement); // Conservative 10% growth estimate
       let high = Math.min(projectedPortfolio * 0.5, 10000000); // Cap at $10M to prevent infinite loops
       high = Math.max(high, 500000); // At least $500k floor for testing
-      
-      console.log("Binary search range:", { low: 0, high, startingPortfolio, projectedPortfolio });
       
       let maxSpending = 0;
       const tolerance = 0.01; // $0.01 precision for maximum accuracy
@@ -1818,17 +1797,6 @@ export default function FinancialPlan() {
             // Add savings (now net cash flow) adjusted for income/expense life events
             const adjustedAnnualIncome = annualSavings + yearIncomeAdjustment - yearExpenseAdjustment;
             const yearNetCashFlow = adjustedAnnualIncome * Math.pow(1 + incomeGrowth / 100, year);
-            
-            if (year === 1) {
-              console.log("YEAR 1 SIMULATION:", {
-                age,
-                isRetired,
-                portfolio: Math.round(portfolio),
-                adjustedAnnualIncome: Math.round(adjustedAnnualIncome),
-                yearNetCashFlow: Math.round(yearNetCashFlow)
-              });
-            }
-            
             portfolio += yearNetCashFlow;
           } else {
             // Withdraw test amount (inflation-adjusted from today's dollars)
@@ -1876,7 +1844,6 @@ export default function FinancialPlan() {
       }
 
       // maxSpending is already in today's dollars from binary search
-      console.log("=== SETTING MAX SPENDING ===", { oldValue: maxSustainableSpending, newValue: Math.round(maxSpending) });
       setMaxSustainableSpending(Math.round(maxSpending));
     };
 
@@ -3096,27 +3063,15 @@ export default function FinancialPlan() {
                 </div>
                 <div className="space-y-2">
                   <Label className="text-zinc-400">Gross Annual Income</Label>
-                  <Input type="number" value={grossAnnualIncome} onChange={(e) => {
-                    const val = parseFloat(e.target.value) || 0;
-                    console.log("INPUT: grossAnnualIncome changed to", val);
-                    setGrossAnnualIncome(val);
-                  }} className="bg-zinc-900 border-zinc-800" />
+                  <Input type="number" value={grossAnnualIncome} onChange={(e) => setGrossAnnualIncome(parseFloat(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-zinc-400">Annual Spending (After Tax)</Label>
-                  <Input type="number" value={currentAnnualSpending} onChange={(e) => {
-                    const val = parseFloat(e.target.value) || 0;
-                    console.log("INPUT: currentAnnualSpending changed to", val);
-                    setCurrentAnnualSpending(val);
-                  }} className="bg-zinc-900 border-zinc-800" />
+                  <Input type="number" value={currentAnnualSpending} onChange={(e) => setCurrentAnnualSpending(parseFloat(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-zinc-400">Target Retirement Spending</Label>
-                  <Input type="number" value={retirementAnnualSpending} onChange={(e) => {
-                    const val = parseFloat(e.target.value) || 0;
-                    console.log("INPUT: retirementAnnualSpending changed to", val);
-                    setRetirementAnnualSpending(val);
-                  }} className="bg-zinc-900 border-zinc-800" />
+                  <Input type="number" value={retirementAnnualSpending} onChange={(e) => setRetirementAnnualSpending(parseFloat(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
                 </div>
               </div>
 
@@ -3309,7 +3264,6 @@ export default function FinancialPlan() {
               </div>
               <div>
                 <p className="text-sm text-zinc-400">Max Sustainable Spending</p>
-                {console.log("RENDERING MAX SPENDING:", maxSustainableSpending)}
                 <p className="text-2xl font-bold text-emerald-400">{formatNumber(maxSustainableSpending)}/yr</p>
                 <p className="text-xs text-zinc-500">{formatNumber(maxSustainableSpending / 12)}/mo (today's dollars)</p>
               </div>
