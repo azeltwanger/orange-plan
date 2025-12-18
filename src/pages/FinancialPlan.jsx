@@ -74,7 +74,6 @@ const runMonteCarloSimulation = (params, numSimulations = 1000) => {
     let runningTaxable = taxableValue;
     let runningTaxDeferred = taxDeferredValue;
     let runningTaxFree = taxFreeValue;
-    let runningSavings = 0;
     let ranOutOfMoney = false;
 
     const path = [startingPortfolio];
@@ -144,7 +143,6 @@ const runMonteCarloSimulation = (params, numSimulations = 1000) => {
         runningTaxable = Math.max(0, runningTaxable * (1 + portfolioReturn));
         runningTaxDeferred = Math.max(0, runningTaxDeferred * (1 + portfolioReturn));
         runningTaxFree = Math.max(0, runningTaxFree * (1 + portfolioReturn));
-        runningSavings = Math.max(0, runningSavings * (1 + portfolioReturn));
       }
 
       let yearWithdrawal = 0;
@@ -153,7 +151,6 @@ const runMonteCarloSimulation = (params, numSimulations = 1000) => {
         // Add annual net cash flow to taxable (can be positive or negative), adjusted by life events
         const adjustedAnnualSavings = annualSavings + activeIncomeAdjustment - activeExpenseAdjustment;
         const yearNetCashFlow = adjustedAnnualSavings * Math.pow(1 + incomeGrowth / 100, year);
-        runningSavings += yearNetCashFlow;
         runningTaxable += yearNetCashFlow;
       } else {
         // Income-based withdrawal (inflation-adjusted spending need)
@@ -177,21 +174,14 @@ const runMonteCarloSimulation = (params, numSimulations = 1000) => {
         runningTaxFree -= fromTaxFree;
         remaining -= fromTaxFree;
 
-        // Also reduce savings proportionally
-        const totalBeforeWithdraw = runningTaxable + runningTaxDeferred + runningTaxFree + runningSavings + yearWithdrawal;
-        if (totalBeforeWithdraw > 0 && runningSavings > 0) {
-          const savingsRatio = runningSavings / totalBeforeWithdraw;
-          runningSavings = Math.max(0, runningSavings - yearWithdrawal * savingsRatio);
-        }
-
         // Check if ran out of money
         if (runningTaxable + runningTaxDeferred + runningTaxFree <= 0) {
           ranOutOfMoney = true;
         }
       }
 
-      const total = runningTaxable + runningTaxDeferred + runningTaxFree;
-      path.push(Math.max(0, total));
+      const totalMC = runningTaxable + runningTaxDeferred + runningTaxFree;
+      path.push(Math.max(0, totalMC));
       withdrawalPath.push(yearWithdrawal);
     }
 
@@ -1254,7 +1244,7 @@ export default function FinancialPlan() {
         // If yearSavings is exactly 0, do nothing
       } else {
         // Calculate withdrawal based on strategy
-        const totalBeforeWithdrawal = runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther + runningSavings;
+        const totalBeforeWithdrawal = runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther;
         const accountTotalBeforeWithdrawal = runningTaxable + runningTaxDeferred + runningTaxFree;
 
         // Income-based: withdraw exactly what you need, inflation-adjusted
@@ -1400,7 +1390,7 @@ export default function FinancialPlan() {
       // Apply event impacts to total
       // For proportionate allocation or non-asset impacts, apply to total
       // Custom allocations were already applied directly to asset buckets above
-      const totalBeforeEvent = runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther + runningSavings;
+      const totalBeforeEvent = runningBtc + runningStocks + runningRealEstate + runningBonds + runningOther;
 
       // Only add eventImpact if it wasn't a custom-allocated positive asset event
       let adjustedEventImpact = eventImpact;
@@ -2669,7 +2659,7 @@ export default function FinancialPlan() {
                     <ReferenceLine x={retirementAge} stroke="#F7931A" strokeDasharray="5 5" label={{ value: 'Retire', fill: '#F7931A', fontSize: 10 }} yAxisId="left" />
                     {runOutOfMoneyYear && (
                       <ReferenceLine
-                        x={runOutOfMoneyYear}
+                        x={runOutOfMoneyAge}
                         stroke="#ef4444"
                         strokeWidth={2}
                         label={{ value: '💥 Portfolio Depleted', fill: '#ef4444', fontSize: 10, position: 'top' }}
