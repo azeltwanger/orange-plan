@@ -2606,13 +2606,13 @@ export default function FinancialPlan() {
                               )}
                               {p.debtPayoffs && p.debtPayoffs.length > 0 && (
                                 <div className="pt-3 mt-3 border-t border-zinc-700/70">
-                                  <p className="text-xs font-semibold text-emerald-400 mb-2">🎉 Debt Paid Off:</p>
+                                  <p className="text-xs font-semibold text-emerald-400 mb-2">🎉 Debt Paid Off This Year:</p>
                                   <div className="space-y-1">
                                     {p.debtPayoffs.map((d, idx) => {
-                                      const monthName = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.month - 1];
+                                      const monthName = d.month ? ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.month - 1] : '';
                                       return (
                                         <p key={idx} className="text-xs text-emerald-400 font-light">
-                                          ✓ {d.name} ({monthName})
+                                          ✓ {d.name || d.liability_name || 'Debt'}{monthName ? ` (${monthName})` : ''}
                                         </p>
                                       );
                                     })}
