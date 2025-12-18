@@ -1613,9 +1613,11 @@ export default function FinancialPlan() {
   const retirementValue = projections[retirementYearIndex]?.total || 0;
   const realRetirementValue = projections[retirementYearIndex]?.realTotal || 0;
   const endOfLifeValue = projections[projections.length - 1]?.total || 0;
-  const runOutOfMoneyAge = projections.findIndex(p => p.total <= 0 && p.isRetired);
-  const willRunOutOfMoney = runOutOfMoneyAge !== -1;
-  const runOutOfMoneyYear = willRunOutOfMoney ? projections[runOutOfMoneyAge]?.age : null;
+  
+  // Check for portfolio depletion at ANY age (not just retirement)
+  const depletionIndex = projections.findIndex(p => p.total <= 0);
+  const willRunOutOfMoney = depletionIndex !== -1;
+  const runOutOfMoneyYear = willRunOutOfMoney ? projections[depletionIndex]?.age : null;
   const yearsInRetirement = lifeExpectancy - retirementAge;
 
   // Calculate inflation-adjusted retirement spending need at retirement
@@ -1628,29 +1630,33 @@ export default function FinancialPlan() {
 
   // Calculate retirement status and insights
   const retirementStatus = useMemo(() => {
-    // Compare in today's dollars - allow spending up to ~102% of max sustainable (within 2% tolerance)
-    const canAffordDesiredSpending = retirementAnnualSpending <= maxSustainableSpending;
-
+    // Priority 1: If portfolio depletes at ANY point, plan is not sustainable
     if (willRunOutOfMoney) {
+      const depletesDuringRetirement = runOutOfMoneyYear >= retirementAge;
       return {
         type: 'critical',
         title: 'Critical: Plan Not Sustainable',
-        description: `Portfolio projected to run out at age ${currentAge + runOutOfMoneyAge}.`,
+        description: depletesDuringRetirement 
+          ? `Portfolio projected to deplete at age ${runOutOfMoneyYear} (during retirement).`
+          : `Portfolio projected to deplete at age ${runOutOfMoneyYear} (before retirement).`,
         icon: <AlertTriangle className="w-5 h-5" />
       };
     }
 
-    // Now check the timing (gap analysis) and spending sustainability
-    const gap = earliestRetirementAge ? earliestRetirementAge - retirementAge : null;
-
-    if (gap === null) {
+    // Priority 2: If no sustainable retirement age found
+    if (earliestRetirementAge === null) {
       return {
         type: 'critical',
         title: 'At Risk: Major Shortfall',
         description: `Retirement not achievable at target age ${retirementAge} with current plan.`,
         icon: <AlertTriangle className="w-5 h-5" />
       };
-    } else if (gap > 3) {
+    }
+
+    // Now check the timing (gap analysis)
+    const gap = earliestRetirementAge - retirementAge;
+
+    if (gap > 3) {
       return {
         type: 'at_risk',
         title: 'At Risk: Adjustments Needed',
@@ -1665,6 +1671,7 @@ export default function FinancialPlan() {
         icon: <TrendingUp className="w-5 h-5" />
       };
     } else {
+      // gap <= 0 AND portfolio lasts to life expectancy (willRunOutOfMoney is false)
       const yearsEarly = Math.abs(gap);
       return {
         type: 'optimistic',
@@ -1675,7 +1682,7 @@ export default function FinancialPlan() {
         icon: <Sparkles className="w-5 h-5" />
       };
     }
-  }, [earliestRetirementAge, retirementAge, willRunOutOfMoney, runOutOfMoneyAge, currentAge, retirementValue, maxSustainableSpending, retirementAnnualSpending, inflationRate]);
+  }, [earliestRetirementAge, retirementAge, willRunOutOfMoney, runOutOfMoneyYear, maxSustainableSpending, retirementAnnualSpending]);
 
   // Calculate maximum sustainable spending at retirement age
   useEffect(() => {
@@ -2277,30 +2284,45 @@ export default function FinancialPlan() {
         {/* Projections Tab */}
         <TabsContent value="projections" className="space-y-6">
           {/* Earliest FI Age - Hero Card - NOW AT TOP */}
-          <div className="card-premium rounded-2xl p-6 border border-orange-500/30 bg-gradient-to-br from-orange-500/10 to-transparent">
+          <div className={cn(
+            "card-premium rounded-2xl p-6 border bg-gradient-to-br",
+            willRunOutOfMoney 
+              ? "border-rose-500/30 from-rose-500/10 to-transparent"
+              : "border-orange-500/30 from-orange-500/10 to-transparent"
+          )}>
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
               <div>
-                <p className="text-sm text-zinc-400 uppercase tracking-wider mb-2">Earliest Retirement Age</p>
+                <p className="text-sm text-zinc-400 uppercase tracking-wider mb-2">
+                  {willRunOutOfMoney ? "Portfolio Status" : "Earliest Retirement Age"}
+                </p>
                 <div className="flex items-baseline gap-3">
-                  <span className={cn(
-                    "text-5xl font-bold",
-                    earliestRetirementAge && earliestRetirementAge <= retirementAge ? "text-emerald-400" :
-                    earliestRetirementAge ? "text-orange-400" : "text-rose-400"
-                  )}>
-                    {earliestRetirementAge ? `Age ${earliestRetirementAge}` : "Not Yet Achievable"}
-                  </span>
-                  {earliestRetirementAge && (
+                  {willRunOutOfMoney ? (
+                    <span className="text-5xl font-bold text-rose-400">
+                      Depletes at Age {runOutOfMoneyYear}
+                    </span>
+                  ) : (
+                    <span className={cn(
+                      "text-5xl font-bold",
+                      earliestRetirementAge && earliestRetirementAge <= retirementAge ? "text-emerald-400" :
+                      earliestRetirementAge ? "text-orange-400" : "text-rose-400"
+                    )}>
+                      {earliestRetirementAge ? `Age ${earliestRetirementAge}` : "Not Yet Achievable"}
+                    </span>
+                  )}
+                  {!willRunOutOfMoney && earliestRetirementAge && (
                     <span className="text-zinc-500">
                       ({earliestRetirementAge - currentAge} years from now)
                     </span>
                   )}
                 </div>
                 <p className="text-sm text-zinc-400 mt-2">
-                  {earliestRetirementAge && earliestRetirementAge <= retirementAge
-                    ? `You can retire ${retirementAge - earliestRetirementAge} years earlier than your target!`
-                    : earliestRetirementAge
-                      ? `Your target age ${retirementAge} is ${earliestRetirementAge - retirementAge} years too early based on current trajectory.`
-                      : "Increase savings or reduce spending to retire."}
+                  {willRunOutOfMoney
+                    ? `Your current plan is not sustainable. Increase savings or reduce spending.`
+                    : earliestRetirementAge && earliestRetirementAge <= retirementAge
+                      ? `You can retire ${retirementAge - earliestRetirementAge} years earlier than your target!`
+                      : earliestRetirementAge
+                        ? `Your target age ${retirementAge} is ${earliestRetirementAge - retirementAge} years too early based on current trajectory.`
+                        : "Increase savings or reduce spending to retire."}
                 </p>
               </div>
               <div className="flex flex-col gap-2 text-sm">
