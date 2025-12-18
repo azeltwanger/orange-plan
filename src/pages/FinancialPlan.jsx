@@ -1211,7 +1211,16 @@ export default function FinancialPlan() {
         addToAccount('taxDeferred', year401k + yearEmployerMatch);
         addToAccount('taxFree', yearRoth + yearHSA);
 
-
+        // BUG 2 DEBUG: Log pre-retirement behavior when grossAnnualIncome is 0
+        if (grossAnnualIncome === 0) {
+          console.log(`DEBUG (Bug 2): Age ${currentAge + i} (Year ${year}): Pre-Retirement Logic`, {
+            yearGrossIncome,
+            yearSpending,
+            yearSavings,
+            portfolioBefore: getTotalPortfolio(),
+            isRetired: false
+          });
+        }
 
         // Allocate net cash flow to taxable accounts
         // If savings is negative, we're drawing down the portfolio pre-retirement
@@ -1416,10 +1425,26 @@ export default function FinancialPlan() {
         // If still need more, withdraw from real estate (last resort)
         const totalWithdrawnFromAccounts = withdrawFromTaxable + withdrawFromTaxDeferred + withdrawFromTaxFree;
         let withdrawFromRealEstate = 0;
+        
+        // BUG 1 DEBUG: Log real estate withdrawal check for ages 70+
+        if (currentAge + i >= 70) {
+          console.log("RE WITHDRAWAL CHECK age:", currentAge + i, {
+            cappedWithdrawal,
+            totalWithdrawnFromAccounts,
+            shortfall: cappedWithdrawal - totalWithdrawnFromAccounts,
+            realEstateBefore: portfolio.realEstate
+          });
+        }
+        
         if (totalWithdrawnFromAccounts < cappedWithdrawal && portfolio.realEstate > 0) {
           const remaining = cappedWithdrawal - totalWithdrawnFromAccounts;
           withdrawFromRealEstate = Math.min(remaining, portfolio.realEstate);
           portfolio.realEstate = Math.max(0, portfolio.realEstate - withdrawFromRealEstate);
+          
+          // BUG 1 DEBUG: Log after real estate withdrawal
+          if (currentAge + i >= 70) {
+            console.log("RE WITHDRAWN:", { withdrawn: withdrawFromRealEstate, realEstateAfter: portfolio.realEstate });
+          }
         }
 
         // Check if portfolio depleted
