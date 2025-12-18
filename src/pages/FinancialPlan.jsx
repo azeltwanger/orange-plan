@@ -782,16 +782,16 @@ export default function FinancialPlan() {
       // Get BTC growth rate for this year (needed early for collateral calculations)
       const yearBtcGrowth = getBtcGrowthRate(i, effectiveInflation);
 
-      // Add released BTC back to runningBtc for liquidity if applicable for the current year
-      // This needs to happen BEFORE any withdrawals from assets, including from BTC itself.
+      // Add released BTC back to portfolio for liquidity if applicable for the current year
       const totalReleasedBtcValueThisYear = Object.values(releasedBtc).reduce((sum, btcAmount) => {
         const btcPriceThisYear = currentPrice * Math.pow(1 + yearBtcGrowth / 100, i);
         return sum + (btcAmount * btcPriceThisYear);
       }, 0);
       if (totalReleasedBtcValueThisYear > 0) {
-          runningBtc += totalReleasedBtcValueThisYear;
+        // Add released BTC to taxable account (proportionally across assets or to BTC directly)
+        portfolio.taxable.btc += totalReleasedBtcValueThisYear;
       }
-      // Reset releasedBtc for the next year's calculation, as it's an annual tracking variable
+      // Reset releasedBtc for the next year's calculation
       releasedBtc = {};
 
       // Calculate active income/expense adjustments for THIS year only
@@ -843,11 +843,12 @@ export default function FinancialPlan() {
                 const cashAlloc = (event.cash_allocation || 0) / 100;
                 const otherAlloc = (event.other_allocation || 0) / 100;
 
-                runningBtc += eventAmount * btcAlloc;
-                runningStocks += eventAmount * stocksAlloc;
-                runningRealEstate += eventAmount * realEstateAlloc;
-                runningBonds += eventAmount * bondsAlloc;
-                runningOther += eventAmount * (cashAlloc + otherAlloc);
+                // Add to taxable account by default
+                portfolio.taxable.btc += eventAmount * btcAlloc;
+                portfolio.taxable.stocks += eventAmount * stocksAlloc;
+                portfolio.realEstate += eventAmount * realEstateAlloc;
+                portfolio.taxable.bonds += eventAmount * bondsAlloc;
+                portfolio.taxable.other += eventAmount * (cashAlloc + otherAlloc);
               }
             }
 
@@ -1022,8 +1023,8 @@ export default function FinancialPlan() {
             const btcToLiquidate = encumberedBtc[liability.id];
             const liquidationProceeds = btcToLiquidate * yearBtcPrice;
 
-            // Remove collateral from portfolio
-            runningBtc = Math.max(0, runningBtc - (btcToLiquidate * yearBtcPrice));
+            // Remove collateral from portfolio (taxable account)
+            portfolio.taxable.btc = Math.max(0, portfolio.taxable.btc - (btcToLiquidate * yearBtcPrice));
 
             // Apply liquidation proceeds to debt
             liability.current_balance = Math.max(0, liability.current_balance - liquidationProceeds);
@@ -1104,7 +1105,7 @@ export default function FinancialPlan() {
             const btcToLiquidate = encumberedBtc[loanKey];
             const liquidationProceeds = btcToLiquidate * yearBtcPrice;
 
-            runningBtc = Math.max(0, runningBtc - (btcToLiquidate * yearBtcPrice));
+            portfolio.taxable.btc = Math.max(0, portfolio.taxable.btc - (btcToLiquidate * yearBtcPrice));
             loan.current_balance = Math.max(0, loan.current_balance - liquidationProceeds);
 
             liquidatedBtc[loanKey] = btcToLiquidate;
@@ -1142,13 +1143,13 @@ export default function FinancialPlan() {
           age: debugAge,
           year,
           isRetired,
-          btcStartOfYear: runningBtc.toFixed(0),
-          stocksStartOfYear: runningStocks.toFixed(0),
-          realEstateStartOfYear: runningRealEstate.toFixed(0),
-          bondsStartOfYear: runningBonds.toFixed(0),
-          taxableStartOfYear: runningTaxable.toFixed(0),
-          taxDeferredStartOfYear: runningTaxDeferred.toFixed(0),
-          taxFreeStartOfYear: runningTaxFree.toFixed(0),
+          btcTotal: getAssetTotal('btc').toFixed(0),
+          stocksTotal: getAssetTotal('stocks').toFixed(0),
+          realEstateTotal: portfolio.realEstate.toFixed(0),
+          bondsTotal: getAssetTotal('bonds').toFixed(0),
+          taxableTotal: getAccountTotal('taxable').toFixed(0),
+          taxDeferredTotal: getAccountTotal('taxDeferred').toFixed(0),
+          taxFreeTotal: getAccountTotal('taxFree').toFixed(0),
           lifeEventsThisYear: lifeEvents.filter(e => e.year === year).map(e => ({ name: e.name, type: e.event_type, amount: e.amount })),
           goalsThisYear: goals.filter(g => g.target_date && new Date(g.target_date).getFullYear() === year).map(g => ({ name: g.name, amount: g.target_amount, willBeSpent: g.will_be_spent })),
         });
