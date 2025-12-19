@@ -1450,33 +1450,51 @@ export default function FinancialPlan() {
         withdrawFromAccount('taxDeferred', withdrawFromTaxDeferred);
         withdrawFromAccount('taxFree', withdrawFromTaxFree);
 
-        // If still need more, withdraw from real estate (last resort)
-        // FIX: Use totalWithdrawalForTaxCalculation (the actual withdrawal needed) instead of cappedWithdrawal
-        // cappedWithdrawal was capped to liquid balance, but we need full withdrawal amount to check for shortfall
-        const totalWithdrawnFromAccounts = withdrawFromTaxable + withdrawFromTaxDeferred + withdrawFromTaxFree;
+        // Calculate how much was withdrawn from tax-optimized approach
+        let totalWithdrawnFromAccounts = withdrawFromTaxable + withdrawFromTaxDeferred + withdrawFromTaxFree;
         let withdrawFromRealEstate = 0;
         
-        // Calculate actual shortfall - how much more we need beyond what liquid accounts provided
+        // Calculate actual shortfall - how much more we need beyond what was withdrawn
         const actualWithdrawalNeeded = totalWithdrawalForTaxCalculation;
-        const shortfallFromLiquid = actualWithdrawalNeeded - totalWithdrawnFromAccounts;
+        let shortfallAfterOptimal = actualWithdrawalNeeded - totalWithdrawnFromAccounts;
         
-        // BUG 1 DEBUG: Log real estate withdrawal check for ages 70+
-        if (currentAge + i >= 70) {
-          console.log("RE WITHDRAWAL CHECK age:", currentAge + i, {
-            actualWithdrawalNeeded,
-            totalWithdrawnFromAccounts,
-            shortfallFromLiquid,
-            realEstateBefore: portfolio.realEstate
-          });
-        }
-        
-        if (shortfallFromLiquid > 0 && portfolio.realEstate > 0) {
-          withdrawFromRealEstate = Math.min(shortfallFromLiquid, portfolio.realEstate);
-          portfolio.realEstate = Math.max(0, portfolio.realEstate - withdrawFromRealEstate);
+        // FIX: If there's still a shortfall and liquid accounts have money remaining,
+        // FORCE withdraw from liquid accounts before touching real estate
+        if (shortfallAfterOptimal > 0) {
+          // 1. Force from Taxable first
+          const taxableRemaining = getAccountTotal('taxable');
+          if (shortfallAfterOptimal > 0 && taxableRemaining > 0) {
+            const forceFromTaxable = Math.min(shortfallAfterOptimal, taxableRemaining);
+            withdrawFromAccount('taxable', forceFromTaxable);
+            withdrawFromTaxable += forceFromTaxable;
+            totalWithdrawnFromAccounts += forceFromTaxable;
+            shortfallAfterOptimal -= forceFromTaxable;
+          }
           
-          // BUG 1 DEBUG: Log after real estate withdrawal
-          if (currentAge + i >= 70) {
-            console.log("RE WITHDRAWN:", { withdrawn: withdrawFromRealEstate, realEstateAfter: portfolio.realEstate });
+          // 2. Force from Tax-Deferred second
+          const taxDeferredRemaining = getAccountTotal('taxDeferred');
+          if (shortfallAfterOptimal > 0 && taxDeferredRemaining > 0) {
+            const forceFromTaxDeferred = Math.min(shortfallAfterOptimal, taxDeferredRemaining);
+            withdrawFromAccount('taxDeferred', forceFromTaxDeferred);
+            withdrawFromTaxDeferred += forceFromTaxDeferred;
+            totalWithdrawnFromAccounts += forceFromTaxDeferred;
+            shortfallAfterOptimal -= forceFromTaxDeferred;
+          }
+          
+          // 3. Force from Tax-Free third
+          const taxFreeRemaining = getAccountTotal('taxFree');
+          if (shortfallAfterOptimal > 0 && taxFreeRemaining > 0) {
+            const forceFromTaxFree = Math.min(shortfallAfterOptimal, taxFreeRemaining);
+            withdrawFromAccount('taxFree', forceFromTaxFree);
+            withdrawFromTaxFree += forceFromTaxFree;
+            totalWithdrawnFromAccounts += forceFromTaxFree;
+            shortfallAfterOptimal -= forceFromTaxFree;
+          }
+          
+          // 4. ONLY NOW touch real estate (when ALL liquid accounts are $0)
+          if (shortfallAfterOptimal > 0 && portfolio.realEstate > 0) {
+            withdrawFromRealEstate = Math.min(shortfallAfterOptimal, portfolio.realEstate);
+            portfolio.realEstate = Math.max(0, portfolio.realEstate - withdrawFromRealEstate);
           }
         }
 
