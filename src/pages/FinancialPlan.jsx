@@ -1213,6 +1213,7 @@ export default function FinancialPlan() {
       let withdrawFromTaxable = 0;
       let withdrawFromTaxDeferred = 0;
       let withdrawFromTaxFree = 0;
+      let withdrawFromRealEstate = 0;
       let retirementSpendingOnly = 0;
       let totalWithdrawalForTaxCalculation = 0;
 
