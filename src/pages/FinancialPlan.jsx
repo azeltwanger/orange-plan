@@ -634,6 +634,77 @@ export default function FinancialPlan() {
     return `$${num.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
   };
 
+  // Reusable simulation helper for consistent calculations across all derived values
+  const simulateForward = (params) => {
+    const {
+      startingPortfolio,
+      startAge,
+      endAge,
+      retireAge,
+      annualSpending,        // Today's dollars
+      annualSavings,         // Today's dollars (pre-retirement)
+      inflationRate,
+      // Asset allocation percentages (0-1)
+      btcPct,
+      stocksPct,
+      realEstatePct,
+      bondsPct,
+      otherPct,
+    } = params;
+    
+    let portfolio = startingPortfolio;
+    
+    for (let age = startAge; age <= endAge; age++) {
+      const yearIndex = age - startAge;
+      const yearsFromNow = age - currentAge;
+      const isRetired = age >= retireAge;
+      
+      // Calculate year-specific growth rates (captures Saylor declining model)
+      const yearBtcGrowth = getBtcGrowthRate(yearsFromNow, inflationRate) / 100;
+      
+      // Blended growth based on allocation
+      const blendedGrowth = (
+        btcPct * yearBtcGrowth +
+        stocksPct * (effectiveStocksCagr / 100) +
+        realEstatePct * (realEstateCagr / 100) +
+        bondsPct * (bondsCagr / 100) +
+        otherPct * (otherCagr / 100)
+      );
+      
+      // Apply growth first
+      if (yearIndex > 0) {
+        portfolio *= (1 + blendedGrowth);
+      }
+      
+      if (isRetired) {
+        // Inflation-adjusted withdrawal + tax gross-up
+        const yearsIntoRetirement = age - retireAge;
+        const inflatedSpending = annualSpending * Math.pow(1 + inflationRate / 100, yearsFromNow);
+        const grossWithdrawal = inflatedSpending * 1.15; // ~15% average tax
+        
+        // Cap withdrawal to available (like main projection does)
+        const actualWithdrawal = Math.min(grossWithdrawal, portfolio);
+        portfolio -= actualWithdrawal;
+        
+        // Check if FULL spending need was met
+        if (actualWithdrawal < grossWithdrawal * 0.95) {
+          // Can't meet 95% of spending need - consider it failed
+          return { survives: false, finalPortfolio: portfolio, depleteAge: age };
+        }
+      } else {
+        // Pre-retirement: add/subtract savings (inflation-adjusted)
+        const inflatedSavings = annualSavings * Math.pow(1 + incomeGrowth / 100, yearsFromNow);
+        portfolio += inflatedSavings;
+      }
+      
+      if (portfolio <= 0) {
+        return { survives: false, finalPortfolio: 0, depleteAge: age };
+      }
+    }
+    
+    return { survives: true, finalPortfolio: portfolio, depleteAge: null };
+  };
+
   // Generate projection data with dynamic withdrawal based on portfolio growth and account types
   const projections = useMemo(() => {
     const years = lifeExpectancy - currentAge;
@@ -1211,17 +1282,6 @@ export default function FinancialPlan() {
         addToAccount('taxDeferred', year401k + yearEmployerMatch);
         addToAccount('taxFree', yearRoth + yearHSA);
 
-        // BUG 2 DEBUG: Log pre-retirement behavior when grossAnnualIncome is 0
-        if (grossAnnualIncome === 0) {
-          console.log(`DEBUG (Bug 2): Age ${currentAge + i} (Year ${year}): Pre-Retirement Logic`, {
-            yearGrossIncome,
-            yearSpending,
-            yearSavings,
-            portfolioBefore: getTotalPortfolio(),
-            isRetired: false
-          });
-        }
-
         // Allocate net cash flow to taxable accounts
         // If savings is negative, we're drawing down the portfolio pre-retirement
         if (yearSavings < 0) {
@@ -1369,38 +1429,10 @@ export default function FinancialPlan() {
 
         // Combine retirement withdrawal and goal withdrawal for tax estimation
         totalWithdrawalForTaxCalculation = retirementSpendingOnly + yearGoalWithdrawal;
-        
-        // DEBUG: Trace withdrawal calculation
-        if (currentAge + i >= retirementAge && currentAge + i <= retirementAge + 3) {
-          console.log("WITHDRAWAL TRACE:", {
-            age: currentAge + i,
-            yearWithdrawal,
-            retirementSpendingOnly,
-            yearGoalWithdrawal,
-            totalWithdrawalForTaxCalculation
-          });
-        }
 
         // Cap withdrawal to available balance
         const totalAvailableBalance = getTotalLiquid();
         const cappedWithdrawal = Math.min(totalWithdrawalForTaxCalculation, totalAvailableBalance);
-        
-        // DEBUG: Log cappedWithdrawal calculation
-        if (currentAge + i >= retirementAge && currentAge + i <= retirementAge + 5) {
-          console.log("CAPPED WITHDRAWAL CALC:", {
-            age: currentAge + i,
-            retirementAnnualSpending,
-            nominalSpendingAtRetirement,
-            desiredWithdrawal,
-            yearWithdrawal,
-            retirementSpendingOnly,
-            yearGoalWithdrawal,
-            totalWithdrawalForTaxCalculation,
-            totalAvailableBalance,
-            cappedWithdrawal,
-            yearsIntoRetirement
-          });
-        }
 
         // Use tax calculation utility for accurate withdrawal taxes
         const taxEstimate = estimateRetirementWithdrawalTaxes({
@@ -1600,6 +1632,7 @@ export default function FinancialPlan() {
         withdrawFromTaxable: Math.round(withdrawFromTaxable),
         withdrawFromTaxDeferred: Math.round(withdrawFromTaxDeferred),
         withdrawFromTaxFree: Math.round(withdrawFromTaxFree),
+        withdrawFromRealEstate: Math.round(withdrawFromRealEstate || 0),
         // Debt tracking
         totalDebt: Math.round(totalDebt),
         debtPayments: Math.round(actualAnnualDebtPayments),
@@ -1744,54 +1777,41 @@ export default function FinancialPlan() {
   }, [earliestRetirementAge, retirementAge, willRunOutOfMoney, runOutOfMoneyAge, currentAge]);
 
   // UNIFIED: Derive earliestRetirementAge using forward simulation
-  // Uses actual growth rates from projections (which include declining BTC CAGR)
   const derivedEarliestRetirementAge = useMemo(() => {
-    if (!projections || projections.length === 0) return null;
+    const total = btcValue + stocksValue + realEstateValue + bondsValue + otherValue;
+    if (total <= 0) return null;
     
-    // Check each potential retirement age
-    for (let testAge = currentAge + 1; testAge <= lifeExpectancy - 10; testAge++) {
-      const testIndex = testAge - currentAge;
-      if (testIndex < 0 || testIndex >= projections.length) continue;
+    // Calculate current allocation
+    const btcPct = btcValue / total;
+    const stocksPct = stocksValue / total;
+    const realEstatePct = realEstateValue / total;
+    const bondsPct = bondsValue / total;
+    const otherPct = otherValue / total;
+    
+    // Test each potential retirement age
+    for (let testRetireAge = currentAge + 1; testRetireAge <= lifeExpectancy - 5; testRetireAge++) {
+      const result = simulateForward({
+        startingPortfolio: total,
+        startAge: currentAge,
+        endAge: lifeExpectancy,
+        retireAge: testRetireAge,
+        annualSpending: retirementAnnualSpending,
+        annualSavings: annualSavings,
+        inflationRate: effectiveInflation,
+        btcPct,
+        stocksPct,
+        realEstatePct,
+        bondsPct,
+        otherPct,
+      });
       
-      const portfolioAtTestAge = projections[testIndex]?.total || 0;
-      if (portfolioAtTestAge <= 0) continue;
-      
-      // Simulate retirement from this age
-      const yearsNeeded = lifeExpectancy - testAge;
-      
-      // Get growth rate from projections around this age (captures declining BTC CAGR)
-      let avgGrowth = 0.07;
-      if (testIndex > 0 && testIndex < projections.length - 1) {
-        const p1 = projections[testIndex - 1];
-        const p2 = projections[testIndex];
-        if (p1.total > 0 && p2.total > 0) {
-          const impliedGrowth = (p2.total + (p2.yearWithdrawal || 0)) / p1.total - 1;
-          if (impliedGrowth > -0.3 && impliedGrowth < 0.8) {
-            avgGrowth = impliedGrowth;
-          }
-        }
-      }
-      
-      // Can this portfolio support the target spending for yearsNeeded?
-      let testPortfolio = portfolioAtTestAge;
-      let survives = true;
-      
-      const spendingAtTestAge = retirementAnnualSpending * Math.pow(1 + (inflationRate || 3) / 100, testAge - currentAge);
-      
-      for (let year = 0; year < yearsNeeded && survives; year++) {
-        testPortfolio *= (1 + avgGrowth);
-        const yearSpending = spendingAtTestAge * Math.pow(1 + (inflationRate || 3) / 100, year) * 1.2; // gross up for taxes
-        testPortfolio -= yearSpending;
-        if (testPortfolio <= 0) survives = false;
-      }
-      
-      if (survives) {
-        return testAge;
+      if (result.survives) {
+        return testRetireAge;
       }
     }
     
-    return null; // Not achievable
-  }, [projections, currentAge, lifeExpectancy, retirementAnnualSpending, inflationRate]);
+    return null; // Not achievable at any tested age
+  }, [currentAge, lifeExpectancy, btcValue, stocksValue, realEstateValue, bondsValue, otherValue, retirementAnnualSpending, annualSavings, effectiveInflation, effectiveStocksCagr, realEstateCagr, bondsCagr, otherCagr, incomeGrowth, getBtcGrowthRate]);
 
   // Update state when derived value changes
   useEffect(() => {
@@ -1799,66 +1819,40 @@ export default function FinancialPlan() {
   }, [derivedEarliestRetirementAge]);
 
   // UNIFIED: Derive maxSustainableSpending using binary search simulation
-  // Uses actual growth rates from projections (which include declining BTC CAGR)
   const derivedMaxSustainableSpending = useMemo(() => {
-    if (!projections || projections.length === 0) return 0;
+    const total = btcValue + stocksValue + realEstateValue + bondsValue + otherValue;
+    if (total <= 0) return 0;
     
-    const retireIndex = Math.max(0, retirementAge - currentAge);
-    const portfolioAtRetirement = projections[retireIndex]?.total || 0;
-    
-    if (portfolioAtRetirement <= 0) return 0;
+    // Calculate current allocation
+    const btcPct = btcValue / total;
+    const stocksPct = stocksValue / total;
+    const realEstatePct = realEstateValue / total;
+    const bondsPct = bondsValue / total;
+    const otherPct = otherValue / total;
     
     // Binary search for max sustainable spending
     let low = 0;
-    let high = portfolioAtRetirement * 0.15; // Max 15% initial withdrawal rate
-    const yearsInRetirement = lifeExpectancy - retirementAge;
+    let high = total * 0.20; // Max 20% of current portfolio as starting point
     
-    // Get average growth from projections during retirement (captures declining BTC CAGR)
-    const retirementProjections = projections.filter(p => p.age >= retirementAge && p.age < lifeExpectancy);
-    let avgGrowthRate = 0.07; // Default 7%
-    if (retirementProjections.length > 1) {
-      let totalGrowth = 0;
-      let validYears = 0;
-      for (let j = 1; j < retirementProjections.length; j++) {
-        const prev = retirementProjections[j-1];
-        const curr = retirementProjections[j];
-        if (prev.total > 0 && curr.total > 0) {
-          // Calculate implied pre-withdrawal growth
-          const withdrawal = curr.yearWithdrawal || 0;
-          const impliedGrowth = (curr.total + withdrawal) / prev.total - 1;
-          if (impliedGrowth > -0.5 && impliedGrowth < 1.0) { // Sanity check
-            totalGrowth += impliedGrowth;
-            validYears++;
-          }
-        }
-      }
-      if (validYears > 0) {
-        avgGrowthRate = totalGrowth / validYears;
-      }
-    }
-    
-    // Binary search for max sustainable spending
     for (let iteration = 0; iteration < 30; iteration++) {
       const testSpending = (low + high) / 2;
-      let testPortfolio = portfolioAtRetirement;
-      let survives = true;
       
-      for (let year = 0; year < yearsInRetirement; year++) {
-        // Grow portfolio
-        testPortfolio *= (1 + avgGrowthRate);
-        
-        // Withdraw inflation-adjusted spending + taxes (~20% gross-up)
-        const inflatedSpending = testSpending * Math.pow(1 + (inflationRate || 3) / 100, year);
-        const grossWithdrawal = inflatedSpending * 1.2;
-        testPortfolio -= grossWithdrawal;
-        
-        if (testPortfolio <= 0) {
-          survives = false;
-          break;
-        }
-      }
+      const result = simulateForward({
+        startingPortfolio: total,
+        startAge: currentAge,
+        endAge: lifeExpectancy,
+        retireAge: retirementAge,
+        annualSpending: testSpending,
+        annualSavings: annualSavings,
+        inflationRate: effectiveInflation,
+        btcPct,
+        stocksPct,
+        realEstatePct,
+        bondsPct,
+        otherPct,
+      });
       
-      if (survives) {
+      if (result.survives) {
         low = testSpending;
       } else {
         high = testSpending;
@@ -1866,7 +1860,7 @@ export default function FinancialPlan() {
     }
     
     return Math.round(low);
-  }, [projections, retirementAge, currentAge, lifeExpectancy, inflationRate]);
+  }, [currentAge, retirementAge, lifeExpectancy, btcValue, stocksValue, realEstateValue, bondsValue, otherValue, annualSavings, effectiveInflation, effectiveStocksCagr, realEstateCagr, bondsCagr, otherCagr, incomeGrowth, getBtcGrowthRate]);
 
   // Update state when derived value changes
   useEffect(() => {
@@ -2506,6 +2500,12 @@ export default function FinancialPlan() {
                                         <div className="flex justify-between gap-6">
                                           <span>From Tax-Free:</span>
                                           <span className="text-purple-400 text-right">${p.withdrawFromTaxFree.toLocaleString()}</span>
+                                        </div>
+                                      )}
+                                      {p.withdrawFromRealEstate > 0 && (
+                                        <div className="flex justify-between gap-6">
+                                          <span>From Real Estate:</span>
+                                          <span className="text-cyan-400 text-right">${p.withdrawFromRealEstate.toLocaleString()}</span>
                                         </div>
                                       )}
                                     </div>
