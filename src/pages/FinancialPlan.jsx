@@ -381,6 +381,7 @@ export default function FinancialPlan() {
                   if (settings.contribution_roth_ira !== undefined) setContributionRothIRA(settings.contribution_roth_ira);
                   if (settings.contribution_hsa !== undefined) setContributionHSA(settings.contribution_hsa);
                   if (settings.hsa_family_coverage !== undefined) setHsaFamilyCoverage(settings.hsa_family_coverage);
+                  if (settings.filing_status !== undefined) setFilingStatus(settings.filing_status);
                   setSettingsLoaded(true);
     }
   }, [userSettings, settingsLoaded]);
@@ -426,10 +427,11 @@ export default function FinancialPlan() {
                       contribution_roth_ira: contributionRothIRA || 0,
                       contribution_hsa: contributionHSA || 0,
                       hsa_family_coverage: hsaFamilyCoverage || false,
+                      filing_status: filingStatus || 'single',
                     });
     }, 1000); // Debounce 1 second
     return () => clearTimeout(timeoutId);
-  }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, otherCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, grossAnnualIncome, contribution401k, employer401kMatch, contributionRothIRA, contributionHSA, hsaFamilyCoverage]);
+  }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, otherCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, grossAnnualIncome, contribution401k, employer401kMatch, contributionRothIRA, contributionHSA, hsaFamilyCoverage, filingStatus]);
 
   // Calculate accurate debt payments for current month
   const currentMonthForDebt = new Date().getMonth();
@@ -2464,93 +2466,32 @@ export default function FinancialPlan() {
                                 </div>
                               </div>
                               
-                              {/* Debt Breakdown */}
+                              {/* Debt Summary - Simplified */}
                               {(p.totalDebt > 0) && (
                                 <div className="pt-3 mt-3 border-t border-zinc-700/70">
-                                  <p className="text-zinc-400 mb-2 font-medium text-xs">Debt Summary:</p>
-                                  
-                                  {/* Regular Debt */}
+                                  <div className="flex justify-between gap-6">
+                                    <span className="text-rose-300 font-semibold">Total Debt:</span>
+                                    <span className="text-rose-300 font-semibold">-${(p.totalDebt || 0).toLocaleString()}</span>
+                                  </div>
+                                  {p.totalBtcLoanDebt > 0 && (
+                                    <div className="flex justify-between gap-6 text-xs text-zinc-500 mt-1">
+                                      <span>BTC-Backed:</span>
+                                      <span>${(p.totalBtcLoanDebt || 0).toLocaleString()} ({Math.round((p.btcLoanDetails || []).reduce((sum, l) => sum + l.ltv, 0) / (p.btcLoanDetails?.length || 1))}% avg LTV)</span>
+                                    </div>
+                                  )}
                                   {p.totalRegularDebt > 0 && (
-                                    <div className="flex justify-between gap-6 text-xs mb-1">
-                                      <span className="text-zinc-500">Regular Debt:</span>
-                                      <span className="text-rose-300">${(p.totalRegularDebt || 0).toLocaleString()}</span>
+                                    <div className="flex justify-between gap-6 text-xs text-zinc-500 mt-1">
+                                      <span>Regular Debt:</span>
+                                      <span>${(p.totalRegularDebt || 0).toLocaleString()}</span>
                                     </div>
                                   )}
-                                  
-                                  {/* BTC-Collateralized Loans */}
-                                  {p.btcLoanDetails && p.btcLoanDetails.length > 0 && (
-                                    <div className="mt-2">
-                                      <p className="text-xs text-zinc-500 mb-1">BTC-Backed Loans:</p>
-                                      {p.btcLoanDetails.map((loan, idx) => (
-                                        <div key={idx} className="ml-2 mb-2 p-2 rounded bg-zinc-800/50">
-                                          <div className="flex justify-between items-center">
-                                            <span className="text-xs text-zinc-400">{loan.name}</span>
-                                            <span className={cn(
-                                              "text-[10px] px-1.5 py-0.5 rounded",
-                                              loan.status === 'healthy' && "bg-emerald-500/20 text-emerald-400",
-                                              loan.status === 'moderate' && "bg-amber-500/20 text-amber-400",
-                                              loan.status === 'elevated' && "bg-rose-500/20 text-rose-400",
-                                              loan.status === 'released' && "bg-purple-500/20 text-purple-400",
-                                              loan.status === 'liquidated' && "bg-red-500/20 text-red-400"
-                                            )}>
-                                              {loan.status === 'released' ? '✓ Released' : 
-                                               loan.status === 'liquidated' ? '✗ Liquidated' : 
-                                               `${loan.ltv}% LTV`}
-                                            </span>
-                                          </div>
-                                          {loan.status !== 'released' && loan.status !== 'liquidated' && (
-                                            <div className="grid grid-cols-2 gap-2 mt-1 text-[10px]">
-                                              <div>
-                                                <span className="text-zinc-500">Debt: </span>
-                                                <span className="text-rose-300">${loan.balance.toLocaleString()}</span>
-                                              </div>
-                                              <div>
-                                                <span className="text-zinc-500">Collateral: </span>
-                                                <span className="text-emerald-400">${loan.collateralValue.toLocaleString()}</span>
-                                              </div>
-                                            </div>
-                                          )}
-                                          {loan.status === 'released' && (
-                                            <p className="text-[10px] text-purple-400 mt-1">Collateral returned to portfolio</p>
-                                          )}
-                                        </div>
-                                      ))}
-                                      
-                                      {/* BTC Loan Totals */}
-                                      <div className="flex justify-between gap-6 text-xs mt-2 pt-2 border-t border-zinc-700/40">
-                                        <span className="text-zinc-400">BTC Loan Total:</span>
-                                        <span className="text-rose-300">${(p.totalBtcLoanDebt || 0).toLocaleString()}</span>
-                                      </div>
-                                      <div className="flex justify-between gap-6 text-xs">
-                                        <span className="text-zinc-400">Collateral Value:</span>
-                                        <span className="text-emerald-400">${(p.totalBtcCollateralValue || 0).toLocaleString()}</span>
-                                      </div>
-                                      <div className="flex justify-between gap-6 text-xs">
-                                        <span className="text-zinc-400">Net Exposure:</span>
-                                        <span className={cn(
-                                          "font-medium",
-                                          (p.totalBtcCollateralValue - p.totalBtcLoanDebt) >= 0 ? "text-emerald-400" : "text-rose-400"
-                                        )}>
-                                          ${((p.totalBtcCollateralValue || 0) - (p.totalBtcLoanDebt || 0)).toLocaleString()}
-                                        </span>
-                                      </div>
-                                    </div>
-                                  )}
-                                  
-                                  {/* Total Debt & Net Worth */}
-                                  <div className="mt-3 pt-2 border-t border-zinc-700/40">
-                                    <div className="flex justify-between gap-6">
-                                      <span className="text-rose-300 font-semibold">Total Debt:</span>
-                                      <span className="text-rose-300 font-semibold">-${(p.totalDebt || 0).toLocaleString()}</span>
-                                    </div>
-                                    <div className="flex justify-between gap-6 mt-1">
-                                      <span className={cn("font-semibold", ((p.total || 0) - (p.totalDebt || 0)) >= 0 ? "text-emerald-400" : "text-rose-400")}>
-                                        Net Worth:
-                                      </span>
-                                      <span className={cn("font-semibold", ((p.total || 0) - (p.totalDebt || 0)) >= 0 ? "text-emerald-400" : "text-rose-400")}>
-                                        ${((p.total || 0) - (p.totalDebt || 0)).toLocaleString()}
-                                      </span>
-                                    </div>
+                                  <div className="flex justify-between gap-6 mt-2 pt-2 border-t border-zinc-700/40">
+                                    <span className={cn("font-semibold", ((p.total || 0) - (p.totalDebt || 0)) >= 0 ? "text-emerald-400" : "text-rose-400")}>
+                                      Net Worth:
+                                    </span>
+                                    <span className={cn("font-semibold", ((p.total || 0) - (p.totalDebt || 0)) >= 0 ? "text-emerald-400" : "text-rose-400")}>
+                                      ${((p.total || 0) - (p.totalDebt || 0)).toLocaleString()}
+                                    </span>
                                   </div>
                                 </div>
                               )}
@@ -2901,6 +2842,93 @@ export default function FinancialPlan() {
 
           </div>
 
+          {/* BTC Loans Status Card */}
+          {liabilities.some(l => l.type === 'btc_collateralized') && projections.length > 0 && (
+            <div className="card-premium rounded-2xl p-6 border border-orange-500/20 bg-gradient-to-br from-orange-500/5 to-transparent">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold flex items-center gap-2">
+                  <span className="text-orange-400">₿</span>
+                  BTC-Backed Loans Projection
+                </h3>
+                <Badge className="bg-orange-500/20 text-orange-400 text-xs">
+                  {liabilities.filter(l => l.type === 'btc_collateralized').length} Active Loans
+                </Badge>
+              </div>
+              
+              {/* LTV Snapshots Over Time */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                {(() => {
+                  const currentData = projections[0];
+                  const midAge = Math.floor((currentAge + retirementAge) / 2);
+                  const midData = projections[Math.max(0, midAge - currentAge)];
+                  const retireData = projections[Math.max(0, retirementAge - currentAge)];
+                  const endData = projections[projections.length - 1];
+                  
+                  const snapshots = [
+                    { label: `Now (${currentAge})`, data: currentData },
+                    { label: `Age ${midAge}`, data: midData },
+                    { label: `Retire (${retirementAge})`, data: retireData },
+                    { label: `Age ${lifeExpectancy}`, data: endData },
+                  ];
+                  
+                  return snapshots.map((s, idx) => {
+                    const loans = s.data?.btcLoanDetails || [];
+                    const avgLtv = loans.length > 0 ? Math.round(loans.reduce((sum, l) => sum + l.ltv, 0) / loans.length) : 0;
+                    const allReleased = loans.length > 0 && loans.every(l => l.status === 'released');
+                    const anyLiquidated = loans.some(l => l.status === 'liquidated');
+                    
+                    return (
+                      <div key={idx} className="p-3 rounded-xl bg-zinc-800/50 border border-zinc-700/50">
+                        <p className="text-xs text-zinc-500 mb-1">{s.label}</p>
+                        {allReleased ? (
+                          <p className="text-lg font-bold text-purple-400">✓ Released</p>
+                        ) : anyLiquidated ? (
+                          <p className="text-lg font-bold text-rose-400">✗ Liquidated</p>
+                        ) : (
+                          <p className={cn(
+                            "text-lg font-bold",
+                            avgLtv < 40 ? "text-emerald-400" : avgLtv < 60 ? "text-amber-400" : "text-rose-400"
+                          )}>{avgLtv}% LTV</p>
+                        )}
+                        <p className="text-[10px] text-zinc-500 mt-1">
+                          Debt: ${(s.data?.totalBtcLoanDebt || 0).toLocaleString()}
+                        </p>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+              
+              {/* Current Loan Details */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {projections[0]?.btcLoanDetails?.map((loan, idx) => (
+                  <div key={idx} className="p-3 rounded-lg bg-zinc-800/30 border border-zinc-700/30">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm font-medium text-zinc-300">{loan.name}</span>
+                      <span className={cn(
+                        "text-xs px-2 py-0.5 rounded",
+                        loan.status === 'healthy' && "bg-emerald-500/20 text-emerald-400",
+                        loan.status === 'moderate' && "bg-amber-500/20 text-amber-400",
+                        loan.status === 'elevated' && "bg-rose-500/20 text-rose-400"
+                      )}>{loan.ltv}% LTV</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                      <div><span className="text-zinc-500">Balance:</span> <span className="text-rose-300">${loan.balance.toLocaleString()}</span></div>
+                      <div><span className="text-zinc-500">Collateral:</span> <span className="text-emerald-400">${loan.collateralValue.toLocaleString()}</span></div>
+                      <div><span className="text-zinc-500">BTC Locked:</span> <span className="text-orange-400">{loan.collateralBtc?.toFixed(4)}</span></div>
+                      <div><span className="text-zinc-500">Equity:</span> <span className="text-emerald-400">${(loan.collateralValue - loan.balance).toLocaleString()}</span></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              {/* Footer */}
+              <p className="text-xs text-zinc-500 mt-4 pt-3 border-t border-zinc-700/50">
+                <span className="text-emerald-400">●</span> Healthy &lt;40% • <span className="text-amber-400">●</span> Moderate 40-60% • <span className="text-rose-400">●</span> Elevated &gt;60% • Releases at ≤30% • Liquidates at ≥80%
+              </p>
+            </div>
+          )}
+
           {/* Account Type Summary */}
           <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
             <h3 className="font-semibold mb-4">Portfolio by Tax Treatment</h3>
@@ -3080,6 +3108,19 @@ export default function FinancialPlan() {
                 <div className="space-y-2">
                   <Label className="text-zinc-400">Life Expectancy</Label>
                   <Input type="number" value={lifeExpectancy} onChange={(e) => setLifeExpectancy(parseInt(e.target.value) || 90)} className="bg-zinc-900 border-zinc-800" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-zinc-400">Filing Status</Label>
+                  <Select value={filingStatus} onValueChange={setFilingStatus}>
+                    <SelectTrigger className="bg-zinc-900 border-zinc-800">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="single">Single</SelectItem>
+                      <SelectItem value="married">Married Filing Jointly</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-zinc-500">Affects tax calculations on withdrawals</p>
                 </div>
                 <div className="space-y-2">
                   <Label className="text-zinc-400">Gross Annual Income</Label>
@@ -3377,6 +3418,9 @@ export default function FinancialPlan() {
                         <YAxis stroke="#71717a" fontSize={12} tickFormatter={(v) => `$${(v/1000000).toFixed(1)}M`} />
                         <Tooltip
                           contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '12px' }}
+                          wrapperStyle={{ zIndex: 1000 }}
+                          allowEscapeViewBox={{ x: false, y: true }}
+                          position={{ y: 0 }}
                           content={({ active, payload, label }) => {
                             if (!active || !payload?.length) return null;
                             const data = payload[0]?.payload;
