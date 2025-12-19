@@ -1725,115 +1725,130 @@ export default function FinancialPlan() {
     }
   }, [earliestRetirementAge, retirementAge, willRunOutOfMoney, runOutOfMoneyAge, currentAge]);
 
-  // UNIFIED: Derive earliestRetirementAge DIRECTLY from projections array
-  // The projections already model the current retirement age - we check if portfolio survives
-  // Then we find the earliest age where it would survive with target spending
+  // UNIFIED: Derive earliestRetirementAge using forward simulation
+  // Uses actual growth rates from projections (which include declining BTC CAGR)
   const derivedEarliestRetirementAge = useMemo(() => {
     if (!projections || projections.length === 0) return null;
     
-    // First check: does the current plan survive to end of life?
-    const lastProjection = projections[projections.length - 1];
-    const portfolioSurvivesCurrentPlan = lastProjection && lastProjection.total > 0;
-    
-    // If current plan works, the target retirement age (or earlier) is achievable
-    // We need to find the EARLIEST age where portfolio can sustain spending
-    
-    // For each potential retirement age from current+1 to target, check if it's sustainable
-    // by looking at the projections data at that age and estimating forward
-    for (let testAge = currentAge + 1; testAge <= lifeExpectancy - 5; testAge++) {
+    // Check each potential retirement age
+    for (let testAge = currentAge + 1; testAge <= lifeExpectancy - 10; testAge++) {
       const testIndex = testAge - currentAge;
       if (testIndex < 0 || testIndex >= projections.length) continue;
       
       const portfolioAtTestAge = projections[testIndex]?.total || 0;
       if (portfolioAtTestAge <= 0) continue;
       
-      // Simple check: can this portfolio sustain spending to life expectancy?
-      // Use a conservative approach: 
-      // Required portfolio = spending × years × tax factor / safe withdrawal
-      const yearsOfRetirement = lifeExpectancy - testAge;
-      const spendingAtTestAge = retirementAnnualSpending * Math.pow(1 + (inflationRate || 3) / 100, testAge - currentAge);
+      // Simulate retirement from this age
+      const yearsNeeded = lifeExpectancy - testAge;
       
-      // Get average withdrawal rate from actual projections (if available)
-      const retirementYearProjections = projections.filter(p => p.isRetired && p.total > 0);
-      let avgWithdrawalRate = 0.04; // 4% default
-      if (retirementYearProjections.length > 0) {
-        const totalWithdrawals = retirementYearProjections.reduce((sum, p) => sum + (p.totalWithdrawalAmount || 0), 0);
-        const avgPortfolio = retirementYearProjections.reduce((sum, p) => sum + p.total, 0) / retirementYearProjections.length;
-        if (avgPortfolio > 0 && totalWithdrawals > 0) {
-          avgWithdrawalRate = (totalWithdrawals / retirementYearProjections.length) / avgPortfolio;
+      // Get growth rate from projections around this age (captures declining BTC CAGR)
+      let avgGrowth = 0.07;
+      if (testIndex > 0 && testIndex < projections.length - 1) {
+        const p1 = projections[testIndex - 1];
+        const p2 = projections[testIndex];
+        if (p1.total > 0 && p2.total > 0) {
+          const impliedGrowth = (p2.total + (p2.yearWithdrawal || 0)) / p1.total - 1;
+          if (impliedGrowth > -0.3 && impliedGrowth < 0.8) {
+            avgGrowth = impliedGrowth;
+          }
         }
       }
       
-      // Estimate: can portfolio sustain the target spending?
-      // Use implied withdrawal rate from projections
-      const impliedSustainableSpending = portfolioAtTestAge * avgWithdrawalRate;
+      // Can this portfolio support the target spending for yearsNeeded?
+      let testPortfolio = portfolioAtTestAge;
+      let survives = true;
       
-      // If implied sustainable >= target spending (with some margin), this age works
-      if (impliedSustainableSpending >= spendingAtTestAge * 0.95) {
+      const spendingAtTestAge = retirementAnnualSpending * Math.pow(1 + (inflationRate || 3) / 100, testAge - currentAge);
+      
+      for (let year = 0; year < yearsNeeded && survives; year++) {
+        testPortfolio *= (1 + avgGrowth);
+        const yearSpending = spendingAtTestAge * Math.pow(1 + (inflationRate || 3) / 100, year) * 1.2; // gross up for taxes
+        testPortfolio -= yearSpending;
+        if (testPortfolio <= 0) survives = false;
+      }
+      
+      if (survives) {
         return testAge;
       }
     }
     
-    // If nothing found, return null (not achievable) or retirementAge if current plan survives
-    if (portfolioSurvivesCurrentPlan) {
-      return retirementAge;
-    }
-    
-    return null;
-  }, [projections, currentAge, retirementAge, lifeExpectancy, retirementAnnualSpending, inflationRate]);
+    return null; // Not achievable
+  }, [projections, currentAge, lifeExpectancy, retirementAnnualSpending, inflationRate]);
 
   // Update state when derived value changes
   useEffect(() => {
     setEarliestRetirementAge(derivedEarliestRetirementAge);
   }, [derivedEarliestRetirementAge]);
 
-  // UNIFIED: Derive maxSustainableSpending DIRECTLY from projections array
-  // If portfolio survives to end of life, current spending is sustainable (and could be higher)
-  // If portfolio depletes, max sustainable is less than current spending
+  // UNIFIED: Derive maxSustainableSpending using binary search simulation
+  // Uses actual growth rates from projections (which include declining BTC CAGR)
   const derivedMaxSustainableSpending = useMemo(() => {
     if (!projections || projections.length === 0) return 0;
     
     const retireIndex = Math.max(0, retirementAge - currentAge);
     const portfolioAtRetirement = projections[retireIndex]?.total || 0;
-    const lastProjection = projections[projections.length - 1];
     
     if (portfolioAtRetirement <= 0) return 0;
     
-    // Check if current spending plan survives (portfolio > 0 at end)
-    const portfolioSurvives = lastProjection && lastProjection.total > 0;
+    // Binary search for max sustainable spending
+    let low = 0;
+    let high = portfolioAtRetirement * 0.15; // Max 15% initial withdrawal rate
+    const yearsInRetirement = lifeExpectancy - retirementAge;
     
-    if (portfolioSurvives) {
-      // Current spending is sustainable - but could potentially be higher
-      // Calculate how much higher based on ending portfolio
-      const endingPortfolio = lastProjection.total;
-      const yearsInRetirement = lifeExpectancy - retirementAge;
-      
-      // The "extra" portfolio at end could support additional spending
-      // Rough estimate: extra annual spending = ending portfolio / years remaining (discounted)
-      const extraAnnualCapacity = endingPortfolio / yearsInRetirement / 1.5; // Conservative factor
-      
-      // Max sustainable = current + extra capacity (in today's dollars)
-      const maxInTodaysDollars = retirementAnnualSpending + (extraAnnualCapacity / Math.pow(1 + (inflationRate || 3) / 100, retirementAge - currentAge));
-      
-      return Math.round(maxInTodaysDollars);
-    } else {
-      // Portfolio depletes - find the age it depletes and work backwards
-      const depletionIndex = projections.findIndex(p => p.total <= 0);
-      if (depletionIndex === -1) return retirementAnnualSpending; // shouldn't happen
-      
-      const depletionAge = projections[depletionIndex]?.age || lifeExpectancy;
-      const yearsPortfolioLasted = depletionAge - retirementAge;
-      const targetYears = lifeExpectancy - retirementAge;
-      
-      if (yearsPortfolioLasted <= 0 || targetYears <= 0) return 0;
-      
-      // Scale spending down by the ratio of years it lasted vs years needed
-      // This is approximate but derived from actual projection behavior
-      const scaleFactor = yearsPortfolioLasted / targetYears;
-      
-      return Math.round(retirementAnnualSpending * scaleFactor * 0.9); // 10% safety margin
+    // Get average growth from projections during retirement (captures declining BTC CAGR)
+    const retirementProjections = projections.filter(p => p.age >= retirementAge && p.age < lifeExpectancy);
+    let avgGrowthRate = 0.07; // Default 7%
+    if (retirementProjections.length > 1) {
+      let totalGrowth = 0;
+      let validYears = 0;
+      for (let j = 1; j < retirementProjections.length; j++) {
+        const prev = retirementProjections[j-1];
+        const curr = retirementProjections[j];
+        if (prev.total > 0 && curr.total > 0) {
+          // Calculate implied pre-withdrawal growth
+          const withdrawal = curr.yearWithdrawal || 0;
+          const impliedGrowth = (curr.total + withdrawal) / prev.total - 1;
+          if (impliedGrowth > -0.5 && impliedGrowth < 1.0) { // Sanity check
+            totalGrowth += impliedGrowth;
+            validYears++;
+          }
+        }
+      }
+      if (validYears > 0) {
+        avgGrowthRate = totalGrowth / validYears;
+      }
     }
-  }, [projections, retirementAge, currentAge, lifeExpectancy, retirementAnnualSpending, inflationRate]);
+    
+    // Binary search for max sustainable spending
+    for (let iteration = 0; iteration < 30; iteration++) {
+      const testSpending = (low + high) / 2;
+      let testPortfolio = portfolioAtRetirement;
+      let survives = true;
+      
+      for (let year = 0; year < yearsInRetirement; year++) {
+        // Grow portfolio
+        testPortfolio *= (1 + avgGrowthRate);
+        
+        // Withdraw inflation-adjusted spending + taxes (~20% gross-up)
+        const inflatedSpending = testSpending * Math.pow(1 + (inflationRate || 3) / 100, year);
+        const grossWithdrawal = inflatedSpending * 1.2;
+        testPortfolio -= grossWithdrawal;
+        
+        if (testPortfolio <= 0) {
+          survives = false;
+          break;
+        }
+      }
+      
+      if (survives) {
+        low = testSpending;
+      } else {
+        high = testSpending;
+      }
+    }
+    
+    return Math.round(low);
+  }, [projections, retirementAge, currentAge, lifeExpectancy, inflationRate]);
 
   // Update state when derived value changes
   useEffect(() => {
