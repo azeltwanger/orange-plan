@@ -1642,6 +1642,43 @@ export default function FinancialPlan() {
         liquidBtc: Math.max(0, (getAssetTotal('btc') / (btcPrice || 97000)) - totalEncumberedBtc),
         debtPayoffs: debtPayoffEvents,
         liquidations: yearLiquidations,
+        // BTC Loan tracking
+        btcLoanDetails: (() => {
+          const btcLoans = Object.values(tempRunningDebt).filter(l => l.type === 'btc_collateralized' && !l.paid_off);
+          const yearBtcPrice = currentPrice * Math.pow(1 + yearBtcGrowth / 100, i);
+          
+          return btcLoans.map(loan => {
+            const collateralBtc = encumberedBtc[loan.id] || loan.collateral_btc_amount || 0;
+            const collateralValue = collateralBtc * yearBtcPrice;
+            const ltv = collateralValue > 0 ? (loan.current_balance / collateralValue) * 100 : 0;
+            const released = (releasedBtc[loan.id] || 0) > 0;
+            const liquidated = (liquidatedBtc[loan.id] || 0) > 0;
+            
+            return {
+              name: loan.name,
+              balance: Math.round(loan.current_balance),
+              collateralBtc: collateralBtc,
+              collateralValue: Math.round(collateralValue),
+              ltv: Math.round(ltv),
+              status: liquidated ? 'liquidated' : released ? 'released' : ltv < 40 ? 'healthy' : ltv < 60 ? 'moderate' : 'elevated'
+            };
+          });
+        })(),
+        totalBtcLoanDebt: Math.round(Object.values(tempRunningDebt)
+          .filter(l => l.type === 'btc_collateralized' && !l.paid_off)
+          .reduce((sum, l) => sum + l.current_balance, 0)),
+        totalBtcCollateralValue: Math.round((() => {
+          const yearBtcPrice = currentPrice * Math.pow(1 + yearBtcGrowth / 100, i);
+          return Object.values(tempRunningDebt)
+            .filter(l => l.type === 'btc_collateralized' && !l.paid_off)
+            .reduce((sum, l) => {
+              const collateralBtc = encumberedBtc[l.id] || l.collateral_btc_amount || 0;
+              return sum + (collateralBtc * yearBtcPrice);
+            }, 0);
+        })()),
+        totalRegularDebt: Math.round(Object.values(tempRunningDebt)
+          .filter(l => l.type !== 'btc_collateralized' && !l.paid_off)
+          .reduce((sum, l) => sum + l.current_balance, 0)),
         });
     }
     return data;
@@ -2425,19 +2462,98 @@ export default function FinancialPlan() {
                                   <span className="text-zinc-100 font-semibold">Total Assets:</span>
                                   <span className="text-zinc-100 font-semibold text-right">${(p.total || 0).toLocaleString()}</span>
                                 </div>
-                                {p.totalDebt > 0 && (
-                                  <>
+                              </div>
+                              
+                              {/* Debt Breakdown */}
+                              {(p.totalDebt > 0) && (
+                                <div className="pt-3 mt-3 border-t border-zinc-700/70">
+                                  <p className="text-zinc-400 mb-2 font-medium text-xs">Debt Summary:</p>
+                                  
+                                  {/* Regular Debt */}
+                                  {p.totalRegularDebt > 0 && (
+                                    <div className="flex justify-between gap-6 text-xs mb-1">
+                                      <span className="text-zinc-500">Regular Debt:</span>
+                                      <span className="text-rose-300">${(p.totalRegularDebt || 0).toLocaleString()}</span>
+                                    </div>
+                                  )}
+                                  
+                                  {/* BTC-Collateralized Loans */}
+                                  {p.btcLoanDetails && p.btcLoanDetails.length > 0 && (
+                                    <div className="mt-2">
+                                      <p className="text-xs text-zinc-500 mb-1">BTC-Backed Loans:</p>
+                                      {p.btcLoanDetails.map((loan, idx) => (
+                                        <div key={idx} className="ml-2 mb-2 p-2 rounded bg-zinc-800/50">
+                                          <div className="flex justify-between items-center">
+                                            <span className="text-xs text-zinc-400">{loan.name}</span>
+                                            <span className={cn(
+                                              "text-[10px] px-1.5 py-0.5 rounded",
+                                              loan.status === 'healthy' && "bg-emerald-500/20 text-emerald-400",
+                                              loan.status === 'moderate' && "bg-amber-500/20 text-amber-400",
+                                              loan.status === 'elevated' && "bg-rose-500/20 text-rose-400",
+                                              loan.status === 'released' && "bg-purple-500/20 text-purple-400",
+                                              loan.status === 'liquidated' && "bg-red-500/20 text-red-400"
+                                            )}>
+                                              {loan.status === 'released' ? '✓ Released' : 
+                                               loan.status === 'liquidated' ? '✗ Liquidated' : 
+                                               `${loan.ltv}% LTV`}
+                                            </span>
+                                          </div>
+                                          {loan.status !== 'released' && loan.status !== 'liquidated' && (
+                                            <div className="grid grid-cols-2 gap-2 mt-1 text-[10px]">
+                                              <div>
+                                                <span className="text-zinc-500">Debt: </span>
+                                                <span className="text-rose-300">${loan.balance.toLocaleString()}</span>
+                                              </div>
+                                              <div>
+                                                <span className="text-zinc-500">Collateral: </span>
+                                                <span className="text-emerald-400">${loan.collateralValue.toLocaleString()}</span>
+                                              </div>
+                                            </div>
+                                          )}
+                                          {loan.status === 'released' && (
+                                            <p className="text-[10px] text-purple-400 mt-1">Collateral returned to portfolio</p>
+                                          )}
+                                        </div>
+                                      ))}
+                                      
+                                      {/* BTC Loan Totals */}
+                                      <div className="flex justify-between gap-6 text-xs mt-2 pt-2 border-t border-zinc-700/40">
+                                        <span className="text-zinc-400">BTC Loan Total:</span>
+                                        <span className="text-rose-300">${(p.totalBtcLoanDebt || 0).toLocaleString()}</span>
+                                      </div>
+                                      <div className="flex justify-between gap-6 text-xs">
+                                        <span className="text-zinc-400">Collateral Value:</span>
+                                        <span className="text-emerald-400">${(p.totalBtcCollateralValue || 0).toLocaleString()}</span>
+                                      </div>
+                                      <div className="flex justify-between gap-6 text-xs">
+                                        <span className="text-zinc-400">Net Exposure:</span>
+                                        <span className={cn(
+                                          "font-medium",
+                                          (p.totalBtcCollateralValue - p.totalBtcLoanDebt) >= 0 ? "text-emerald-400" : "text-rose-400"
+                                        )}>
+                                          ${((p.totalBtcCollateralValue || 0) - (p.totalBtcLoanDebt || 0)).toLocaleString()}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  )}
+                                  
+                                  {/* Total Debt & Net Worth */}
+                                  <div className="mt-3 pt-2 border-t border-zinc-700/40">
                                     <div className="flex justify-between gap-6">
                                       <span className="text-rose-300 font-semibold">Total Debt:</span>
-                                      <span className="text-rose-300 font-semibold text-right">-${(p.totalDebt || 0).toLocaleString()}</span>
+                                      <span className="text-rose-300 font-semibold">-${(p.totalDebt || 0).toLocaleString()}</span>
                                     </div>
-                                    <div className="flex justify-between gap-6 pt-1.5 border-t border-zinc-700/40">
-                                      <span className={cn("font-semibold", (p.total - p.totalDebt) > 0 ? "text-emerald-400" : "text-rose-300")}>Net Worth:</span>
-                                      <span className={cn("font-semibold text-right", (p.total - p.totalDebt) > 0 ? "text-emerald-400" : "text-rose-300")}>${((p.total || 0) - (p.totalDebt || 0)).toLocaleString()}</span>
+                                    <div className="flex justify-between gap-6 mt-1">
+                                      <span className={cn("font-semibold", ((p.total || 0) - (p.totalDebt || 0)) >= 0 ? "text-emerald-400" : "text-rose-400")}>
+                                        Net Worth:
+                                      </span>
+                                      <span className={cn("font-semibold", ((p.total || 0) - (p.totalDebt || 0)) >= 0 ? "text-emerald-400" : "text-rose-400")}>
+                                        ${((p.total || 0) - (p.totalDebt || 0)).toLocaleString()}
+                                      </span>
                                     </div>
-                                  </>
-                                )}
-                              </div>
+                                  </div>
+                                </div>
+                              )}
                               {p.isWithdrawing && (
                                 <div className="pt-3 mt-3 border-t border-zinc-700/70">
                                   <p className="text-zinc-400 mb-2 font-medium text-xs">Annual Outflow:</p>
@@ -2841,6 +2957,23 @@ export default function FinancialPlan() {
               </p>
             </div>
 
+
+            {/* BTC Loan Explanation - show if user has BTC loans */}
+            {liabilities.some(l => l.type === 'btc_collateralized') && (
+              <div className="mt-4 p-3 rounded-lg bg-orange-500/10 border border-orange-500/20">
+                <p className="text-sm text-orange-400 font-medium mb-1">ℹ️ BTC-Backed Loans</p>
+                <p className="text-xs text-zinc-400">
+                  Your BTC loans auto-refinance annually with interest accruing. No payments are deducted from your portfolio unless:
+                </p>
+                <ul className="text-xs text-zinc-400 mt-1 ml-4 list-disc space-y-0.5">
+                  <li><span className="text-emerald-400">LTV ≤ 30%</span>: Collateral released back to you</li>
+                  <li><span className="text-rose-400">LTV ≥ 80%</span>: Collateral liquidated to cover debt</li>
+                </ul>
+                <p className="text-xs text-zinc-500 mt-2">
+                  To model paying off a loan early, create a Debt Payoff Goal linked to the loan.
+                </p>
+              </div>
+            )}
 
             {retirementAge < PENALTY_FREE_AGE && (() => {
                 const yearsUntilPenaltyFree = Math.ceil(PENALTY_FREE_AGE - retirementAge);
