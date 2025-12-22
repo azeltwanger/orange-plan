@@ -292,6 +292,8 @@ export default function FinancialPlan() {
     allocation_method: 'proportionate', btc_allocation: 0, stocks_allocation: 0, real_estate_allocation: 0, bonds_allocation: 0, cash_allocation: 0, other_allocation: 0,
   });
 
+  const [pinnedTooltipData, setPinnedTooltipData] = useState(null);
+
 
 
   // Fetch BTC price
@@ -2084,6 +2086,21 @@ export default function FinancialPlan() {
     other: 'bg-zinc-400/10 text-zinc-400 border-zinc-400/20',
   };
 
+  // Click outside to dismiss pinned tooltip
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      const chartContainer = document.querySelector('.wealth-projection-chart');
+      if (chartContainer && !chartContainer.contains(event.target)) {
+        setPinnedTooltipData(null);
+      }
+    };
+    
+    if (pinnedTooltipData) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [pinnedTooltipData]);
+
   useEffect(() => {
     if (editingGoal) {
       setGoalForm({
@@ -2452,16 +2469,31 @@ export default function FinancialPlan() {
           </div>
 
           {/* Projection Chart */}
-          <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
+          <div className="card-premium rounded-2xl p-6 border border-zinc-800/50 wealth-projection-chart">
             <h3 className="font-semibold mb-2">Wealth Projection</h3>
             <p className="text-sm text-zinc-400 mb-4">
               {lifeEvents.length > 0 && `${lifeEvents.length} life event${lifeEvents.length !== 1 ? 's' : ''} • `}
               {goals.filter(g => g.will_be_spent).length > 0 && `${goals.filter(g => g.will_be_spent).length} planned expense${goals.filter(g => g.will_be_spent).length !== 1 ? 's' : ''} • `}
               {goals.length > 0 && `${goals.length} goal${goals.length !== 1 ? 's' : ''} tracked`}
             </p>
-            <div className="h-[500px]">
+            <div 
+              className="h-[500px]"
+              onClick={(e) => {
+                if (e.target === e.currentTarget) {
+                  setPinnedTooltipData(null);
+                }
+              }}
+            >
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={projections} margin={{ top: 10, right: 30, left: 0, bottom: 20 }}>
+                  <AreaChart 
+                    data={projections} 
+                    margin={{ top: 10, right: 30, left: 0, bottom: 20 }}
+                    onClick={(data) => {
+                      if (data && data.activePayload && data.activePayload[0]) {
+                        setPinnedTooltipData(data.activePayload[0].payload);
+                      }
+                    }}
+                  >
                     <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
                     <XAxis dataKey="age" stroke="#71717a" fontSize={12} />
                     <YAxis yAxisId="left" stroke="#71717a" fontSize={12} tickFormatter={(v) => `$${(v/1000000).toFixed(1)}M`} />
@@ -2470,233 +2502,85 @@ export default function FinancialPlan() {
                       contentStyle={{ 
                         backgroundColor: '#18181b', 
                         border: '1px solid #27272a', 
-                        borderRadius: '12px',
-                        maxHeight: '400px',
-                        overflowY: 'auto'
+                        borderRadius: '12px'
                       }}
-                      wrapperStyle={{ zIndex: 1000, pointerEvents: 'auto' }}
-                      trigger="click"
-                      position={{ y: 0 }}
                       content={({ active, payload, label }) => {
-                        if (!active || !payload?.length) return null;
-                        const p = payload[0]?.payload;
+                        // Use pinned data if available, otherwise use hover data
+                        const p = pinnedTooltipData || (active && payload?.length ? payload[0]?.payload : null);
                         if (!p) return null;
-                        const hasLiquidation = p.liquidations && p.liquidations.length > 0;
+                        
+                        const displayLabel = pinnedTooltipData ? pinnedTooltipData.age : label;
+                        const isPinned = !!pinnedTooltipData;
 
                         return (
-                          <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-4 text-sm min-w-[240px] max-h-[400px] overflow-y-auto shadow-xl">
-                            <div className="mb-4">
-                              <p className="font-bold text-lg text-zinc-100">Age {label} {p.hasEvent ? '📅' : ''} {hasLiquidation ? '⚠️' : ''}</p>
-                              <p className="text-xs text-zinc-500">{p.isRetired ? '(Retirement)' : '(Pre-Retirement)'}</p>
+                          <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-3 text-xs min-w-[180px] max-w-[240px]">
+                            <div className="flex justify-between items-center mb-2">
+                              <p className="font-bold text-sm text-zinc-100">
+                                Age {displayLabel} <span className="text-zinc-500 font-normal">{p.isRetired ? '(Retired)' : ''}</span>
+                              </p>
+                              {isPinned && (
+                                <button 
+                                  onClick={(e) => { e.stopPropagation(); setPinnedTooltipData(null); }}
+                                  className="text-zinc-500 hover:text-zinc-300 text-sm ml-2"
+                                >
+                                  ✕
+                                </button>
+                              )}
                             </div>
-                            <div className="space-y-2">
-                              <div className="flex justify-between gap-6">
-                                <span className="text-orange-400 font-light">Bitcoin:</span>
-                                <span className="text-zinc-200 font-medium text-right">${(p.btc || 0).toLocaleString()}</span>
-                              </div>
-                              <div className="flex justify-between gap-6">
-                                <span className="text-blue-400 font-light">Stocks:</span>
-                                <span className="text-zinc-200 font-medium text-right">${(p.stocks || 0).toLocaleString()}</span>
-                              </div>
-                              <div className="flex justify-between gap-6">
-                                <span className="text-emerald-400 font-light">Real Estate:</span>
-                                <span className="text-zinc-200 font-medium text-right">${(p.realEstate || 0).toLocaleString()}</span>
-                              </div>
-                              <div className="flex justify-between gap-6">
-                                <span className="text-purple-400 font-light">Bonds:</span>
-                                <span className="text-zinc-200 font-medium text-right">${(p.bonds || 0).toLocaleString()}</span>
-                              </div>
-                              <div className="pt-3 mt-3 border-t border-zinc-700/70 space-y-1.5">
-                                <div className="flex justify-between gap-6">
-                                  <span className="text-zinc-100 font-semibold">Total Assets:</span>
-                                  <span className="text-zinc-100 font-semibold text-right">${(p.total || 0).toLocaleString()}</span>
-                                </div>
-                              </div>
-                              
-                              {/* Debt Summary - Simplified */}
-                              {(p.totalDebt > 0) && (
-                                <div className="pt-3 mt-3 border-t border-zinc-700/70">
-                                  <div className="flex justify-between gap-6">
-                                    <span className="text-rose-300 font-semibold">Total Debt:</span>
-                                    <span className="text-rose-300 font-semibold">-${(p.totalDebt || 0).toLocaleString()}</span>
-                                  </div>
-                                  {p.totalBtcLoanDebt > 0 && (
-                                    <div className="flex justify-between gap-6 text-xs text-zinc-500 mt-1">
-                                      <span>BTC-Backed:</span>
-                                      <span>${(p.totalBtcLoanDebt || 0).toLocaleString()} ({Math.round((p.btcLoanDetails || []).reduce((sum, l) => sum + l.ltv, 0) / (p.btcLoanDetails?.length || 1))}% avg LTV)</span>
-                                    </div>
-                                  )}
-                                  {p.totalRegularDebt > 0 && (
-                                    <div className="flex justify-between gap-6 text-xs text-zinc-500 mt-1">
-                                      <span>Regular Debt:</span>
-                                      <span>${(p.totalRegularDebt || 0).toLocaleString()}</span>
-                                    </div>
-                                  )}
-                                  <div className="flex justify-between gap-6 mt-2 pt-2 border-t border-zinc-700/40">
-                                    <span className={cn("font-semibold", ((p.total || 0) - (p.totalDebt || 0)) >= 0 ? "text-emerald-400" : "text-rose-400")}>
-                                      Net Worth:
-                                    </span>
-                                    <span className={cn("font-semibold", ((p.total || 0) - (p.totalDebt || 0)) >= 0 ? "text-emerald-400" : "text-rose-400")}>
-                                      ${((p.total || 0) - (p.totalDebt || 0)).toLocaleString()}
-                                    </span>
-                                  </div>
-                                </div>
-                              )}
-                              {p.isWithdrawing && (
-                                <div className="pt-3 mt-3 border-t border-zinc-700/70">
-                                  <p className="text-zinc-400 mb-2 font-medium text-xs">Annual Outflow:</p>
-                                  <div className="text-xs space-y-1.5 text-zinc-500 mb-2">
-                                    {p.isRetired ? (
-                                      <div className="flex justify-between gap-6">
-                                        <span>• Spending:</span>
-                                        <span className="text-zinc-300 text-right">${(p.retirementSpendingOnly || 0).toLocaleString()}</span>
-                                      </div>
-                                    ) : (
-                                      <div className="flex justify-between gap-6">
-                                        <span>• Spending:</span>
-                                        <span className="text-zinc-300 text-right">${(p.yearSpending || 0).toLocaleString()}</span>
-                                      </div>
-                                    )}
-                                    {p.yearGoalWithdrawal > 0 && (
-                                      <div className="flex justify-between gap-6">
-                                        <span>• Goal Funding:</span>
-                                        <span className="text-zinc-300 text-right">${p.yearGoalWithdrawal.toLocaleString()}</span>
-                                      </div>
-                                    )}
-                                    {p.taxesPaid > 0 && (
-                                      <div className="flex justify-between gap-6">
-                                        <span>• Taxes Paid:</span>
-                                        <span className="text-rose-300 text-right">${p.taxesPaid.toLocaleString()}</span>
-                                      </div>
-                                    )}
-                                    {p.penaltyPaid > 0 && (
-                                      <div className="flex justify-between gap-6">
-                                        <span>• Penalty Paid:</span>
-                                        <span className="text-rose-300 text-right">${p.penaltyPaid.toLocaleString()}</span>
-                                      </div>
-                                    )}
-                                  </div>
-                                  {p.debtPayments > 0 && (
-                                    <div className="text-xs text-zinc-500 mb-2">
-                                      (Debt Payments: ${p.debtPayments.toLocaleString()} - tracked separately)
-                                    </div>
-                                  )}
-                                  <div className="pt-2 border-t border-zinc-700/40">
-                                    <p className="font-semibold text-rose-300 text-sm">
-                                      Net Withdrawal: ${(p.totalWithdrawalAmount || 0).toLocaleString()}
-                                    </p>
-                                  </div>
-                                  {(p.withdrawFromTaxable > 0 || p.withdrawFromTaxDeferred > 0 || p.withdrawFromTaxFree > 0) && (
-                                    <div className="text-xs space-y-1.5 text-zinc-500 mt-3 pt-3 border-t border-zinc-700/40">
-                                      <p className="text-zinc-400 font-medium mb-1">Withdrawal Sources:</p>
-                                      {p.withdrawFromTaxable > 0 && (
-                                        <div className="flex justify-between gap-6">
-                                          <span>From Taxable:</span>
-                                          <span className="text-emerald-400 text-right">${p.withdrawFromTaxable.toLocaleString()}</span>
-                                        </div>
-                                      )}
-                                      {p.withdrawFromTaxDeferred > 0 && (
-                                        <div className="flex justify-between gap-6">
-                                          <span>From Tax-Deferred:</span>
-                                          <span className="text-amber-400 text-right">${p.withdrawFromTaxDeferred.toLocaleString()}</span>
-                                        </div>
-                                      )}
-                                      {p.withdrawFromTaxFree > 0 && (
-                                        <div className="flex justify-between gap-6">
-                                          <span>From Tax-Free:</span>
-                                          <span className="text-purple-400 text-right">${p.withdrawFromTaxFree.toLocaleString()}</span>
-                                        </div>
-                                      )}
-                                      {p.withdrawFromRealEstate > 0 && (
-                                        <div className="flex justify-between gap-6">
-                                          <span>From Real Estate:</span>
-                                          <span className="text-cyan-400 text-right">${p.withdrawFromRealEstate.toLocaleString()}</span>
-                                        </div>
-                                      )}
-                                    </div>
-                                  )}
-                                  {p.realEstateSold && (
-                                    <div className="mt-2 p-2 rounded bg-cyan-500/10 border border-cyan-500/20">
-                                      <p className="text-xs text-cyan-400 font-medium">🏠 Real Estate Sold</p>
-                                      <div className="text-[10px] text-zinc-400 mt-1">
-                                        <div>Sale Proceeds: ${(p.realEstateSaleProceeds || 0).toLocaleString()}</div>
-                                        <div>Used for Withdrawal: ${(p.withdrawFromRealEstate || 0).toLocaleString()}</div>
-                                        <div>Added to Taxable: ${((p.realEstateSaleProceeds || 0) - (p.withdrawFromRealEstate || 0)).toLocaleString()}</div>
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                              {!p.isWithdrawing && p.netCashFlow > 0 && (
-                                <div className="pt-3 mt-3 border-t border-zinc-700/70">
-                                  <p className="text-zinc-400 mb-2 font-medium text-xs">Annual Cash Flow:</p>
-                                  <div className="text-xs space-y-1.5 text-zinc-500 mb-2">
-                                    <div className="flex justify-between gap-6">
-                                      <span>• Gross Income:</span>
-                                      <span className="text-emerald-400 text-right">${(p.yearGrossIncome || 0).toLocaleString()}</span>
-                                    </div>
-                                    {p.taxesPaid > 0 && (
-                                      <div className="flex justify-between gap-6">
-                                        <span>• Taxes Paid:</span>
-                                        <span className="text-rose-300 text-right">-${p.taxesPaid.toLocaleString()}</span>
-                                      </div>
-                                    )}
-                                    <div className="flex justify-between gap-6">
-                                      <span>• Spending:</span>
-                                      <span className="text-zinc-300 text-right">-${(p.yearSpending || 0).toLocaleString()}</span>
-                                    </div>
-                                  </div>
-                                  <div className="pt-2 border-t border-zinc-700/40">
-                                    <p className="font-semibold text-emerald-400 text-sm">
-                                      Net Savings: ${p.netCashFlow.toLocaleString()}
-                                    </p>
-                                  </div>
-                                </div>
-                              )}
-                              {p.debtPayoffs && p.debtPayoffs.length > 0 && (
-                                <div className="pt-3 mt-3 border-t border-zinc-700/70">
-                                  <p className="text-xs font-semibold text-emerald-400 mb-2">🎉 Debt Paid Off This Year:</p>
-                                  <div className="space-y-1">
-                                    {p.debtPayoffs.map((d, idx) => {
-                                      const monthName = d.month ? ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.month - 1] : '';
-                                      return (
-                                        <p key={idx} className="text-xs text-emerald-400 font-light">
-                                          ✓ {d.name || d.liability_name || 'Debt'}{monthName ? ` (${monthName})` : ''}
-                                        </p>
-                                      );
-                                    })}
-                                  </div>
-                                </div>
-                              )}
-                              {p.liquidations && p.liquidations.length > 0 && (
-                                <div className="pt-3 mt-3 border-t border-zinc-700/70">
-                                  <p className="text-xs font-semibold text-rose-300 mb-2">⚠️ Liquidation Event:</p>
-                                  {p.liquidations.map((liq, idx) => (
-                                    <div key={idx} className="text-xs text-zinc-400 space-y-1">
-                                      <p className="text-rose-300">• {liq.liabilityName}</p>
-                                      <p className="ml-3 text-zinc-500">Liquidated: {liq.btcAmount.toFixed(4)} BTC (${liq.proceeds.toLocaleString()})</p>
-                                      {liq.remainingDebt > 0 && (
-                                        <p className="ml-3 text-zinc-500">Remaining debt: ${liq.remainingDebt.toLocaleString()}</p>
-                                      )}
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-
+                            
+                            {/* Assets */}
+                            <div className="space-y-0.5">
+                              <div className="flex justify-between"><span className="text-orange-400">BTC:</span><span>${(p.btc || 0).toLocaleString()}</span></div>
+                              <div className="flex justify-between"><span className="text-blue-400">Stocks:</span><span>${(p.stocks || 0).toLocaleString()}</span></div>
+                              <div className="flex justify-between"><span className="text-emerald-400">RE:</span><span>${(p.realEstate || 0).toLocaleString()}</span></div>
+                              {p.bonds > 0 && <div className="flex justify-between"><span className="text-purple-400">Bonds:</span><span>${(p.bonds || 0).toLocaleString()}</span></div>}
                             </div>
+                            
+                            {/* Total & Net Worth */}
+                            <div className="mt-2 pt-2 border-t border-zinc-700/50 space-y-0.5">
+                              <div className="flex justify-between font-medium"><span>Assets:</span><span>${(p.total || 0).toLocaleString()}</span></div>
+                              {p.totalDebt > 0 && (
+                                <>
+                                  <div className="flex justify-between text-rose-400"><span>Debt:</span><span>-${(p.totalDebt || 0).toLocaleString()}</span></div>
+                                  <div className="flex justify-between font-medium">
+                                    <span className={p.total - p.totalDebt >= 0 ? "text-emerald-400" : "text-rose-400"}>Net Worth:</span>
+                                    <span className={p.total - p.totalDebt >= 0 ? "text-emerald-400" : "text-rose-400"}>${((p.total || 0) - (p.totalDebt || 0)).toLocaleString()}</span>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                            
+                            {/* Cash flow / Withdrawal */}
+                            <div className="mt-2 pt-2 border-t border-zinc-700/50">
+                              {p.isRetired ? (
+                                <div className="space-y-0.5">
+                                  <div className="flex justify-between"><span className="text-zinc-500">Spending:</span><span>${(p.retirementSpendingOnly || 0).toLocaleString()}</span></div>
+                                  {p.taxesPaid > 0 && <div className="flex justify-between"><span className="text-zinc-500">Taxes:</span><span className="text-rose-300">${(p.taxesPaid || 0).toLocaleString()}</span></div>}
+                                  <div className="flex justify-between font-medium text-rose-400"><span>Withdrawal:</span><span>${(p.totalWithdrawalAmount || 0).toLocaleString()}</span></div>
+                                </div>
+                              ) : (
+                                <div className="space-y-0.5">
+                                  <div className="flex justify-between"><span className="text-zinc-500">Income:</span><span className="text-emerald-400">${(p.yearGrossIncome || 0).toLocaleString()}</span></div>
+                                  <div className="flex justify-between"><span className="text-zinc-500">Spending:</span><span>-${(p.yearSpending || 0).toLocaleString()}</span></div>
+                                  <div className={cn("flex justify-between font-medium", p.netCashFlow >= 0 ? "text-emerald-400" : "text-rose-400")}>
+                                    <span>Net:</span><span>{p.netCashFlow >= 0 ? '+' : ''}${(p.netCashFlow || 0).toLocaleString()}</span>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                            
+                            {/* Events */}
+                            {(p.realEstateSold || p.liquidations?.length > 0 || p.debtPayoffs?.length > 0) && (
+                              <div className="mt-2 pt-2 border-t border-zinc-700/50 text-[10px] text-zinc-400">
+                                {p.realEstateSold && <div>🏠 Real Estate Sold</div>}
+                                {p.liquidations?.map((l, i) => <div key={i}>⚠️ {l.liabilityName} Liquidated</div>)}
+                                {p.debtPayoffs?.map((d, i) => <div key={i}>✓ {d.name} Paid Off</div>)}
+                              </div>
+                            )}
+                            
+                            {!isPinned && <p className="text-[10px] text-zinc-600 mt-2">Click to pin</p>}
                           </div>
                         );
-                      }}
-                      labelFormatter={(age) => {
-                        const year = new Date().getFullYear() + (age - currentAge);
-                        const hasYearEvents = lifeEvents.some(e => e.year === year);
-                        const hasYearGoals = goals.some(g => g.will_be_spent && g.target_date && new Date(g.target_date).getFullYear() === year);
-                        
-                        let label = `Age ${age}`;
-                        if (hasYearEvents || hasYearGoals) {
-                          label += ' *';
-                        }
-                        return label;
                       }}
                     />
                     <Legend
@@ -2887,9 +2771,7 @@ export default function FinancialPlan() {
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
-            <p className="text-xs text-zinc-500 text-center mt-2">
-              💡 Click on any point to see details. Click elsewhere to close.
-            </p>
+
             {lifeEvents.length > 0 && (
               <div className="flex flex-wrap justify-center gap-4 mt-4 text-xs text-zinc-400">
                 <div className="flex items-center gap-2">
