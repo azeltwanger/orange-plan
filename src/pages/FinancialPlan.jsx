@@ -1497,12 +1497,24 @@ export default function FinancialPlan() {
 
         // Calculate how much was withdrawn from tax-optimized approach
         let totalWithdrawnFromAccounts = withdrawFromTaxable + withdrawFromTaxDeferred + withdrawFromTaxFree;
-        let withdrawFromRealEstate = 0;
-        let realEstateSaleProceeds = 0;
+        // withdrawFromRealEstate and realEstateSaleProceeds already declared at top of loop
         
         // Calculate actual shortfall - how much more we need beyond what was withdrawn
         const actualWithdrawalNeeded = totalWithdrawalForTaxCalculation;
         let remainingShortfall = actualWithdrawalNeeded - totalWithdrawnFromAccounts;
+        
+        // DEBUG: Trace retirement withdrawal logic for first 10 years
+        if (isRetired && yearsIntoRetirement <= 10) {
+          console.log("RETIREMENT WITHDRAWAL age", currentAge + i, {
+            spending: Math.round(totalWithdrawalForTaxCalculation),
+            liquidBefore: Math.round(getTotalLiquid() + totalWithdrawnFromAccounts),
+            liquidAfterTaxOptimized: Math.round(getTotalLiquid()),
+            taxOptimizedWithdrawal: Math.round(totalWithdrawnFromAccounts),
+            remainingShortfall: Math.round(remainingShortfall),
+            realEstate: Math.round(portfolio.realEstate),
+            willLiquidateRE: remainingShortfall > 0 && portfolio.realEstate > 0
+          });
+        }
         
         // FIX: If there's still a shortfall and liquid accounts have money remaining,
         // FORCE withdraw from liquid accounts before touching real estate
@@ -1555,11 +1567,11 @@ export default function FinancialPlan() {
             
             remainingShortfall -= withdrawFromRealEstate;
             
-            console.log("RE LIQUIDATION at age", currentAge + i, ":", {
-              soldFor: realEstateSaleProceeds,
-              usedForWithdrawal: withdrawFromRealEstate,
-              excessToTaxable: excessProceeds,
-              remainingShortfall: remainingShortfall
+            // Log only when RE is actually liquidated
+            console.log("🏠 RE SOLD at age", currentAge + i, {
+              proceeds: Math.round(realEstateSaleProceeds),
+              usedForSpending: Math.round(withdrawFromRealEstate),
+              excessToTaxable: Math.round(excessProceeds)
             });
           }
           
