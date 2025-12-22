@@ -1497,48 +1497,75 @@ export default function FinancialPlan() {
         // Calculate how much was withdrawn from tax-optimized approach
         let totalWithdrawnFromAccounts = withdrawFromTaxable + withdrawFromTaxDeferred + withdrawFromTaxFree;
         let withdrawFromRealEstate = 0;
+        let realEstateSaleProceeds = 0;
         
         // Calculate actual shortfall - how much more we need beyond what was withdrawn
         const actualWithdrawalNeeded = totalWithdrawalForTaxCalculation;
-        let shortfallAfterOptimal = actualWithdrawalNeeded - totalWithdrawnFromAccounts;
+        let remainingShortfall = actualWithdrawalNeeded - totalWithdrawnFromAccounts;
         
         // FIX: If there's still a shortfall and liquid accounts have money remaining,
         // FORCE withdraw from liquid accounts before touching real estate
-        if (shortfallAfterOptimal > 0) {
+        if (remainingShortfall > 0) {
           // 1. Force from Taxable first
           const taxableRemaining = getAccountTotal('taxable');
-          if (shortfallAfterOptimal > 0 && taxableRemaining > 0) {
-            const forceFromTaxable = Math.min(shortfallAfterOptimal, taxableRemaining);
+          if (remainingShortfall > 0 && taxableRemaining > 0) {
+            const forceFromTaxable = Math.min(remainingShortfall, taxableRemaining);
             withdrawFromAccount('taxable', forceFromTaxable);
             withdrawFromTaxable += forceFromTaxable;
             totalWithdrawnFromAccounts += forceFromTaxable;
-            shortfallAfterOptimal -= forceFromTaxable;
+            remainingShortfall -= forceFromTaxable;
           }
           
           // 2. Force from Tax-Deferred second
           const taxDeferredRemaining = getAccountTotal('taxDeferred');
-          if (shortfallAfterOptimal > 0 && taxDeferredRemaining > 0) {
-            const forceFromTaxDeferred = Math.min(shortfallAfterOptimal, taxDeferredRemaining);
+          if (remainingShortfall > 0 && taxDeferredRemaining > 0) {
+            const forceFromTaxDeferred = Math.min(remainingShortfall, taxDeferredRemaining);
             withdrawFromAccount('taxDeferred', forceFromTaxDeferred);
             withdrawFromTaxDeferred += forceFromTaxDeferred;
             totalWithdrawnFromAccounts += forceFromTaxDeferred;
-            shortfallAfterOptimal -= forceFromTaxDeferred;
+            remainingShortfall -= forceFromTaxDeferred;
           }
           
           // 3. Force from Tax-Free third
           const taxFreeRemaining = getAccountTotal('taxFree');
-          if (shortfallAfterOptimal > 0 && taxFreeRemaining > 0) {
-            const forceFromTaxFree = Math.min(shortfallAfterOptimal, taxFreeRemaining);
+          if (remainingShortfall > 0 && taxFreeRemaining > 0) {
+            const forceFromTaxFree = Math.min(remainingShortfall, taxFreeRemaining);
             withdrawFromAccount('taxFree', forceFromTaxFree);
             withdrawFromTaxFree += forceFromTaxFree;
             totalWithdrawnFromAccounts += forceFromTaxFree;
-            shortfallAfterOptimal -= forceFromTaxFree;
+            remainingShortfall -= forceFromTaxFree;
           }
           
-          // 4. ONLY NOW touch real estate (when ALL liquid accounts are $0)
-          if (shortfallAfterOptimal > 0 && portfolio.realEstate > 0) {
-            withdrawFromRealEstate = Math.min(shortfallAfterOptimal, portfolio.realEstate);
-            portfolio.realEstate = Math.max(0, portfolio.realEstate - withdrawFromRealEstate);
+          // 4. FINALLY: Liquidate Real Estate if liquid accounts can't cover shortfall
+          // IMPORTANT: Real estate is all-or-nothing - sell entire property, put excess in taxable
+          if (remainingShortfall > 0 && portfolio.realEstate > 0) {
+            // Sell ALL real estate
+            realEstateSaleProceeds = portfolio.realEstate;
+            portfolio.realEstate = 0;
+            
+            // Use what we need for the shortfall
+            withdrawFromRealEstate = Math.min(remainingShortfall, realEstateSaleProceeds);
+            
+            // Put excess proceeds into taxable account (as cash/other)
+            const excessProceeds = realEstateSaleProceeds - withdrawFromRealEstate;
+            if (excessProceeds > 0) {
+              portfolio.taxable.other += excessProceeds;
+            }
+            
+            remainingShortfall -= withdrawFromRealEstate;
+            
+            console.log("RE LIQUIDATION at age", currentAge + i, ":", {
+              soldFor: realEstateSaleProceeds,
+              usedForWithdrawal: withdrawFromRealEstate,
+              excessToTaxable: excessProceeds,
+              remainingShortfall: remainingShortfall
+            });
+          }
+          
+          // 5. If STILL a shortfall after all accounts including RE, portfolio is depleted
+          if (remainingShortfall > 0 && getTotalPortfolio() < 100) {
+            ranOutOfMoney = true;
+            console.log("PORTFOLIO DEPLETED at age", currentAge + i);
           }
         }
 
@@ -1644,6 +1671,8 @@ export default function FinancialPlan() {
         withdrawFromTaxable: Math.round(withdrawFromTaxable),
         withdrawFromTaxDeferred: Math.round(withdrawFromTaxDeferred),
         withdrawFromTaxFree: Math.round(withdrawFromTaxFree),
+        realEstateSold: realEstateSaleProceeds > 0,
+        realEstateSaleProceeds: Math.round(realEstateSaleProceeds || 0),
         withdrawFromRealEstate: Math.round(withdrawFromRealEstate || 0),
         // Debt tracking
         totalDebt: Math.round(totalDebt),
@@ -2575,6 +2604,16 @@ export default function FinancialPlan() {
                                           <span className="text-cyan-400 text-right">${p.withdrawFromRealEstate.toLocaleString()}</span>
                                         </div>
                                       )}
+                                    </div>
+                                  )}
+                                  {p.realEstateSold && (
+                                    <div className="mt-2 p-2 rounded bg-cyan-500/10 border border-cyan-500/20">
+                                      <p className="text-xs text-cyan-400 font-medium">🏠 Real Estate Sold</p>
+                                      <div className="text-[10px] text-zinc-400 mt-1">
+                                        <div>Sale Proceeds: ${(p.realEstateSaleProceeds || 0).toLocaleString()}</div>
+                                        <div>Used for Withdrawal: ${(p.withdrawFromRealEstate || 0).toLocaleString()}</div>
+                                        <div>Added to Taxable: ${((p.realEstateSaleProceeds || 0) - (p.withdrawFromRealEstate || 0)).toLocaleString()}</div>
+                                      </div>
                                     </div>
                                   )}
                                 </div>
