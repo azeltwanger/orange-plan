@@ -569,8 +569,9 @@ export default function FinancialPlan() {
   const stocksValue = holdings.filter(h => h.asset_type === 'stocks').reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
   const realEstateValue = holdings.filter(h => h.asset_type === 'real_estate').reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
   const bondsValue = holdings.filter(h => h.asset_type === 'bonds').reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
-  const otherValue = holdings.filter(h => !['BTC'].includes(h.ticker) && !['stocks', 'real_estate', 'bonds'].includes(h.asset_type)).reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
-  const totalValue = btcValue + stocksValue + realEstateValue + bondsValue + otherValue;
+  const cashValue = holdings.filter(h => h.asset_type === 'cash').reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
+  const otherValue = holdings.filter(h => !['BTC'].includes(h.ticker) && !['stocks', 'real_estate', 'bonds', 'cash', 'crypto'].includes(h.asset_type)).reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
+  const totalValue = btcValue + stocksValue + realEstateValue + bondsValue + cashValue + otherValue;
 
   // Penalty-free age for retirement accounts
   const PENALTY_FREE_AGE = 59.5;
@@ -651,6 +652,7 @@ export default function FinancialPlan() {
       stocksPct,
       realEstatePct,
       bondsPct,
+      cashPct,
       otherPct,
     } = params;
     
@@ -670,6 +672,7 @@ export default function FinancialPlan() {
         stocksPct * (effectiveStocksCagr / 100) +
         realEstatePct * (realEstateCagr / 100) +
         bondsPct * (bondsCagr / 100) +
+        cashPct * (cashCagr / 100) +
         otherPct * (otherCagr / 100)
       );
       
@@ -720,9 +723,9 @@ export default function FinancialPlan() {
     // REFACTORED: Initialize asset-in-account structure from actual holdings
     const initializePortfolio = () => {
       const structure = {
-        taxable: { btc: 0, stocks: 0, bonds: 0, other: 0 },
-        taxDeferred: { btc: 0, stocks: 0, bonds: 0, other: 0 },
-        taxFree: { btc: 0, stocks: 0, bonds: 0, other: 0 },
+        taxable: { btc: 0, stocks: 0, bonds: 0, cash: 0, other: 0 },
+        taxDeferred: { btc: 0, stocks: 0, bonds: 0, cash: 0, other: 0 },
+        taxFree: { btc: 0, stocks: 0, bonds: 0, cash: 0, other: 0 },
         realEstate: 0  // Illiquid, tracked separately
       };
       
@@ -741,6 +744,7 @@ export default function FinancialPlan() {
         if (h.ticker === 'BTC' || assetType === 'crypto') assetCategory = 'btc';
         else if (assetType === 'stocks') assetCategory = 'stocks';
         else if (assetType === 'bonds') assetCategory = 'bonds';
+        else if (assetType === 'cash') assetCategory = 'cash';
         
         // Map tax treatment to account
         let accountKey = 'taxable';
@@ -758,7 +762,7 @@ export default function FinancialPlan() {
     // Helper functions to get derived totals
     const getAccountTotal = (accountKey) => {
       const acct = portfolio[accountKey];
-      return acct.btc + acct.stocks + acct.bonds + acct.other;
+      return acct.btc + acct.stocks + acct.bonds + acct.cash + acct.other;
     };
 
     const getAssetTotal = (assetKey) => {
@@ -1235,6 +1239,7 @@ export default function FinancialPlan() {
           portfolio[accountKey].btc *= (1 + yearBtcGrowth / 100);
           portfolio[accountKey].stocks *= (1 + effectiveStocksCagr / 100);
           portfolio[accountKey].bonds *= (1 + bondsCagr / 100);
+          portfolio[accountKey].cash *= (1 + cashCagr / 100);
           portfolio[accountKey].other *= (1 + otherCagr / 100);
         });
         portfolio.realEstate *= (1 + realEstateCagr / 100);
@@ -1281,10 +1286,12 @@ export default function FinancialPlan() {
             const btcRatio = acct.btc / currentTotal;
             const stocksRatio = acct.stocks / currentTotal;
             const bondsRatio = acct.bonds / currentTotal;
+            const cashRatio = acct.cash / currentTotal;
             const otherRatio = acct.other / currentTotal;
             acct.btc += amount * btcRatio;
             acct.stocks += amount * stocksRatio;
             acct.bonds += amount * bondsRatio;
+            acct.cash += amount * cashRatio;
             acct.other += amount * otherRatio;
           } else {
             // Default to stocks for new retirement contributions
@@ -1345,6 +1352,7 @@ export default function FinancialPlan() {
             acct.btc = Math.max(0, acct.btc * (1 - ratio));
             acct.stocks = Math.max(0, acct.stocks * (1 - ratio));
             acct.bonds = Math.max(0, acct.bonds * (1 - ratio));
+            acct.cash = Math.max(0, acct.cash * (1 - ratio));
             acct.other = Math.max(0, acct.other * (1 - ratio));
             
             return actualWithdrawal;
@@ -1367,10 +1375,12 @@ export default function FinancialPlan() {
             const btcRatio = portfolio.taxable.btc / taxableTotal;
             const stocksRatio = portfolio.taxable.stocks / taxableTotal;
             const bondsRatio = portfolio.taxable.bonds / taxableTotal;
+            const cashRatio = portfolio.taxable.cash / taxableTotal;
             const otherRatio = portfolio.taxable.other / taxableTotal;
             portfolio.taxable.btc += yearSavings * btcRatio;
             portfolio.taxable.stocks += yearSavings * stocksRatio;
             portfolio.taxable.bonds += yearSavings * bondsRatio;
+            portfolio.taxable.cash += yearSavings * cashRatio;
             portfolio.taxable.other += yearSavings * otherRatio;
           } else {
             // Default to stocks for new savings if no existing assets
@@ -1487,6 +1497,7 @@ export default function FinancialPlan() {
           acct.btc = Math.max(0, acct.btc * (1 - ratio));
           acct.stocks = Math.max(0, acct.stocks * (1 - ratio));
           acct.bonds = Math.max(0, acct.bonds * (1 - ratio));
+          acct.cash = Math.max(0, acct.cash * (1 - ratio));
           acct.other = Math.max(0, acct.other * (1 - ratio));
           
           return actualWithdrawal;
@@ -1560,10 +1571,10 @@ export default function FinancialPlan() {
             // Use what we need for the shortfall
             withdrawFromRealEstate = Math.min(remainingShortfall, realEstateSaleProceeds);
             
-            // Put excess proceeds into taxable account (as cash/other)
+            // Put excess proceeds into taxable account (as cash)
             const excessProceeds = realEstateSaleProceeds - withdrawFromRealEstate;
             if (excessProceeds > 0) {
-              portfolio.taxable.other += excessProceeds;
+              portfolio.taxable.cash += excessProceeds;
             }
             
             remainingShortfall -= withdrawFromRealEstate;
@@ -1631,9 +1642,9 @@ export default function FinancialPlan() {
       // Once out of money, zero everything for this year and subsequent years
       if (ranOutOfMoney) {
         total = 0;
-        portfolio.taxable = { btc: 0, stocks: 0, bonds: 0, other: 0 };
-        portfolio.taxDeferred = { btc: 0, stocks: 0, bonds: 0, other: 0 };
-        portfolio.taxFree = { btc: 0, stocks: 0, bonds: 0, other: 0 };
+        portfolio.taxable = { btc: 0, stocks: 0, bonds: 0, cash: 0, other: 0 };
+        portfolio.taxDeferred = { btc: 0, stocks: 0, bonds: 0, cash: 0, other: 0 };
+        portfolio.taxFree = { btc: 0, stocks: 0, bonds: 0, cash: 0, other: 0 };
         portfolio.realEstate = 0;
       }
 
@@ -1653,6 +1664,7 @@ export default function FinancialPlan() {
         stocks: Math.round(getAssetTotal('stocks')),
         realEstate: Math.round(portfolio.realEstate),
         bonds: Math.round(getAssetTotal('bonds')),
+        cash: Math.round(getAssetTotal('cash')),
         savings: Math.round(cumulativeSavings),
         netCashFlow: Math.round(yearSavings),
         yearGrossIncome: !isRetired ? Math.round((grossAnnualIncome * Math.pow(1 + incomeGrowth / 100, i)) + activeIncomeAdjustment) : 0,
@@ -1736,7 +1748,7 @@ export default function FinancialPlan() {
         });
     }
     return data;
-  }, [btcValue, stocksValue, realEstateValue, bondsValue, otherValue, taxableValue, taxDeferredValue, taxFreeValue, currentAge, retirementAge, lifeExpectancy, effectiveBtcCagr, effectiveStocksCagr, realEstateCagr, bondsCagr, effectiveInflation, lifeEvents, goals, annualSavings, incomeGrowth, retirementAnnualSpending, btcReturnModel, filingStatus, taxableHoldings, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, liabilities, collateralizedLoans, monthlyDebtPayments, btcPrice, cashCagr, otherCagr]);
+  }, [btcValue, stocksValue, realEstateValue, bondsValue, cashValue, otherValue, taxableValue, taxDeferredValue, taxFreeValue, currentAge, retirementAge, lifeExpectancy, effectiveBtcCagr, effectiveStocksCagr, realEstateCagr, bondsCagr, effectiveInflation, lifeEvents, goals, annualSavings, incomeGrowth, retirementAnnualSpending, btcReturnModel, filingStatus, taxableHoldings, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, liabilities, collateralizedLoans, monthlyDebtPayments, btcPrice, cashCagr, otherCagr]);
 
   // Run Monte Carlo when button clicked
   const handleRunSimulation = () => {
@@ -1870,7 +1882,7 @@ export default function FinancialPlan() {
 
   // UNIFIED: Derive earliestRetirementAge using forward simulation
   const derivedEarliestRetirementAge = useMemo(() => {
-    const total = btcValue + stocksValue + realEstateValue + bondsValue + otherValue;
+    const total = btcValue + stocksValue + realEstateValue + bondsValue + cashValue + otherValue;
     if (total <= 0) return null;
     
     // Calculate current allocation
@@ -1878,6 +1890,7 @@ export default function FinancialPlan() {
     const stocksPct = stocksValue / total;
     const realEstatePct = realEstateValue / total;
     const bondsPct = bondsValue / total;
+    const cashPct = cashValue / total;
     const otherPct = otherValue / total;
     
     // Test each potential retirement age
@@ -1894,6 +1907,7 @@ export default function FinancialPlan() {
         stocksPct,
         realEstatePct,
         bondsPct,
+        cashPct,
         otherPct,
       });
       
@@ -1903,7 +1917,7 @@ export default function FinancialPlan() {
     }
     
     return null; // Not achievable at any tested age
-  }, [currentAge, lifeExpectancy, btcValue, stocksValue, realEstateValue, bondsValue, otherValue, retirementAnnualSpending, annualSavings, effectiveInflation, effectiveStocksCagr, realEstateCagr, bondsCagr, otherCagr, incomeGrowth, getBtcGrowthRate]);
+  }, [currentAge, lifeExpectancy, btcValue, stocksValue, realEstateValue, bondsValue, cashValue, otherValue, retirementAnnualSpending, annualSavings, effectiveInflation, effectiveStocksCagr, realEstateCagr, bondsCagr, cashCagr, otherCagr, incomeGrowth, getBtcGrowthRate]);
 
   // Update state when derived value changes
   useEffect(() => {
@@ -1912,7 +1926,7 @@ export default function FinancialPlan() {
 
   // UNIFIED: Derive maxSustainableSpending using binary search simulation
   const derivedMaxSustainableSpending = useMemo(() => {
-    const total = btcValue + stocksValue + realEstateValue + bondsValue + otherValue;
+    const total = btcValue + stocksValue + realEstateValue + bondsValue + cashValue + otherValue;
     if (total <= 0) return 0;
     
     // Calculate current allocation
@@ -1920,6 +1934,7 @@ export default function FinancialPlan() {
     const stocksPct = stocksValue / total;
     const realEstatePct = realEstateValue / total;
     const bondsPct = bondsValue / total;
+    const cashPct = cashValue / total;
     const otherPct = otherValue / total;
     
     // Binary search for max sustainable spending
@@ -1941,6 +1956,7 @@ export default function FinancialPlan() {
         stocksPct,
         realEstatePct,
         bondsPct,
+        cashPct,
         otherPct,
       });
       
@@ -1952,7 +1968,7 @@ export default function FinancialPlan() {
     }
     
     return Math.round(low);
-  }, [currentAge, retirementAge, lifeExpectancy, btcValue, stocksValue, realEstateValue, bondsValue, otherValue, annualSavings, effectiveInflation, effectiveStocksCagr, realEstateCagr, bondsCagr, otherCagr, incomeGrowth, getBtcGrowthRate]);
+  }, [currentAge, retirementAge, lifeExpectancy, btcValue, stocksValue, realEstateValue, bondsValue, cashValue, otherValue, annualSavings, effectiveInflation, effectiveStocksCagr, realEstateCagr, bondsCagr, cashCagr, otherCagr, incomeGrowth, getBtcGrowthRate]);
 
   // Update state when derived value changes
   useEffect(() => {
@@ -1971,6 +1987,7 @@ export default function FinancialPlan() {
     const stocksPct = stocksValue / totalValue;
     const realEstatePct = realEstateValue / totalValue;
     const bondsPct = bondsValue / totalValue;
+    const cashPct = cashValue / totalValue;
     const otherPct = otherValue / totalValue;
 
     // Get year 1 BTC growth rate based on selected model
@@ -1981,11 +1998,12 @@ export default function FinancialPlan() {
       stocksPct * effectiveStocksCagr +
       realEstatePct * realEstateCagr +
       bondsPct * bondsCagr +
+      cashPct * cashCagr +
       otherPct * otherCagr
     );
 
     return weightedReturn;
-  }, [btcValue, stocksValue, realEstateValue, bondsValue, otherValue, totalValue, effectiveStocksCagr, realEstateCagr, bondsCagr, getBtcGrowthRate, otherCagr, effectiveInflation]);
+  }, [btcValue, stocksValue, realEstateValue, bondsValue, cashValue, otherValue, totalValue, effectiveStocksCagr, realEstateCagr, bondsCagr, cashCagr, getBtcGrowthRate, otherCagr, effectiveInflation]);
 
   // Calculate when goals will be met based on projections
   const goalsWithProjections = useMemo(() => {
@@ -2392,11 +2410,12 @@ export default function FinancialPlan() {
                       const additionalNestEggNeeded = spendingShortfall / effectiveWithdrawalRate;
 
                       // Calculate blended growth rate for new savings
-                      const totalAssets = btcValue + stocksValue + realEstateValue + bondsValue + otherValue;
+                      const totalAssets = btcValue + stocksValue + realEstateValue + bondsValue + cashValue + otherValue;
                       const btcPct = totalAssets > 0 ? btcValue / totalAssets : 0.5;
                       const stocksPct = totalAssets > 0 ? stocksValue / totalAssets : 0.3;
                       const realEstatePct = totalAssets > 0 ? realEstateValue / totalAssets : 0.1;
                       const bondsPct = totalAssets > 0 ? bondsValue / totalAssets : 0.05;
+                      const cashPct = totalAssets > 0 ? cashValue / totalAssets : 0.0;
                       const otherPct = totalAssets > 0 ? otherValue / totalAssets : 0.05;
 
                       // Weighted average of expected returns
@@ -2413,6 +2432,7 @@ export default function FinancialPlan() {
                         stocksPct * (effectiveStocksCagr / 100) +
                         realEstatePct * (realEstateCagr / 100) +
                         bondsPct * (bondsCagr / 100) +
+                        cashPct * (cashCagr / 100) +
                         otherPct * (otherCagr / 100)
                       );
 
@@ -2517,6 +2537,10 @@ export default function FinancialPlan() {
                               <div className="flex justify-between gap-6">
                                 <span className="text-purple-400 font-light">Bonds:</span>
                                 <span className="text-zinc-200 font-medium text-right">${(p.bonds || 0).toLocaleString()}</span>
+                              </div>
+                              <div className="flex justify-between gap-6">
+                                <span className="text-cyan-400 font-light">Cash:</span>
+                                <span className="text-zinc-200 font-medium text-right">${(p.cash || 0).toLocaleString()}</span>
                               </div>
                               <div className="pt-3 mt-3 border-t border-zinc-700/70 space-y-1.5">
                                 <div className="flex justify-between gap-6">
@@ -2877,6 +2901,7 @@ export default function FinancialPlan() {
                       />
                     ))}
                     <Area type="monotone" dataKey="bonds" stackId="1" stroke="#a78bfa" fill="#a78bfa" fillOpacity={0.3} name="Bonds" yAxisId="left" />
+                    <Area type="monotone" dataKey="cash" stackId="1" stroke="#22d3ee" fill="#22d3ee" fillOpacity={0.4} name="Cash" yAxisId="left" />
                     <Area type="monotone" dataKey="realEstate" stackId="1" stroke="#10b981" fill="#10b981" fillOpacity={0.3} name="Real Estate" yAxisId="left" />
                     <Area type="monotone" dataKey="stocks" stackId="1" stroke="#60a5fa" fill="#60a5fa" fillOpacity={0.3} name="Stocks" yAxisId="left" />
                     <Area type="monotone" dataKey="btc" stackId="1" stroke="#F7931A" fill="#F7931A" fillOpacity={0.5} name="Bitcoin" yAxisId="left" />
