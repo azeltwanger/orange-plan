@@ -837,12 +837,12 @@ export default function FinancialPlan() {
       };
     });
 
-    const encumberedBtc = {}; // Track BTC locked as collateral
+    const encumberedBtc = {}; // Track BTC locked as collateral - mutable per year
     let releasedBtc = {}; // Track BTC released when LTV drops below threshold - changed to let for reassignment
     const liquidatedBtc = {}; // Track BTC liquidated due to LTV breach
     const liquidationEvents = []; // Track liquidation events by year
 
-    // Track BTC collateral from regular liabilities
+    // Track BTC collateral from regular liabilities - INITIAL STATE
     liabilities.forEach(liability => {
       if (liability.type === 'btc_collateralized' && liability.collateral_btc_amount) {
         encumberedBtc[liability.id] = liability.collateral_btc_amount;
@@ -851,21 +851,13 @@ export default function FinancialPlan() {
       }
     });
 
-    // Track BTC collateral from CollateralizedLoan entities
+    // Track BTC collateral from CollateralizedLoan entities - INITIAL STATE (deduplicated)
     collateralizedLoans.forEach(loan => {
       if (loan.collateral_btc_amount) {
-        encumberedBtc[loan.id] = loan.collateral_btc_amount;
-        releasedBtc[loan.id] = 0;
-        liquidatedBtc[loan.id] = 0;
-      }
-    });
-
-    // Track collateralized loan collateral
-    collateralizedLoans.forEach(loan => {
-      if (loan.collateral_btc_amount) {
-        encumberedBtc[`loan_${loan.id}`] = loan.collateral_btc_amount;
-        releasedBtc[`loan_${loan.id}`] = 0;
-        liquidatedBtc[`loan_${loan.id}`] = 0;
+        const loanKey = `loan_${loan.id}`;
+        encumberedBtc[loanKey] = loan.collateral_btc_amount;
+        releasedBtc[loanKey] = 0;
+        liquidatedBtc[loanKey] = 0;
       }
     });
 
@@ -1671,14 +1663,15 @@ export default function FinancialPlan() {
       const totalDebt = Object.values(tempRunningDebt).reduce((sum, liab) => sum + liab.current_balance, 0) +
                         Object.values(tempRunningCollateralizedLoans).reduce((sum, loan) => sum + loan.current_balance, 0);
 
-      // Calculate total encumbered BTC (illiquid)
-      const totalEncumberedBtc = Object.values(encumberedBtc).reduce((sum, amount) => sum + amount, 0);
+      // Calculate total encumbered BTC (illiquid) AFTER all liquidation logic for this year
+      const currentTotalEncumberedBtc = Object.values(encumberedBtc).reduce((sum, amount) => sum + amount, 0);
       const totalReleasedBtc = Object.values(releasedBtc).reduce((sum, amount) => sum + amount, 0);
       const totalLiquidatedBtc = Object.values(liquidatedBtc).reduce((sum, amount) => sum + amount, 0);
       const yearLiquidations = liquidationEvents.filter(e => e.year === year);
+      const yearBtcPriceForChart = currentPrice * Math.pow(1 + yearBtcGrowth / 100, i);
 
-      // Total assets calculation
-      const totalAssetsThisYear = getTotalPortfolio();
+      // Total assets calculation - include encumbered BTC value
+      const totalAssetsThisYear = getTotalPortfolio() + (currentTotalEncumberedBtc * yearBtcPriceForChart);
       
       let total = totalAssetsThisYear + adjustedEventImpact;
 
@@ -1713,7 +1706,8 @@ export default function FinancialPlan() {
       data.push({
         age: currentAge + i,
         year,
-        btc: Math.round(getAssetTotal('btc') + (totalEncumberedBtc * (currentPrice * Math.pow(1 + yearBtcGrowth / 100, i)))),
+        btcLiquid: Math.round(getAssetTotal('btc')),
+        btcEncumbered: Math.round(currentTotalEncumberedBtc * yearBtcPriceForChart),
         stocks: Math.round(getAssetTotal('stocks')),
         realEstate: Math.round(portfolio.realEstate),
         bonds: Math.round(getAssetTotal('bonds')),
@@ -1756,9 +1750,9 @@ export default function FinancialPlan() {
         // Debt tracking
         totalDebt: Math.round(totalDebt),
         debtPayments: Math.round(actualAnnualDebtPayments),
-        encumberedBtc: totalEncumberedBtc,
+        encumberedBtc: currentTotalEncumberedBtc,
         releasedBtc: totalReleasedBtc,
-        liquidBtc: Math.max(0, (getAssetTotal('btc') / (btcPrice || 97000)) - totalEncumberedBtc),
+        liquidBtc: Math.max(0, getAssetTotal('btc') / (btcPrice || 97000)),
         debtPayoffs: debtPayoffEvents,
         liquidations: yearLiquidations,
         // BTC Loan tracking
@@ -2612,10 +2606,26 @@ export default function FinancialPlan() {
                                 <p className="text-xs text-zinc-500">{p.isRetired ? '(Retirement)' : '(Pre-Retirement)'} • Click ✕ or outside to unlock</p>
                               </div>
                               <div className="space-y-2">
-                                <div className="flex justify-between gap-6">
-                                  <span className="text-orange-400 font-light">Bitcoin:</span>
-                                  <span className="text-zinc-200 font-medium text-right">${(p.btc || 0).toLocaleString()}</span>
-                                </div>
+                                {((p.btcLiquid || 0) > 0 || (p.btcEncumbered || 0) > 0) && (
+                                  <>
+                                    <div className="flex justify-between gap-6">
+                                      <span className="text-orange-400 font-medium">Bitcoin:</span>
+                                      <span className="text-zinc-200 font-medium text-right">${((p.btcLiquid || 0) + (p.btcEncumbered || 0)).toLocaleString()}</span>
+                                    </div>
+                                    {(p.btcLiquid || 0) > 0 && (
+                                      <div className="flex justify-between gap-6 pl-3">
+                                        <span className="text-orange-400/70 font-light text-sm">└ Liquid:</span>
+                                        <span className="text-zinc-300 text-sm text-right">${(p.btcLiquid || 0).toLocaleString()}</span>
+                                      </div>
+                                    )}
+                                    {(p.btcEncumbered || 0) > 0 && (
+                                      <div className="flex justify-between gap-6 pl-3">
+                                        <span className="text-amber-700/70 font-light text-sm">└ Collateral 🔒:</span>
+                                        <span className="text-zinc-300 text-sm text-right">${(p.btcEncumbered || 0).toLocaleString()}</span>
+                                      </div>
+                                    )}
+                                  </>
+                                )}
                                 <div className="flex justify-between gap-6">
                                   <span className="text-blue-400 font-light">Stocks:</span>
                                   <span className="text-zinc-200 font-medium text-right">${(p.stocks || 0).toLocaleString()}</span>
@@ -2831,10 +2841,26 @@ export default function FinancialPlan() {
                               <p className="text-xs text-zinc-500">{p.isRetired ? '(Retirement)' : '(Pre-Retirement)'}{lockedTooltipData ? ' • Click to unlock' : ''}</p>
                             </div>
                             <div className="space-y-2">
-                              <div className="flex justify-between gap-6">
-                                <span className="text-orange-400 font-light">Bitcoin:</span>
-                                <span className="text-zinc-200 font-medium text-right">${(p.btc || 0).toLocaleString()}</span>
-                              </div>
+                              {((p.btcLiquid || 0) > 0 || (p.btcEncumbered || 0) > 0) && (
+                                <>
+                                  <div className="flex justify-between gap-6">
+                                    <span className="text-orange-400 font-medium">Bitcoin:</span>
+                                    <span className="text-zinc-200 font-medium text-right">${((p.btcLiquid || 0) + (p.btcEncumbered || 0)).toLocaleString()}</span>
+                                  </div>
+                                  {(p.btcLiquid || 0) > 0 && (
+                                    <div className="flex justify-between gap-6 pl-3">
+                                      <span className="text-orange-400/70 font-light text-sm">└ Liquid:</span>
+                                      <span className="text-zinc-300 text-sm text-right">${(p.btcLiquid || 0).toLocaleString()}</span>
+                                    </div>
+                                  )}
+                                  {(p.btcEncumbered || 0) > 0 && (
+                                    <div className="flex justify-between gap-6 pl-3">
+                                      <span className="text-amber-700/70 font-light text-sm">└ Collateral 🔒:</span>
+                                      <span className="text-zinc-300 text-sm text-right">${(p.btcEncumbered || 0).toLocaleString()}</span>
+                                    </div>
+                                  )}
+                                </>
+                              )}
                               <div className="flex justify-between gap-6">
                                 <span className="text-blue-400 font-light">Stocks:</span>
                                 <span className="text-zinc-200 font-medium text-right">${(p.stocks || 0).toLocaleString()}</span>
@@ -3197,7 +3223,8 @@ export default function FinancialPlan() {
                     <Area type="monotone" dataKey="cash" stackId="1" stroke="#22d3ee" fill="#22d3ee" fillOpacity={0.4} name="Cash" yAxisId="left" />
                     <Area type="monotone" dataKey="realEstate" stackId="1" stroke="#10b981" fill="#10b981" fillOpacity={0.3} name="Real Estate" yAxisId="left" />
                     <Area type="monotone" dataKey="stocks" stackId="1" stroke="#60a5fa" fill="#60a5fa" fillOpacity={0.3} name="Stocks" yAxisId="left" />
-                    <Area type="monotone" dataKey="btc" stackId="1" stroke="#F7931A" fill="#F7931A" fillOpacity={0.5} name="Bitcoin" yAxisId="left" />
+                    <Area type="monotone" dataKey="btcEncumbered" stackId="1" stroke="#92400e" fill="#b45309" fillOpacity={0.4} name="Bitcoin (Collateral) 🔒" yAxisId="left" />
+                    <Area type="monotone" dataKey="btcLiquid" stackId="1" stroke="#F7931A" fill="#F7931A" fillOpacity={0.6} name="Bitcoin (Liquid)" yAxisId="left" />
                     <Line type="monotone" dataKey="total" stroke="#ffffff" strokeWidth={2} dot={false} name="Total Assets" yAxisId="left" />
                     <Line type="monotone" dataKey="totalDebt" stroke="#ef4444" strokeWidth={2} strokeDasharray="3 3" dot={false} name="Total Debt" yAxisId="left" />
                     <Line type="monotone" dataKey="yearGoalWithdrawal" stroke="#fb923c" strokeWidth={2} strokeDasharray="4 4" dot={(props) => {
