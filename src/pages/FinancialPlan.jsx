@@ -2467,8 +2467,16 @@ export default function FinancialPlan() {
                     <YAxis yAxisId="left" stroke="#71717a" fontSize={12} tickFormatter={(v) => `$${(v/1000000).toFixed(1)}M`} />
                     <YAxis yAxisId="right" orientation="right" stroke="#71717a" fontSize={12} tickFormatter={(v) => `$${(v/1000).toFixed(0)}k`} />
                     <Tooltip
-                      contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '12px' }}
-                      position={{ y: 0 }} /* Position tooltip at the top */
+                      contentStyle={{ 
+                        backgroundColor: '#18181b', 
+                        border: '1px solid #27272a', 
+                        borderRadius: '12px',
+                        maxHeight: '400px',
+                        overflowY: 'auto'
+                      }}
+                      wrapperStyle={{ zIndex: 1000, pointerEvents: 'auto' }}
+                      trigger="click"
+                      position={{ y: 0 }}
                       content={({ active, payload, label }) => {
                         if (!active || !payload?.length) return null;
                         const p = payload[0]?.payload;
@@ -2476,7 +2484,7 @@ export default function FinancialPlan() {
                         const hasLiquidation = p.liquidations && p.liquidations.length > 0;
 
                         return (
-                          <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-4 text-sm min-w-[240px] max-h-[500px] overflow-y-auto shadow-xl">
+                          <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-4 text-sm min-w-[240px] max-h-[400px] overflow-y-auto shadow-xl">
                             <div className="mb-4">
                               <p className="font-bold text-lg text-zinc-100">Age {label} {p.hasEvent ? '📅' : ''} {hasLiquidation ? '⚠️' : ''}</p>
                               <p className="text-xs text-zinc-500">{p.isRetired ? '(Retirement)' : '(Pre-Retirement)'}</p>
@@ -2879,6 +2887,9 @@ export default function FinancialPlan() {
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
+            <p className="text-xs text-zinc-500 text-center mt-2">
+              💡 Click on any point to see details. Click elsewhere to close.
+            </p>
             {lifeEvents.length > 0 && (
               <div className="flex flex-wrap justify-center gap-4 mt-4 text-xs text-zinc-400">
                 <div className="flex items-center gap-2">
