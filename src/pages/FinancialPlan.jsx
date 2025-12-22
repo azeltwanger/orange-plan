@@ -2723,17 +2723,7 @@ export default function FinancialPlan() {
                           </div>
                         );
                       }}
-                      labelFormatter={(age) => {
-                        const year = new Date().getFullYear() + (age - currentAge);
-                        const hasYearEvents = lifeEvents.some(e => e.year === year);
-                        const hasYearGoals = goals.some(g => g.will_be_spent && g.target_date && new Date(g.target_date).getFullYear() === year);
-                        
-                        let label = `Age ${age}`;
-                        if (hasYearEvents || hasYearGoals) {
-                          label += ' *';
-                        }
-                        return label;
-                      }}
+                      labelFormatter={(age) => `Age ${age}`}
                     />
                     <Legend
                       content={(props) => {
@@ -2767,9 +2757,15 @@ export default function FinancialPlan() {
                                 <div className="w-6 h-0.5 bg-emerald-400" style={{backgroundImage: 'repeating-linear-gradient(90deg, #10b981 0, #10b981 5px, transparent 5px, transparent 10px)'}} />
                                 <span className="text-zinc-400">Debt Payoff</span>
                               </div>
+                              {projections.some(p => p.liquidations && p.liquidations.length > 0) && (
+                                <div className="flex items-center gap-2">
+                                  <div className="w-6 h-0.5 bg-red-600" style={{backgroundImage: 'repeating-linear-gradient(90deg, #dc2626 0, #dc2626 4px, transparent 4px, transparent 8px)'}} />
+                                  <span className="text-rose-400">Collateral Liquidation</span>
+                                </div>
+                              )}
                               {runOutOfMoneyAge && (
                                 <div className="flex items-center gap-2">
-                                  <div className="w-4 h-0.5 bg-red-500" />
+                                  <div className="w-6 h-0.5 bg-red-500" />
                                   <span className="text-rose-400">Portfolio Depleted</span>
                                 </div>
                               )}
@@ -2784,11 +2780,21 @@ export default function FinancialPlan() {
                         x={runOutOfMoneyAge}
                         stroke="#ef4444"
                         strokeWidth={2}
-                        label={{ value: '💥 Portfolio Depleted', fill: '#ef4444', fontSize: 10, position: 'top' }}
                         yAxisId="left"
                       />
                     )}
-                    {/* Life Event Reference Lines */}
+                    {/* Liquidation events - red solid line distinct from depletion */}
+                    {projections.filter(p => p.liquidations && p.liquidations.length > 0).slice(0, 1).map((p) => (
+                      <ReferenceLine
+                        key={`liquidation-line-${p.age}`}
+                        x={p.age}
+                        stroke="#dc2626"
+                        strokeWidth={2}
+                        strokeDasharray="3 3"
+                        yAxisId="left"
+                      />
+                    ))}
+                    {/* Life Event Reference Lines - NO LABELS */}
                     {lifeEvents.slice(0, 5).map((event, i) => {
                       const eventAge = currentAge + (event.year - new Date().getFullYear());
                       if (eventAge > currentAge && eventAge < lifeExpectancy) {
@@ -2805,7 +2811,7 @@ export default function FinancialPlan() {
                       }
                       return null;
                     })}
-                    {/* All goals with target dates - vertical lines at target age */}
+                    {/* All goals with target dates - vertical lines at target age - NO LABELS */}
                     {goals.filter(g => g.target_date || (g.goal_type === 'debt_payoff' && g.payoff_years)).slice(0, 5).map((goal) => {
                       let goalYear;
                       
@@ -2828,23 +2834,15 @@ export default function FinancialPlan() {
                             stroke="#60a5fa"
                             strokeDasharray="3 3"
                             strokeOpacity={0.7}
-                            label={{ value: goal.name, fill: '#60a5fa', fontSize: 9, position: 'insideTopLeft', offset: 10 }}
                             yAxisId="left"
                           />
                         );
                       }
                       return null;
                     })}
-                    {/* Debt payoff markers */}
+                    {/* Debt payoff markers - NO LABELS */}
                     {projections.filter(p => p.debtPayoffs && p.debtPayoffs.length > 0).map((p, idx) => {
                       if (p.age >= currentAge && p.age <= lifeExpectancy) {
-                        // Truncate long names and rotate positions to avoid overlap
-                        const debtNames = p.debtPayoffs.map(d => {
-                          const name = d.name;
-                          return name.length > 15 ? name.substring(0, 12) + '...' : name;
-                        }).join(', ');
-                        const positions = ['insideBottomLeft', 'insideBottom', 'insideBottomRight'];
-                        const position = positions[idx % positions.length];
                         return (
                           <ReferenceLine
                             key={`debt-payoff-${p.age}-${idx}`}
@@ -2858,37 +2856,24 @@ export default function FinancialPlan() {
                       }
                       return null;
                     })}
-                    {/* Liquidation event markers */}
+                    {/* Liquidation event markers - NO LABELS */}
                     {projections.filter(p => p.liquidations && p.liquidations.length > 0).map((p, idx) => {
                       if (p.age >= currentAge && p.age <= lifeExpectancy) {
-                        // Truncate long names and rotate positions to avoid overlap
-                        const liqNames = p.liquidations.map(l => {
-                          const name = l.liabilityName;
-                          return name.length > 15 ? name.substring(0, 12) + '...' : name;
-                        }).join(', ');
-                        const positions = ['top', 'insideTopLeft', 'insideTopRight'];
-                        const position = positions[idx % positions.length];
                         return (
                           <ReferenceLine
                             key={`liquidation-${p.age}-${idx}`}
                             x={p.age}
-                            stroke="#ef4444"
+                            stroke="#dc2626"
                             strokeWidth={2}
+                            strokeDasharray="3 3"
                             strokeOpacity={0.8}
-                            label={{
-                              value: `⚠️ ${liqNames}`,
-                              fill: '#ef4444',
-                              fontSize: 9,
-                              position: position,
-                              offset: 10
-                            }}
                             yAxisId="left"
                           />
                         );
                       }
                       return null;
                     })}
-                    {/* Goal target lines - only show for accumulation goals (not one-time spending) */}
+                    {/* Goal target lines - only show for accumulation goals (not one-time spending) - NO LABELS */}
                     {goalsWithProjections.filter(g => g.target_amount > 0 && !g.will_be_spent).slice(0, 3).map((goal, i) => (
                       <ReferenceLine
                         key={goal.id}
@@ -2896,7 +2881,6 @@ export default function FinancialPlan() {
                         stroke="#60a5fa"
                         strokeDasharray="8 4"
                         strokeOpacity={0.4}
-                        label={{ value: goal.name, fill: '#60a5fa', fontSize: 10, position: 'right' }}
                         yAxisId="left"
                       />
                     ))}
