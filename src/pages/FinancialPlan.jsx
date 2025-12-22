@@ -709,6 +709,7 @@ export default function FinancialPlan() {
 
   // Generate projection data with dynamic withdrawal based on portfolio growth and account types
   const projections = useMemo(() => {
+    console.log("PROJECTION USING BTC PRICE:", currentPrice);
     const years = lifeExpectancy - currentAge;
     const data = [];
     const currentYear = new Date().getFullYear();
@@ -1026,6 +1027,7 @@ export default function FinancialPlan() {
           const hasPayment = liability.monthly_payment && liability.monthly_payment > 0;
           const hasInterest = liability.interest_rate && liability.interest_rate > 0;
           const startingBalanceForYear = liability.current_balance; // Store for payoff check
+          const isBtcLoan = liability.type === 'btc_collateralized';
 
           if (hasPayment) {
             let remainingBalance = liability.current_balance;
@@ -1074,17 +1076,23 @@ export default function FinancialPlan() {
               liability.paid_off = true; // Mark as paid off so no further payments are made
             }
 
-          } else if (hasInterest) {
-            // No payment, interest accrues and is added to principal (annualized)
+          } else if (hasInterest && !isBtcLoan) {
+            // No payment, interest accrues and is added to principal (annualized) - EXCEPT for BTC loans
             const annualInterest = liability.current_balance * (liability.interest_rate / 100);
             liability.current_balance += annualInterest;
+          } else if (isBtcLoan && hasInterest && i > 0) {
+            // BTC loans: ONLY accrue interest AFTER year 0 - year 0 uses actual current balance
+            const dailyRate = liability.interest_rate / 100 / 365;
+            const daysInYear = 365;
+            liability.current_balance = liability.current_balance * Math.pow(1 + dailyRate, daysInYear);
           }
           // If no payment and no interest, debt stays constant
         }
 
         // Check for BTC collateral release or liquidation based on LTV
         if (liability.type === 'btc_collateralized' && encumberedBtc[liability.id] > 0) {
-          const yearBtcPrice = currentPrice * Math.pow(1 + yearBtcGrowth / 100, i);
+          // For year 0, use currentPrice directly. For future years, apply growth.
+          const yearBtcPrice = i === 0 ? currentPrice : currentPrice * Math.pow(1 + yearBtcGrowth / 100, i);
           const collateralValue = encumberedBtc[liability.id] * yearBtcPrice;
           const currentLTV = (liability.current_balance / collateralValue) * 100; // LTV as percentage
           const liquidationLTV = liability.liquidation_ltv || 80;
@@ -1156,10 +1164,10 @@ export default function FinancialPlan() {
             }
 
             loan.current_balance = remainingBalance;
-          } else if (hasInterest) {
-            // No payment but interest accrues monthly (compound monthly)
+          } else if (hasInterest && i > 0) {
+            // No payment but interest accrues monthly (compound monthly) - ONLY AFTER year 0
             const monthlyRate = loan.interest_rate / 100 / 12;
-            const monthsInYear = (i === 0) ? (12 - startMonth) : 12;
+            const monthsInYear = 12;
             loan.current_balance = loan.current_balance * Math.pow(1 + monthlyRate, monthsInYear);
           }
         }
@@ -1167,7 +1175,8 @@ export default function FinancialPlan() {
         // Check for collateral release or liquidation
         const loanKey = `loan_${loan.id}`;
         if (encumberedBtc[loanKey] > 0) {
-          const yearBtcPrice = currentPrice * Math.pow(1 + yearBtcGrowth / 100, i);
+          // For year 0, use currentPrice directly. For future years, apply growth.
+          const yearBtcPrice = i === 0 ? currentPrice : currentPrice * Math.pow(1 + yearBtcGrowth / 100, i);
           const collateralValue = encumberedBtc[loanKey] * yearBtcPrice;
           const currentLTV = (loan.current_balance / collateralValue) * 100;
           const liquidationLTV = loan.liquidation_ltv || 80;
