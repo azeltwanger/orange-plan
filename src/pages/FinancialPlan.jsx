@@ -1676,7 +1676,7 @@ export default function FinancialPlan() {
       data.push({
         age: currentAge + i,
         year,
-        btc: Math.round(getAssetTotal('btc')),
+        btc: Math.round(getAssetTotal('btc') + (totalEncumberedBtc * (currentPrice * Math.pow(1 + yearBtcGrowth / 100, i)))),
         stocks: Math.round(getAssetTotal('stocks')),
         realEstate: Math.round(portfolio.realEstate),
         bonds: Math.round(getAssetTotal('bonds')),
