@@ -1120,18 +1120,32 @@ export default function FinancialPlan() {
 
           // LIQUIDATION: If LTV exceeds liquidation threshold
           if (currentLTV >= liquidationLTV && liquidatedBtc[liability.id] === 0) {
-            // Liquidation event - lender sells collateral to cover loan
-            const btcToLiquidate = encumberedBtc[liability.id];
-            const liquidationProceeds = btcToLiquidate * yearBtcPrice;
-
-            // Remove collateral from portfolio (taxable account)
-            portfolio.taxable.btc = Math.max(0, portfolio.taxable.btc - (btcToLiquidate * yearBtcPrice));
-
-            // Apply liquidation proceeds to debt
-            liability.current_balance = Math.max(0, liability.current_balance - liquidationProceeds);
-
-            // Mark as liquidated
-            liquidatedBtc[liability.id] = btcToLiquidate;
+            // Liquidation event - lender sells ONLY enough collateral to cover loan
+            const totalCollateralBtc = encumberedBtc[liability.id];
+            
+            // Calculate BTC needed to cover the debt (not all collateral)
+            const debtToCover = liability.current_balance;
+            const btcNeededToSell = Math.min(debtToCover / yearBtcPrice, totalCollateralBtc);
+            const proceedsFromSale = btcNeededToSell * yearBtcPrice;
+            
+            // Calculate excess BTC returned to user
+            const excessBtc = totalCollateralBtc - btcNeededToSell;
+            const excessValue = excessBtc * yearBtcPrice;
+            
+            // Remove sold BTC value from portfolio
+            portfolio.taxable.btc = Math.max(0, portfolio.taxable.btc - proceedsFromSale);
+            
+            // Return excess BTC to liquid portfolio
+            if (excessBtc > 0) {
+              portfolio.taxable.btc += excessValue;
+            }
+            
+            // Debt is fully covered by liquidation
+            liability.current_balance = Math.max(0, debtToCover - proceedsFromSale);
+            liability.paid_off = true;
+            
+            // Track liquidation
+            liquidatedBtc[liability.id] = btcNeededToSell;
             encumberedBtc[liability.id] = 0;
 
             // Track liquidation event
@@ -1139,8 +1153,10 @@ export default function FinancialPlan() {
               year,
               age: currentAge + i,
               liabilityName: liability.name,
-              btcAmount: btcToLiquidate,
-              proceeds: liquidationProceeds,
+              btcAmount: btcNeededToSell,
+              btcReturned: excessBtc,
+              proceeds: proceedsFromSale,
+              valueReturned: excessValue,
               remainingDebt: liability.current_balance
             });
           }
@@ -1204,21 +1220,42 @@ export default function FinancialPlan() {
 
           // LIQUIDATION
           if (currentLTV >= liquidationLTV && liquidatedBtc[loanKey] === 0) {
-            const btcToLiquidate = encumberedBtc[loanKey];
-            const liquidationProceeds = btcToLiquidate * yearBtcPrice;
-
-            portfolio.taxable.btc = Math.max(0, portfolio.taxable.btc - (btcToLiquidate * yearBtcPrice));
-            loan.current_balance = Math.max(0, loan.current_balance - liquidationProceeds);
-
-            liquidatedBtc[loanKey] = btcToLiquidate;
+            // Liquidation event - lender sells ONLY enough collateral to cover loan
+            const totalCollateralBtc = encumberedBtc[loanKey];
+            
+            // Calculate BTC needed to cover the debt (not all collateral)
+            const debtToCover = loan.current_balance;
+            const btcNeededToSell = Math.min(debtToCover / yearBtcPrice, totalCollateralBtc);
+            const proceedsFromSale = btcNeededToSell * yearBtcPrice;
+            
+            // Calculate excess BTC returned to user
+            const excessBtc = totalCollateralBtc - btcNeededToSell;
+            const excessValue = excessBtc * yearBtcPrice;
+            
+            // Remove sold BTC value from portfolio
+            portfolio.taxable.btc = Math.max(0, portfolio.taxable.btc - proceedsFromSale);
+            
+            // Return excess BTC to liquid portfolio
+            if (excessBtc > 0) {
+              portfolio.taxable.btc += excessValue;
+            }
+            
+            // Debt is fully covered by liquidation
+            loan.current_balance = Math.max(0, debtToCover - proceedsFromSale);
+            loan.paid_off = true;
+            
+            // Track liquidation
+            liquidatedBtc[loanKey] = btcNeededToSell;
             encumberedBtc[loanKey] = 0;
 
             liquidationEvents.push({
               year,
               age: currentAge + i,
               liabilityName: loan.name,
-              btcAmount: btcToLiquidate,
-              proceeds: liquidationProceeds,
+              btcAmount: btcNeededToSell,
+              btcReturned: excessBtc,
+              proceeds: proceedsFromSale,
+              valueReturned: excessValue,
               remainingDebt: loan.current_balance
             });
           }
