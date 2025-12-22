@@ -2514,13 +2514,18 @@ export default function FinancialPlan() {
                     data={projections} 
                     margin={{ top: 10, right: 30, left: 0, bottom: 20 }}
                     onClick={(e) => {
-                      if (e && e.activePayload && e.activeLabel !== undefined) {
+                      if (e && e.activePayload && e.activeLabel !== undefined && e.activeCoordinate) {
                         // If clicking the same age, unlock
                         if (lockedTooltipData && lockedTooltipData.label === e.activeLabel) {
                           setLockedTooltipData(null);
                         } else {
-                          // Lock to this data point
-                          setLockedTooltipData({ payload: e.activePayload, label: e.activeLabel });
+                          // Lock to this data point with position
+                          setLockedTooltipData({ 
+                            payload: e.activePayload, 
+                            label: e.activeLabel,
+                            x: e.activeCoordinate.x,
+                            y: 50 // Fixed y position near top
+                          });
                         }
                       } else {
                         // Clicking empty area unlocks
@@ -2541,9 +2546,9 @@ export default function FinancialPlan() {
                         overflowY: 'auto'
                       }}
                       wrapperStyle={{ zIndex: 1000 }}
-                      position={{ y: 0 }}
+                      position={lockedTooltipData ? { x: lockedTooltipData.x, y: lockedTooltipData.y } : { y: 0 }}
                       active={lockedTooltipData ? true : undefined}
-                      content={({ active, payload, label }) => {
+                      content={({ active, payload, label, coordinate }) => {
                         // Use locked data if available, otherwise use hover data
                         const displayPayload = lockedTooltipData ? lockedTooltipData.payload : payload;
                         const displayLabel = lockedTooltipData ? lockedTooltipData.label : label;
