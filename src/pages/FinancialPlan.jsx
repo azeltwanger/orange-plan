@@ -1503,8 +1503,8 @@ export default function FinancialPlan() {
         const actualWithdrawalNeeded = totalWithdrawalForTaxCalculation;
         let remainingShortfall = actualWithdrawalNeeded - totalWithdrawnFromAccounts;
         
-        // DEBUG: Trace retirement withdrawal logic for first 10 years
-        if (isRetired && yearsIntoRetirement <= 10) {
+        // DEBUG: Trace retirement withdrawal logic for first 5 years or when liquid assets get low
+        if (isRetired && (yearsIntoRetirement <= 5 || getTotalLiquid() < 500000)) {
           console.log("RETIREMENT WITHDRAWAL age", currentAge + i, {
             spending: Math.round(totalWithdrawalForTaxCalculation),
             liquidBefore: Math.round(getTotalLiquid() + totalWithdrawnFromAccounts),
