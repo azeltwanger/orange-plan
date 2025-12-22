@@ -1437,8 +1437,9 @@ export default function FinancialPlan() {
         // Total other income = other retirement income + Social Security (if eligible)
         const totalOtherIncome = otherRetirementIncome + socialSecurityIncome;
 
-        // Store original retirement spending for tooltip breakdown
-        retirementSpendingOnly = yearWithdrawal;
+        // Store UNCAPPED desired retirement spending (not capped yearWithdrawal)
+        // This ensures remainingShortfall > 0 when liquid can't cover needs, triggering RE liquidation
+        retirementSpendingOnly = desiredWithdrawal;
 
         // Combine retirement withdrawal and goal withdrawal for tax estimation
         totalWithdrawalForTaxCalculation = retirementSpendingOnly + yearGoalWithdrawal;
