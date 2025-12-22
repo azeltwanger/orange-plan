@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Area, AreaChart, Legend } from 'recharts';
@@ -280,6 +280,10 @@ export default function FinancialPlan() {
   const [editingGoal, setEditingGoal] = useState(null);
   const [eventFormOpen, setEventFormOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null);
+  
+  // Tooltip locking state
+  const [lockedTooltipData, setLockedTooltipData] = useState(null);
+  const chartContainerRef = useRef(null);
 
 
   const [goalForm, setGoalForm] = useState({
@@ -309,6 +313,18 @@ export default function FinancialPlan() {
     };
     fetchPrice();
   }, []);
+
+  // Click outside to dismiss locked tooltip
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (lockedTooltipData && chartContainerRef.current && !chartContainerRef.current.contains(event.target)) {
+        setLockedTooltipData(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [lockedTooltipData]);
 
   const currentPrice = btcPrice || 97000;
 
@@ -2492,9 +2508,26 @@ export default function FinancialPlan() {
               {goals.filter(g => g.will_be_spent).length > 0 && `${goals.filter(g => g.will_be_spent).length} planned expense${goals.filter(g => g.will_be_spent).length !== 1 ? 's' : ''} • `}
               {goals.length > 0 && `${goals.length} goal${goals.length !== 1 ? 's' : ''} tracked`}
             </p>
-            <div className="h-[500px]">
+            <div className="h-[500px]" ref={chartContainerRef}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={projections} margin={{ top: 10, right: 30, left: 0, bottom: 20 }}>
+                  <AreaChart 
+                    data={projections} 
+                    margin={{ top: 10, right: 30, left: 0, bottom: 20 }}
+                    onClick={(e) => {
+                      if (e && e.activePayload && e.activeLabel !== undefined) {
+                        // If clicking the same age, unlock
+                        if (lockedTooltipData && lockedTooltipData.label === e.activeLabel) {
+                          setLockedTooltipData(null);
+                        } else {
+                          // Lock to this data point
+                          setLockedTooltipData({ payload: e.activePayload, label: e.activeLabel });
+                        }
+                      } else {
+                        // Clicking empty area unlocks
+                        setLockedTooltipData(null);
+                      }
+                    }}
+                  >
                     <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
                     <XAxis dataKey="age" stroke="#71717a" fontSize={12} />
                     <YAxis yAxisId="left" stroke="#71717a" fontSize={12} tickFormatter={(v) => `$${(v/1000000).toFixed(1)}M`} />
@@ -2509,17 +2542,34 @@ export default function FinancialPlan() {
                       }}
                       wrapperStyle={{ zIndex: 1000 }}
                       position={{ y: 0 }}
+                      active={lockedTooltipData ? true : undefined}
                       content={({ active, payload, label }) => {
-                        if (!active || !payload?.length) return null;
-                        const p = payload[0]?.payload;
+                        // Use locked data if available, otherwise use hover data
+                        const displayPayload = lockedTooltipData ? lockedTooltipData.payload : payload;
+                        const displayLabel = lockedTooltipData ? lockedTooltipData.label : label;
+                        const isActive = lockedTooltipData ? true : active;
+                        
+                        if (!isActive || !displayPayload?.length) return null;
+                        const p = displayPayload[0]?.payload;
+                        label = displayLabel;
                         if (!p) return null;
                         const hasLiquidation = p.liquidations && p.liquidations.length > 0;
 
                         return (
                           <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-4 text-sm min-w-[240px] max-h-[400px] overflow-y-auto shadow-xl">
                             <div className="mb-4">
-                              <p className="font-bold text-lg text-zinc-100">Age {label} {p.hasEvent ? '📅' : ''} {hasLiquidation ? '⚠️' : ''}</p>
-                              <p className="text-xs text-zinc-500">{p.isRetired ? '(Retirement)' : '(Pre-Retirement)'}</p>
+                              <div className="flex items-center justify-between">
+                                <p className="font-bold text-lg text-zinc-100">Age {label} {p.hasEvent ? '📅' : ''} {hasLiquidation ? '⚠️' : ''}</p>
+                                {lockedTooltipData && (
+                                  <button 
+                                    onClick={(e) => { e.stopPropagation(); setLockedTooltipData(null); }}
+                                    className="text-zinc-500 hover:text-zinc-300 text-xs ml-2"
+                                  >
+                                    ✕
+                                  </button>
+                                )}
+                              </div>
+                              <p className="text-xs text-zinc-500">{p.isRetired ? '(Retirement)' : '(Pre-Retirement)'}{lockedTooltipData ? ' • Click to unlock' : ''}</p>
                             </div>
                             <div className="space-y-2">
                               <div className="flex justify-between gap-6">
@@ -2909,7 +2959,7 @@ export default function FinancialPlan() {
                 </ResponsiveContainer>
               </div>
             <p className="text-xs text-zinc-500 text-center mt-2">
-              💡 Hover over any point to see details. Scroll within tooltip for more.
+              💡 Click on a year to lock the tooltip, then scroll. Click again or outside to dismiss.
             </p>
             {lifeEvents.length > 0 && (
               <div className="flex flex-wrap justify-center gap-4 mt-4 text-xs text-zinc-400">
