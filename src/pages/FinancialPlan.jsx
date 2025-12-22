@@ -2474,8 +2474,7 @@ export default function FinancialPlan() {
                         maxHeight: '400px',
                         overflowY: 'auto'
                       }}
-                      wrapperStyle={{ zIndex: 1000, pointerEvents: 'auto' }}
-                      trigger="click"
+                      wrapperStyle={{ zIndex: 1000 }}
                       position={{ y: 0 }}
                       content={({ active, payload, label }) => {
                         if (!active || !payload?.length) return null;
@@ -2888,7 +2887,7 @@ export default function FinancialPlan() {
                 </ResponsiveContainer>
               </div>
             <p className="text-xs text-zinc-500 text-center mt-2">
-              💡 Click on any point to see details. Click elsewhere to close.
+              💡 Hover over any point to see details. Scroll within tooltip for more.
             </p>
             {lifeEvents.length > 0 && (
               <div className="flex flex-wrap justify-center gap-4 mt-4 text-xs text-zinc-400">
