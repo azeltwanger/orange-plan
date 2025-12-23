@@ -267,6 +267,11 @@ export default function FinancialPlan() {
   const [contributionHSA, setContributionHSA] = useState(0);
   const [hsaFamilyCoverage, setHsaFamilyCoverage] = useState(false);
 
+  // BTC Collateral Management Settings
+  const [autoTopUpBtcCollateral, setAutoTopUpBtcCollateral] = useState(true);
+  const [btcTopUpTriggerLtv, setBtcTopUpTriggerLtv] = useState(70);
+  const [btcTopUpTargetLtv, setBtcTopUpTargetLtv] = useState(50);
+
   // Settings loaded flag
   const [settingsLoaded, setSettingsLoaded] = useState(false);
 
@@ -398,6 +403,9 @@ export default function FinancialPlan() {
                   if (settings.contribution_hsa !== undefined) setContributionHSA(settings.contribution_hsa);
                   if (settings.hsa_family_coverage !== undefined) setHsaFamilyCoverage(settings.hsa_family_coverage);
                   if (settings.filing_status !== undefined) setFilingStatus(settings.filing_status);
+                  if (settings.auto_top_up_btc_collateral !== undefined) setAutoTopUpBtcCollateral(settings.auto_top_up_btc_collateral);
+                  if (settings.btc_top_up_trigger_ltv !== undefined) setBtcTopUpTriggerLtv(settings.btc_top_up_trigger_ltv);
+                  if (settings.btc_top_up_target_ltv !== undefined) setBtcTopUpTargetLtv(settings.btc_top_up_target_ltv);
                   setSettingsLoaded(true);
     }
   }, [userSettings, settingsLoaded]);
@@ -444,10 +452,13 @@ export default function FinancialPlan() {
                       contribution_hsa: contributionHSA || 0,
                       hsa_family_coverage: hsaFamilyCoverage || false,
                       filing_status: filingStatus || 'single',
+                      auto_top_up_btc_collateral: autoTopUpBtcCollateral,
+                      btc_top_up_trigger_ltv: btcTopUpTriggerLtv || 70,
+                      btc_top_up_target_ltv: btcTopUpTargetLtv || 50,
                     });
     }, 1000); // Debounce 1 second
     return () => clearTimeout(timeoutId);
-  }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, otherCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, grossAnnualIncome, contribution401k, employer401kMatch, contributionRothIRA, contributionHSA, hsaFamilyCoverage, filingStatus]);
+  }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, otherCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, grossAnnualIncome, contribution401k, employer401kMatch, contributionRothIRA, contributionHSA, hsaFamilyCoverage, filingStatus, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv]);
 
   // Calculate accurate debt payments for current month
   const currentMonthForDebt = new Date().getMonth();
