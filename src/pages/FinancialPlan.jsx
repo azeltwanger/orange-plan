@@ -1112,25 +1112,23 @@ export default function FinancialPlan() {
 
           // LIQUIDATION: If LTV exceeds liquidation threshold
           if (currentLTV >= liquidationLTV && liquidatedBtc[liability.id] === 0) {
-            // Liquidation event - lender sells ONLY enough collateral to cover loan
+            // Liquidation event - lender sells collateral to cover loan, excess BTC returned
             const totalCollateralBtc = encumberedBtc[liability.id];
-            
-            // Calculate BTC needed to cover the debt (not all collateral)
             const debtToCover = liability.current_balance;
+            
+            // Lender sells enough collateral to cover the loan (or all of it if insufficient)
             const btcNeededToSell = Math.min(debtToCover / yearBtcPrice, totalCollateralBtc);
             const proceedsFromSale = btcNeededToSell * yearBtcPrice;
             
-            // Calculate excess BTC returned to user
+            // Excess BTC (collateral minus what was needed) goes back to user's liquid portfolio
             const excessBtc = totalCollateralBtc - btcNeededToSell;
-            const excessValue = excessBtc * yearBtcPrice;
-            
-            // Return excess BTC to liquid portfolio (btcNeededToSell covers debt, only excess goes back)
             if (excessBtc > 0) {
+              const excessValue = excessBtc * yearBtcPrice;
               portfolio.taxable.btc += excessValue;
             }
             
-            // Debt is fully covered by liquidation
-            liability.current_balance = Math.max(0, debtToCover - proceedsFromSale);
+            // Loan is fully paid off by the liquidation (lender is made whole)
+            liability.current_balance = 0;
             liability.paid_off = true;
             
             // Track liquidation
@@ -1209,26 +1207,30 @@ export default function FinancialPlan() {
 
           // LIQUIDATION
           if (currentLTV >= liquidationLTV && liquidatedBtc[loanKey] === 0) {
-            // Liquidation event - lender sells ONLY enough collateral to cover loan
+            // Liquidation event - lender sells collateral to cover loan, excess BTC returned
             const totalCollateralBtc = encumberedBtc[loanKey];
-            
-            // Calculate BTC needed to cover the debt (not all collateral)
             const debtToCover = loan.current_balance;
+            
+            // Lender sells enough collateral to cover the loan (or all of it if insufficient)
             const btcNeededToSell = Math.min(debtToCover / yearBtcPrice, totalCollateralBtc);
             const proceedsFromSale = btcNeededToSell * yearBtcPrice;
             
-            // Calculate excess BTC returned to user
+            // Excess BTC (collateral minus what was needed) goes back to user's liquid portfolio
             const excessBtc = totalCollateralBtc - btcNeededToSell;
-            const excessValue = excessBtc * yearBtcPrice;
-            
-            // Return excess BTC to liquid portfolio (btcNeededToSell covers debt, only excess goes back)
             if (excessBtc > 0) {
+              const excessValue = excessBtc * yearBtcPrice;
               portfolio.taxable.btc += excessValue;
             }
             
-            // Debt is fully covered by liquidation
-            loan.current_balance = Math.max(0, debtToCover - proceedsFromSale);
+            // Loan is fully paid off by the liquidation (lender is made whole)
+            loan.current_balance = 0;
             loan.paid_off = true;
+            
+            // Also mark in tempRunningDebt if it exists there
+            if (tempRunningDebt[loan.id]) {
+              tempRunningDebt[loan.id].current_balance = 0;
+              tempRunningDebt[loan.id].paid_off = true;
+            }
             
             // Track liquidation
             liquidatedBtc[loanKey] = btcNeededToSell;
