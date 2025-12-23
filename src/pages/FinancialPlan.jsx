@@ -1213,10 +1213,22 @@ export default function FinancialPlan() {
           }
           // RELEASE: If LTV drops below release threshold
           else if (postTopUpLTV <= releaseLTV && liquidatedBtc[liability.id] === 0) {
-            // Only release if not already released this year
-            if (!releasedBtc[liability.id] || releasedBtc[liability.id] === 0) {
+            // If loan is paid off, release ALL collateral
+            if (liability.current_balance <= 0) {
+              if (!releasedBtc[liability.id] || releasedBtc[liability.id] === 0) {
                 releasedBtc[liability.id] = encumberedBtc[liability.id];
                 encumberedBtc[liability.id] = 0;
+              }
+            } else {
+              // Loan still active: only release EXCESS collateral, keep loan at target LTV
+              const currentCollateral = encumberedBtc[liability.id];
+              const targetCollateralForLoan = liability.current_balance / (targetLTV / 100) / yearBtcPrice;
+              const excessCollateral = Math.max(0, currentCollateral - targetCollateralForLoan);
+              
+              if (excessCollateral > 0) {
+                releasedBtc[liability.id] = excessCollateral;
+                encumberedBtc[liability.id] = targetCollateralForLoan;
+              }
             }
           }
         }
@@ -1353,9 +1365,22 @@ export default function FinancialPlan() {
           }
           // RELEASE
           else if (postTopUpLTV <= releaseLTV && liquidatedBtc[loanKey] === 0) {
-            if (!releasedBtc[loanKey] || releasedBtc[loanKey] === 0) {
-              releasedBtc[loanKey] = encumberedBtc[loanKey];
-              encumberedBtc[loanKey] = 0;
+            // If loan is paid off, release ALL collateral
+            if (loan.current_balance <= 0) {
+              if (!releasedBtc[loanKey] || releasedBtc[loanKey] === 0) {
+                releasedBtc[loanKey] = encumberedBtc[loanKey];
+                encumberedBtc[loanKey] = 0;
+              }
+            } else {
+              // Loan still active: only release EXCESS collateral, keep loan at target LTV
+              const currentCollateral = encumberedBtc[loanKey];
+              const targetCollateralForLoan = loan.current_balance / (targetLTV / 100) / yearBtcPrice;
+              const excessCollateral = Math.max(0, currentCollateral - targetCollateralForLoan);
+              
+              if (excessCollateral > 0) {
+                releasedBtc[loanKey] = excessCollateral;
+                encumberedBtc[loanKey] = targetCollateralForLoan;
+              }
             }
           }
         }

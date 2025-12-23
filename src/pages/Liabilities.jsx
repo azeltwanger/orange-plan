@@ -62,6 +62,7 @@ export default function Liabilities() {
     collateral_asset_id: '_none_',
     liquidation_price: '',
     collateral_release_ltv: '30',
+    renewal_date: '',
     lender: '',
     due_date: '',
     notes: '',
@@ -178,6 +179,7 @@ export default function Liabilities() {
         collateral_asset_id: editingLiability.collateral_asset_id || '_none_',
         liquidation_price: editingLiability.liquidation_price || '',
         collateral_release_ltv: editingLiability.collateral_release_ltv || '30',
+        renewal_date: editingLiability.renewal_date || '',
         lender: editingLiability.lender || '',
         due_date: editingLiability.due_date || '',
         notes: editingLiability.notes || '',
@@ -215,6 +217,7 @@ export default function Liabilities() {
       collateral_btc_amount: parseFloat(formData.collateral_btc_amount) || 0,
       liquidation_price: parseFloat(formData.liquidation_price) || 0,
       collateral_release_ltv: parseFloat(formData.collateral_release_ltv) || 30,
+      renewal_date: formData.renewal_date || null,
     };
     if (editingLiability) {
       updateLiability.mutate({ id: editingLiability.id, data });
@@ -878,8 +881,18 @@ export default function Liabilities() {
                   />
                   <p className="text-[10px] text-zinc-500">LTV threshold at which collateral becomes liquid again (typically 30%)</p>
                 </div>
-              </>
-            )}
+                <div className="space-y-2">
+                  <Label className="text-zinc-400 text-xs uppercase tracking-wider">Annual Renewal Date</Label>
+                  <Input
+                    type="date"
+                    value={formData.renewal_date}
+                    onChange={(e) => setFormData({ ...formData, renewal_date: e.target.value })}
+                    className="bg-zinc-900 border-zinc-800"
+                  />
+                  <p className="text-[10px] text-zinc-500">Loan automatically renews at 50% LTV on this date each year</p>
+                </div>
+                </>
+                )}
             {formData.type === 'real_estate_collateralized' && (
               <div className="space-y-2">
                 <Label className="text-zinc-400 text-xs uppercase tracking-wider">Collateralized Asset</Label>
