@@ -1124,10 +1124,7 @@ export default function FinancialPlan() {
             const excessBtc = totalCollateralBtc - btcNeededToSell;
             const excessValue = excessBtc * yearBtcPrice;
             
-            // Remove sold BTC value from portfolio
-            portfolio.taxable.btc = Math.max(0, portfolio.taxable.btc - proceedsFromSale);
-            
-            // Return excess BTC to liquid portfolio
+            // Return excess BTC to liquid portfolio (btcNeededToSell covers debt, only excess goes back)
             if (excessBtc > 0) {
               portfolio.taxable.btc += excessValue;
             }
@@ -1224,10 +1221,7 @@ export default function FinancialPlan() {
             const excessBtc = totalCollateralBtc - btcNeededToSell;
             const excessValue = excessBtc * yearBtcPrice;
             
-            // Remove sold BTC value from portfolio
-            portfolio.taxable.btc = Math.max(0, portfolio.taxable.btc - proceedsFromSale);
-            
-            // Return excess BTC to liquid portfolio
+            // Return excess BTC to liquid portfolio (btcNeededToSell covers debt, only excess goes back)
             if (excessBtc > 0) {
               portfolio.taxable.btc += excessValue;
             }
