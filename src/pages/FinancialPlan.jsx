@@ -1112,7 +1112,7 @@ export default function FinancialPlan() {
           // If no payment and no interest, debt stays constant
         }
 
-        // Check for BTC collateral release or liquidation based on LTV
+        // Check for BTC collateral management based on LTV
         if (liability.type === 'btc_collateralized' && encumberedBtc[liability.id] > 0) {
           // For year 0, use currentPrice directly. For future years, apply growth.
           const yearBtcPrice = i === 0 ? currentPrice : currentPrice * Math.pow(1 + yearBtcGrowth / 100, i);
@@ -1120,46 +1120,99 @@ export default function FinancialPlan() {
           const currentLTV = (liability.current_balance / collateralValue) * 100; // LTV as percentage
           const liquidationLTV = liability.liquidation_ltv || 80;
           const releaseLTV = liability.collateral_release_ltv || 30;
+          const triggerLTV = btcTopUpTriggerLtv || 70;
+          const targetLTV = btcTopUpTargetLtv || 50;
 
-          // LIQUIDATION: If LTV exceeds liquidation threshold
-          if (currentLTV >= liquidationLTV && liquidatedBtc[liability.id] === 0) {
-            // Liquidation event - lender sells collateral to cover loan, excess BTC returned
+          // AUTO TOP-UP: If enabled and LTV reaches trigger threshold (before liquidation)
+          if (autoTopUpBtcCollateral && currentLTV >= triggerLTV && currentLTV < liquidationLTV && liquidatedBtc[liability.id] === 0) {
+            // Calculate how much BTC needed to bring LTV back to target
+            // targetLTV = debt / (currentCollateral + additionalBtc) * price
+            // Solve for additionalBtc: additionalBtc = (debt / (targetLTV/100) / price) - currentCollateral
+            const targetCollateralValue = liability.current_balance / (targetLTV / 100);
+            const additionalBtcNeeded = (targetCollateralValue / yearBtcPrice) - encumberedBtc[liability.id];
+            
+            // Check if we have enough liquid BTC
+            const liquidBtcAvailable = portfolio.taxable.btc / yearBtcPrice; // Convert value to BTC amount
+            
+            if (additionalBtcNeeded > 0 && liquidBtcAvailable >= additionalBtcNeeded) {
+              // Top up from liquid BTC
+              encumberedBtc[liability.id] += additionalBtcNeeded;
+              portfolio.taxable.btc -= additionalBtcNeeded * yearBtcPrice;
+              
+              // Log top-up event (not a liquidation)
+              liquidationEvents.push({
+                year,
+                age: currentAge + i,
+                liabilityName: liability.name,
+                type: 'top_up',
+                btcAdded: additionalBtcNeeded,
+                newLtv: targetLTV,
+                message: `Added ${additionalBtcNeeded.toFixed(4)} BTC collateral to reduce LTV from ${currentLTV.toFixed(0)}% to ${targetLTV}%`
+              });
+            }
+            // If not enough liquid BTC, do nothing here - will be handled by liquidation logic below if LTV reaches 80%
+          }
+
+          // Recalculate LTV after potential top-up
+          const postTopUpCollateralValue = encumberedBtc[liability.id] * yearBtcPrice;
+          const postTopUpLTV = (liability.current_balance / postTopUpCollateralValue) * 100;
+
+          // PARTIAL LIQUIDATION: If LTV exceeds liquidation threshold (80%)
+          if (postTopUpLTV >= liquidationLTV && liquidatedBtc[liability.id] === 0) {
+            // Lender sells enough collateral to bring LTV back to target (50%)
             const totalCollateralBtc = encumberedBtc[liability.id];
-            const debtToCover = liability.current_balance;
+            const debtBalance = liability.current_balance;
             
-            // Lender sells enough collateral to cover the loan (or all of it if insufficient)
-            const btcNeededToSell = Math.min(debtToCover / yearBtcPrice, totalCollateralBtc);
-            const proceedsFromSale = btcNeededToSell * yearBtcPrice;
+            // Calculate BTC to sell to bring LTV to target
+            // After selling X BTC: newLTV = debt / ((collateral - X) * price) = targetLTV
+            // Solve for X: X = collateral - (debt / (targetLTV/100) / price)
+            const targetCollateralBtc = debtBalance / (targetLTV / 100) / yearBtcPrice;
+            const btcToSell = Math.max(0, totalCollateralBtc - targetCollateralBtc);
             
-            // Excess BTC (collateral minus what was needed) goes back to user's liquid portfolio
-            const excessBtc = totalCollateralBtc - btcNeededToSell;
-            if (excessBtc > 0) {
-              const excessValue = excessBtc * yearBtcPrice;
-              portfolio.taxable.btc += excessValue;
+            // If we need to sell more than we have, sell everything and pay down as much debt as possible
+            const actualBtcSold = Math.min(btcToSell, totalCollateralBtc);
+            const proceedsFromSale = actualBtcSold * yearBtcPrice;
+            
+            // Reduce debt by sale proceeds
+            const newDebtBalance = Math.max(0, debtBalance - proceedsFromSale);
+            const remainingCollateralBtc = totalCollateralBtc - actualBtcSold;
+            
+            // Update loan state
+            liability.current_balance = newDebtBalance;
+            encumberedBtc[liability.id] = remainingCollateralBtc;
+            
+            // If debt is fully paid off, mark as paid off and release any remaining collateral
+            if (newDebtBalance <= 0.01) {
+              liability.paid_off = true;
+              if (remainingCollateralBtc > 0) {
+                portfolio.taxable.btc += remainingCollateralBtc * yearBtcPrice;
+                encumberedBtc[liability.id] = 0;
+              }
             }
             
-            // Loan is fully paid off by the liquidation (lender is made whole)
-            liability.current_balance = 0;
-            liability.paid_off = true;
-            
             // Track liquidation
-            liquidatedBtc[liability.id] = btcNeededToSell;
-            encumberedBtc[liability.id] = 0;
+            liquidatedBtc[liability.id] = actualBtcSold;
 
-            // Track liquidation event
+            // Calculate new LTV for reporting
+            const newLTV = remainingCollateralBtc > 0 ? (newDebtBalance / (remainingCollateralBtc * yearBtcPrice)) * 100 : 0;
+
             liquidationEvents.push({
               year,
               age: currentAge + i,
               liabilityName: liability.name,
-              btcAmount: btcNeededToSell,
-              btcReturned: excessBtc,
+              type: 'partial_liquidation',
+              btcAmount: actualBtcSold,
+              btcReturned: 0, // No BTC returned in partial liquidation - it covers debt
               proceeds: proceedsFromSale,
-              valueReturned: excessValue,
-              remainingDebt: liability.current_balance
+              debtReduction: proceedsFromSale,
+              remainingDebt: newDebtBalance,
+              remainingCollateral: remainingCollateralBtc,
+              newLtv: newLTV,
+              message: `Liquidated ${actualBtcSold.toFixed(4)} BTC to reduce debt. LTV: ${currentLTV.toFixed(0)}% → ${newLTV.toFixed(0)}%`
             });
           }
           // RELEASE: If LTV drops below release threshold
-          else if (currentLTV <= releaseLTV && liquidatedBtc[liability.id] === 0) {
+          else if (postTopUpLTV <= releaseLTV && liquidatedBtc[liability.id] === 0) {
             // Only release if not already released this year
             if (!releasedBtc[liability.id] || releasedBtc[liability.id] === 0) {
                 releasedBtc[liability.id] = encumberedBtc[liability.id];
@@ -1216,50 +1269,90 @@ export default function FinancialPlan() {
           const liquidationLTV = loan.liquidation_ltv || 80;
           const releaseLTV = loan.collateral_release_ltv || 30;
 
-          // LIQUIDATION
-          if (currentLTV >= liquidationLTV && liquidatedBtc[loanKey] === 0) {
-            // Liquidation event - lender sells collateral to cover loan, excess BTC returned
+          const triggerLTV = btcTopUpTriggerLtv || 70;
+          const targetLTV = btcTopUpTargetLtv || 50;
+
+          // AUTO TOP-UP: If enabled and LTV reaches trigger threshold (before liquidation)
+          if (autoTopUpBtcCollateral && currentLTV >= triggerLTV && currentLTV < liquidationLTV && liquidatedBtc[loanKey] === 0) {
+            const targetCollateralValue = loan.current_balance / (targetLTV / 100);
+            const additionalBtcNeeded = (targetCollateralValue / yearBtcPrice) - encumberedBtc[loanKey];
+            const liquidBtcAvailable = portfolio.taxable.btc / yearBtcPrice;
+            
+            if (additionalBtcNeeded > 0 && liquidBtcAvailable >= additionalBtcNeeded) {
+              encumberedBtc[loanKey] += additionalBtcNeeded;
+              portfolio.taxable.btc -= additionalBtcNeeded * yearBtcPrice;
+              
+              liquidationEvents.push({
+                year,
+                age: currentAge + i,
+                liabilityName: loan.name,
+                type: 'top_up',
+                btcAdded: additionalBtcNeeded,
+                newLtv: targetLTV,
+                message: `Added ${additionalBtcNeeded.toFixed(4)} BTC collateral to reduce LTV from ${currentLTV.toFixed(0)}% to ${targetLTV}%`
+              });
+            }
+          }
+
+          // Recalculate LTV after potential top-up
+          const postTopUpCollateralValue = encumberedBtc[loanKey] * yearBtcPrice;
+          const postTopUpLTV = (loan.current_balance / postTopUpCollateralValue) * 100;
+
+          // PARTIAL LIQUIDATION: If LTV exceeds liquidation threshold (80%)
+          if (postTopUpLTV >= liquidationLTV && liquidatedBtc[loanKey] === 0) {
             const totalCollateralBtc = encumberedBtc[loanKey];
-            const debtToCover = loan.current_balance;
+            const debtBalance = loan.current_balance;
             
-            // Lender sells enough collateral to cover the loan (or all of it if insufficient)
-            const btcNeededToSell = Math.min(debtToCover / yearBtcPrice, totalCollateralBtc);
-            const proceedsFromSale = btcNeededToSell * yearBtcPrice;
+            // Calculate BTC to sell to bring LTV to target
+            const targetCollateralBtc = debtBalance / (targetLTV / 100) / yearBtcPrice;
+            const btcToSell = Math.max(0, totalCollateralBtc - targetCollateralBtc);
             
-            // Excess BTC (collateral minus what was needed) goes back to user's liquid portfolio
-            const excessBtc = totalCollateralBtc - btcNeededToSell;
-            if (excessBtc > 0) {
-              const excessValue = excessBtc * yearBtcPrice;
-              portfolio.taxable.btc += excessValue;
-            }
+            const actualBtcSold = Math.min(btcToSell, totalCollateralBtc);
+            const proceedsFromSale = actualBtcSold * yearBtcPrice;
             
-            // Loan is fully paid off by the liquidation (lender is made whole)
-            loan.current_balance = 0;
-            loan.paid_off = true;
+            const newDebtBalance = Math.max(0, debtBalance - proceedsFromSale);
+            const remainingCollateralBtc = totalCollateralBtc - actualBtcSold;
             
-            // Also mark in tempRunningDebt if it exists there
+            loan.current_balance = newDebtBalance;
+            encumberedBtc[loanKey] = remainingCollateralBtc;
+            
+            // Also update tempRunningDebt
             if (tempRunningDebt[loan.id]) {
-              tempRunningDebt[loan.id].current_balance = 0;
-              tempRunningDebt[loan.id].paid_off = true;
+              tempRunningDebt[loan.id].current_balance = newDebtBalance;
             }
             
-            // Track liquidation
-            liquidatedBtc[loanKey] = btcNeededToSell;
-            encumberedBtc[loanKey] = 0;
+            if (newDebtBalance <= 0.01) {
+              loan.paid_off = true;
+              if (tempRunningDebt[loan.id]) {
+                tempRunningDebt[loan.id].paid_off = true;
+              }
+              if (remainingCollateralBtc > 0) {
+                portfolio.taxable.btc += remainingCollateralBtc * yearBtcPrice;
+                encumberedBtc[loanKey] = 0;
+              }
+            }
+            
+            liquidatedBtc[loanKey] = actualBtcSold;
+
+            const newLTV = remainingCollateralBtc > 0 ? (newDebtBalance / (remainingCollateralBtc * yearBtcPrice)) * 100 : 0;
 
             liquidationEvents.push({
               year,
               age: currentAge + i,
               liabilityName: loan.name,
-              btcAmount: btcNeededToSell,
-              btcReturned: excessBtc,
+              type: 'partial_liquidation',
+              btcAmount: actualBtcSold,
+              btcReturned: 0,
               proceeds: proceedsFromSale,
-              valueReturned: excessValue,
-              remainingDebt: loan.current_balance
+              debtReduction: proceedsFromSale,
+              remainingDebt: newDebtBalance,
+              remainingCollateral: remainingCollateralBtc,
+              newLtv: newLTV,
+              message: `Liquidated ${actualBtcSold.toFixed(4)} BTC to reduce debt. LTV: ${currentLTV.toFixed(0)}% → ${newLTV.toFixed(0)}%`
             });
           }
           // RELEASE
-          else if (currentLTV <= releaseLTV && liquidatedBtc[loanKey] === 0) {
+          else if (postTopUpLTV <= releaseLTV && liquidatedBtc[loanKey] === 0) {
             if (!releasedBtc[loanKey] || releasedBtc[loanKey] === 0) {
               releasedBtc[loanKey] = encumberedBtc[loanKey];
               encumberedBtc[loanKey] = 0;
@@ -1802,7 +1895,7 @@ export default function FinancialPlan() {
         });
     }
     return data;
-  }, [btcValue, stocksValue, realEstateValue, bondsValue, cashValue, otherValue, taxableValue, taxDeferredValue, taxFreeValue, currentAge, retirementAge, lifeExpectancy, effectiveBtcCagr, effectiveStocksCagr, realEstateCagr, bondsCagr, effectiveInflation, lifeEvents, goals, annualSavings, incomeGrowth, retirementAnnualSpending, btcReturnModel, filingStatus, taxableHoldings, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, liabilities, collateralizedLoans, monthlyDebtPayments, btcPrice, cashCagr, otherCagr]);
+  }, [btcValue, stocksValue, realEstateValue, bondsValue, cashValue, otherValue, taxableValue, taxDeferredValue, taxFreeValue, currentAge, retirementAge, lifeExpectancy, effectiveBtcCagr, effectiveStocksCagr, realEstateCagr, bondsCagr, effectiveInflation, lifeEvents, goals, annualSavings, incomeGrowth, retirementAnnualSpending, btcReturnModel, filingStatus, taxableHoldings, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, liabilities, collateralizedLoans, monthlyDebtPayments, btcPrice, cashCagr, otherCagr, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv]);
 
   // Run Monte Carlo when button clicked
   const handleRunSimulation = () => {
