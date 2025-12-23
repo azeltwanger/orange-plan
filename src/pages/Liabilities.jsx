@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { Plus, Pencil, Trash2, AlertTriangle, CheckCircle, TrendingDown, Zap, Lock, Unlock, Building, Shield, Info } from 'lucide-react';
+import { Plus, Pencil, Trash2, AlertTriangle, CheckCircle, TrendingDown, Zap, Lock, Unlock, Building, Shield, Info, Settings, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 
 // BTC Collateral Loan Constants
@@ -22,7 +23,14 @@ export default function Liabilities() {
   const [priceLoading, setPriceLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   const [editingLiability, setEditingLiability] = useState(null);
+  const [showCollateralSettings, setShowCollateralSettings] = useState(false);
   const queryClient = useQueryClient();
+
+  // BTC Collateral Management Settings
+  const [autoTopUp, setAutoTopUp] = useState(true);
+  const [topUpTriggerLtv, setTopUpTriggerLtv] = useState(70);
+  const [topUpTargetLtv, setTopUpTargetLtv] = useState(50);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
 
   useEffect(() => {
     const fetchPrice = async () => {
@@ -73,6 +81,47 @@ export default function Liabilities() {
     queryKey: ['collateralizedLoans'],
     queryFn: () => base44.entities.CollateralizedLoan.list(),
   });
+
+  const { data: userSettings = [] } = useQuery({
+    queryKey: ['userSettings'],
+    queryFn: () => base44.entities.UserSettings.list(),
+  });
+
+  // Load settings from UserSettings
+  useEffect(() => {
+    if (userSettings.length > 0 && !settingsLoaded) {
+      const settings = userSettings[0];
+      if (settings.auto_top_up_btc_collateral !== undefined) setAutoTopUp(settings.auto_top_up_btc_collateral);
+      if (settings.btc_top_up_trigger_ltv !== undefined) setTopUpTriggerLtv(settings.btc_top_up_trigger_ltv);
+      if (settings.btc_top_up_target_ltv !== undefined) setTopUpTargetLtv(settings.btc_top_up_target_ltv);
+      setSettingsLoaded(true);
+    }
+  }, [userSettings, settingsLoaded]);
+
+  // Save collateral settings mutation
+  const saveCollateralSettings = useMutation({
+    mutationFn: async (data) => {
+      if (userSettings.length > 0) {
+        return base44.entities.UserSettings.update(userSettings[0].id, data);
+      } else {
+        return base44.entities.UserSettings.create(data);
+      }
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['userSettings'] }),
+  });
+
+  // Auto-save collateral settings when they change
+  useEffect(() => {
+    if (!settingsLoaded) return;
+    const timeoutId = setTimeout(() => {
+      saveCollateralSettings.mutate({
+        auto_top_up_btc_collateral: autoTopUp,
+        btc_top_up_trigger_ltv: topUpTriggerLtv,
+        btc_top_up_target_ltv: topUpTargetLtv,
+      });
+    }, 1000);
+    return () => clearTimeout(timeoutId);
+  }, [settingsLoaded, autoTopUp, topUpTriggerLtv, topUpTargetLtv]);
 
   const createLiability = useMutation({
     mutationFn: (data) => base44.entities.Liability.create(data),
@@ -239,6 +288,102 @@ export default function Liabilities() {
           Add Position
         </Button>
       </div>
+
+      {/* BTC Collateral Management Settings */}
+      {btcLoans.length > 0 && (
+        <div className="card-premium rounded-2xl border border-zinc-800/50 overflow-hidden">
+          <button
+            onClick={() => setShowCollateralSettings(!showCollateralSettings)}
+            className="w-full p-4 flex items-center justify-between hover:bg-zinc-800/30 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-orange-500/10">
+                <Settings className="w-5 h-5 text-orange-400" />
+              </div>
+              <div className="text-left">
+                <h3 className="font-semibold text-zinc-200">BTC Collateral Management</h3>
+                <p className="text-xs text-zinc-500">
+                  {autoTopUp 
+                    ? `Auto top-up enabled at ${topUpTriggerLtv}% LTV → ${topUpTargetLtv}% target` 
+                    : 'Auto top-up disabled • Partial liquidation at 80% LTV'}
+                </p>
+              </div>
+            </div>
+            {showCollateralSettings ? (
+              <ChevronUp className="w-5 h-5 text-zinc-500" />
+            ) : (
+              <ChevronDown className="w-5 h-5 text-zinc-500" />
+            )}
+          </button>
+          
+          {showCollateralSettings && (
+            <div className="p-6 pt-2 border-t border-zinc-800/50 space-y-6">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <Label className="text-zinc-300 font-medium">Auto Top-Up Collateral</Label>
+                  <p className="text-xs text-zinc-500 mt-1">
+                    Automatically use liquid BTC to top up collateral when LTV rises, preventing liquidation
+                  </p>
+                </div>
+                <Switch
+                  checked={autoTopUp}
+                  onCheckedChange={setAutoTopUp}
+                  className="data-[state=checked]:bg-orange-500"
+                />
+              </div>
+
+              {autoTopUp && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-xl bg-zinc-800/30">
+                  <div className="space-y-2">
+                    <Label className="text-zinc-400 text-xs uppercase tracking-wider">Trigger LTV (%)</Label>
+                    <Input
+                      type="number"
+                      value={topUpTriggerLtv}
+                      onChange={(e) => setTopUpTriggerLtv(parseInt(e.target.value) || 70)}
+                      min={50}
+                      max={79}
+                      className="bg-zinc-900 border-zinc-700"
+                    />
+                    <p className="text-[10px] text-zinc-500">When LTV reaches this level, attempt top-up (default: 70%)</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-zinc-400 text-xs uppercase tracking-wider">Target LTV (%)</Label>
+                    <Input
+                      type="number"
+                      value={topUpTargetLtv}
+                      onChange={(e) => setTopUpTargetLtv(parseInt(e.target.value) || 50)}
+                      min={20}
+                      max={60}
+                      className="bg-zinc-900 border-zinc-700"
+                    />
+                    <p className="text-[10px] text-zinc-500">Top-up brings LTV back to this level (default: 50%)</p>
+                  </div>
+                </div>
+              )}
+
+              <div className="p-4 rounded-xl bg-zinc-800/20 border border-zinc-700/50">
+                <h4 className="text-sm font-medium text-zinc-300 mb-2">How it works in projections:</h4>
+                <ul className="text-xs text-zinc-500 space-y-1.5">
+                  {autoTopUp ? (
+                    <>
+                      <li>• When LTV reaches <span className="text-amber-400">{topUpTriggerLtv}%</span>, liquid BTC is used to add collateral</li>
+                      <li>• Collateral is added until LTV drops to <span className="text-emerald-400">{topUpTargetLtv}%</span></li>
+                      <li>• If insufficient liquid BTC, a <span className="text-rose-400">partial liquidation</span> occurs instead</li>
+                    </>
+                  ) : (
+                    <>
+                      <li>• No automatic collateral management</li>
+                      <li>• At <span className="text-rose-400">80% LTV</span>, lender sells enough collateral to bring LTV to <span className="text-emerald-400">50%</span></li>
+                      <li>• Loan remains active with reduced collateral and balance</li>
+                    </>
+                  )}
+                  <li>• Collateral releases when LTV drops below <span className="text-purple-400">30%</span></li>
+                </ul>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* BTC Collateral Alert Banner */}
       {btcLoans.length > 0 && (
