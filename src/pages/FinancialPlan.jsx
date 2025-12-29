@@ -13,6 +13,7 @@ import {
   getTaxDataForYear
 } from '@/components/tax/taxCalculations';
 import { get401kLimit, getRothIRALimit, getHSALimit, getTaxConfigForYear } from '@/components/shared/taxConfig';
+import { getStateOptions, getStateTaxSummary, STATE_TAX_CONFIG } from '@/components/shared/stateTaxConfig';
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
@@ -272,6 +273,11 @@ export default function FinancialPlan() {
   const [btcTopUpTriggerLtv, setBtcTopUpTriggerLtv] = useState(70);
   const [btcTopUpTargetLtv, setBtcTopUpTargetLtv] = useState(50);
 
+  // State tax settings
+  const [stateOfResidence, setStateOfResidence] = useState(() => {
+    return localStorage.getItem('userStateOfResidence') || 'TX';
+  });
+
   // Settings loaded flag
   const [settingsLoaded, setSettingsLoaded] = useState(false);
 
@@ -330,6 +336,11 @@ export default function FinancialPlan() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [lockedTooltipData]);
+
+  // Sync state to localStorage
+  useEffect(() => {
+    localStorage.setItem('userStateOfResidence', stateOfResidence);
+  }, [stateOfResidence]);
 
   const currentPrice = btcPrice || 97000;
 
@@ -1920,7 +1931,7 @@ export default function FinancialPlan() {
         });
     }
     return data;
-  }, [btcValue, stocksValue, realEstateValue, bondsValue, cashValue, otherValue, taxableValue, taxDeferredValue, taxFreeValue, currentAge, retirementAge, lifeExpectancy, effectiveBtcCagr, effectiveStocksCagr, realEstateCagr, bondsCagr, effectiveInflation, lifeEvents, goals, annualSavings, incomeGrowth, retirementAnnualSpending, btcReturnModel, filingStatus, taxableHoldings, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, liabilities, collateralizedLoans, monthlyDebtPayments, btcPrice, cashCagr, otherCagr, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv]);
+  }, [btcValue, stocksValue, realEstateValue, bondsValue, cashValue, otherValue, taxableValue, taxDeferredValue, taxFreeValue, currentAge, retirementAge, lifeExpectancy, effectiveBtcCagr, effectiveStocksCagr, realEstateCagr, bondsCagr, effectiveInflation, lifeEvents, goals, annualSavings, incomeGrowth, retirementAnnualSpending, btcReturnModel, filingStatus, taxableHoldings, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, liabilities, collateralizedLoans, monthlyDebtPayments, btcPrice, cashCagr, otherCagr, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv, stateOfResidence]);
 
   // Run Monte Carlo when button clicked
   const handleRunSimulation = () => {
@@ -3722,6 +3733,26 @@ export default function FinancialPlan() {
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-zinc-500">Affects tax calculations on withdrawals</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-zinc-400">State of Residence</Label>
+                  <Select value={stateOfResidence} onValueChange={setStateOfResidence}>
+                    <SelectTrigger className="bg-zinc-900 border-zinc-800">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-zinc-900 border-zinc-700 max-h-64">
+                      {getStateOptions().map(state => (
+                        <SelectItem key={state.value} value={state.value}>
+                          {state.label} — {state.taxInfo}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {STATE_TAX_CONFIG[stateOfResidence] && getStateTaxSummary(stateOfResidence)?.details.length > 0 && (
+                    <p className="text-xs text-zinc-500">
+                      {getStateTaxSummary(stateOfResidence).details.join(' • ')}
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label className="text-zinc-400">Gross Annual Income</Label>
