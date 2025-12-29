@@ -1057,7 +1057,7 @@ export default function TaxCenter() {
   // Tax bracket visualization data - include all brackets up to 37%
   const bracketChartData = yearBrackets?.income ? yearBrackets.income.map(bracket => ({
     name: bracket.label,
-    max: bracket.max === Infinity ? (filingStatus === 'married_filing_jointly' ? 900000 : 800000) : bracket.max,
+    max: bracket.max === Infinity ? (filingStatus === 'married' ? 900000 : 800000) : bracket.max,
     rate: bracket.rate * 100,
     fill: annualIncome >= bracket.min && (bracket.max === Infinity || annualIncome < bracket.max) ? '#F7931A' : '#27272a',
   })) : [];
@@ -1306,10 +1306,10 @@ export default function TaxCenter() {
               Single
             </button>
             <button
-              onClick={() => setFilingStatus('married_filing_jointly')}
+              onClick={() => setFilingStatus('married')}
               className={cn(
                 "px-3 py-1.5 rounded-md text-sm font-medium transition-all",
-                filingStatus === 'married_filing_jointly' 
+                filingStatus === 'married' 
                   ? "bg-orange-500/20 text-orange-400" 
                   : "text-zinc-400 hover:text-zinc-300"
               )}
@@ -1327,7 +1327,7 @@ export default function TaxCenter() {
             </div>
             <Slider value={[annualIncome]} onValueChange={([v]) => setAnnualIncome(v)} min={0} max={1000000} step={5000} />
             <p className="text-xs text-zinc-500">
-              {filingStatus === 'married_filing_jointly' ? 'Combined household income' : 'Your individual income'}
+              {filingStatus === 'married' ? 'Combined household income' : 'Your individual income'}
             </p>
           </div>
 
@@ -1353,7 +1353,7 @@ export default function TaxCenter() {
           </div>
 
           <div className="p-4 rounded-xl bg-zinc-800/30">
-            <p className="text-sm text-zinc-300 mb-2">Your Tax Brackets ({filingStatus === 'married_filing_jointly' ? 'MFJ' : 'Single'})</p>
+            <p className="text-sm text-zinc-300 mb-2">Your Tax Brackets ({filingStatus === 'married' ? 'MFJ' : 'Single'})</p>
             <div className="space-y-1">
               <div className="flex justify-between text-sm">
                 <span className="text-zinc-400">Short-term (Fed + {stateOfResidence}):</span>

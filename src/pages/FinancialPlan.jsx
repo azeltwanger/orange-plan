@@ -3759,7 +3759,7 @@ export default function FinancialPlan() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="single">Single</SelectItem>
-                      <SelectItem value="married_filing_jointly">Married Filing Jointly</SelectItem>
+                      <SelectItem value="married">Married Filing Jointly</SelectItem>
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-zinc-500">Affects tax calculations on withdrawals</p>
