@@ -192,6 +192,7 @@ export default function CsvImportDialog({ open, onClose }) {
     let stats = { buys: 0, sells: 0, totalGains: 0, totalLosses: 0, shortTerm: 0, longTerm: 0 };
 
     const lotPool = [...existingBuys];
+    const modifiedLotIds = new Set(); // Track which existing lots were modified by sells
 
     for (const tx of sortedTransactions) {
       const txType = String(tx.type || '').toLowerCase().trim();
@@ -268,6 +269,11 @@ export default function CsvImportDialog({ open, onClose }) {
             lot.remainingQuantity -= qtyFromLot;
             remainingToSell -= qtyFromLot;
             
+            // Track modified existing lots for database update
+            if (lot.isExisting && lot.id) {
+              modifiedLotIds.add(lot.id);
+            }
+            
             const daysSincePurchase = differenceInDays(saleDate, new Date(lot.date));
             if (daysSincePurchase > 365) hasLongTerm = true;
             else hasShortTerm = true;
@@ -289,6 +295,11 @@ export default function CsvImportDialog({ open, onClose }) {
             totalCostBasis += costFromLot;
             lot.remainingQuantity -= qtyFromLot;
             remainingToSell -= qtyFromLot;
+            
+            // Track modified existing lots for database update
+            if (lot.isExisting && lot.id) {
+              modifiedLotIds.add(lot.id);
+            }
             
             const daysSincePurchase = differenceInDays(saleDate, new Date(lot.date));
             if (daysSincePurchase > 365) hasLongTerm = true;
@@ -328,7 +339,19 @@ export default function CsvImportDialog({ open, onClose }) {
       }
     }
 
-    return { transactions: processedTransactions, stats };
+    // Return modified lot info for database updates
+    const modifiedLots = [];
+    for (const lotId of modifiedLotIds) {
+      const lot = lotPool.find(l => l.id === lotId);
+      if (lot) {
+        modifiedLots.push({
+          id: lotId,
+          remainingQuantity: lot.remainingQuantity,
+        });
+      }
+    }
+
+    return { transactions: processedTransactions, stats, modifiedLots };
   };
 
   // Process holdings import
@@ -602,7 +625,7 @@ export default function CsvImportDialog({ open, onClose }) {
 
       // ===== TRANSACTIONS IMPORT =====
       const validTransactions = rawData.filter(tx => tx.quantity > 0 && tx.price_per_unit > 0);
-      const { transactions: processedTransactions, stats } = processTransactionsWithLots(validTransactions, lotMethod);
+      const { transactions: processedTransactions, stats, modifiedLots } = processTransactionsWithLots(validTransactions, lotMethod);
       stats.duplicatesSkipped = rawData.length - validTransactions.length;
 
       // Smart duplicate detection
@@ -671,6 +694,17 @@ export default function CsvImportDialog({ open, onClose }) {
       }
       
       setImportStats(stats);
+
+      // CRITICAL: Update existing lots that were consumed by sell transactions
+      if (modifiedLots && modifiedLots.length > 0) {
+        console.log(`=== UPDATING ${modifiedLots.length} MODIFIED LOTS IN DATABASE ===`);
+        for (const lot of modifiedLots) {
+          await base44.entities.Transaction.update(lot.id, {
+            remaining_quantity: lot.remainingQuantity,
+          });
+          console.log(`Updated lot ${lot.id}: remaining_quantity = ${lot.remainingQuantity}`);
+        }
+      }
 
       // Sync holdings from lots (source of truth)
       console.log("=== SYNCING HOLDINGS FROM LOTS ===");
