@@ -419,7 +419,7 @@ export default function FinancialPlan() {
                   if (settings.contribution_roth_ira !== undefined) setContributionRothIRA(settings.contribution_roth_ira);
                   if (settings.contribution_hsa !== undefined) setContributionHSA(settings.contribution_hsa);
                   if (settings.hsa_family_coverage !== undefined) setHsaFamilyCoverage(settings.hsa_family_coverage);
-                  if (settings.filing_status !== undefined) setFilingStatus(settings.filing_status);
+                  // filing_status is managed via localStorage for cross-page sync, don't override from UserSettings
                   if (settings.auto_top_up_btc_collateral !== undefined) setAutoTopUpBtcCollateral(settings.auto_top_up_btc_collateral);
                   if (settings.btc_top_up_trigger_ltv !== undefined) setBtcTopUpTriggerLtv(settings.btc_top_up_trigger_ltv);
                   if (settings.btc_top_up_target_ltv !== undefined) setBtcTopUpTargetLtv(settings.btc_top_up_target_ltv);
