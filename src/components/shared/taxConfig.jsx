@@ -200,7 +200,7 @@ export const TAX_CONFIG = {
     2022: { single: 12950, married: 25900 },
     2023: { single: 13850, married: 27700 },
     2024: { single: 14600, married: 29200 },
-    2025: { single: 15750, married: 31500 },
+    2025: { single: 15000, married: 30000 },
   },
 
   // ----- CAPITAL GAINS TAX BRACKETS -----
