@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -1124,7 +1125,7 @@ export default function FinancialPlan() {
           const targetLTV = btcTopUpTargetLtv || 50;
 
           // AUTO TOP-UP: If enabled and LTV reaches trigger threshold (before liquidation)
-          if (autoTopUpBtcCollateral && currentLTV >= triggerLTV && currentLTV < liquidationLTV && liquidatedBtc[liability.id] === 0) {
+          if (autoTopUpBtcCollateral && currentLTV >= triggerLTV && currentLTV < liquidationLTV) {
             // Calculate how much BTC needed to bring LTV back to target
             // targetLTV = debt / (currentCollateral + additionalBtc) * price
             // Solve for additionalBtc: additionalBtc = (debt / (targetLTV/100) / price) - currentCollateral
@@ -1157,31 +1158,36 @@ export default function FinancialPlan() {
           const postTopUpCollateralValue = encumberedBtc[liability.id] * yearBtcPrice;
           const postTopUpLTV = (liability.current_balance / postTopUpCollateralValue) * 100;
 
-          // PARTIAL LIQUIDATION: If LTV exceeds liquidation threshold (80%)
-          if (postTopUpLTV >= liquidationLTV && liquidatedBtc[liability.id] === 0) {
-            // Lender sells enough collateral to bring LTV back to target (50%)
+          // LIQUIDATION: If LTV exceeds liquidation threshold (80%)
+          if (postTopUpLTV >= liquidationLTV) {
             const totalCollateralBtc = encumberedBtc[liability.id];
             const debtBalance = liability.current_balance;
             
-            // Calculate BTC to sell to bring LTV to target
-            // After selling X BTC: newLTV = debt / ((collateral - X) * price) = targetLTV
-            // Solve for X: X = collateral - (debt / (targetLTV/100) / price)
+            // Calculate BTC needed as collateral to reach target LTV (50%)
             const targetCollateralBtc = debtBalance / (targetLTV / 100) / yearBtcPrice;
-            const btcToSell = Math.max(0, totalCollateralBtc - targetCollateralBtc);
             
-            // If we need to sell more than we have, sell everything and pay down as much debt as possible
-            const actualBtcSold = Math.min(btcToSell, totalCollateralBtc);
-            const proceedsFromSale = actualBtcSold * yearBtcPrice;
+            let btcToSell, proceedsFromSale, newDebtBalance, remainingCollateralBtc;
             
-            // Reduce debt by sale proceeds
-            const newDebtBalance = Math.max(0, debtBalance - proceedsFromSale);
-            const remainingCollateralBtc = totalCollateralBtc - actualBtcSold;
+            // If we need MORE collateral than we have to reach target LTV, sell everything
+            if (targetCollateralBtc >= totalCollateralBtc) {
+              // FULL LIQUIDATION: Sell all collateral, apply proceeds to debt
+              btcToSell = totalCollateralBtc;
+              proceedsFromSale = btcToSell * yearBtcPrice;
+              newDebtBalance = Math.max(0, debtBalance - proceedsFromSale);
+              remainingCollateralBtc = 0;
+            } else {
+              // PARTIAL LIQUIDATION: Sell enough to reach target LTV
+              btcToSell = totalCollateralBtc - targetCollateralBtc;
+              proceedsFromSale = btcToSell * yearBtcPrice;
+              newDebtBalance = Math.max(0, debtBalance - proceedsFromSale);
+              remainingCollateralBtc = totalCollateralBtc - btcToSell;
+            }
             
             // Update loan state
             liability.current_balance = newDebtBalance;
             encumberedBtc[liability.id] = remainingCollateralBtc;
             
-            // If debt is fully paid off, mark as paid off and release any remaining collateral
+            // If debt fully paid or no collateral left, mark as paid off
             if (newDebtBalance <= 0.01) {
               liability.paid_off = true;
               if (remainingCollateralBtc > 0) {
@@ -1190,29 +1196,30 @@ export default function FinancialPlan() {
               }
             }
             
-            // Track liquidation
-            liquidatedBtc[liability.id] = actualBtcSold;
-
             // Calculate new LTV for reporting
-            const newLTV = remainingCollateralBtc > 0 ? (newDebtBalance / (remainingCollateralBtc * yearBtcPrice)) * 100 : 0;
+            const newLTV = remainingCollateralBtc > 0 
+              ? (newDebtBalance / (remainingCollateralBtc * yearBtcPrice)) * 100 
+              : 0;
 
             liquidationEvents.push({
               year,
               age: currentAge + i,
               liabilityName: liability.name,
-              type: 'partial_liquidation',
-              btcAmount: actualBtcSold,
-              btcReturned: 0, // No BTC returned in partial liquidation - it covers debt
+              type: remainingCollateralBtc === 0 ? 'full_liquidation' : 'partial_liquidation',
+              btcAmount: btcToSell,
+              btcReturned: 0,
               proceeds: proceedsFromSale,
               debtReduction: proceedsFromSale,
               remainingDebt: newDebtBalance,
               remainingCollateral: remainingCollateralBtc,
               newLtv: newLTV,
-              message: `Liquidated ${actualBtcSold.toFixed(4)} BTC to reduce debt. LTV: ${currentLTV.toFixed(0)}% → ${newLTV.toFixed(0)}%`
+              message: remainingCollateralBtc === 0 
+                ? `Full liquidation: Sold all ${btcToSell.toFixed(4)} BTC to cover debt. Remaining debt: $${Math.round(newDebtBalance).toLocaleString()}`
+                : `Partial liquidation: Sold ${btcToSell.toFixed(4)} BTC to reduce LTV from ${postTopUpLTV.toFixed(0)}% to ${newLTV.toFixed(0)}%`
             });
           }
           // RELEASE: If LTV drops below release threshold
-          else if (postTopUpLTV <= releaseLTV && liquidatedBtc[liability.id] === 0) {
+          else if (postTopUpLTV <= releaseLTV) {
             // If loan is paid off, release ALL collateral
             if (liability.current_balance <= 0) {
               if (!releasedBtc[liability.id] || releasedBtc[liability.id] === 0) {
@@ -1285,7 +1292,7 @@ export default function FinancialPlan() {
           const targetLTV = btcTopUpTargetLtv || 50;
 
           // AUTO TOP-UP: If enabled and LTV reaches trigger threshold (before liquidation)
-          if (autoTopUpBtcCollateral && currentLTV >= triggerLTV && currentLTV < liquidationLTV && liquidatedBtc[loanKey] === 0) {
+          if (autoTopUpBtcCollateral && currentLTV >= triggerLTV && currentLTV < liquidationLTV) {
             const targetCollateralValue = loan.current_balance / (targetLTV / 100);
             const additionalBtcNeeded = (targetCollateralValue / yearBtcPrice) - encumberedBtc[loanKey];
             const liquidBtcAvailable = portfolio.taxable.btc / yearBtcPrice;
@@ -1310,21 +1317,32 @@ export default function FinancialPlan() {
           const postTopUpCollateralValue = encumberedBtc[loanKey] * yearBtcPrice;
           const postTopUpLTV = (loan.current_balance / postTopUpCollateralValue) * 100;
 
-          // PARTIAL LIQUIDATION: If LTV exceeds liquidation threshold (80%)
-          if (postTopUpLTV >= liquidationLTV && liquidatedBtc[loanKey] === 0) {
+          // LIQUIDATION: If LTV exceeds liquidation threshold (80%)
+          if (postTopUpLTV >= liquidationLTV) {
             const totalCollateralBtc = encumberedBtc[loanKey];
             const debtBalance = loan.current_balance;
             
-            // Calculate BTC to sell to bring LTV to target
+            // Calculate BTC needed as collateral to reach target LTV (50%)
             const targetCollateralBtc = debtBalance / (targetLTV / 100) / yearBtcPrice;
-            const btcToSell = Math.max(0, totalCollateralBtc - targetCollateralBtc);
             
-            const actualBtcSold = Math.min(btcToSell, totalCollateralBtc);
-            const proceedsFromSale = actualBtcSold * yearBtcPrice;
+            let btcToSell, proceedsFromSale, newDebtBalance, remainingCollateralBtc;
             
-            const newDebtBalance = Math.max(0, debtBalance - proceedsFromSale);
-            const remainingCollateralBtc = totalCollateralBtc - actualBtcSold;
+            // If we need MORE collateral than we have to reach target LTV, sell everything
+            if (targetCollateralBtc >= totalCollateralBtc) {
+              // FULL LIQUIDATION: Sell all collateral, apply proceeds to debt
+              btcToSell = totalCollateralBtc;
+              proceedsFromSale = btcToSell * yearBtcPrice;
+              newDebtBalance = Math.max(0, debtBalance - proceedsFromSale);
+              remainingCollateralBtc = 0;
+            } else {
+              // PARTIAL LIQUIDATION: Sell enough to reach target LTV
+              btcToSell = totalCollateralBtc - targetCollateralBtc;
+              proceedsFromSale = btcToSell * yearBtcPrice;
+              newDebtBalance = Math.max(0, debtBalance - proceedsFromSale);
+              remainingCollateralBtc = totalCollateralBtc - btcToSell;
+            }
             
+            // Update loan state
             loan.current_balance = newDebtBalance;
             encumberedBtc[loanKey] = remainingCollateralBtc;
             
@@ -1333,6 +1351,7 @@ export default function FinancialPlan() {
               tempRunningDebt[loan.id].current_balance = newDebtBalance;
             }
             
+            // If debt fully paid or no collateral left, mark as paid off
             if (newDebtBalance <= 0.01) {
               loan.paid_off = true;
               if (tempRunningDebt[loan.id]) {
@@ -1344,27 +1363,30 @@ export default function FinancialPlan() {
               }
             }
             
-            liquidatedBtc[loanKey] = actualBtcSold;
-
-            const newLTV = remainingCollateralBtc > 0 ? (newDebtBalance / (remainingCollateralBtc * yearBtcPrice)) * 100 : 0;
+            // Calculate new LTV for reporting
+            const newLTV = remainingCollateralBtc > 0 
+              ? (newDebtBalance / (remainingCollateralBtc * yearBtcPrice)) * 100 
+              : 0;
 
             liquidationEvents.push({
               year,
               age: currentAge + i,
               liabilityName: loan.name,
-              type: 'partial_liquidation',
-              btcAmount: actualBtcSold,
+              type: remainingCollateralBtc === 0 ? 'full_liquidation' : 'partial_liquidation',
+              btcAmount: btcToSell,
               btcReturned: 0,
               proceeds: proceedsFromSale,
               debtReduction: proceedsFromSale,
               remainingDebt: newDebtBalance,
               remainingCollateral: remainingCollateralBtc,
               newLtv: newLTV,
-              message: `Liquidated ${actualBtcSold.toFixed(4)} BTC to reduce debt. LTV: ${currentLTV.toFixed(0)}% → ${newLTV.toFixed(0)}%`
+              message: remainingCollateralBtc === 0 
+                ? `Full liquidation: Sold all ${btcToSell.toFixed(4)} BTC to cover debt. Remaining debt: $${Math.round(newDebtBalance).toLocaleString()}`
+                : `Partial liquidation: Sold ${btcToSell.toFixed(4)} BTC to reduce LTV from ${postTopUpLTV.toFixed(0)}% to ${newLTV.toFixed(0)}%`
             });
           }
           // RELEASE
-          else if (postTopUpLTV <= releaseLTV && liquidatedBtc[loanKey] === 0) {
+          else if (postTopUpLTV <= releaseLTV) {
             // If loan is paid off, release ALL collateral
             if (loan.current_balance <= 0) {
               if (!releasedBtc[loanKey] || releasedBtc[loanKey] === 0) {
@@ -1685,19 +1707,6 @@ export default function FinancialPlan() {
         const actualWithdrawalNeeded = totalWithdrawalForTaxCalculation;
         let remainingShortfall = actualWithdrawalNeeded - totalWithdrawnFromAccounts;
         
-        // DEBUG: Trace retirement withdrawal logic for first 5 years or when liquid assets get low
-        if (isRetired && (yearsIntoRetirement <= 5 || getTotalLiquid() < 500000)) {
-          console.log("RETIREMENT WITHDRAWAL age", currentAge + i, {
-            spending: Math.round(totalWithdrawalForTaxCalculation),
-            liquidBefore: Math.round(getTotalLiquid() + totalWithdrawnFromAccounts),
-            liquidAfterTaxOptimized: Math.round(getTotalLiquid()),
-            taxOptimizedWithdrawal: Math.round(totalWithdrawnFromAccounts),
-            remainingShortfall: Math.round(remainingShortfall),
-            realEstate: Math.round(portfolio.realEstate),
-            willLiquidateRE: remainingShortfall > 0 && portfolio.realEstate > 0
-          });
-        }
-        
         // FIX: If there's still a shortfall and liquid accounts have money remaining,
         // FORCE withdraw from liquid accounts before touching real estate
         if (remainingShortfall > 0) {
@@ -1748,19 +1757,11 @@ export default function FinancialPlan() {
             }
             
             remainingShortfall -= withdrawFromRealEstate;
-            
-            // Log only when RE is actually liquidated
-            console.log("🏠 RE SOLD at age", currentAge + i, {
-              proceeds: Math.round(realEstateSaleProceeds),
-              usedForSpending: Math.round(withdrawFromRealEstate),
-              excessToTaxable: Math.round(excessProceeds)
-            });
           }
           
           // 5. If STILL a shortfall after all accounts including RE, portfolio is depleted
           if (remainingShortfall > 0 && getTotalPortfolio() < 100) {
             ranOutOfMoney = true;
-            console.log("PORTFOLIO DEPLETED at age", currentAge + i);
           }
         }
 
@@ -2371,7 +2372,7 @@ export default function FinancialPlan() {
       {showMonteCarloSettings && (
         <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
           <h3 className="font-semibold mb-6 flex items-center gap-2">
-            <Settings className="w-5 h-5 text-orange-400" />
+            <Settings className="w-5 h-5" />
             Rate Assumptions
           </h3>
           {/* BTC Return Model Selection */}
@@ -2837,6 +2838,11 @@ export default function FinancialPlan() {
                                         </div>
                                       )}
                                     </div>
+                                    {(p.debtPayments > 0 && !p.isRetired) && (
+                                      <div className="text-xs text-zinc-500 mb-2">
+                                        (Debt Payments: ${p.debtPayments.toLocaleString()} - tracked separately)
+                                      </div>
+                                    )}
                                     <div className="pt-2 border-t border-zinc-700/40">
                                       <p className="font-semibold text-rose-300 text-sm">
                                         Net Withdrawal: ${(p.totalWithdrawalAmount || 0).toLocaleString()}
@@ -2902,6 +2908,11 @@ export default function FinancialPlan() {
                                         <span className="text-zinc-300 text-right">-${(p.yearSpending || 0).toLocaleString()}</span>
                                       </div>
                                     </div>
+                                    {p.debtPayments > 0 && (
+                                      <div className="text-xs text-zinc-500 mb-2">
+                                        (Debt Payments: ${p.debtPayments.toLocaleString()} - tracked separately)
+                                      </div>
+                                    )}
                                     <div className="pt-2 border-t border-zinc-700/40">
                                       <p className="font-semibold text-emerald-400 text-sm">
                                         Net Savings: ${p.netCashFlow.toLocaleString()}
@@ -3082,7 +3093,7 @@ export default function FinancialPlan() {
                                       </div>
                                     )}
                                   </div>
-                                  {p.debtPayments > 0 && (
+                                  {(p.debtPayments > 0 && !p.isRetired) && (
                                     <div className="text-xs text-zinc-500 mb-2">
                                       (Debt Payments: ${p.debtPayments.toLocaleString()} - tracked separately)
                                     </div>
@@ -3152,6 +3163,11 @@ export default function FinancialPlan() {
                                       <span className="text-zinc-300 text-right">-${(p.yearSpending || 0).toLocaleString()}</span>
                                     </div>
                                   </div>
+                                  {(p.debtPayments > 0) && (
+                                    <div className="text-xs text-zinc-500 mb-2">
+                                      (Debt Payments: ${p.debtPayments.toLocaleString()} - tracked separately)
+                                    </div>
+                                  )}
                                   <div className="pt-2 border-t border-zinc-700/40">
                                     <p className="font-semibold text-emerald-400 text-sm">
                                       Net Savings: ${p.netCashFlow.toLocaleString()}
@@ -3897,7 +3913,9 @@ export default function FinancialPlan() {
               <div>
                 <p className="text-sm text-zinc-400">Spending at Retirement</p>
                 <p className="text-2xl font-bold text-amber-400">{formatNumber(retirementAnnualSpending)}/yr</p>
-                <p className="text-xs text-zinc-500">{formatNumber(retirementAnnualSpending / 12)}/mo today • inflates to {formatNumber(inflationAdjustedRetirementSpending)}/yr</p>
+                <p className="text-xs text-zinc-500">
+                  {formatNumber(retirementAnnualSpending / 12)}/mo today • inflates to {formatNumber(inflationAdjustedRetirementSpending)}/yr
+                </p>
               </div>
             </div>
           </div>
@@ -3915,7 +3933,7 @@ export default function FinancialPlan() {
               </p>
               <p className="text-xs text-zinc-400 mt-1">
                 BTC Model: <span className="text-orange-400 font-semibold">
-                  {btcReturnModel === 'custom' ? `${btcCagr}%` :
+                  {btcReturnModel === 'custom' ? `${btcCagr || 25}%` :
                    btcReturnModel === 'saylor24' ? 'Saylor Bitcoin24' :
                    btcReturnModel === 'powerlaw' ? 'Power Law' : 'Conservative'}
                 </span>
