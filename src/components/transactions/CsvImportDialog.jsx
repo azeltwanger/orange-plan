@@ -69,6 +69,8 @@ export default function CsvImportDialog({ open, onClose }) {
   const [newAccountType, setNewAccountType] = useState('taxable_brokerage');
   const [newAccountInstitution, setNewAccountInstitution] = useState('');
   const [importStats, setImportStats] = useState(null);
+  const [detectedDuplicates, setDetectedDuplicates] = useState([]);
+  const [importDuplicates, setImportDuplicates] = useState(false);
   const queryClient = useQueryClient();
 
   // Fetch accounts
@@ -95,6 +97,8 @@ export default function CsvImportDialog({ open, onClose }) {
     setParsingError(null);
     setImportStats(null);
     setImportType('transactions');
+    setDetectedDuplicates([]);
+    setImportDuplicates(false);
     setSelectedAccountId('');
     setNewAccountName('');
     setNewAccountType('taxable_brokerage');
@@ -385,6 +389,70 @@ export default function CsvImportDialog({ open, onClose }) {
 
   const activeFields = importType === 'transactions' ? TRANSACTION_FIELDS : HOLDING_FIELDS;
 
+  // Check for duplicates when entering Step 3
+  React.useEffect(() => {
+    const checkForDuplicates = async () => {
+      if (step === 3 && fullCsvData.length > 0 && importType === 'transactions') {
+        try {
+          const rawData = fullCsvData.map(row => {
+            const item = {};
+            for (const field of TRANSACTION_FIELDS) {
+              const mappedColumn = mapping[field.key];
+              if (mappedColumn && row[mappedColumn] !== undefined) {
+                let value = row[mappedColumn];
+                if (['quantity', 'price_per_unit', 'trading_fee'].includes(field.key)) {
+                  value = parseFloat(String(value).replace(/[^0-9.-]+/g, "")) || 0;
+                } else if (field.key === 'date') {
+                  value = String(value).split(' ')[0];
+                } else if (field.key === 'asset_ticker') {
+                  value = String(value).toUpperCase();
+                } else if (field.key === 'type') {
+                  value = String(value).toLowerCase().trim();
+                  if (value.includes('sell') || value.includes('sold') || value === 'sale' || value === 's') {
+                    value = 'sell';
+                  } else {
+                    value = 'buy';
+                  }
+                }
+                item[field.key] = value;
+              }
+            }
+            return item;
+          }).filter(tx => tx.quantity > 0 && tx.price_per_unit > 0);
+
+          const dupes = [];
+          for (const tx of rawData) {
+            if (tx.transaction_id) {
+              const match = existingTransactions.find(e => e.transaction_id === tx.transaction_id);
+              if (match) {
+                dupes.push({ new: tx, existing: match });
+                continue;
+              }
+            }
+            const exactMatch = existingTransactions.find(e =>
+              e.asset_ticker === tx.asset_ticker &&
+              e.type === tx.type &&
+              Math.abs((e.quantity || 0) - (tx.quantity || 0)) < 0.000001 &&
+              Math.abs((e.price_per_unit || 0) - (tx.price_per_unit || 0)) < 0.000001 &&
+              new Date(e.date).toDateString() === new Date(tx.date).toDateString() &&
+              e.exchange_or_wallet === tx.exchange_or_wallet
+            );
+            if (exactMatch) {
+              dupes.push({ new: tx, existing: exactMatch });
+            }
+          }
+          setDetectedDuplicates(dupes);
+        } catch (error) {
+          console.error('Error checking duplicates:', error);
+        }
+      } else if (step !== 3) {
+        setDetectedDuplicates([]);
+        setImportDuplicates(false);
+      }
+    };
+    checkForDuplicates();
+  }, [step, fullCsvData, importType, mapping, existingTransactions]);
+
   const mappedPreviewData = useMemo(() => {
     if (!csvData || csvData.length === 0 || Object.keys(mapping).length === 0) return [];
     return csvData.map(row => {
@@ -537,7 +605,40 @@ export default function CsvImportDialog({ open, onClose }) {
       const { transactions: processedTransactions, stats } = processTransactionsWithLots(validTransactions, lotMethod);
       stats.duplicatesSkipped = rawData.length - validTransactions.length;
 
-      const transactionsToCreate = processedTransactions.map(tx => {
+      // Smart duplicate detection
+      const findDuplicate = (newTx) => {
+        if (newTx.transaction_id) {
+          return existingTransactions.find(existing => 
+            existing.transaction_id === newTx.transaction_id
+          );
+        }
+        return existingTransactions.find(existing => 
+          existing.asset_ticker === newTx.asset_ticker &&
+          existing.type === newTx.type &&
+          Math.abs((existing.quantity || 0) - (newTx.quantity || 0)) < 0.000001 &&
+          Math.abs((existing.price_per_unit || 0) - (newTx.price_per_unit || 0)) < 0.000001 &&
+          new Date(existing.date).toDateString() === new Date(newTx.date).toDateString() &&
+          existing.exchange_or_wallet === newTx.exchange_or_wallet
+        );
+      };
+
+      const uniqueTransactions = [];
+      let duplicateCount = 0;
+      for (const tx of processedTransactions) {
+        const existingMatch = findDuplicate(tx);
+        if (existingMatch && !importDuplicates) {
+          duplicateCount++;
+        } else {
+          uniqueTransactions.push(tx);
+        }
+      }
+      stats.duplicatesSkipped += duplicateCount;
+
+      if (uniqueTransactions.length === 0) {
+        throw new Error('No new transactions to import (all duplicates)');
+      }
+
+      const transactionsToCreate = uniqueTransactions.map(tx => {
         let txAccountId = finalAccountId;
         
         if (!finalAccountId && tx.exchange_or_wallet) {
@@ -584,7 +685,7 @@ export default function CsvImportDialog({ open, onClose }) {
       
       console.log("=== SYNC COMPLETE ===");
 
-      return { count: processedTransactions.length, stats };
+      return { count: uniqueTransactions.length, stats };
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
@@ -906,6 +1007,50 @@ export default function CsvImportDialog({ open, onClose }) {
               </div>
 
               {/* Lot Method Selection - Only for transactions */}
+              {/* Duplicate Warning */}
+              {detectedDuplicates.length > 0 && importType === 'transactions' && (
+                <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                  <div className="flex items-center gap-2 text-amber-400 mb-3">
+                    <AlertTriangle className="w-5 h-5" />
+                    <span className="font-medium">
+                      {detectedDuplicates.length} potential duplicate(s) found
+                    </span>
+                  </div>
+                  
+                  <p className="text-sm text-zinc-400 mb-3">
+                    These transactions match existing records. This could be legitimate (multiple purchases same day) or accidental re-import.
+                  </p>
+                  
+                  <div className="flex items-center gap-3">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={importDuplicates}
+                        onChange={(e) => setImportDuplicates(e.target.checked)}
+                        className="rounded border-zinc-600 bg-zinc-700 text-orange-500 focus:ring-orange-500"
+                      />
+                      <span className="text-sm text-zinc-300">Import duplicates anyway</span>
+                    </label>
+                  </div>
+                  
+                  <details className="mt-3">
+                    <summary className="text-xs text-zinc-500 cursor-pointer hover:text-zinc-400">
+                      Show duplicate details
+                    </summary>
+                    <div className="mt-2 max-h-32 overflow-y-auto text-xs text-zinc-400 space-y-1">
+                      {detectedDuplicates.slice(0, 10).map((d, i) => (
+                        <div key={i} className="p-2 bg-zinc-800/50 rounded">
+                          {d.new.type?.toUpperCase()} {d.new.quantity} {d.new.asset_ticker} @ ${d.new.price_per_unit} on {d.new.date}
+                        </div>
+                      ))}
+                      {detectedDuplicates.length > 10 && (
+                        <div className="text-zinc-500">...and {detectedDuplicates.length - 10} more</div>
+                      )}
+                    </div>
+                  </details>
+                </div>
+              )}
+
               {importType === 'transactions' && (
                 <div className="p-4 rounded-xl bg-zinc-800/30 border border-zinc-700">
                   <Label className="text-zinc-200 font-medium mb-3 block">Tax Lot Matching Method for Sells</Label>
