@@ -267,39 +267,52 @@ export function getTaxConfigForYear(year) {
     const contribLimits = getYearData(CONTRIBUTION_LIMITS, year);
     const socialSec = getYearData(SOCIAL_SECURITY, year);
     
+    // Normalize filing status
+    const normalizedFedBrackets = {
+      single: fedBrackets.single || [],
+      married: fedBrackets.married_filing_jointly || fedBrackets.married || [],
+    };
+    
+    const normalizedLtcgBrackets = {
+      single: ltcgBrackets.single || { zeroMax: 48350, fifteenMax: 533400 },
+      married: ltcgBrackets.married_filing_jointly || ltcgBrackets.married || { zeroMax: 96700, fifteenMax: 600050 },
+    };
+    
+    const normalizedStdDeduction = {
+      single: stdDeduction.single || 15000,
+      married: stdDeduction.married_filing_jointly || stdDeduction.married || 30000,
+    };
+    
     return {
       contributionLimits: {
-        traditional401k: contribLimits.traditional_401k,
-        traditional401k_catchUp: contribLimits.traditional_401k_catchup,
-        rothIRA: contribLimits.roth_ira,
-        rothIRA_catchUp: contribLimits.roth_ira_catchup,
-        hsaIndividual: contribLimits.hsa_single,
-        hsaFamily: contribLimits.hsa_family,
-        hsa_catchUp: contribLimits.hsa_catchup,
+        traditional401k: contribLimits.traditional_401k || 23500,
+        traditional401k_catchUp: contribLimits.traditional_401k_catchup || 7500,
+        rothIRA: contribLimits.roth_ira || 7000,
+        rothIRA_catchUp: contribLimits.roth_ira_catchup || 1000,
+        hsaIndividual: contribLimits.hsa_single || 4300,
+        hsaFamily: contribLimits.hsa_family || 8550,
+        hsa_catchUp: contribLimits.hsa_catchup || 1000,
       },
       federalBrackets: {
-        single: fedBrackets.single?.map(b => ({ ...b, rate: b.rate / 100, label: `${b.rate}%` })) || [],
-        married: (fedBrackets.married_filing_jointly || fedBrackets.married)?.map(b => ({ ...b, rate: b.rate / 100, label: `${b.rate}%` })) || [],
+        single: normalizedFedBrackets.single.map(b => ({ ...b, rate: b.rate / 100, label: `${b.rate}%` })),
+        married: normalizedFedBrackets.married.map(b => ({ ...b, rate: b.rate / 100, label: `${b.rate}%` })),
       },
-      standardDeduction: {
-        single: stdDeduction.single,
-        married: stdDeduction.married_filing_jointly || stdDeduction.married,
-      },
+      standardDeduction: normalizedStdDeduction,
       capitalGainsBrackets: {
         single: [
-          { min: 0, max: ltcgBrackets.single?.zeroMax || 48350, rate: 0, label: '0%' },
-          { min: ltcgBrackets.single?.zeroMax || 48350, max: ltcgBrackets.single?.fifteenMax || 533400, rate: 0.15, label: '15%' },
-          { min: ltcgBrackets.single?.fifteenMax || 533400, max: Infinity, rate: 0.20, label: '20%' },
+          { min: 0, max: normalizedLtcgBrackets.single.zeroMax, rate: 0, label: '0%' },
+          { min: normalizedLtcgBrackets.single.zeroMax, max: normalizedLtcgBrackets.single.fifteenMax, rate: 0.15, label: '15%' },
+          { min: normalizedLtcgBrackets.single.fifteenMax, max: Infinity, rate: 0.20, label: '20%' },
         ],
         married: [
-          { min: 0, max: (ltcgBrackets.married_filing_jointly || ltcgBrackets.married)?.zeroMax || 96700, rate: 0, label: '0%' },
-          { min: (ltcgBrackets.married_filing_jointly || ltcgBrackets.married)?.zeroMax || 96700, max: (ltcgBrackets.married_filing_jointly || ltcgBrackets.married)?.fifteenMax || 600050, rate: 0.15, label: '15%' },
-          { min: (ltcgBrackets.married_filing_jointly || ltcgBrackets.married)?.fifteenMax || 600050, max: Infinity, rate: 0.20, label: '20%' },
+          { min: 0, max: normalizedLtcgBrackets.married.zeroMax, rate: 0, label: '0%' },
+          { min: normalizedLtcgBrackets.married.zeroMax, max: normalizedLtcgBrackets.married.fifteenMax, rate: 0.15, label: '15%' },
+          { min: normalizedLtcgBrackets.married.fifteenMax, max: Infinity, rate: 0.20, label: '20%' },
         ],
       },
       socialSecurity: {
-        wageBase: socialSec.wageBase,
-        taxRate: socialSec.taxRate / 100,
+        wageBase: socialSec.wageBase || 176100,
+        taxRate: (socialSec.taxRate || 6.2) / 100,
       },
       niit: TAX_CONFIG.niitThreshold,
       medicare: TAX_CONFIG.medicare,
