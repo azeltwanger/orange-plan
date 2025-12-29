@@ -949,57 +949,6 @@ export default function TaxCenter() {
   const effectiveLTCGRate = getLTCGRateForYear(annualIncome);
   const effectiveSTCGRate = getSTCGRateForYear(annualIncome);
   
-  // Calculate ACTUAL tax savings from realized transactions (IRS rules)
-  const calculateActualTaxSavings = () => {
-    // Count gains harvested at 0% LTCG rate (those in 0% bracket)
-    const gainsHarvestedAtZero = effectiveLTCGRate === 0 && netLongTerm > 0 
-      ? Math.min(netLongTerm, ltcgBracketRoom) 
-      : 0;
-    
-    let taxSavings = 0;
-    let carryforwardLoss = 0;
-    let taxOwed = 0;
-    
-    if (totalRealized < 0) {
-      // NET LOSS SITUATION
-      const netLoss = Math.abs(totalRealized);
-      
-      // Losses offset ordinary income (MAX $3,000/year)
-      const lossesOffsettingIncome = Math.min(3000, netLoss);
-      const savingsFromIncomeOffset = lossesOffsettingIncome * effectiveSTCGRate;
-      
-      // Remaining losses carry forward
-      carryforwardLoss = netLoss - lossesOffsettingIncome;
-      
-      taxSavings = savingsFromIncomeOffset;
-      
-    } else if (totalRealized > 0) {
-      // NET GAIN SITUATION - calculate tax owed
-      
-      // If gains were harvested at 0% rate, that's a future savings
-      const futureSavings = gainsHarvestedAtZero * 0.15; // Assume 15% future LTCG
-      taxSavings = futureSavings;
-      
-      // Calculate tax owed on net gains
-      if (netShortTerm > 0) {
-        taxOwed += netShortTerm * effectiveSTCGRate;
-      }
-      if (netLongTerm > 0) {
-        taxOwed += netLongTerm * effectiveLTCGRate;
-      }
-    }
-    
-    return {
-      taxSavings,
-      carryforwardLoss,
-      taxOwed,
-      isNetLoss: totalRealized < 0,
-      isNetGain: totalRealized > 0,
-    };
-  };
-
-  const actualTaxSavings = calculateActualTaxSavings();
-  
   // Standard deduction effectively increases the 0% LTCG bracket
   // Taxable income = Gross income - Standard deduction
   // So if gross income is $0, you can realize gains up to (standard deduction + 0% bracket max) at 0%
