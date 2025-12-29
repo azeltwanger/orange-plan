@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -767,9 +766,9 @@ export default function FinancialPlan() {
           return;
         }
         
-        // Map asset_type to our categories
+        // Map asset_type to our categories (support both old 'crypto' and new 'btc')
         let assetCategory = 'other';
-        if (h.ticker === 'BTC' || assetType === 'crypto') assetCategory = 'btc';
+        if (h.ticker === 'BTC' || assetType === 'btc' || assetType === 'crypto') assetCategory = 'btc';
         else if (assetType === 'stocks') assetCategory = 'stocks';
         else if (assetType === 'bonds') assetCategory = 'bonds';
         else if (assetType === 'cash') assetCategory = 'cash';

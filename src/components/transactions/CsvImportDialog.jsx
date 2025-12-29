@@ -31,9 +31,6 @@ const HOLDING_FIELDS = [
   { key: 'quantity', label: 'Quantity', required: true, description: 'Amount currently held' },
   { key: 'cost_basis_total', label: 'Total Cost Basis', required: true, description: 'Total amount paid' },
   { key: 'acquisition_date', label: 'Acquisition Date', required: false, description: 'YYYY-MM-DD or estimated' },
-  { key: 'asset_name', label: 'Asset Name', required: false, description: 'e.g., Bitcoin' },
-  { key: 'account_name', label: 'Account/Wallet Name', required: false, description: 'Optional' },
-  { key: 'notes', label: 'Notes', required: false, description: 'Optional notes' },
 ];
 
 const LOT_METHODS = {
@@ -71,6 +68,8 @@ export default function CsvImportDialog({ open, onClose }) {
   const [importStats, setImportStats] = useState(null);
   const [detectedDuplicates, setDetectedDuplicates] = useState([]);
   const [importDuplicates, setImportDuplicates] = useState(false);
+  const [selectedRows, setSelectedRows] = useState(new Set());
+  const [rowAssetTypes, setRowAssetTypes] = useState({});
   const queryClient = useQueryClient();
 
   // Fetch accounts
@@ -103,6 +102,8 @@ export default function CsvImportDialog({ open, onClose }) {
     setNewAccountName('');
     setNewAccountType('taxable_brokerage');
     setNewAccountInstitution('');
+    setSelectedRows(new Set());
+    setRowAssetTypes({});
   }, []);
 
   const handleClose = () => {
@@ -168,6 +169,27 @@ export default function CsvImportDialog({ open, onClose }) {
   const handleMappingChange = (fieldKey, csvColumn) => {
     setMapping(prev => ({ ...prev, [fieldKey]: csvColumn === '_none_' ? '' : csvColumn }));
   };
+
+  // Auto-detect asset type based on ticker
+  const detectAssetType = (ticker) => {
+    if (!ticker) return 'stocks';
+    const upperTicker = ticker.toUpperCase();
+    if (upperTicker === 'BTC') return 'btc';
+    const cryptoTickers = ['ETH', 'SOL', 'XRP', 'ADA', 'DOT', 'AVAX', 'MATIC', 'LINK', 'DOGE', 'SHIB', 'LTC', 'BCH', 'UNI', 'ATOM', 'XLM', 'ALGO', 'FIL', 'NEAR', 'APT', 'ARB'];
+    if (cryptoTickers.includes(upperTicker)) return 'other';
+    return 'stocks';
+  };
+
+  // Initialize asset types when preview data loads
+  useEffect(() => {
+    if (mappedPreviewData.length > 0 && importType === 'holdings') {
+      const initialTypes = {};
+      mappedPreviewData.forEach((row, index) => {
+        initialTypes[index] = detectAssetType(row.asset_ticker);
+      });
+      setRowAssetTypes(initialTypes);
+    }
+  }, [mappedPreviewData, importType]);
 
   // Process transactions with tax lot matching
   const processTransactionsWithLots = (rawTransactions, method) => {
@@ -354,8 +376,8 @@ export default function CsvImportDialog({ open, onClose }) {
     return { transactions: processedTransactions, stats, modifiedLots };
   };
 
-  // Process holdings import
-  const processHoldings = (rawHoldings) => {
+  // Process holdings import with asset types
+  const processHoldings = (rawHoldings, assetTypes = {}) => {
     const results = [];
     let stats = { holdings: 0, errors: 0 };
 
@@ -384,12 +406,12 @@ export default function CsvImportDialog({ open, onClose }) {
       results.push({
         holding: {
           ticker: ticker,
-          asset_name: row.asset_name || ticker,
+          asset_name: ticker,
           quantity: quantity,
           cost_basis_total: costBasisTotal,
           current_price: pricePerUnit,
-          asset_type: ticker === 'BTC' || ticker === 'ETH' ? 'crypto' : 'stocks',
-          notes: row.notes || 'Imported from CSV',
+          asset_type: assetTypes[index] || detectAssetType(ticker),
+          notes: 'Imported from CSV',
         },
         syntheticTransaction: {
           type: 'buy',
@@ -400,8 +422,8 @@ export default function CsvImportDialog({ open, onClose }) {
           price_per_unit: pricePerUnit,
           total_value: costBasisTotal,
           date: acquisitionDate,
-          exchange_or_wallet: row.account_name || 'Imported',
-          notes: `Synthetic buy from holdings import${row.notes ? '. ' + row.notes : ''}`,
+          exchange_or_wallet: 'Imported',
+          notes: `Synthetic buy from holdings import`,
           lot_id: lotId,
         }
       });
@@ -591,7 +613,7 @@ export default function CsvImportDialog({ open, onClose }) {
 
       // ===== HOLDINGS IMPORT =====
       if (importType === 'holdings') {
-        const { results, stats } = processHoldings(rawData);
+        const { results, stats } = processHoldings(rawData, rowAssetTypes);
         
         for (const { holding, syntheticTransaction } of results) {
           // Create or update holding
@@ -853,11 +875,11 @@ export default function CsvImportDialog({ open, onClose }) {
                         <span><strong className="text-zinc-300">Total Cost Basis</strong> — Total amount paid</span>
                       </li>
                     </ul>
-                    <p className="text-xs text-zinc-500 mt-3">Optional: Acquisition Date, Asset Name, Account Name, Notes</p>
+                    <p className="text-xs text-zinc-500 mt-3">Optional: Acquisition Date</p>
                     <div className="mt-3 pt-3 border-t border-zinc-700">
-                      <p className="text-sm text-zinc-300">
-                        <span className="text-orange-400 font-semibold">💡 Use this for:</span> Old accounts with limited history (e.g., Fidelity only gives 5 years). Creates a single buy transaction per holding for future tax lot tracking.
-                      </p>
+                     <p className="text-sm text-zinc-300">
+                       <span className="text-orange-400 font-semibold">💡 Use this for:</span> Old accounts with limited history (e.g., Fidelity only gives 5 years). Creates a single buy transaction per holding for future tax lot tracking. Asset type is auto-detected and can be edited in preview.
+                     </p>
                     </div>
                   </>
                 )}
@@ -1111,37 +1133,158 @@ export default function CsvImportDialog({ open, onClose }) {
               {/* Preview Table */}
               <div>
                 <p className="text-sm text-zinc-400 mb-2">Preview (first 10 rows of {fullCsvData.length}):</p>
-                <div className="overflow-x-auto border rounded-lg border-zinc-700 max-h-48">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="border-zinc-700">
-                        {activeFields.filter(f => mapping[f.key]).map(field => (
-                          <TableHead key={field.key} className="text-zinc-400 text-xs whitespace-nowrap">
-                            {field.label}
-                          </TableHead>
+                
+                {importType === 'holdings' ? (
+                  <div className="space-y-3">
+                    {/* Bulk actions bar - only show when rows selected */}
+                    {selectedRows.size > 0 && (
+                      <div className="flex items-center gap-3 p-3 bg-orange-500/10 border border-orange-500/30 rounded-lg">
+                        <span className="text-sm text-orange-400 font-medium">{selectedRows.size} row{selectedRows.size > 1 ? 's' : ''} selected</span>
+                        <Select
+                          onValueChange={(value) => {
+                            const newTypes = { ...rowAssetTypes };
+                            selectedRows.forEach(index => {
+                              newTypes[index] = value;
+                            });
+                            setRowAssetTypes(newTypes);
+                          }}
+                        >
+                          <SelectTrigger className="w-44 bg-zinc-900 border-zinc-700 text-zinc-100">
+                            <SelectValue placeholder="Bulk Set Type..." />
+                          </SelectTrigger>
+                          <SelectContent className="bg-zinc-900 border-zinc-700">
+                            <SelectItem value="btc" className="text-zinc-100">BTC (Bitcoin)</SelectItem>
+                            <SelectItem value="stocks" className="text-zinc-100">Stocks</SelectItem>
+                            <SelectItem value="bonds" className="text-zinc-100">Bonds</SelectItem>
+                            <SelectItem value="real_estate" className="text-zinc-100">Real Estate</SelectItem>
+                            <SelectItem value="cash" className="text-zinc-100">Cash</SelectItem>
+                            <SelectItem value="other" className="text-zinc-100">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setSelectedRows(new Set())}
+                          className="text-zinc-400 hover:text-zinc-100"
+                        >
+                          Clear Selection
+                        </Button>
+                      </div>
+                    )}
+
+                    {/* Table */}
+                    <div className="border border-zinc-800 rounded-lg overflow-hidden">
+                      {/* Header */}
+                      <div className="grid grid-cols-12 gap-2 p-3 bg-zinc-800/50 text-sm font-medium text-zinc-400">
+                        <div className="col-span-1 flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={selectedRows.size === mappedPreviewData.length && mappedPreviewData.length > 0}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedRows(new Set(mappedPreviewData.map((_, i) => i)));
+                              } else {
+                                setSelectedRows(new Set());
+                              }
+                            }}
+                            className="w-4 h-4 rounded border-zinc-600 bg-zinc-900"
+                          />
+                        </div>
+                        <div className="col-span-2">Ticker</div>
+                        <div className="col-span-2">Quantity</div>
+                        <div className="col-span-2">Cost Basis</div>
+                        <div className="col-span-2">Date</div>
+                        <div className="col-span-3">Asset Type</div>
+                      </div>
+
+                      {/* Rows */}
+                      <div className="max-h-64 overflow-y-auto">
+                        {mappedPreviewData.map((row, index) => (
+                          <div 
+                            key={index} 
+                            className={cn(
+                              "grid grid-cols-12 gap-2 p-3 items-center text-sm border-t border-zinc-800",
+                              selectedRows.has(index) && 'bg-orange-500/5'
+                            )}
+                          >
+                            <div className="col-span-1">
+                              <input
+                                type="checkbox"
+                                checked={selectedRows.has(index)}
+                                onChange={(e) => {
+                                  const newSelected = new Set(selectedRows);
+                                  if (e.target.checked) {
+                                    newSelected.add(index);
+                                  } else {
+                                    newSelected.delete(index);
+                                  }
+                                  setSelectedRows(newSelected);
+                                }}
+                                className="w-4 h-4 rounded border-zinc-600 bg-zinc-900"
+                              />
+                            </div>
+                            <div className="col-span-2 text-zinc-100 font-medium">{row.asset_ticker}</div>
+                            <div className="col-span-2 text-zinc-100">{Number(row.quantity).toFixed(8)}</div>
+                            <div className="col-span-2 text-zinc-100">${Number(row.cost_basis_total).toLocaleString()}</div>
+                            <div className="col-span-2 text-zinc-400">{row.acquisition_date || '—'}</div>
+                            <div className="col-span-3">
+                              <Select
+                                value={rowAssetTypes[index] || 'stocks'}
+                                onValueChange={(value) => {
+                                  setRowAssetTypes({ ...rowAssetTypes, [index]: value });
+                                }}
+                              >
+                                <SelectTrigger className="h-8 bg-zinc-900 border-zinc-700 text-zinc-100">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="bg-zinc-900 border-zinc-700">
+                                  <SelectItem value="btc" className="text-zinc-100">BTC</SelectItem>
+                                  <SelectItem value="stocks" className="text-zinc-100">Stocks</SelectItem>
+                                  <SelectItem value="bonds" className="text-zinc-100">Bonds</SelectItem>
+                                  <SelectItem value="real_estate" className="text-zinc-100">Real Estate</SelectItem>
+                                  <SelectItem value="cash" className="text-zinc-100">Cash</SelectItem>
+                                  <SelectItem value="other" className="text-zinc-100">Other</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
                         ))}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {mappedPreviewData.map((row, index) => (
-                        <TableRow key={index} className="border-zinc-800">
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto border rounded-lg border-zinc-700 max-h-48">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="border-zinc-700">
                           {activeFields.filter(f => mapping[f.key]).map(field => (
-                            <TableCell key={field.key} className={cn(
-                              "text-xs whitespace-nowrap",
-                              row[field.key] === '—' && 'text-rose-400',
-                              field.key === 'type' && row[field.key] === 'buy' && 'text-emerald-400',
-                              field.key === 'type' && row[field.key] === 'sell' && 'text-rose-400'
-                            )}>
-                              {['quantity', 'price_per_unit', 'trading_fee', 'cost_basis_total'].includes(field.key)
-                                ? (typeof row[field.key] === 'number' ? row[field.key].toLocaleString() : row[field.key])
-                                : row[field.key]}
-                            </TableCell>
+                            <TableHead key={field.key} className="text-zinc-400 text-xs whitespace-nowrap">
+                              {field.label}
+                            </TableHead>
                           ))}
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+                      </TableHeader>
+                      <TableBody>
+                        {mappedPreviewData.map((row, index) => (
+                          <TableRow key={index} className="border-zinc-800">
+                            {activeFields.filter(f => mapping[f.key]).map(field => (
+                              <TableCell key={field.key} className={cn(
+                                "text-xs whitespace-nowrap",
+                                row[field.key] === '—' && 'text-rose-400',
+                                field.key === 'type' && row[field.key] === 'buy' && 'text-emerald-400',
+                                field.key === 'type' && row[field.key] === 'sell' && 'text-rose-400'
+                              )}>
+                                {['quantity', 'price_per_unit', 'trading_fee', 'cost_basis_total'].includes(field.key)
+                                  ? (typeof row[field.key] === 'number' ? row[field.key].toLocaleString() : row[field.key])
+                                  : row[field.key]}
+                              </TableCell>
+                            ))}
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
               </div>
 
               {importType === 'transactions' && (

@@ -34,7 +34,7 @@ export default function AddAssetWithTransaction({
   const [showCreateAccount, setShowCreateAccount] = useState(false);
   const [assetData, setAssetData] = useState({
     asset_name: '',
-    asset_type: 'crypto',
+    asset_type: 'stocks',
     ticker: '',
     quantity: '',
     current_price: '',
@@ -61,7 +61,7 @@ export default function AddAssetWithTransaction({
     
     setFetchingPrice(true);
     try {
-      if (assetType === 'crypto' && ticker !== 'BTC') {
+      if (assetType === 'btc' && ticker !== 'BTC') {
         // Use CoinGecko for crypto
         const idMap = { ETH: 'ethereum', SOL: 'solana', XRP: 'ripple', ADA: 'cardano', DOGE: 'dogecoin', DOT: 'polkadot', LINK: 'chainlink', AVAX: 'avalanche-2', MATIC: 'matic-network', LTC: 'litecoin' };
         const coinId = idMap[ticker.toUpperCase()] || ticker.toLowerCase();
@@ -98,7 +98,7 @@ export default function AddAssetWithTransaction({
     if (initialData) {
       setAssetData({
         asset_name: initialData.asset_name || '',
-        asset_type: initialData.asset_type || 'crypto',
+        asset_type: initialData.asset_type === 'crypto' ? 'btc' : (initialData.asset_type || 'stocks'),
         ticker: initialData.ticker || '',
         quantity: initialData.quantity || '',
         current_price: initialData.current_price || '',
@@ -266,11 +266,11 @@ export default function AddAssetWithTransaction({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="bg-zinc-900 border-zinc-800 text-zinc-100">
-                    <SelectItem value="crypto" className="text-zinc-100">Crypto</SelectItem>
-                    <SelectItem value="cash" className="text-zinc-100">Cash</SelectItem>
+                    <SelectItem value="btc" className="text-zinc-100">BTC (Bitcoin)</SelectItem>
                     <SelectItem value="stocks" className="text-zinc-100">Stocks</SelectItem>
-                    <SelectItem value="real_estate" className="text-zinc-100">Real Estate</SelectItem>
                     <SelectItem value="bonds" className="text-zinc-100">Bonds</SelectItem>
+                    <SelectItem value="real_estate" className="text-zinc-100">Real Estate</SelectItem>
+                    <SelectItem value="cash" className="text-zinc-100">Cash</SelectItem>
                     <SelectItem value="other" className="text-zinc-100">Other</SelectItem>
                   </SelectContent>
                 </Select>
@@ -471,7 +471,7 @@ export default function AddAssetWithTransaction({
 
                       <div className="space-y-1">
                         <Label className="text-xs text-zinc-500">
-                          {assetData.asset_type === 'crypto' ? 'Exchange' : 
+                          {assetData.asset_type === 'btc' ? 'Exchange' : 
                            assetData.asset_type === 'stocks' ? 'Brokerage' : 
                            assetData.asset_type === 'real_estate' ? 'Platform/Agent' :
                            assetData.asset_type === 'bonds' ? 'Brokerage' : 'Source'}
@@ -484,7 +484,7 @@ export default function AddAssetWithTransaction({
                             <SelectValue placeholder="Select..." />
                           </SelectTrigger>
                           <SelectContent className="bg-zinc-900 border-zinc-800 text-zinc-100">
-                            {assetData.asset_type === 'crypto' ? (
+                            {assetData.asset_type === 'btc' ? (
                               <>
                                 <SelectItem value="coinbase" className="text-zinc-100">Coinbase</SelectItem>
                                 <SelectItem value="kraken" className="text-zinc-100">Kraken</SelectItem>

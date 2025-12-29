@@ -79,7 +79,7 @@ export async function syncHoldingFromLots(ticker, accountId) {
         
         await base44.entities.Holding.create({
           asset_name: ticker,
-          asset_type: ticker === 'BTC' || ticker === 'ETH' ? 'crypto' : 'stocks',
+          asset_type: ticker === 'BTC' ? 'btc' : 'stocks',
           ticker: ticker,
           quantity: totalFromLots,
           cost_basis_total: newTotalCostBasis,

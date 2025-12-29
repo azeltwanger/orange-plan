@@ -3,6 +3,7 @@ import { Zap, DollarSign, TrendingUp, Building, Coins, Package } from 'lucide-re
 import { cn } from "@/lib/utils";
 
 const iconMap = {
+  btc: Zap,
   crypto: Zap,
   cash: DollarSign,
   stocks: TrendingUp,
@@ -12,6 +13,7 @@ const iconMap = {
 };
 
 const colorMap = {
+  btc: { icon: 'text-orange-400', bg: 'bg-orange-400/10', border: 'border-orange-400/20' },
   crypto: { icon: 'text-orange-400', bg: 'bg-orange-400/10', border: 'border-orange-400/20' },
   cash: { icon: 'text-emerald-400', bg: 'bg-emerald-400/10', border: 'border-emerald-400/20' },
   stocks: { icon: 'text-blue-400', bg: 'bg-blue-400/10', border: 'border-blue-400/20' },
