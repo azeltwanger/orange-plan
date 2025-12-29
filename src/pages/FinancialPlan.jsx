@@ -3921,9 +3921,13 @@ export default function FinancialPlan() {
                               <span className="text-purple-400">${actualRoth.toLocaleString()}</span>
                             </div>
                           </div>
+                          <div className="flex justify-between">
+                            <span className="text-zinc-400">• Taxes on Withdrawal (Fed + {stateOfResidence}):</span>
+                            <span className="text-rose-300">${Math.round(Math.abs(annualSavings) * 0.15).toLocaleString()}</span>
+                          </div>
                           <div className="flex justify-between border-t border-zinc-700 pt-2 mt-2">
-                            <span className="text-zinc-300 font-medium">Net Withdrawal from Taxable:</span>
-                            <span className="font-semibold text-rose-400">{formatNumber(annualSavings)}</span>
+                            <span className="text-zinc-300 font-medium">Total Withdrawal from Taxable:</span>
+                            <span className="font-semibold text-rose-400">{formatNumber(annualSavings - Math.abs(annualSavings) * 0.15)}</span>
                           </div>
                           <div className="mt-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
                             <p className="text-xs text-amber-400">
