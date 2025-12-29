@@ -282,23 +282,24 @@ export const estimateRetirementWithdrawalTaxes = ({
 };
 
 // Calculate federal long-term capital gains tax with 0%/15%/20% brackets
-// Brackets are inflation-adjusted for future years
+// Uses actual bracket stacking and standard deduction
 export function calculateFederalLTCGTax({
   longTermGains = 0,
   shortTermGains = 0,
   ordinaryIncome = 0,
   filingStatus = 'single',
   age = 65,
-  year = 2025
+  year = 2025,
+  inflationRate = null
 }) {
   // Normalize filing status
   const normalizedStatus = filingStatus === 'married' ? 'married_filing_jointly' : filingStatus;
   
   // Get standard deduction (includes extra for 65+, inflation-adjusted)
-  const standardDeduction = getStandardDeductionFromData(year, normalizedStatus, age);
+  const standardDeduction = getStandardDeductionFromData(year, normalizedStatus, age, false, inflationRate);
   
   // Get LTCG brackets (inflation-adjusted for future years)
-  const ltcgBrackets = getYearData(FEDERAL_LTCG_BRACKETS, year);
+  const ltcgBrackets = getYearData(FEDERAL_LTCG_BRACKETS, year, inflationRate);
   const brackets = ltcgBrackets[normalizedStatus] || ltcgBrackets.single;
   
   // Short-term gains taxed as ordinary income
