@@ -11,7 +11,11 @@ import {
   getTaxDataForYear
 } from '@/components/shared/taxConfig';
 
-import { FEDERAL_LTCG_BRACKETS, getStandardDeduction as getStandardDeductionFromData } from '@/components/shared/taxData';
+import { 
+  FEDERAL_LTCG_BRACKETS, 
+  getStandardDeduction as getStandardDeductionFromData,
+  getYearData
+} from '@/components/shared/taxData';
 
 // Re-export for backward compatibility
 export { 
@@ -276,6 +280,83 @@ export const estimateRetirementWithdrawalTaxes = ({
     effectiveTaxRate: withdrawalNeeded > 0 ? (totalTax + totalPenalty) / withdrawalNeeded : 0,
   };
 };
+
+// Calculate federal long-term capital gains tax with 0%/15%/20% brackets
+// Brackets are inflation-adjusted for future years
+export function calculateFederalLTCGTax({
+  longTermGains = 0,
+  shortTermGains = 0,
+  ordinaryIncome = 0,
+  filingStatus = 'single',
+  age = 65,
+  year = 2025
+}) {
+  // Normalize filing status
+  const normalizedStatus = filingStatus === 'married' ? 'married_filing_jointly' : filingStatus;
+  
+  // Get standard deduction (includes extra for 65+, inflation-adjusted)
+  const standardDeduction = getStandardDeductionFromData(year, normalizedStatus, age);
+  
+  // Get LTCG brackets (inflation-adjusted for future years)
+  const ltcgBrackets = getYearData(FEDERAL_LTCG_BRACKETS, year);
+  const brackets = ltcgBrackets[normalizedStatus] || ltcgBrackets.single;
+  
+  // Short-term gains taxed as ordinary income
+  const totalOrdinaryIncome = ordinaryIncome + shortTermGains;
+  
+  // Apply standard deduction to ordinary income first
+  const taxableOrdinaryIncome = Math.max(0, totalOrdinaryIncome - standardDeduction);
+  
+  // Remaining deduction can offset LTCG
+  const remainingDeduction = Math.max(0, standardDeduction - totalOrdinaryIncome);
+  const taxableLTCG = Math.max(0, longTermGains - remainingDeduction);
+  
+  if (taxableLTCG <= 0) {
+    return {
+      ltcgTax: 0,
+      taxableLTCG: 0,
+      gainsAt0Percent: 0,
+      gainsAt15Percent: 0,
+      gainsAt20Percent: 0,
+      effectiveLTCGRate: 0,
+      standardDeductionUsed: standardDeduction,
+      remainingDeductionAppliedToGains: Math.min(remainingDeduction, longTermGains)
+    };
+  }
+  
+  // Calculate LTCG tax using bracket stacking
+  // Ordinary income "fills" brackets first, LTCG stacks on top
+  let ltcgTax = 0;
+  let remainingGains = taxableLTCG;
+  
+  // 0% bracket space remaining after ordinary income
+  const zeroRateSpace = Math.max(0, brackets.zeroMax - taxableOrdinaryIncome);
+  const gainsAt0 = Math.min(remainingGains, zeroRateSpace);
+  remainingGains -= gainsAt0;
+  // 0% = $0 tax
+  
+  // 15% bracket space
+  const fifteenRateStart = Math.max(taxableOrdinaryIncome, brackets.zeroMax);
+  const fifteenRateSpace = Math.max(0, brackets.fifteenMax - fifteenRateStart);
+  const gainsAt15 = Math.min(remainingGains, fifteenRateSpace);
+  ltcgTax += gainsAt15 * 0.15;
+  remainingGains -= gainsAt15;
+  
+  // 20% on remainder
+  const gainsAt20 = remainingGains;
+  ltcgTax += gainsAt20 * 0.20;
+  
+  return {
+    ltcgTax: Math.round(ltcgTax),
+    taxableLTCG,
+    gainsAt0Percent: gainsAt0,
+    gainsAt15Percent: gainsAt15,
+    gainsAt20Percent: gainsAt20,
+    effectiveLTCGRate: taxableLTCG > 0 ? ltcgTax / taxableLTCG : 0,
+    standardDeductionUsed: standardDeduction,
+    remainingDeductionAppliedToGains: Math.min(remainingDeduction, longTermGains)
+  };
+}
 
 // Calculate federal long-term capital gains tax with 0%/15%/20% brackets
 export function calculateFederalLTCGTax({
