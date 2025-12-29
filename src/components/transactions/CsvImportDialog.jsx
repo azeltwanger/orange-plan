@@ -180,17 +180,6 @@ export default function CsvImportDialog({ open, onClose }) {
     return 'stocks';
   };
 
-  // Initialize asset types when preview data loads
-  useEffect(() => {
-    if (mappedPreviewData.length > 0 && importType === 'holdings') {
-      const initialTypes = {};
-      mappedPreviewData.forEach((row, index) => {
-        initialTypes[index] = detectAssetType(row.asset_ticker);
-      });
-      setRowAssetTypes(initialTypes);
-    }
-  }, [mappedPreviewData, importType]);
-
   // Process transactions with tax lot matching
   const processTransactionsWithLots = (rawTransactions, method) => {
     const existingBuys = existingTransactions
@@ -539,6 +528,17 @@ export default function CsvImportDialog({ open, onClose }) {
       !field.required || (mapping[field.key] && csvHeaders.includes(mapping[field.key]))
     );
   }, [mapping, csvHeaders, activeFields]);
+
+  // Initialize asset types when preview data loads
+  useEffect(() => {
+    if (mappedPreviewData.length > 0 && importType === 'holdings') {
+      const initialTypes = {};
+      mappedPreviewData.forEach((row, index) => {
+        initialTypes[index] = detectAssetType(row.asset_ticker);
+      });
+      setRowAssetTypes(initialTypes);
+    }
+  }, [mappedPreviewData, importType, detectAssetType]);
 
   const importData = useMutation({
     mutationFn: async () => {
