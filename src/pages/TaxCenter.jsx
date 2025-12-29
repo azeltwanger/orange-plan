@@ -1382,14 +1382,14 @@ export default function TaxCenter() {
                 <span className="text-zinc-400">Short-term (Fed + {stateOfResidence}):</span>
                 <span className={combinedSTCGRate <= 0.12 ? "text-emerald-400" : "text-zinc-200"}>
                   {(combinedSTCGRate * 100).toFixed(1)}%
-                  {stateRate > 0 && <span className="text-zinc-500 text-xs ml-1">({(effectiveSTCGRate * 100).toFixed(0)}% + {(stateRate * 100).toFixed(1)}%)</span>}
+                  {effectiveStateSTCGRate > 0 && <span className="text-zinc-500 text-xs ml-1">({(effectiveSTCGRate * 100).toFixed(0)}% + {(effectiveStateSTCGRate * 100).toFixed(1)}%)</span>}
                 </span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-zinc-400">Long-term (Fed + {stateOfResidence}):</span>
-                <span className={effectiveLTCGRate === 0 && stateRate === 0 ? "text-emerald-400 font-semibold" : "text-zinc-200"}>
-                  {effectiveLTCGRate === 0 && stateRate === 0 ? '0% ✓' : `${(combinedLTCGRate * 100).toFixed(1)}%`}
-                  {stateRate > 0 && <span className="text-zinc-500 text-xs ml-1">({(effectiveLTCGRate * 100).toFixed(0)}% + {(stateRate * 100).toFixed(1)}%)</span>}
+                <span className={effectiveLTCGRate === 0 && effectiveStateLTCGRate === 0 ? "text-emerald-400 font-semibold" : "text-zinc-200"}>
+                  {effectiveLTCGRate === 0 && effectiveStateLTCGRate === 0 ? '0% ✓' : `${(combinedLTCGRate * 100).toFixed(1)}%`}
+                  {effectiveStateLTCGRate > 0 && <span className="text-zinc-500 text-xs ml-1">({(effectiveLTCGRate * 100).toFixed(0)}% + {(effectiveStateLTCGRate * 100).toFixed(1)}%)</span>}
                 </span>
               </div>
             </div>
