@@ -347,19 +347,30 @@ export default function TaxCenter() {
 
   const deleteTx = useMutation({
     mutationFn: async (id) => {
-      const tx = allTransactions.find(t => t.id === id);
+      // Fetch the actual transaction from database (not cache)
+      const tx = await base44.entities.Transaction.get(id);
       
       if (tx && tx.type === 'sell') {
         // REVERSE THE SALE - restore tax lots
         if (tx.lots_used && tx.lots_used.length > 0) {
+          console.log("=== REVERSING SELL - RESTORING LOTS ===");
+          console.log("lots_used:", tx.lots_used);
+          
           for (const lotUsage of tx.lots_used) {
-            const buyTx = allTransactions.find(t => t.id === lotUsage.lot_id);
+            // Fetch the buy transaction directly from database
+            const buyTx = await base44.entities.Transaction.get(lotUsage.lot_id);
+            
             if (buyTx) {
               const currentRemaining = buyTx.remaining_quantity ?? buyTx.quantity;
               const newRemaining = currentRemaining + lotUsage.quantity_sold;
+              
+              console.log(`Restoring lot ${lotUsage.lot_id}: ${currentRemaining} + ${lotUsage.quantity_sold} = ${newRemaining}`);
+              
               await base44.entities.Transaction.update(buyTx.id, {
                 remaining_quantity: newRemaining
               });
+            } else {
+              console.log(`WARNING: Could not find lot ${lotUsage.lot_id}`);
             }
           }
         }
@@ -370,6 +381,7 @@ export default function TaxCenter() {
       
       // Sync holdings from lots (source of truth)
       if (tx) {
+        console.log("=== SYNCING HOLDINGS AFTER DELETE ===");
         await syncHoldingFromLots(tx.asset_ticker, tx.account_id || null);
       }
     },
