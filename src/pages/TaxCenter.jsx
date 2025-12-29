@@ -2750,7 +2750,7 @@ export default function TaxCenter() {
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-zinc-500">Est. Tax</p>
+                    <p className="text-sm text-zinc-500">Est. Tax (Fed + {stateOfResidence})</p>
                     <p className="text-lg font-semibold text-orange-400">
                       ${(saleOutcomes[saleForm.lot_method].realizedGain > 0 
                         ? saleOutcomes[saleForm.lot_method].realizedGain * (saleOutcomes[saleForm.lot_method].holdingPeriod === 'long_term' ? combinedLTCGRate : combinedSTCGRate)
