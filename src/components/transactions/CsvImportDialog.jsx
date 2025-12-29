@@ -412,69 +412,72 @@ export default function CsvImportDialog({ open, onClose }) {
 
   const activeFields = importType === 'transactions' ? TRANSACTION_FIELDS : HOLDING_FIELDS;
 
+  // Stringify mapping for stable dependency
+  const mappingKey = JSON.stringify(mapping);
+
   // Check for duplicates when entering Step 3
   React.useEffect(() => {
-    const checkForDuplicates = async () => {
-      if (step === 3 && fullCsvData.length > 0 && importType === 'transactions') {
-        try {
-          const rawData = fullCsvData.map(row => {
-            const item = {};
-            for (const field of TRANSACTION_FIELDS) {
-              const mappedColumn = mapping[field.key];
-              if (mappedColumn && row[mappedColumn] !== undefined) {
-                let value = row[mappedColumn];
-                if (['quantity', 'price_per_unit', 'trading_fee'].includes(field.key)) {
-                  value = parseFloat(String(value).replace(/[^0-9.-]+/g, "")) || 0;
-                } else if (field.key === 'date') {
-                  value = String(value).split(' ')[0];
-                } else if (field.key === 'asset_ticker') {
-                  value = String(value).toUpperCase();
-                } else if (field.key === 'type') {
-                  value = String(value).toLowerCase().trim();
-                  if (value.includes('sell') || value.includes('sold') || value === 'sale' || value === 's') {
-                    value = 'sell';
-                  } else {
-                    value = 'buy';
-                  }
-                }
-                item[field.key] = value;
-              }
-            }
-            return item;
-          }).filter(tx => tx.quantity > 0 && tx.price_per_unit > 0);
+    if (step !== 3) {
+      setDetectedDuplicates([]);
+      setImportDuplicates(false);
+      return;
+    }
+    
+    if (fullCsvData.length === 0 || importType !== 'transactions') {
+      return;
+    }
 
-          const dupes = [];
-          for (const tx of rawData) {
-            if (tx.transaction_id) {
-              const match = existingTransactions.find(e => e.transaction_id === tx.transaction_id);
-              if (match) {
-                dupes.push({ new: tx, existing: match });
-                continue;
-              }
-            }
-            const exactMatch = existingTransactions.find(e =>
-              e.asset_ticker === tx.asset_ticker &&
-              e.type === tx.type &&
-              Math.abs((e.quantity || 0) - (tx.quantity || 0)) < 0.000001 &&
-              Math.abs((e.price_per_unit || 0) - (tx.price_per_unit || 0)) < 0.000001 &&
-              new Date(e.date).toDateString() === new Date(tx.date).toDateString() &&
-              e.exchange_or_wallet === tx.exchange_or_wallet
-            );
-            if (exactMatch) {
-              dupes.push({ new: tx, existing: exactMatch });
+    const parsedMapping = JSON.parse(mappingKey);
+    
+    const rawData = fullCsvData.map(row => {
+      const item = {};
+      for (const field of TRANSACTION_FIELDS) {
+        const mappedColumn = parsedMapping[field.key];
+        if (mappedColumn && row[mappedColumn] !== undefined) {
+          let value = row[mappedColumn];
+          if (['quantity', 'price_per_unit', 'trading_fee'].includes(field.key)) {
+            value = parseFloat(String(value).replace(/[^0-9.-]+/g, "")) || 0;
+          } else if (field.key === 'date') {
+            value = String(value).split(' ')[0];
+          } else if (field.key === 'asset_ticker') {
+            value = String(value).toUpperCase();
+          } else if (field.key === 'type') {
+            value = String(value).toLowerCase().trim();
+            if (value.includes('sell') || value.includes('sold') || value === 'sale' || value === 's') {
+              value = 'sell';
+            } else {
+              value = 'buy';
             }
           }
-          setDetectedDuplicates(dupes);
-        } catch (error) {
-          console.error('Error checking duplicates:', error);
+          item[field.key] = value;
         }
-      } else if (step !== 3) {
-        setDetectedDuplicates([]);
-        setImportDuplicates(false);
       }
-    };
-    checkForDuplicates();
-  }, [step, fullCsvData, importType, mapping, existingTransactions]);
+      return item;
+    }).filter(tx => tx.quantity > 0 && tx.price_per_unit > 0);
+
+    const dupes = [];
+    for (const tx of rawData) {
+      if (tx.transaction_id) {
+        const match = existingTransactions.find(e => e.transaction_id === tx.transaction_id);
+        if (match) {
+          dupes.push({ new: tx, existing: match });
+          continue;
+        }
+      }
+      const exactMatch = existingTransactions.find(e =>
+        e.asset_ticker === tx.asset_ticker &&
+        e.type === tx.type &&
+        Math.abs((e.quantity || 0) - (tx.quantity || 0)) < 0.000001 &&
+        Math.abs((e.price_per_unit || 0) - (tx.price_per_unit || 0)) < 0.000001 &&
+        new Date(e.date).toDateString() === new Date(tx.date).toDateString() &&
+        e.exchange_or_wallet === tx.exchange_or_wallet
+      );
+      if (exactMatch) {
+        dupes.push({ new: tx, existing: exactMatch });
+      }
+    }
+    setDetectedDuplicates(dupes);
+  }, [step, fullCsvData, importType, mappingKey, existingTransactions]);
 
   const mappedPreviewData = useMemo(() => {
     if (!csvData || csvData.length === 0 || Object.keys(mapping).length === 0) return [];
