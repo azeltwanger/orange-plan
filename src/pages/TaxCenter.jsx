@@ -574,6 +574,7 @@ export default function TaxCenter() {
   // Build tax lots from buy transactions, accounting for sales
   // Only include transactions from TAXABLE accounts (exclude 401k, IRA, etc.)
   const taxLots = useMemo(() => {
+    console.log("=== TAX LOTS CALCULATION ===");
     
     // Group by asset ticker to process each separately
     const allTickers = [...new Set(allTransactions.map(t => t.asset_ticker))];
