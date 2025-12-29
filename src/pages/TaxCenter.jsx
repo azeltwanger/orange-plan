@@ -5,7 +5,7 @@ import { format, differenceInDays } from 'date-fns';
 import { Plus, Pencil, Trash2, Receipt, TrendingUp, TrendingDown, Calendar, AlertTriangle, CheckCircle, Sparkles, RefreshCw, Info, Download, Calculator, DollarSign, Scale, ChevronRight, Upload, Loader2 } from 'lucide-react';
 import { getTaxDataForYear } from '@/components/tax/taxCalculations';
 import { syncHoldingFromLots } from '@/components/shared/syncHoldings';
-import { getStateOptions, getStateTaxSummary, STATE_TAX_CONFIG, calculateStateTaxOnRetirement } from '@/components/shared/stateTaxConfig';
+import { getStateOptions, getStateTaxSummary, STATE_TAX_CONFIG, calculateStateTaxOnRetirement, calculateStateCapitalGainsTax } from '@/components/shared/stateTaxConfig';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -966,14 +966,37 @@ export default function TaxCenter() {
   const effectiveLTCGRate = getLTCGRateForYear(annualIncome);
   const effectiveSTCGRate = getSTCGRateForYear(annualIncome);
   
-  // Add state tax rates
+  // Calculate accurate state tax rates using full calculation functions
   const stateConfig = STATE_TAX_CONFIG[stateOfResidence];
-  // Extract top marginal rate from brackets array, or use 0 for no-tax states
-  const stateRate = stateConfig?.hasIncomeTax && stateConfig.brackets?.length > 0
-    ? (stateConfig.brackets[stateConfig.brackets.length - 1].rate / 100)
-    : 0;
-  const combinedSTCGRate = effectiveSTCGRate + stateRate;
-  const combinedLTCGRate = effectiveLTCGRate + stateRate;
+
+  // Calculate effective state rates based on actual income using the proper functions
+  const stateCapGainsResult = calculateStateCapitalGainsTax({
+    longTermGains: 10000, // Use test amount to get effective rate
+    shortTermGains: 0,
+    otherIncome: annualIncome,
+    filingStatus: filingStatus === 'married' ? 'married_filing_jointly' : filingStatus,
+    state: stateOfResidence,
+    year: selectedYear
+  });
+
+  const stateSTCGResult = calculateStateCapitalGainsTax({
+    longTermGains: 0,
+    shortTermGains: 10000, // Use test amount for STCG rate
+    otherIncome: annualIncome,
+    filingStatus: filingStatus === 'married' ? 'married_filing_jointly' : filingStatus,
+    state: stateOfResidence,
+    year: selectedYear
+  });
+
+  // Extract effective rates (tax on gains / gains amount)
+  const effectiveStateLTCGRate = stateCapGainsResult.effectiveRate || 0;
+  const effectiveStateSTCGRate = stateSTCGResult.effectiveRate || 0;
+
+  const combinedSTCGRate = effectiveSTCGRate + effectiveStateSTCGRate;
+  const combinedLTCGRate = effectiveLTCGRate + effectiveStateLTCGRate;
+
+  // Keep stateRate for backward compatibility (use income rate)
+  const stateRate = effectiveStateSTCGRate;
   
   // Standard deduction effectively increases the 0% LTCG bracket
   // Taxable income = Gross income - Standard deduction

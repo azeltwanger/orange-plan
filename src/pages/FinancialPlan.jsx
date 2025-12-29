@@ -13,7 +13,7 @@ import {
   getTaxDataForYear
 } from '@/components/tax/taxCalculations';
 import { get401kLimit, getRothIRALimit, getHSALimit, getTaxConfigForYear } from '@/components/shared/taxConfig';
-import { getStateOptions, getStateTaxSummary, STATE_TAX_CONFIG, calculateStateTaxOnRetirement } from '@/components/shared/stateTaxConfig';
+import { getStateOptions, getStateTaxSummary, STATE_TAX_CONFIG, calculateStateTaxOnRetirement, calculateStateCapitalGainsTax } from '@/components/shared/stateTaxConfig';
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
@@ -730,14 +730,21 @@ export default function FinancialPlan() {
         const yearsIntoRetirement = age - retireAge;
         const inflatedSpending = annualSpending * Math.pow(1 + inflationRate / 100, yearsFromNow);
         
-        // Calculate combined federal + state tax rate for gross-up
-        const baseFederalTaxRate = 0.15; // Base federal estimate for mixed withdrawal sources
-        const stateConfig = STATE_TAX_CONFIG[stateOfResidence];
-        // Extract top marginal rate from brackets array, or use 0 for no-tax states
-        const stateTaxRate = stateConfig?.hasIncomeTax && stateConfig.brackets?.length > 0
-          ? (stateConfig.brackets[stateConfig.brackets.length - 1].rate / 100)
-          : 0;
-        const combinedTaxRate = Math.min(0.45, baseFederalTaxRate + stateTaxRate); // Cap at 45%
+        // Calculate more accurate combined tax rate using state LTCG treatment
+        const baseFederalTaxRate = 0.15; // Base federal estimate for LTCG
+
+        // Get effective state LTCG rate (accounts for deductions like SC's 44%)
+        const stateCapGainsResult = calculateStateCapitalGainsTax({
+          longTermGains: 50000, // Representative withdrawal amount
+          shortTermGains: 0,
+          otherIncome: annualSpending * 0.3, // Assume some ordinary income
+          filingStatus: filingStatus === 'married' ? 'married_filing_jointly' : filingStatus,
+          state: stateOfResidence,
+          year: new Date().getFullYear()
+        });
+
+        const effectiveStateTaxRate = stateCapGainsResult.effectiveRate || 0;
+        const combinedTaxRate = Math.min(0.45, baseFederalTaxRate + effectiveStateTaxRate);
         const grossWithdrawal = inflatedSpending / (1 - combinedTaxRate);
         
         // Cap withdrawal to available (like main projection does)
