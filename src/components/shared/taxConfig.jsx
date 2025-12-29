@@ -4,30 +4,27 @@
 // Source: IRS.gov
 // ===========================================
 
+import {
+  FEDERAL_INCOME_BRACKETS,
+  FEDERAL_LTCG_BRACKETS,
+  STANDARD_DEDUCTIONS as TAX_DATA_STANDARD_DEDUCTIONS,
+  CONTRIBUTION_LIMITS,
+  SOCIAL_SECURITY,
+  getYearData,
+  getStandardDeduction as getStandardDeductionFromTaxData,
+  getFederalBrackets,
+  getContributionLimit
+} from './taxData';
+
 export const TAX_CONFIG = {
   // ----- CONTRIBUTION LIMITS -----
+  // Historical data only (2024+ comes from taxData.js)
   contributionLimits: {
-    2024: {
-      traditional401k: 23000,
-      traditional401k_catchUp: 7500,
-      rothIRA: 7000,
-      rothIRA_catchUp: 1000,
-      hsaIndividual: 4150,
-      hsaFamily: 8300,
-      hsa_catchUp: 1000,
-    },
-    2025: {
-      traditional401k: 23500,
-      traditional401k_catchUp: 7500,
-      rothIRA: 7000,
-      rothIRA_catchUp: 1000,
-      hsaIndividual: 4300,
-      hsaFamily: 8550,
-      hsa_catchUp: 1000,
-    },
+    // No historical data - taxData.js starts at 2024
   },
 
   // ----- FEDERAL INCOME TAX BRACKETS -----
+  // Historical data only (2024+ comes from taxData.js)
   federalBrackets: {
     2018: {
       single: [
@@ -149,49 +146,10 @@ export const TAX_CONFIG = {
         { min: 693750, max: Infinity, rate: 0.37, label: '37%' },
       ],
     },
-    2024: {
-      single: [
-        { min: 0, max: 11600, rate: 0.10, label: '10%' },
-        { min: 11600, max: 47150, rate: 0.12, label: '12%' },
-        { min: 47150, max: 100525, rate: 0.22, label: '22%' },
-        { min: 100525, max: 191950, rate: 0.24, label: '24%' },
-        { min: 191950, max: 243725, rate: 0.32, label: '32%' },
-        { min: 243725, max: 609350, rate: 0.35, label: '35%' },
-        { min: 609350, max: Infinity, rate: 0.37, label: '37%' },
-      ],
-      married: [
-        { min: 0, max: 23200, rate: 0.10, label: '10%' },
-        { min: 23200, max: 94300, rate: 0.12, label: '12%' },
-        { min: 94300, max: 201050, rate: 0.22, label: '22%' },
-        { min: 201050, max: 383900, rate: 0.24, label: '24%' },
-        { min: 383900, max: 487450, rate: 0.32, label: '32%' },
-        { min: 487450, max: 731200, rate: 0.35, label: '35%' },
-        { min: 731200, max: Infinity, rate: 0.37, label: '37%' },
-      ],
-    },
-    2025: {
-      single: [
-        { min: 0, max: 11925, rate: 0.10, label: '10%' },
-        { min: 11925, max: 48475, rate: 0.12, label: '12%' },
-        { min: 48475, max: 103350, rate: 0.22, label: '22%' },
-        { min: 103350, max: 197300, rate: 0.24, label: '24%' },
-        { min: 197300, max: 250525, rate: 0.32, label: '32%' },
-        { min: 250525, max: 626350, rate: 0.35, label: '35%' },
-        { min: 626350, max: Infinity, rate: 0.37, label: '37%' },
-      ],
-      married: [
-        { min: 0, max: 23850, rate: 0.10, label: '10%' },
-        { min: 23850, max: 96950, rate: 0.12, label: '12%' },
-        { min: 96950, max: 206700, rate: 0.22, label: '22%' },
-        { min: 206700, max: 394600, rate: 0.24, label: '24%' },
-        { min: 394600, max: 501050, rate: 0.32, label: '32%' },
-        { min: 501050, max: 751600, rate: 0.35, label: '35%' },
-        { min: 751600, max: Infinity, rate: 0.37, label: '37%' },
-      ],
-    },
   },
 
   // ----- STANDARD DEDUCTION -----
+  // Historical data only (2024+ comes from taxData.js)
   standardDeduction: {
     2018: { single: 12000, married: 24000 },
     2019: { single: 12200, married: 24400 },
@@ -199,11 +157,10 @@ export const TAX_CONFIG = {
     2021: { single: 12550, married: 25100 },
     2022: { single: 12950, married: 25900 },
     2023: { single: 13850, married: 27700 },
-    2024: { single: 14600, married: 29200 },
-    2025: { single: 15000, married: 30000 },
   },
 
   // ----- CAPITAL GAINS TAX BRACKETS -----
+  // Historical data only (2024+ comes from taxData.js)
   capitalGainsBrackets: {
     2018: {
       single: [
@@ -277,30 +234,6 @@ export const TAX_CONFIG = {
         { min: 553850, max: Infinity, rate: 0.20, label: '20%' },
       ],
     },
-    2024: {
-      single: [
-        { min: 0, max: 47025, rate: 0, label: '0%' },
-        { min: 47025, max: 518900, rate: 0.15, label: '15%' },
-        { min: 518900, max: Infinity, rate: 0.20, label: '20%' },
-      ],
-      married: [
-        { min: 0, max: 94050, rate: 0, label: '0%' },
-        { min: 94050, max: 583750, rate: 0.15, label: '15%' },
-        { min: 583750, max: Infinity, rate: 0.20, label: '20%' },
-      ],
-    },
-    2025: {
-      single: [
-        { min: 0, max: 48350, rate: 0, label: '0%' },
-        { min: 48350, max: 533400, rate: 0.15, label: '15%' },
-        { min: 533400, max: Infinity, rate: 0.20, label: '20%' },
-      ],
-      married: [
-        { min: 0, max: 96700, rate: 0, label: '0%' },
-        { min: 96700, max: 600050, rate: 0.15, label: '15%' },
-        { min: 600050, max: Infinity, rate: 0.20, label: '20%' },
-      ],
-    },
   },
 
   // ----- NIIT (Net Investment Income Tax) -----
@@ -311,9 +244,9 @@ export const TAX_CONFIG = {
   },
 
   // ----- SOCIAL SECURITY -----
+  // Historical data only (2024+ comes from taxData.js)
   socialSecurity: {
-    2024: { wageBase: 168600, taxRate: 0.062 },
-    2025: { wageBase: 176100, taxRate: 0.062 },
+    // No historical data - taxData.js starts at 2024
   },
 
   // ----- MEDICARE -----
@@ -326,7 +259,54 @@ export const TAX_CONFIG = {
 
 // Helper functions
 export function getTaxConfigForYear(year) {
-  // Returns config for requested year, or falls back to most recent
+  // For 2024+ use taxData.js (supports inflation adjustment)
+  if (year >= 2024) {
+    const fedBrackets = getYearData(FEDERAL_INCOME_BRACKETS, year);
+    const ltcgBrackets = getYearData(FEDERAL_LTCG_BRACKETS, year);
+    const stdDeduction = getYearData(TAX_DATA_STANDARD_DEDUCTIONS, year);
+    const contribLimits = getYearData(CONTRIBUTION_LIMITS, year);
+    const socialSec = getYearData(SOCIAL_SECURITY, year);
+    
+    return {
+      contributionLimits: {
+        traditional401k: contribLimits.traditional_401k,
+        traditional401k_catchUp: contribLimits.traditional_401k_catchup,
+        rothIRA: contribLimits.roth_ira,
+        rothIRA_catchUp: contribLimits.roth_ira_catchup,
+        hsaIndividual: contribLimits.hsa_single,
+        hsaFamily: contribLimits.hsa_family,
+        hsa_catchUp: contribLimits.hsa_catchup,
+      },
+      federalBrackets: {
+        single: fedBrackets.single?.map(b => ({ ...b, rate: b.rate / 100, label: `${b.rate}%` })) || [],
+        married: (fedBrackets.married_filing_jointly || fedBrackets.married)?.map(b => ({ ...b, rate: b.rate / 100, label: `${b.rate}%` })) || [],
+      },
+      standardDeduction: {
+        single: stdDeduction.single,
+        married: stdDeduction.married_filing_jointly || stdDeduction.married,
+      },
+      capitalGainsBrackets: {
+        single: [
+          { min: 0, max: ltcgBrackets.single?.zeroMax || 48350, rate: 0, label: '0%' },
+          { min: ltcgBrackets.single?.zeroMax || 48350, max: ltcgBrackets.single?.fifteenMax || 533400, rate: 0.15, label: '15%' },
+          { min: ltcgBrackets.single?.fifteenMax || 533400, max: Infinity, rate: 0.20, label: '20%' },
+        ],
+        married: [
+          { min: 0, max: (ltcgBrackets.married_filing_jointly || ltcgBrackets.married)?.zeroMax || 96700, rate: 0, label: '0%' },
+          { min: (ltcgBrackets.married_filing_jointly || ltcgBrackets.married)?.zeroMax || 96700, max: (ltcgBrackets.married_filing_jointly || ltcgBrackets.married)?.fifteenMax || 600050, rate: 0.15, label: '15%' },
+          { min: (ltcgBrackets.married_filing_jointly || ltcgBrackets.married)?.fifteenMax || 600050, max: Infinity, rate: 0.20, label: '20%' },
+        ],
+      },
+      socialSecurity: {
+        wageBase: socialSec.wageBase,
+        taxRate: socialSec.taxRate / 100,
+      },
+      niit: TAX_CONFIG.niitThreshold,
+      medicare: TAX_CONFIG.medicare,
+    };
+  }
+  
+  // For historical years (pre-2024), use local TAX_CONFIG data
   const getForYear = (configSection) => {
     if (configSection[year]) return configSection[year];
     const years = Object.keys(configSection).map(Number).sort((a, b) => b - a);
