@@ -32,7 +32,8 @@ export {
 };
 
 // Backward compatibility
-export const STANDARD_DEDUCTION_2024 = STANDARD_DEDUCTIONS[2025];
+export const STANDARD_DEDUCTION_2024 = { single: 14600, married: 29200 };
+export const STANDARD_DEDUCTION_2025 = { single: 15000, married: 30000 };
 export const TAX_BRACKETS_2024 = {
   single: {
     income: [
@@ -67,8 +68,6 @@ export const TAX_BRACKETS_2024 = {
     ],
   },
 };
-
-export const STANDARD_DEDUCTION_2025 = STANDARD_DEDUCTIONS[2025];
 
 // Calculate capital gains tax (simplified - uses marginal rate)
 export const calculateCapitalGainsTax = (gain, isLongTerm, taxableIncome, filingStatus = 'single', year = 2025) => {
