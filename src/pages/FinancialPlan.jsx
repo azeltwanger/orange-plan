@@ -13,7 +13,7 @@ import {
   getTaxDataForYear
 } from '@/components/tax/taxCalculations';
 import { get401kLimit, getRothIRALimit, getHSALimit, getTaxConfigForYear } from '@/components/shared/taxConfig';
-import { getStateOptions, getStateTaxSummary, STATE_TAX_CONFIG } from '@/components/shared/stateTaxConfig';
+import { getStateOptions, getStateTaxSummary, STATE_TAX_CONFIG, calculateStateTaxOnRetirement } from '@/components/shared/stateTaxConfig';
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
@@ -720,10 +720,16 @@ export default function FinancialPlan() {
       }
       
       if (isRetired) {
-        // Inflation-adjusted withdrawal + tax gross-up
+        // Inflation-adjusted withdrawal + tax gross-up (federal + state)
         const yearsIntoRetirement = age - retireAge;
         const inflatedSpending = annualSpending * Math.pow(1 + inflationRate / 100, yearsFromNow);
-        const grossWithdrawal = inflatedSpending * 1.15; // ~15% average tax
+        
+        // Calculate combined federal + state tax rate for gross-up
+        const baseFederalTaxRate = 0.15; // Base federal estimate for mixed withdrawal sources
+        const stateConfig = STATE_TAX_CONFIG[stateOfResidence];
+        const stateTaxRate = stateConfig?.hasIncomeTax ? (stateConfig.rate / 100) : 0;
+        const combinedTaxRate = Math.min(0.45, baseFederalTaxRate + stateTaxRate); // Cap at 45%
+        const grossWithdrawal = inflatedSpending / (1 - combinedTaxRate);
         
         // Cap withdrawal to available (like main projection does)
         const actualWithdrawal = Math.min(grossWithdrawal, portfolio);
@@ -1676,7 +1682,22 @@ export default function FinancialPlan() {
         withdrawFromTaxable = taxEstimate.fromTaxable || 0;
         withdrawFromTaxDeferred = taxEstimate.fromTaxDeferred || 0;
         withdrawFromTaxFree = taxEstimate.fromTaxFree || 0;
-        taxesPaid = taxEstimate.totalTax || 0;
+        
+        // Calculate state tax on retirement withdrawal
+        const stateTax = calculateStateTaxOnRetirement({
+          state: stateOfResidence,
+          age: currentAgeInYear,
+          filingStatus: filingStatus === 'married' ? 'married_filing_jointly' : 'single',
+          totalAGI: totalOtherIncome + cappedWithdrawal,
+          socialSecurityIncome: socialSecurityIncome,
+          taxDeferredWithdrawal: withdrawFromTaxDeferred,
+          taxableWithdrawal: withdrawFromTaxable,
+          taxableGainPortion: withdrawFromTaxable * estimatedCurrentGainRatio,
+          pensionIncome: 0,
+          year: year,
+        });
+        
+        taxesPaid = (taxEstimate.totalTax || 0) + stateTax;
         penaltyPaid = taxEstimate.totalPenalty || 0;
 
         // Adjust cost basis after taxable withdrawal
@@ -2861,7 +2882,7 @@ export default function FinancialPlan() {
                                       )}
                                       {p.taxesPaid > 0 && (
                                         <div className="flex justify-between gap-6">
-                                          <span>• Taxes Paid:</span>
+                                          <span>• Taxes (Fed + {stateOfResidence}):</span>
                                           <span className="text-rose-300 text-right">${p.taxesPaid.toLocaleString()}</span>
                                         </div>
                                       )}
@@ -2871,18 +2892,18 @@ export default function FinancialPlan() {
                                           <span className="text-rose-300 text-right">${p.penaltyPaid.toLocaleString()}</span>
                                         </div>
                                       )}
-                                    </div>
-                                    {(p.debtPayments > 0 && !p.isRetired) && (
+                                      </div>
+                                      {(p.debtPayments > 0 && !p.isRetired) && (
                                       <div className="text-xs text-zinc-500 mb-2">
                                         (Debt Payments: ${p.debtPayments.toLocaleString()} - tracked separately)
                                       </div>
-                                    )}
-                                    <div className="pt-2 border-t border-zinc-700/40">
+                                      )}
+                                      <div className="pt-2 border-t border-zinc-700/40">
                                       <p className="font-semibold text-rose-300 text-sm">
                                         Net Withdrawal: ${(p.totalWithdrawalAmount || 0).toLocaleString()}
                                       </p>
-                                    </div>
-                                    {(p.withdrawFromTaxable > 0 || p.withdrawFromTaxDeferred > 0 || p.withdrawFromTaxFree > 0) && (
+                                      </div>
+                                      {(p.withdrawFromTaxable > 0 || p.withdrawFromTaxDeferred > 0 || p.withdrawFromTaxFree > 0) && (
                                       <div className="text-xs space-y-1.5 text-zinc-500 mt-3 pt-3 border-t border-zinc-700/40">
                                         <p className="text-zinc-400 font-medium mb-1">Withdrawal Sources:</p>
                                         {p.withdrawFromTaxable > 0 && (
@@ -3116,7 +3137,7 @@ export default function FinancialPlan() {
                                     )}
                                     {p.taxesPaid > 0 && (
                                       <div className="flex justify-between gap-6">
-                                        <span>• Taxes Paid:</span>
+                                        <span>• Taxes (Fed + {stateOfResidence}):</span>
                                         <span className="text-rose-300 text-right">${p.taxesPaid.toLocaleString()}</span>
                                       </div>
                                     )}
