@@ -399,8 +399,8 @@ export const NIIT = {
 // HELPER FUNCTIONS
 // ===========================================
 
-// Get data for a specific year with fallback
-export function getYearData(dataObject, year, baseYear = CURRENT_YEAR) {
+// Get data for a specific year with fallback and custom inflation
+export function getYearData(dataObject, year, customInflationRate = null) {
   if (dataObject[year]) {
     return dataObject[year];
   }
@@ -414,23 +414,26 @@ export function getYearData(dataObject, year, baseYear = CURRENT_YEAR) {
     return dataObject[mostRecentYear];
   }
   
+  // Use custom rate or fallback
+  const inflationRate = customInflationRate !== null ? customInflationRate : FALLBACK_INFLATION;
+  
   // Inflate values for future years
   const baseData = dataObject[mostRecentYear];
-  return inflateData(baseData, yearDiff);
+  return inflateDataWithRate(baseData, yearDiff, inflationRate);
 }
 
-// Recursively inflate numeric values
-function inflateData(data, years) {
+// Recursively inflate numeric values with custom rate
+function inflateDataWithRate(data, years, rate) {
   if (typeof data === 'number') {
-    return Math.round(data * Math.pow(1 + FALLBACK_INFLATION, years));
+    return Math.round(data * Math.pow(1 + rate, years));
   }
   if (Array.isArray(data)) {
-    return data.map(item => inflateData(item, years));
+    return data.map(item => inflateDataWithRate(item, years, rate));
   }
   if (typeof data === 'object' && data !== null) {
     const inflated = {};
     for (const key in data) {
-      inflated[key] = inflateData(data[key], years);
+      inflated[key] = inflateDataWithRate(data[key], years, rate);
     }
     return inflated;
   }
@@ -438,22 +441,22 @@ function inflateData(data, years) {
 }
 
 // Get federal income tax brackets for a year
-export function getFederalBrackets(year, filingStatus = 'single') {
-  const yearData = getYearData(FEDERAL_INCOME_BRACKETS, year);
+export function getFederalBrackets(year, filingStatus = 'single', inflationRate = null) {
+  const yearData = getYearData(FEDERAL_INCOME_BRACKETS, year, inflationRate);
   const normalizedStatus = filingStatus === 'married' ? 'married_filing_jointly' : filingStatus;
   return yearData[normalizedStatus] || yearData.single;
 }
 
 // Get LTCG brackets for a year
-export function getLTCGBrackets(year, filingStatus = 'single') {
-  const yearData = getYearData(FEDERAL_LTCG_BRACKETS, year);
+export function getLTCGBrackets(year, filingStatus = 'single', inflationRate = null) {
+  const yearData = getYearData(FEDERAL_LTCG_BRACKETS, year, inflationRate);
   const normalizedStatus = filingStatus === 'married' ? 'married_filing_jointly' : filingStatus;
   return yearData[normalizedStatus] || yearData.single;
 }
 
 // Get standard deduction for a year
-export function getStandardDeduction(year, filingStatus = 'single', age = 0, isBlind = false) {
-  const yearData = getYearData(STANDARD_DEDUCTIONS, year);
+export function getStandardDeduction(year, filingStatus = 'single', age = 0, isBlind = false, inflationRate = null) {
+  const yearData = getYearData(STANDARD_DEDUCTIONS, year, inflationRate);
   const normalizedStatus = filingStatus === 'married' ? 'married_filing_jointly' : filingStatus;
   
   let deduction = yearData[normalizedStatus] || yearData.single;
@@ -463,9 +466,11 @@ export function getStandardDeduction(year, filingStatus = 'single', age = 0, isB
     const additional = normalizedStatus.includes('married') 
       ? yearData.additional_married 
       : yearData.additional_single;
-    deduction += additional;
-    if (age >= 65 && isBlind) {
-      deduction += additional; // Double if both
+    if (additional) {
+      deduction += additional;
+      if (age >= 65 && isBlind) {
+        deduction += additional; // Double if both
+      }
     }
   }
   
