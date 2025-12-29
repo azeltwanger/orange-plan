@@ -962,7 +962,10 @@ export default function TaxCenter() {
   
   // Add state tax rates
   const stateConfig = STATE_TAX_CONFIG[stateOfResidence];
-  const stateRate = stateConfig?.hasIncomeTax ? (stateConfig.rate / 100) : 0;
+  // Extract top marginal rate from brackets array, or use 0 for no-tax states
+  const stateRate = stateConfig?.hasIncomeTax && stateConfig.brackets?.length > 0
+    ? (stateConfig.brackets[stateConfig.brackets.length - 1].rate / 100)
+    : 0;
   const combinedSTCGRate = effectiveSTCGRate + stateRate;
   const combinedLTCGRate = effectiveLTCGRate + stateRate;
   
