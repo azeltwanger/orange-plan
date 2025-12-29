@@ -3934,6 +3934,43 @@ export default function FinancialPlan() {
                       );
                     } else {
                       // Negative cash flow WITHOUT retirement contributions
+                      // Calculate tax on the withdrawal needed to cover the deficit
+                      const deficit = Math.abs(annualSavings);
+                      const taxableBalanceNow = getAccountTotal('taxable');
+                      const taxDeferredBalanceNow = getAccountTotal('taxDeferred');
+                      const taxFreeBalanceNow = getAccountTotal('taxFree');
+                      const effectiveTaxableBasis = Math.min(taxableBalanceNow, runningTaxableBasis);
+                      const currentGainRatio = taxableBalanceNow > 0 ? Math.max(0, (taxableBalanceNow - effectiveTaxableBasis) / taxableBalanceNow) : 0;
+
+                      const currentYearTaxEstimate = estimateRetirementWithdrawalTaxes({
+                        withdrawalNeeded: deficit,
+                        taxableBalance: taxableBalanceNow,
+                        taxDeferredBalance: taxDeferredBalanceNow,
+                        taxFreeBalance: taxFreeBalanceNow,
+                        taxableGainPercent: currentGainRatio,
+                        isLongTermGain: true,
+                        filingStatus,
+                        age: currentAge,
+                        otherIncome: 0,
+                        year: currentYear,
+                      });
+
+                      // Calculate state tax
+                      const currentYearStateTax = calculateStateTaxOnRetirement({
+                        state: stateOfResidence,
+                        age: currentAge,
+                        filingStatus: filingStatus === 'married' ? 'married_filing_jointly' : 'single',
+                        totalAGI: deficit,
+                        socialSecurityIncome: 0,
+                        taxDeferredWithdrawal: currentYearTaxEstimate.fromTaxDeferred || 0,
+                        taxableWithdrawal: currentYearTaxEstimate.fromTaxable || 0,
+                        taxableGainPortion: (currentYearTaxEstimate.fromTaxable || 0) * currentGainRatio,
+                        pensionIncome: 0,
+                        year: currentYear,
+                      });
+
+                      const totalTaxOnWithdrawal = (currentYearTaxEstimate.totalTax || 0) + currentYearStateTax;
+                      
                       return (
                         <div className="space-y-2 text-sm">
                           <div className="flex justify-between">
@@ -3950,11 +3987,11 @@ export default function FinancialPlan() {
                           </div>
                           <div className="flex justify-between mt-2">
                             <span className="text-zinc-400">• Taxes on Withdrawal (Fed + {stateOfResidence}):</span>
-                            <span className="text-rose-300">${Math.round(Math.abs(annualSavings) * 0.15).toLocaleString()}</span>
+                            <span className="text-rose-300">${Math.round(totalTaxOnWithdrawal).toLocaleString()}</span>
                           </div>
                           <div className="flex justify-between border-t border-zinc-700 pt-2 mt-2">
                             <span className="text-zinc-300 font-medium">Total Withdrawal from Taxable:</span>
-                            <span className="font-semibold text-rose-400">{formatNumber(Math.abs(annualSavings) + Math.abs(annualSavings) * 0.15)}</span>
+                            <span className="font-semibold text-rose-400">{formatNumber(deficit + totalTaxOnWithdrawal)}</span>
                           </div>
                           <div className="mt-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
                             <p className="text-xs text-amber-400">
