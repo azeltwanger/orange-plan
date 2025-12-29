@@ -599,6 +599,8 @@ export default function TaxCenter() {
       let remainingQuantity = tx.remaining_quantity ?? tx.quantity ?? 0;
       const originalQuantity = tx.quantity || 0;
       
+      console.log(`Lot ${tx.id}: tx.remaining_quantity=${tx.remaining_quantity}, tx.quantity=${tx.quantity}, using remainingQuantity=${remainingQuantity}`);
+      
       // Reduce this lot's quantity by sold amount (FIFO)
       if (remainingSold > 0) {
         const soldFromThisLot = Math.min(remainingSold, remainingQuantity);
