@@ -3936,11 +3936,11 @@ export default function FinancialPlan() {
                       // Negative cash flow WITHOUT retirement contributions
                       // Calculate tax on the withdrawal needed to cover the deficit
                       const deficit = Math.abs(annualSavings);
-                      const taxableBalanceNow = getAccountTotal('taxable');
-                      const taxDeferredBalanceNow = getAccountTotal('taxDeferred');
-                      const taxFreeBalanceNow = getAccountTotal('taxFree');
-                      const effectiveTaxableBasis = Math.min(taxableBalanceNow, runningTaxableBasis);
-                      const currentGainRatio = taxableBalanceNow > 0 ? Math.max(0, (taxableBalanceNow - effectiveTaxableBasis) / taxableBalanceNow) : 0;
+                      const taxableBalanceNow = taxableValue;
+                      const taxDeferredBalanceNow = taxDeferredValue;
+                      const taxFreeBalanceNow = taxFreeValue;
+                      const initialTaxableBasis = taxableHoldings.reduce((sum, h) => sum + (h.cost_basis_total || 0), 0);
+                      const currentGainRatio = taxableBalanceNow > 0 ? Math.max(0, (taxableBalanceNow - initialTaxableBasis) / taxableBalanceNow) : 0;
 
                       const currentYearTaxEstimate = estimateRetirementWithdrawalTaxes({
                         withdrawalNeeded: deficit,
