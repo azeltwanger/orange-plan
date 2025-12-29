@@ -5,6 +5,7 @@ import { format, differenceInDays } from 'date-fns';
 import { Plus, Pencil, Trash2, Receipt, TrendingUp, TrendingDown, Calendar, AlertTriangle, CheckCircle, Sparkles, RefreshCw, Info, Download, Calculator, DollarSign, Scale, ChevronRight, Upload, Loader2 } from 'lucide-react';
 import { getTaxDataForYear } from '@/components/tax/taxCalculations';
 import { syncHoldingFromLots } from '@/components/shared/syncHoldings';
+import { getStateOptions, getStateTaxSummary, STATE_TAX_CONFIG, calculateStateTaxOnRetirement } from '@/components/shared/stateTaxConfig';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -101,6 +102,9 @@ export default function TaxCenter() {
   const [annualIncome, setAnnualIncome] = useState(0);
   const [targetTaxableIncome, setTargetTaxableIncome] = useState(48350);
   const [filingStatus, setFilingStatus] = useState('single');
+  const [stateOfResidence, setStateOfResidence] = useState(() => {
+    return localStorage.getItem('userStateOfResidence') || 'TX';
+  });
 
   // Sale form state
   const [saleForm, setSaleForm] = useState({
@@ -192,6 +196,11 @@ export default function TaxCenter() {
     const interval = setInterval(fetchPrice, 60000);
     return () => clearInterval(interval);
   }, []);
+
+  // Sync state to localStorage
+  useEffect(() => {
+    localStorage.setItem('userStateOfResidence', stateOfResidence);
+  }, [stateOfResidence]);
 
   const { data: allTransactions = [] } = useQuery({
     queryKey: ['transactions'],
@@ -951,6 +960,12 @@ export default function TaxCenter() {
   const effectiveLTCGRate = getLTCGRateForYear(annualIncome);
   const effectiveSTCGRate = getSTCGRateForYear(annualIncome);
   
+  // Add state tax rates
+  const stateConfig = STATE_TAX_CONFIG[stateOfResidence];
+  const stateRate = stateConfig?.hasIncomeTax ? (stateConfig.rate / 100) : 0;
+  const combinedSTCGRate = effectiveSTCGRate + stateRate;
+  const combinedLTCGRate = effectiveLTCGRate + stateRate;
+  
   // Standard deduction effectively increases the 0% LTCG bracket
   // Taxable income = Gross income - Standard deduction
   // So if gross income is $0, you can realize gains up to (standard deduction + 0% bracket max) at 0%
@@ -962,7 +977,7 @@ export default function TaxCenter() {
   const ltcgBracketRoom = yearBrackets?.ltcg?.[0]?.max ? Math.max(0, yearBrackets.ltcg[0].max - taxableIncome) : 0;
   const canHarvestGainsTaxFree = yearBrackets?.ltcg?.[0]?.max ? taxableIncome < yearBrackets.ltcg[0].max : false;
 
-  const estimatedTax = (shortTermGains > 0 ? shortTermGains * effectiveSTCGRate : 0) + (longTermGains > 0 ? longTermGains * effectiveLTCGRate : 0);
+  const estimatedTax = (shortTermGains > 0 ? shortTermGains * combinedSTCGRate : 0) + (longTermGains > 0 ? longTermGains * combinedLTCGRate : 0);
 
   // Calculate ACTUAL tax savings from realized transactions (IRS rules)
   const calculateActualTaxSavings = () => {
@@ -981,7 +996,7 @@ export default function TaxCenter() {
       
       // Losses offset ordinary income (MAX $3,000/year)
       const lossesOffsettingIncome = Math.min(3000, netLoss);
-      const savingsFromIncomeOffset = lossesOffsettingIncome * effectiveSTCGRate;
+      const savingsFromIncomeOffset = lossesOffsettingIncome * combinedSTCGRate;
       
       // Remaining losses carry forward
       carryforwardLoss = netLoss - lossesOffsettingIncome;
@@ -992,15 +1007,15 @@ export default function TaxCenter() {
       // NET GAIN SITUATION - calculate tax owed
       
       // If gains were harvested at 0% rate, that's a future savings
-      const futureSavings = gainsHarvestedAtZero * 0.15; // Assume 15% future LTCG
+      const futureSavings = gainsHarvestedAtZero * (0.15 + stateRate); // Assume 15% future LTCG + state
       taxSavings = futureSavings;
       
       // Calculate tax owed on net gains
       if (netShortTerm > 0) {
-        taxOwed += netShortTerm * effectiveSTCGRate;
+        taxOwed += netShortTerm * combinedSTCGRate;
       }
       if (netLongTerm > 0) {
-        taxOwed += netLongTerm * effectiveLTCGRate;
+        taxOwed += netLongTerm * combinedLTCGRate;
       }
     }
     
@@ -1045,7 +1060,7 @@ export default function TaxCenter() {
     const totalLossValue = lossLots.reduce((sum, lot) => sum + lot.currentValue, 0);
     const totalHarvestableLoss = lossLots.reduce((sum, lot) => sum + Math.abs(lot.unrealizedGain), 0);
     const lossTradingFees = totalLossValue * 2 * (feePercent / 100); // Round trip
-    const lossTaxSavings = totalHarvestableLoss * effectiveSTCGRate; // Can offset short-term gains or $3k ordinary income
+    const lossTaxSavings = totalHarvestableLoss * combinedSTCGRate; // Can offset short-term gains or $3k ordinary income (federal + state)
     const lossNetBenefit = lossTaxSavings - lossTradingFees;
 
     // For gain harvesting (0% LTCG)
@@ -1078,8 +1093,8 @@ export default function TaxCenter() {
     // Round trip = sell + rebuy = 2x the value
     const gainTradingFees = optimalGainValue * 2 * (feePercent / 100);
     
-    // Tax savings = future tax avoided by resetting basis (15% LTCG on future sale)
-    const gainFutureTaxSavings = optimalGainHarvest * 0.15; // Assume 15% LTCG in future
+    // Tax savings = future tax avoided by resetting basis (15% LTCG + state on future sale)
+    const gainFutureTaxSavings = optimalGainHarvest * (0.15 + stateRate); // Assume 15% LTCG + state in future
     const gainNetBenefit = canHarvestGainsTaxFree ? gainFutureTaxSavings - gainTradingFees : -gainTradingFees;
 
     return {
@@ -1152,7 +1167,7 @@ export default function TaxCenter() {
     return allInRate * 2; // Round trip
   }, [allTransactions]);
 
-  const washTradeAnalysis = useMemo(() => calculateWashTradeAnalysis(taxableLotsForHarvest, avgFeePercent), [taxableLotsForHarvest, avgFeePercent, effectiveSTCGRate, ltcgBracketRoom, canHarvestGainsTaxFree, filingStatus]);
+  const washTradeAnalysis = useMemo(() => calculateWashTradeAnalysis(taxableLotsForHarvest, avgFeePercent), [taxableLotsForHarvest, avgFeePercent, combinedSTCGRate, ltcgBracketRoom, canHarvestGainsTaxFree, filingStatus, stateRate]);
 
   // Generate Form 8949 style report
   const generateTaxReport = () => {
@@ -1295,7 +1310,7 @@ export default function TaxCenter() {
           </div>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <div className="space-y-3">
             <div className="flex justify-between">
               <Label className="text-zinc-300">Household Taxable Income</Label>
@@ -1307,17 +1322,42 @@ export default function TaxCenter() {
             </p>
           </div>
 
+          <div className="space-y-3">
+            <Label className="text-zinc-300">State of Residence</Label>
+            <Select value={stateOfResidence} onValueChange={setStateOfResidence}>
+              <SelectTrigger className="bg-zinc-900 border-zinc-800">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-zinc-900 border-zinc-700 max-h-64">
+                {getStateOptions().map(state => (
+                  <SelectItem key={state.value} value={state.value}>
+                    {state.label} — {state.taxInfo}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {STATE_TAX_CONFIG[stateOfResidence] && getStateTaxSummary(stateOfResidence)?.details.length > 0 && (
+              <p className="text-xs text-zinc-500">
+                {getStateTaxSummary(stateOfResidence).details.join(' • ')}
+              </p>
+            )}
+          </div>
+
           <div className="p-4 rounded-xl bg-zinc-800/30">
             <p className="text-sm text-zinc-300 mb-2">Your Tax Brackets ({filingStatus === 'married' ? 'MFJ' : 'Single'})</p>
             <div className="space-y-1">
               <div className="flex justify-between text-sm">
-                <span className="text-zinc-400">Short-term rate:</span>
-                <span className={effectiveSTCGRate <= 0.12 ? "text-emerald-400" : "text-zinc-200"}>{(effectiveSTCGRate * 100).toFixed(0)}%</span>
+                <span className="text-zinc-400">Short-term (Fed + {stateOfResidence}):</span>
+                <span className={combinedSTCGRate <= 0.12 ? "text-emerald-400" : "text-zinc-200"}>
+                  {(combinedSTCGRate * 100).toFixed(1)}%
+                  {stateRate > 0 && <span className="text-zinc-500 text-xs ml-1">({(effectiveSTCGRate * 100).toFixed(0)}% + {(stateRate * 100).toFixed(1)}%)</span>}
+                </span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-zinc-400">Long-term rate:</span>
-                <span className={effectiveLTCGRate === 0 ? "text-emerald-400 font-semibold" : "text-zinc-200"}>
-                  {effectiveLTCGRate === 0 ? '0% ✓' : `${(effectiveLTCGRate * 100).toFixed(0)}%`}
+                <span className="text-zinc-400">Long-term (Fed + {stateOfResidence}):</span>
+                <span className={effectiveLTCGRate === 0 && stateRate === 0 ? "text-emerald-400 font-semibold" : "text-zinc-200"}>
+                  {effectiveLTCGRate === 0 && stateRate === 0 ? '0% ✓' : `${(combinedLTCGRate * 100).toFixed(1)}%`}
+                  {stateRate > 0 && <span className="text-zinc-500 text-xs ml-1">({(effectiveLTCGRate * 100).toFixed(0)}% + {(stateRate * 100).toFixed(1)}%)</span>}
                 </span>
               </div>
             </div>
@@ -1388,7 +1428,7 @@ export default function TaxCenter() {
             +${Math.round(actualTaxSavings.taxSavings).toLocaleString()}
           </p>
           <p className="text-xs text-zinc-500 mt-1">
-            {actualTaxSavings.isNetLoss ? 'From realized losses' : 'From 0% harvesting'}
+            {actualTaxSavings.isNetLoss ? `From realized losses (Fed + ${stateOfResidence})` : 'From 0% harvesting'}
           </p>
           {actualTaxSavings.carryforwardLoss > 0 && (
             <p className="text-xs text-amber-400 mt-1">
@@ -2020,7 +2060,7 @@ export default function TaxCenter() {
             {!washTradeAnalysis.loss.isWorthwhile && harvestLossOpportunities.length > 0 && (
               <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 mb-6">
                 <p className="text-sm text-amber-400">
-                  ⚠️ Trading fees exceed potential tax savings at your current tax rate ({(effectiveSTCGRate * 100).toFixed(0)}%). 
+                  ⚠️ Trading fees exceed potential tax savings at your current tax rate ({(combinedSTCGRate * 100).toFixed(1)}% Fed + {stateOfResidence}). 
                   Consider using a lower-fee exchange or waiting for larger losses.
                 </p>
               </div>
@@ -2043,7 +2083,7 @@ export default function TaxCenter() {
                   .map((lot) => {
                   const lotValue = lot.currentValue;
                   const lotFees = lotValue * (avgFeePercent / 100);
-                  const lotTaxSavings = Math.abs(lot.unrealizedGain) * effectiveSTCGRate;
+                  const lotTaxSavings = Math.abs(lot.unrealizedGain) * combinedSTCGRate;
                   const lotNetBenefit = lotTaxSavings - lotFees;
                   const holding = holdings.find(h => h.ticker === lot.asset_ticker);
                   const isCrypto = holding?.asset_type === 'crypto' || COINGECKO_IDS[lot.asset_ticker];
@@ -2202,7 +2242,7 @@ export default function TaxCenter() {
                   })
                   .map((lot) => {
                   const lotFees = lot.currentValue * (avgFeePercent / 100);
-                  const lotFutureTaxSavings = lot.unrealizedGain * 0.15; // Future 15% LTCG avoided
+                  const lotFutureTaxSavings = lot.unrealizedGain * (0.15 + stateRate); // Future 15% LTCG + state avoided
                   const lotNetBenefit = canHarvestGainsTaxFree ? lotFutureTaxSavings - lotFees : -lotFees;
                   const holding = holdings.find(h => h.ticker === lot.asset_ticker);
                   const isCrypto = holding?.asset_type === 'crypto' || COINGECKO_IDS[lot.asset_ticker];
@@ -2713,7 +2753,7 @@ export default function TaxCenter() {
                     <p className="text-sm text-zinc-500">Est. Tax</p>
                     <p className="text-lg font-semibold text-orange-400">
                       ${(saleOutcomes[saleForm.lot_method].realizedGain > 0 
-                        ? saleOutcomes[saleForm.lot_method].realizedGain * (saleOutcomes[saleForm.lot_method].holdingPeriod === 'long_term' ? effectiveLTCGRate : effectiveSTCGRate)
+                        ? saleOutcomes[saleForm.lot_method].realizedGain * (saleOutcomes[saleForm.lot_method].holdingPeriod === 'long_term' ? combinedLTCGRate : combinedSTCGRate)
                         : 0
                       ).toLocaleString()}
                     </p>
