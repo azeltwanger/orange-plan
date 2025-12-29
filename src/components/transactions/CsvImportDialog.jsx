@@ -734,12 +734,23 @@ export default function CsvImportDialog({ open, onClose }) {
 
       // Sync holdings from lots (source of truth)
       console.log("=== SYNCING HOLDINGS FROM LOTS ===");
+      
+      // Build a map of ticker -> asset_type from the first occurrence in preview data
+      const tickerAssetTypes = {};
+      mappedPreviewData.forEach((row, index) => {
+        const ticker = row.asset_ticker;
+        if (ticker && !tickerAssetTypes[ticker]) {
+          tickerAssetTypes[ticker] = rowAssetTypes[index] || detectAssetType(ticker);
+        }
+      });
+      
       const uniqueAssets = [...new Set(transactionsToCreate.map(tx => `${tx.asset_ticker}|${tx.account_id || ''}`))];
       
       for (const key of uniqueAssets) {
         const [ticker, accountId] = key.split('|');
         if (ticker && accountId) {
-          await syncHoldingFromLots(ticker, accountId);
+          const assetType = tickerAssetTypes[ticker] || detectAssetType(ticker);
+          await syncHoldingFromLots(ticker, accountId, assetType);
         }
       }
       
