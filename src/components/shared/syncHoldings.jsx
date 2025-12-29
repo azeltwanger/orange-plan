@@ -56,12 +56,39 @@ export async function syncHoldingFromLots(ticker, accountId) {
     
     if (matchingHolding) {
       const currentQty = matchingHolding.quantity || 0;
-      const diff = Math.abs(totalFromLots - currentQty);
+      const currentCostBasis = matchingHolding.cost_basis_total || 0;
       
-      if (diff > 0.00000001) {
+      // Calculate new total cost basis from lots
+      const newTotalCostBasis = lotsForAccount.reduce((sum, lot) => sum + (lot.cost_basis || 0), 0);
+      
+      const diffQty = Math.abs(totalFromLots - currentQty);
+      const diffCostBasis = Math.abs(newTotalCostBasis - currentCostBasis);
+
+      if (diffQty > 0.00000001 || diffCostBasis > 0.01) {
         await base44.entities.Holding.update(matchingHolding.id, {
-          quantity: totalFromLots
+          quantity: totalFromLots,
+          cost_basis_total: newTotalCostBasis
         });
+        console.log(`✅ Updated holding ${ticker}: qty=${totalFromLots}, basis=$${newTotalCostBasis}`);
+      }
+    } else {
+      // CREATE new holding if none exists
+      if (totalFromLots > 0) {
+        const account = await base44.entities.Account.get(accountId);
+        const newTotalCostBasis = lotsForAccount.reduce((sum, lot) => sum + (lot.cost_basis || 0), 0);
+        
+        await base44.entities.Holding.create({
+          asset_name: ticker,
+          asset_type: ticker === 'BTC' || ticker === 'ETH' ? 'crypto' : 'stocks',
+          ticker: ticker,
+          quantity: totalFromLots,
+          cost_basis_total: newTotalCostBasis,
+          current_price: 0,
+          account_type: account?.account_type || 'taxable',
+          tax_treatment: account?.tax_treatment || 'taxable',
+          account_id: accountId,
+        });
+        console.log(`✅ Created new holding ${ticker}: qty=${totalFromLots}, basis=$${newTotalCostBasis}`);
       }
     }
     
