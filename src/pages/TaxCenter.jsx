@@ -582,31 +582,16 @@ export default function TaxCenter() {
     
     for (const ticker of allTickers) {
       const buyTxs = allTransactions.filter(t => t.type === 'buy' && t.asset_ticker === ticker && isTaxableTransaction(t));
-      const sellTxs = allTransactions.filter(t => t.type === 'sell' && t.asset_ticker === ticker && isTaxableTransaction(t));
       
-      // Calculate total sold quantity for this ticker
-      const totalSold = sellTxs.reduce((sum, t) => sum + (t.quantity || 0), 0);
-      
-      // Sort buys by date for FIFO tracking (we'll use this to reduce quantities)
+      // Sort buys by date
       const sortedBuys = [...buyTxs].sort((a, b) => new Date(a.date) - new Date(b.date));
       
-      // Track remaining quantity per lot after sales (using FIFO for simplicity)
-      let remainingSold = totalSold;
-      
       const tickerLots = sortedBuys.map(tx => {
-      // Use remaining_quantity if set (not null/undefined), otherwise use original quantity
-      // CRITICAL: remaining_quantity can be null when no sales recorded, so use ?? operator
-      let remainingQuantity = tx.remaining_quantity ?? tx.quantity ?? 0;
+      // Use remaining_quantity directly from DB - it's already updated by sell transactions
+      const remainingQuantity = tx.remaining_quantity ?? tx.quantity ?? 0;
       const originalQuantity = tx.quantity || 0;
       
       console.log(`Lot ${tx.id}: tx.remaining_quantity=${tx.remaining_quantity}, tx.quantity=${tx.quantity}, using remainingQuantity=${remainingQuantity}`);
-      
-      // Reduce this lot's quantity by sold amount (FIFO)
-      if (remainingSold > 0) {
-        const soldFromThisLot = Math.min(remainingSold, remainingQuantity);
-        remainingQuantity -= soldFromThisLot;
-        remainingSold -= soldFromThisLot;
-      }
       
       // Get current price for this ticker
       const tickerPrice = pricesByTicker[ticker] || (tx.price_per_unit || 0);
