@@ -101,7 +101,9 @@ export default function TaxCenter() {
   // Tax planning settings
   const [annualIncome, setAnnualIncome] = useState(0);
   const [targetTaxableIncome, setTargetTaxableIncome] = useState(48350);
-  const [filingStatus, setFilingStatus] = useState('single');
+  const [filingStatus, setFilingStatus] = useState(() => {
+    return localStorage.getItem('userFilingStatus') || 'single';
+  });
   const [stateOfResidence, setStateOfResidence] = useState(() => {
     return localStorage.getItem('userStateOfResidence') || 'TX';
   });
@@ -201,6 +203,10 @@ export default function TaxCenter() {
   useEffect(() => {
     localStorage.setItem('userStateOfResidence', stateOfResidence);
   }, [stateOfResidence]);
+
+  useEffect(() => {
+    localStorage.setItem('userFilingStatus', filingStatus);
+  }, [filingStatus]);
 
   const { data: allTransactions = [] } = useQuery({
     queryKey: ['transactions'],

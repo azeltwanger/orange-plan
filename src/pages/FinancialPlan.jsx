@@ -256,7 +256,9 @@ export default function FinancialPlan() {
   const [btcReturnModel, setBtcReturnModel] = useState('custom');
 
   // Tax settings
-  const [filingStatus, setFilingStatus] = useState('single');
+  const [filingStatus, setFilingStatus] = useState(() => {
+    return localStorage.getItem('userFilingStatus') || 'single';
+  });
   const [otherRetirementIncome, setOtherRetirementIncome] = useState(0);
     const [socialSecurityStartAge, setSocialSecurityStartAge] = useState(67);
     const [socialSecurityAmount, setSocialSecurityAmount] = useState(0); // Other income in retirement (social security, pension, etc.)
@@ -341,6 +343,10 @@ export default function FinancialPlan() {
   useEffect(() => {
     localStorage.setItem('userStateOfResidence', stateOfResidence);
   }, [stateOfResidence]);
+
+  useEffect(() => {
+    localStorage.setItem('userFilingStatus', filingStatus);
+  }, [filingStatus]);
 
   const currentPrice = btcPrice || 97000;
 
