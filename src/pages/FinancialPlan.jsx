@@ -1531,11 +1531,17 @@ export default function FinancialPlan() {
           const effectiveRunningTaxableBasis = Math.min(taxableBalance, runningTaxableBasis);
           const estimatedCurrentGainRatio = taxableBalance > 0 ? Math.max(0, (taxableBalance - effectiveRunningTaxableBasis) / taxableBalance) : 0;
 
+          // Calculate total Roth contributions for accessible funds calculation
+          const totalRothContributions = accounts
+            .filter(a => ['401k_roth', 'ira_roth', 'hsa'].includes(a.account_type))
+            .reduce((sum, a) => sum + (a.roth_contributions || 0), 0);
+
           const taxEstimate = estimateRetirementWithdrawalTaxes({
             withdrawalNeeded: deficit,
             taxableBalance,
             taxDeferredBalance,
             taxFreeBalance,
+            rothContributions: totalRothContributions,
             taxableGainPercent: estimatedCurrentGainRatio,
             isLongTermGain: true,
             filingStatus,
@@ -1655,6 +1661,11 @@ export default function FinancialPlan() {
         const effectiveRunningTaxableBasis = Math.min(taxableBalance, runningTaxableBasis);
         const estimatedCurrentGainRatio = taxableBalance > 0 ? Math.max(0, (taxableBalance - effectiveRunningTaxableBasis) / taxableBalance) : 0;
 
+        // Calculate total Roth contributions for accessible funds calculation
+        const totalRothContributions = accounts
+          .filter(a => ['401k_roth', 'ira_roth', 'hsa'].includes(a.account_type))
+          .reduce((sum, a) => sum + (a.roth_contributions || 0), 0);
+
         // Calculate Social Security income for this year (inflation-adjusted from start age)
         const currentAgeInYearForSS = currentAge + i;
         let socialSecurityIncome = 0;
@@ -1683,6 +1694,7 @@ export default function FinancialPlan() {
           taxableBalance: getAccountTotal('taxable'),
           taxDeferredBalance: getAccountTotal('taxDeferred'),
           taxFreeBalance: getAccountTotal('taxFree'),
+          rothContributions: totalRothContributions,
           taxableGainPercent: estimatedCurrentGainRatio,
           isLongTermGain: true,
           filingStatus,

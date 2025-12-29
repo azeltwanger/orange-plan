@@ -123,6 +123,7 @@ export const estimateRetirementWithdrawalTaxes = ({
   taxableBalance,
   taxDeferredBalance,
   taxFreeBalance,
+  rothContributions = null, // Actual Roth contribution basis (accessible penalty-free)
   taxableGainPercent = 0.5, // Portion of taxable account that is gains (dynamically calculated)
   isLongTermGain = true,
   filingStatus = 'single',
@@ -255,7 +256,10 @@ export const estimateRetirementWithdrawalTaxes = ({
     }
     
     // 2. Tax-free (Roth contributions accessible)
-    const taxFreeContributions = taxFreeBalance * 0.5; // Assume 50% is contributions
+    // Use actual Roth contributions if provided, otherwise estimate 50%
+    const taxFreeContributions = rothContributions !== null 
+      ? Math.min(rothContributions, taxFreeBalance) 
+      : taxFreeBalance * 0.5;
     const fromTaxFree = Math.min(remainingWithdrawal, taxFreeContributions);
     withdrawalBreakdown.fromTaxFree = fromTaxFree;
     remainingWithdrawal -= fromTaxFree;
