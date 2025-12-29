@@ -14,7 +14,8 @@ import {
 import { 
   FEDERAL_LTCG_BRACKETS, 
   getStandardDeduction as getStandardDeductionFromData,
-  getYearData
+  getYearData,
+  getFederalBrackets
 } from '@/components/shared/taxData';
 
 // Re-export for backward compatibility
@@ -128,11 +129,32 @@ export const estimateRetirementWithdrawalTaxes = ({
   age = 65,
   otherIncome = 0, // Social Security, pension, etc.
   year = 2025,
+  inflationRate = null,
 }) => {
   const PENALTY_FREE_AGE = 59.5;
   const canAccessPenaltyFree = age >= PENALTY_FREE_AGE;
-  const { standardDeductions, brackets } = getTaxDataForYear(year);
-  const standardDeduction = standardDeductions[filingStatus] || standardDeductions.single;
+  
+  // Normalize filing status and get inflation-adjusted tax data
+  const normalizedStatus = filingStatus === 'married' ? 'married_filing_jointly' : filingStatus;
+  const standardDeduction = getStandardDeductionFromData(year, normalizedStatus, age, false, inflationRate);
+
+  // Get inflation-adjusted LTCG brackets
+  const ltcgBracketsData = getYearData(FEDERAL_LTCG_BRACKETS, year, inflationRate);
+  const ltcgThresholds = ltcgBracketsData[normalizedStatus] || ltcgBracketsData.single;
+
+  // Build LTCG bracket array for iteration (0%/15%/20%)
+  const ltcgBrackets = [
+    { max: ltcgThresholds.zeroMax, rate: 0 },
+    { max: ltcgThresholds.fifteenMax, rate: 0.15 },
+    { max: Infinity, rate: 0.20 }
+  ];
+
+  // Get inflation-adjusted income brackets for tax-deferred withdrawals
+  const incomeBracketsData = getFederalBrackets(year, normalizedStatus, inflationRate);
+  const incomeBrackets = incomeBracketsData.map(b => ({
+    max: b.max,
+    rate: b.rate / 100
+  }));
   
   let totalTax = 0;
   let totalPenalty = 0;
@@ -160,7 +182,6 @@ export const estimateRetirementWithdrawalTaxes = ({
       const gainPortion = fromTaxable * taxableGainPercent;
       
       // Calculate LTCG tax considering 0% bracket
-      const ltcgBrackets = brackets[filingStatus]?.ltcg || brackets.single.ltcg;
       let taxOnTaxable = 0;
       let remainingGain = gainPortion;
       
@@ -183,7 +204,6 @@ export const estimateRetirementWithdrawalTaxes = ({
     const fromTaxDeferred = Math.min(remainingWithdrawal, taxDeferredBalance);
     if (fromTaxDeferred > 0) {
       // Calculate progressive income tax on the withdrawal
-      const incomeBrackets = brackets[filingStatus]?.income || brackets.single.income;
       let taxOnTaxDeferred = 0;
       let remainingAmount = fromTaxDeferred;
       
@@ -216,7 +236,6 @@ export const estimateRetirementWithdrawalTaxes = ({
       const gainPortion = fromTaxable * taxableGainPercent;
       
       // Calculate LTCG tax considering 0% bracket
-      const ltcgBrackets = brackets[filingStatus]?.ltcg || brackets.single.ltcg;
       let taxOnTaxable = 0;
       let remainingGain = gainPortion;
       
@@ -248,7 +267,6 @@ export const estimateRetirementWithdrawalTaxes = ({
         const penalty = fromTaxDeferred * 0.10;
         
         // Calculate progressive income tax
-        const incomeBrackets = brackets[filingStatus]?.income || brackets.single.income;
         let taxOnTaxDeferred = 0;
         let remainingAmount = fromTaxDeferred;
         
