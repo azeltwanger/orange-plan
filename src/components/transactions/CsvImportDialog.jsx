@@ -1135,157 +1135,148 @@ export default function CsvImportDialog({ open, onClose }) {
               <div>
                 <p className="text-sm text-zinc-400 mb-2">Preview (first 10 rows of {fullCsvData.length}):</p>
                 
-                {importType === 'holdings' ? (
-                  <div className="space-y-3">
-                    {/* Bulk actions bar - only show when rows selected */}
-                    {selectedRows.size > 0 && (
-                      <div className="flex items-center gap-3 p-3 bg-orange-500/10 border border-orange-500/30 rounded-lg">
-                        <span className="text-sm text-orange-400 font-medium">{selectedRows.size} row{selectedRows.size > 1 ? 's' : ''} selected</span>
-                        <Select
-                          onValueChange={(value) => {
-                            const newTypes = { ...rowAssetTypes };
-                            selectedRows.forEach(index => {
-                              newTypes[index] = value;
-                            });
-                            setRowAssetTypes(newTypes);
+                <div className="space-y-3">
+                  {/* Bulk actions bar - only show when rows selected */}
+                  {selectedRows.size > 0 && (
+                    <div className="flex items-center gap-3 p-3 bg-orange-500/10 border border-orange-500/30 rounded-lg">
+                      <span className="text-sm text-orange-400 font-medium">{selectedRows.size} row{selectedRows.size > 1 ? 's' : ''} selected</span>
+                      <Select
+                        onValueChange={(value) => {
+                          const newTypes = { ...rowAssetTypes };
+                          selectedRows.forEach(index => {
+                            newTypes[index] = value;
+                          });
+                          setRowAssetTypes(newTypes);
+                        }}
+                      >
+                        <SelectTrigger className="w-44 bg-zinc-900 border-zinc-700 text-zinc-100">
+                          <SelectValue placeholder="Bulk Set Type..." />
+                        </SelectTrigger>
+                        <SelectContent className="bg-zinc-900 border-zinc-700">
+                          <SelectItem value="btc" className="text-zinc-100">BTC (Bitcoin)</SelectItem>
+                          <SelectItem value="stocks" className="text-zinc-100">Stocks</SelectItem>
+                          <SelectItem value="bonds" className="text-zinc-100">Bonds</SelectItem>
+                          <SelectItem value="real_estate" className="text-zinc-100">Real Estate</SelectItem>
+                          <SelectItem value="cash" className="text-zinc-100">Cash</SelectItem>
+                          <SelectItem value="other" className="text-zinc-100">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSelectedRows(new Set())}
+                        className="text-zinc-400 hover:text-zinc-100"
+                      >
+                        Clear Selection
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Table */}
+                  <div className="border border-zinc-800 rounded-lg overflow-hidden">
+                    {/* Header */}
+                    <div className={cn(
+                      "grid gap-2 p-3 bg-zinc-800/50 text-sm font-medium text-zinc-400",
+                      importType === 'holdings' ? "grid-cols-12" : "grid-cols-14"
+                    )}>
+                      <div className="col-span-1 flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedRows.size === mappedPreviewData.length && mappedPreviewData.length > 0}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedRows(new Set(mappedPreviewData.map((_, i) => i)));
+                            } else {
+                              setSelectedRows(new Set());
+                            }
                           }}
-                        >
-                          <SelectTrigger className="w-44 bg-zinc-900 border-zinc-700 text-zinc-100">
-                            <SelectValue placeholder="Bulk Set Type..." />
-                          </SelectTrigger>
-                          <SelectContent className="bg-zinc-900 border-zinc-700">
-                            <SelectItem value="btc" className="text-zinc-100">BTC (Bitcoin)</SelectItem>
-                            <SelectItem value="stocks" className="text-zinc-100">Stocks</SelectItem>
-                            <SelectItem value="bonds" className="text-zinc-100">Bonds</SelectItem>
-                            <SelectItem value="real_estate" className="text-zinc-100">Real Estate</SelectItem>
-                            <SelectItem value="cash" className="text-zinc-100">Cash</SelectItem>
-                            <SelectItem value="other" className="text-zinc-100">Other</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setSelectedRows(new Set())}
-                          className="text-zinc-400 hover:text-zinc-100"
-                        >
-                          Clear Selection
-                        </Button>
+                          className="w-4 h-4 rounded border-zinc-600 bg-zinc-900"
+                        />
                       </div>
-                    )}
+                      {importType === 'transactions' && <div className="col-span-1">Type</div>}
+                      <div className="col-span-2">Ticker</div>
+                      <div className="col-span-2">Quantity</div>
+                      <div className="col-span-2">{importType === 'holdings' ? 'Cost Basis' : 'Price'}</div>
+                      <div className="col-span-2">Date</div>
+                      <div className={importType === 'holdings' ? "col-span-3" : "col-span-4"}>Asset Type</div>
+                    </div>
 
-                    {/* Table */}
-                    <div className="border border-zinc-800 rounded-lg overflow-hidden">
-                      {/* Header */}
-                      <div className="grid grid-cols-12 gap-2 p-3 bg-zinc-800/50 text-sm font-medium text-zinc-400">
-                        <div className="col-span-1 flex items-center">
-                          <input
-                            type="checkbox"
-                            checked={selectedRows.size === mappedPreviewData.length && mappedPreviewData.length > 0}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setSelectedRows(new Set(mappedPreviewData.map((_, i) => i)));
-                              } else {
-                                setSelectedRows(new Set());
-                              }
-                            }}
-                            className="w-4 h-4 rounded border-zinc-600 bg-zinc-900"
-                          />
-                        </div>
-                        <div className="col-span-2">Ticker</div>
-                        <div className="col-span-2">Quantity</div>
-                        <div className="col-span-2">Cost Basis</div>
-                        <div className="col-span-2">Date</div>
-                        <div className="col-span-3">Asset Type</div>
-                      </div>
-
-                      {/* Rows */}
-                      <div className="max-h-64 overflow-y-auto">
-                        {mappedPreviewData.map((row, index) => (
-                          <div 
-                            key={index} 
-                            className={cn(
-                              "grid grid-cols-12 gap-2 p-3 items-center text-sm border-t border-zinc-800",
-                              selectedRows.has(index) && 'bg-orange-500/5'
-                            )}
-                          >
-                            <div className="col-span-1">
-                              <input
-                                type="checkbox"
-                                checked={selectedRows.has(index)}
-                                onChange={(e) => {
-                                  const newSelected = new Set(selectedRows);
-                                  if (e.target.checked) {
-                                    newSelected.add(index);
-                                  } else {
-                                    newSelected.delete(index);
-                                  }
-                                  setSelectedRows(newSelected);
-                                }}
-                                className="w-4 h-4 rounded border-zinc-600 bg-zinc-900"
-                              />
-                            </div>
-                            <div className="col-span-2 text-zinc-100 font-medium">{row.asset_ticker}</div>
-                            <div className="col-span-2 text-zinc-100">{Number(row.quantity).toFixed(8)}</div>
-                            <div className="col-span-2 text-zinc-100">${Number(row.cost_basis_total).toLocaleString()}</div>
-                            <div className="col-span-2 text-zinc-400">{row.acquisition_date || '—'}</div>
-                            <div className="col-span-3">
-                              <Select
-                                value={rowAssetTypes[index] || 'stocks'}
-                                onValueChange={(value) => {
-                                  setRowAssetTypes({ ...rowAssetTypes, [index]: value });
-                                }}
-                              >
-                                <SelectTrigger className="h-8 bg-zinc-900 border-zinc-700 text-zinc-100">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent className="bg-zinc-900 border-zinc-700">
-                                  <SelectItem value="btc" className="text-zinc-100">BTC</SelectItem>
-                                  <SelectItem value="stocks" className="text-zinc-100">Stocks</SelectItem>
-                                  <SelectItem value="bonds" className="text-zinc-100">Bonds</SelectItem>
-                                  <SelectItem value="real_estate" className="text-zinc-100">Real Estate</SelectItem>
-                                  <SelectItem value="cash" className="text-zinc-100">Cash</SelectItem>
-                                  <SelectItem value="other" className="text-zinc-100">Other</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
+                    {/* Rows */}
+                    <div className="max-h-64 overflow-y-auto">
+                      {mappedPreviewData.map((row, index) => (
+                        <div 
+                          key={index} 
+                          className={cn(
+                            "grid gap-2 p-3 items-center text-sm border-t border-zinc-800",
+                            importType === 'holdings' ? "grid-cols-12" : "grid-cols-14",
+                            selectedRows.has(index) && 'bg-orange-500/5'
+                          )}
+                        >
+                          <div className="col-span-1">
+                            <input
+                              type="checkbox"
+                              checked={selectedRows.has(index)}
+                              onChange={(e) => {
+                                const newSelected = new Set(selectedRows);
+                                if (e.target.checked) {
+                                  newSelected.add(index);
+                                } else {
+                                  newSelected.delete(index);
+                                }
+                                setSelectedRows(newSelected);
+                              }}
+                              className="w-4 h-4 rounded border-zinc-600 bg-zinc-900"
+                            />
                           </div>
-                        ))}
-                      </div>
+                          {importType === 'transactions' && (
+                            <div className={cn(
+                              "col-span-1 font-medium",
+                              row.type === 'buy' ? 'text-emerald-400' : 'text-rose-400'
+                            )}>
+                              {row.type?.toUpperCase()}
+                            </div>
+                          )}
+                          <div className="col-span-2 text-zinc-100 font-medium">{row.asset_ticker}</div>
+                          <div className="col-span-2 text-zinc-100">
+                            {importType === 'holdings' 
+                              ? Number(row.quantity).toFixed(8) 
+                              : Number(row.quantity).toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 8})
+                            }
+                          </div>
+                          <div className="col-span-2 text-zinc-100">
+                            ${importType === 'holdings' 
+                              ? Number(row.cost_basis_total).toLocaleString() 
+                              : Number(row.price_per_unit).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})
+                            }
+                          </div>
+                          <div className="col-span-2 text-zinc-400">
+                            {importType === 'holdings' ? (row.acquisition_date || '—') : (row.date || '—')}
+                          </div>
+                          <div className={importType === 'holdings' ? "col-span-3" : "col-span-4"}>
+                            <Select
+                              value={rowAssetTypes[index] || 'stocks'}
+                              onValueChange={(value) => {
+                                setRowAssetTypes({ ...rowAssetTypes, [index]: value });
+                              }}
+                            >
+                              <SelectTrigger className="h-8 bg-zinc-900 border-zinc-700 text-zinc-100">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent className="bg-zinc-900 border-zinc-700">
+                                <SelectItem value="btc" className="text-zinc-100">BTC</SelectItem>
+                                <SelectItem value="stocks" className="text-zinc-100">Stocks</SelectItem>
+                                <SelectItem value="bonds" className="text-zinc-100">Bonds</SelectItem>
+                                <SelectItem value="real_estate" className="text-zinc-100">Real Estate</SelectItem>
+                                <SelectItem value="cash" className="text-zinc-100">Cash</SelectItem>
+                                <SelectItem value="other" className="text-zinc-100">Other</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                ) : (
-                  <div className="overflow-x-auto border rounded-lg border-zinc-700 max-h-48">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="border-zinc-700">
-                          {activeFields.filter(f => mapping[f.key]).map(field => (
-                            <TableHead key={field.key} className="text-zinc-400 text-xs whitespace-nowrap">
-                              {field.label}
-                            </TableHead>
-                          ))}
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {mappedPreviewData.map((row, index) => (
-                          <TableRow key={index} className="border-zinc-800">
-                            {activeFields.filter(f => mapping[f.key]).map(field => (
-                              <TableCell key={field.key} className={cn(
-                                "text-xs whitespace-nowrap",
-                                row[field.key] === '—' && 'text-rose-400',
-                                field.key === 'type' && row[field.key] === 'buy' && 'text-emerald-400',
-                                field.key === 'type' && row[field.key] === 'sell' && 'text-rose-400'
-                              )}>
-                                {['quantity', 'price_per_unit', 'trading_fee', 'cost_basis_total'].includes(field.key)
-                                  ? (typeof row[field.key] === 'number' ? row[field.key].toLocaleString() : row[field.key])
-                                  : row[field.key]}
-                              </TableCell>
-                            ))}
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
+                </div>
               </div>
 
               {importType === 'transactions' && (
