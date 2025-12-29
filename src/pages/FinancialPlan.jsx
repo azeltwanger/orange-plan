@@ -727,7 +727,10 @@ export default function FinancialPlan() {
         // Calculate combined federal + state tax rate for gross-up
         const baseFederalTaxRate = 0.15; // Base federal estimate for mixed withdrawal sources
         const stateConfig = STATE_TAX_CONFIG[stateOfResidence];
-        const stateTaxRate = stateConfig?.hasIncomeTax ? (stateConfig.rate / 100) : 0;
+        // Extract top marginal rate from brackets array, or use 0 for no-tax states
+        const stateTaxRate = stateConfig?.hasIncomeTax && stateConfig.brackets?.length > 0
+          ? (stateConfig.brackets[stateConfig.brackets.length - 1].rate / 100)
+          : 0;
         const combinedTaxRate = Math.min(0.45, baseFederalTaxRate + stateTaxRate); // Cap at 45%
         const grossWithdrawal = inflatedSpending / (1 - combinedTaxRate);
         
