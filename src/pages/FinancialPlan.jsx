@@ -1696,7 +1696,7 @@ export default function FinancialPlan() {
         const stateTax = calculateStateTaxOnRetirement({
           state: stateOfResidence,
           age: currentAgeInYear,
-          filingStatus: filingStatus === 'married' ? 'married_filing_jointly' : 'single',
+          filingStatus: filingStatus,
           totalAGI: totalOtherIncome + cappedWithdrawal,
           socialSecurityIncome: socialSecurityIncome,
           taxDeferredWithdrawal: withdrawFromTaxDeferred,
@@ -3759,7 +3759,7 @@ export default function FinancialPlan() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="single">Single</SelectItem>
-                      <SelectItem value="married">Married Filing Jointly</SelectItem>
+                      <SelectItem value="married_filing_jointly">Married Filing Jointly</SelectItem>
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-zinc-500">Affects tax calculations on withdrawals</p>
@@ -3968,7 +3968,7 @@ export default function FinancialPlan() {
                       const currentYearStateTax = calculateStateTaxOnRetirement({
                         state: stateOfResidence,
                         age: currentAge,
-                        filingStatus: filingStatus === 'married' ? 'married_filing_jointly' : 'single',
+                        filingStatus: filingStatus,
                         totalAGI: deficit,
                         socialSecurityIncome: 0,
                         taxDeferredWithdrawal: currentYearTaxEstimate.fromTaxDeferred || 0,
