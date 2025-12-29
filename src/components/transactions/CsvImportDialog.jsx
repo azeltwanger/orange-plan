@@ -531,14 +531,15 @@ export default function CsvImportDialog({ open, onClose }) {
 
   // Initialize asset types when preview data loads
   useEffect(() => {
-    if (mappedPreviewData.length > 0 && importType === 'holdings') {
+    if (mappedPreviewData.length > 0) {
       const initialTypes = {};
       mappedPreviewData.forEach((row, index) => {
-        initialTypes[index] = detectAssetType(row.asset_ticker);
+        const ticker = row.asset_ticker || row.ticker;
+        initialTypes[index] = detectAssetType(ticker);
       });
       setRowAssetTypes(initialTypes);
     }
-  }, [mappedPreviewData, importType, detectAssetType]);
+  }, [mappedPreviewData]);
 
   const importData = useMutation({
     mutationFn: async () => {

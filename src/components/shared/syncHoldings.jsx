@@ -1,5 +1,15 @@
 import { base44 } from '@/api/base44Client';
 
+// Auto-detect asset type based on ticker
+const detectAssetType = (ticker) => {
+  if (!ticker) return 'stocks';
+  const upperTicker = ticker.toUpperCase();
+  if (upperTicker === 'BTC') return 'btc';
+  const cryptoTickers = ['ETH', 'SOL', 'XRP', 'ADA', 'DOT', 'AVAX', 'MATIC', 'LINK', 'DOGE', 'SHIB', 'LTC', 'BCH', 'UNI', 'ATOM', 'XLM', 'ALGO', 'FIL', 'NEAR', 'APT', 'ARB'];
+  if (cryptoTickers.includes(upperTicker)) return 'other';
+  return 'stocks';
+};
+
 /**
  * CENTRALIZED HOLDINGS SYNC UTILITY
  * 
@@ -21,8 +31,9 @@ import { base44 } from '@/api/base44Client';
  * Sync a single holding from its tax lots
  * @param {string} ticker - Asset ticker (e.g., "BTC")
  * @param {string} accountId - Account ID (REQUIRED to prevent mixing tax-free and taxable lots)
+ * @param {string} assetType - Optional asset type override (btc, stocks, bonds, real_estate, cash, other)
  */
-export async function syncHoldingFromLots(ticker, accountId) {
+export async function syncHoldingFromLots(ticker, accountId, assetType = null) {
   // REQUIRE account_id - don't sync without it to prevent mixing accounts
   if (!accountId) {
     console.error("❌ syncHoldingFromLots requires account_id");
@@ -79,7 +90,7 @@ export async function syncHoldingFromLots(ticker, accountId) {
         
         await base44.entities.Holding.create({
           asset_name: ticker,
-          asset_type: ticker === 'BTC' ? 'btc' : 'stocks',
+          asset_type: assetType || detectAssetType(ticker),
           ticker: ticker,
           quantity: totalFromLots,
           cost_basis_total: newTotalCostBasis,
