@@ -2109,9 +2109,33 @@ export default function FinancialPlan() {
     const cashPct = cashValue / total;
     const otherPct = otherValue / total;
     
+    // First, estimate portfolio at retirement to set proper search bounds
+    const projectionResult = simulateForward({
+      startingPortfolio: total,
+      startAge: currentAge,
+      endAge: retirementAge,
+      retireAge: retirementAge,
+      annualSpending: 0,
+      annualSavings: annualSavings,
+      inflationRate: effectiveInflation,
+      btcPct,
+      stocksPct,
+      realEstatePct,
+      bondsPct,
+      cashPct,
+      otherPct,
+    });
+
+    // Convert projected retirement portfolio to today's dollars
+    const yearsToRetirement = Math.max(0, retirementAge - currentAge);
+    const estimatedRetirementPortfolio = projectionResult.finalPortfolio || total;
+    const retirementPortfolioTodaysDollars = yearsToRetirement > 0 
+      ? estimatedRetirementPortfolio / Math.pow(1 + effectiveInflation / 100, yearsToRetirement)
+      : estimatedRetirementPortfolio;
+
     // Binary search for max sustainable spending
     let low = 0;
-    let high = total * 0.20; // Max 20% of current portfolio as starting point
+    let high = Math.max(total * 0.20, retirementPortfolioTodaysDollars * 0.20);
     
     for (let iteration = 0; iteration < 30; iteration++) {
       const testSpending = (low + high) / 2;
