@@ -648,6 +648,8 @@ export default function TaxCenter() {
       allLots.push(...tickerLots);
     }
     
+    console.log("Total lots remaining:", allLots.reduce((sum, l) => sum + l.remainingQuantity, 0));
+    
     return allLots;
   }, [allTransactions, pricesByTicker, holdings]);
 
