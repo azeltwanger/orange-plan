@@ -1541,6 +1541,8 @@ export default function FinancialPlan() {
             filingStatus,
             age: currentAgeThisYear,
             otherIncome: 0,
+            year: year,
+            inflationRate: inflationRate / 100,
           });
 
           withdrawFromTaxable = taxEstimate.fromTaxable || 0;
@@ -1686,6 +1688,8 @@ export default function FinancialPlan() {
           filingStatus,
           age: currentAgeInYear,
           otherIncome: totalOtherIncome,
+          year: year,
+          inflationRate: inflationRate / 100,
         });
 
         withdrawFromTaxable = taxEstimate.fromTaxable || 0;
@@ -3962,6 +3966,7 @@ export default function FinancialPlan() {
                         age: currentAge,
                         otherIncome: 0,
                         year: currentYear,
+                        inflationRate: inflationRate / 100,
                       });
 
                       // Calculate state tax
