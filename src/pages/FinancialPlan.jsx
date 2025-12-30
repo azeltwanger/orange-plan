@@ -1762,9 +1762,10 @@ export default function FinancialPlan() {
           inflationRate: inflationRate / 100,
         });
 
-        withdrawFromTaxable = taxEstimate.fromTaxable || 0;
-        withdrawFromTaxDeferred = taxEstimate.fromTaxDeferred || 0;
-        withdrawFromTaxFree = taxEstimate.fromTaxFree || 0;
+        // Store initial withdrawal amounts (for spending only)
+        const baseFromTaxable = taxEstimate.fromTaxable || 0;
+        const baseFromTaxDeferred = taxEstimate.fromTaxDeferred || 0;
+        const baseFromTaxFree = taxEstimate.fromTaxFree || 0;
         
         // Calculate state tax on retirement withdrawal
         const stateTax = calculateStateTaxOnRetirement({
