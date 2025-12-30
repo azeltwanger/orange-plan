@@ -471,7 +471,7 @@ export default function FinancialPlan() {
                       filing_status: filingStatus || 'single',
                       auto_top_up_btc_collateral: autoTopUpBtcCollateral,
                       btc_top_up_trigger_ltv: btcTopUpTriggerLtv || 70,
-                      btc_top_up_target_ltv: btcTopUpTargetLtv || 50,
+                      btc_top_up_target_ltv: btcTopUpTargetLtv || 65,
                     });
     }, 1000); // Debounce 1 second
     return () => clearTimeout(timeoutId);
@@ -1174,7 +1174,7 @@ export default function FinancialPlan() {
           const liquidationLTV = liability.liquidation_ltv || 80;
           const releaseLTV = liability.collateral_release_ltv || 30;
           const triggerLTV = btcTopUpTriggerLtv || 70;
-          const targetLTV = btcTopUpTargetLtv || 50;
+          const targetLTV = btcTopUpTargetLtv;
 
           // AUTO TOP-UP: If enabled and LTV reaches trigger threshold (before liquidation)
           if (autoTopUpBtcCollateral && currentLTV >= triggerLTV && currentLTV < liquidationLTV) {
@@ -1342,7 +1342,7 @@ export default function FinancialPlan() {
           const releaseLTV = loan.collateral_release_ltv || 30;
 
           const triggerLTV = btcTopUpTriggerLtv || 70;
-          const targetLTV = btcTopUpTargetLtv || 50;
+          const targetLTV = btcTopUpTargetLtv;
 
           // AUTO TOP-UP: If enabled and LTV reaches trigger threshold (before liquidation)
           if (autoTopUpBtcCollateral && currentLTV >= triggerLTV && currentLTV < liquidationLTV) {
