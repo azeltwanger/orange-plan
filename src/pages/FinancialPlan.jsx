@@ -851,8 +851,9 @@ export default function FinancialPlan() {
       return getAccountTotal('taxable') + getAccountTotal('taxDeferred') + getAccountTotal('taxFree');
     };
 
-    const getTotalPortfolio = () => {
-      return getTotalLiquid() + portfolio.realEstate;
+    const getTotalPortfolio = (encumberedBtcValue = 0) => {
+      // Total portfolio includes liquid assets + real estate + encumbered BTC (still owned, just locked)
+      return getTotalLiquid() + portfolio.realEstate + encumberedBtcValue;
     };
 
     let firstDepletionAge = null; // Track first age when portfolio depletes (for reference line)
