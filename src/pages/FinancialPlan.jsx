@@ -786,7 +786,6 @@ export default function FinancialPlan() {
 
   // Generate projection data with dynamic withdrawal based on portfolio growth and account types
   const projections = useMemo(() => {
-    console.log("PROJECTION USING BTC PRICE:", currentPrice);
     const years = lifeExpectancy - currentAge;
     const data = [];
     const currentYear = new Date().getFullYear();
@@ -946,15 +945,12 @@ export default function FinancialPlan() {
       }
 
       // Add released BTC back to portfolio as liquid BTC for immediate availability
-      console.log(`[YEAR START Age ${currentAge + i}] releasedBtc contents:`, JSON.stringify(releasedBtc));
-      console.log(`[YEAR START Age ${currentAge + i}] portfolio.taxable.btc BEFORE:`, portfolio.taxable.btc);
       const totalReleasedBtcValueThisYear = Object.values(releasedBtc).reduce((sum, btcAmount) => {
         return sum + (btcAmount * cumulativeBtcPrice);
       }, 0);
       if (totalReleasedBtcValueThisYear > 0) {
         // Add released BTC value to taxable.btc - this is returned collateral
         portfolio.taxable.btc += totalReleasedBtcValueThisYear;
-        console.log(`[YEAR START Age ${currentAge + i}] Added ${totalReleasedBtcValueThisYear} to portfolio.taxable.btc. NOW:`, portfolio.taxable.btc);
       }
       // Reset releasedBtc for the next year's calculation
       releasedBtc = {};
@@ -1260,7 +1256,6 @@ export default function FinancialPlan() {
               if (remainingCollateralBtc > 0) {
                 // Store in releasedBtc for NEXT year (so it's available before withdrawals)
                 releasedBtc[liability.id] = (releasedBtc[liability.id] || 0) + remainingCollateralBtc;
-                console.log(`[LIQUIDATION Age ${currentAge + i}] Storing ${remainingCollateralBtc.toFixed(4)} BTC in releasedBtc for ${liability.name}. releasedBtc now:`, JSON.stringify(releasedBtc));
                 encumberedBtc[liability.id] = 0;
               }
             }
@@ -1441,7 +1436,6 @@ export default function FinancialPlan() {
               if (remainingCollateralBtc > 0) {
                 // Store in releasedBtc for NEXT year (so it's available before withdrawals)
                 releasedBtc[loanKey] = (releasedBtc[loanKey] || 0) + remainingCollateralBtc;
-                console.log(`[LIQUIDATION Age ${currentAge + i}] Storing ${remainingCollateralBtc.toFixed(4)} BTC in releasedBtc for ${loan.name}. releasedBtc now:`, JSON.stringify(releasedBtc));
                 encumberedBtc[loanKey] = 0;
               }
             }
@@ -1992,8 +1986,6 @@ export default function FinancialPlan() {
         : yearSavings < 0 
           ? Math.round(Math.abs(yearSavings) + (taxesPaid || 0) + (penaltyPaid || 0))
           : 0;
-
-      console.log(`[DATA.PUSH Age ${currentAge + i}] portfolio.taxable.btc:`, portfolio.taxable.btc, `getAssetTotal('btc'):`, getAssetTotal('btc'));
 
       data.push({
         age: currentAge + i,
