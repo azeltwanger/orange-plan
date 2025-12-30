@@ -942,8 +942,7 @@ export default function FinancialPlan() {
 
       // Add released BTC back to portfolio for liquidity if applicable for the current year
       const totalReleasedBtcValueThisYear = Object.values(releasedBtc).reduce((sum, btcAmount) => {
-        const btcPriceThisYear = currentPrice * Math.pow(1 + yearBtcGrowth / 100, i);
-        return sum + (btcAmount * btcPriceThisYear);
+        return sum + (btcAmount * cumulativeBtcPrice);
       }, 0);
       if (totalReleasedBtcValueThisYear > 0) {
         // Add released BTC to taxable account (proportionally across assets or to BTC directly)
@@ -1909,10 +1908,9 @@ export default function FinancialPlan() {
       const totalReleasedBtc = Object.values(releasedBtc).reduce((sum, amount) => sum + amount, 0);
       const totalLiquidatedBtc = Object.values(liquidatedBtc).reduce((sum, amount) => sum + amount, 0);
       const yearLiquidations = liquidationEvents.filter(e => e.year === year);
-      const yearBtcPriceForChart = currentPrice * Math.pow(1 + yearBtcGrowth / 100, i);
 
       // Total assets calculation - include encumbered BTC value
-      const totalAssetsThisYear = getTotalPortfolio() + (currentTotalEncumberedBtc * yearBtcPriceForChart);
+      const totalAssetsThisYear = getTotalPortfolio() + (currentTotalEncumberedBtc * cumulativeBtcPrice);
       
       let total = totalAssetsThisYear + adjustedEventImpact;
 
@@ -1948,7 +1946,7 @@ export default function FinancialPlan() {
         age: currentAge + i,
         year,
         btcLiquid: Math.round(getAssetTotal('btc')),
-        btcEncumbered: Math.round(currentTotalEncumberedBtc * yearBtcPriceForChart),
+        btcEncumbered: Math.round(currentTotalEncumberedBtc * cumulativeBtcPrice),
         stocks: Math.round(getAssetTotal('stocks')),
         realEstate: Math.round(portfolio.realEstate),
         bonds: Math.round(getAssetTotal('bonds')),
@@ -1994,16 +1992,16 @@ export default function FinancialPlan() {
         encumberedBtc: currentTotalEncumberedBtc,
         releasedBtc: totalReleasedBtc,
         liquidBtc: Math.max(0, getAssetTotal('btc') / (btcPrice || 97000)),
+        btcPrice: cumulativeBtcPrice,
         debtPayoffs: debtPayoffEvents,
         liquidations: yearLiquidations,
         // BTC Loan tracking
         btcLoanDetails: (() => {
           const btcLoans = Object.values(tempRunningDebt).filter(l => l.type === 'btc_collateralized' && !l.paid_off);
-          const yearBtcPrice = currentPrice * Math.pow(1 + yearBtcGrowth / 100, i);
           
           return btcLoans.map(loan => {
             const collateralBtc = encumberedBtc[loan.id] || loan.collateral_btc_amount || 0;
-            const collateralValue = collateralBtc * yearBtcPrice;
+            const collateralValue = collateralBtc * cumulativeBtcPrice;
             const ltv = collateralValue > 0 ? (loan.current_balance / collateralValue) * 100 : 0;
             const released = (releasedBtc[loan.id] || 0) > 0;
             const liquidated = (liquidatedBtc[loan.id] || 0) > 0;
@@ -2022,12 +2020,11 @@ export default function FinancialPlan() {
           .filter(l => l.type === 'btc_collateralized' && !l.paid_off)
           .reduce((sum, l) => sum + l.current_balance, 0)),
         totalBtcCollateralValue: Math.round((() => {
-          const yearBtcPrice = currentPrice * Math.pow(1 + yearBtcGrowth / 100, i);
           return Object.values(tempRunningDebt)
             .filter(l => l.type === 'btc_collateralized' && !l.paid_off)
             .reduce((sum, l) => {
               const collateralBtc = encumberedBtc[l.id] || l.collateral_btc_amount || 0;
-              return sum + (collateralBtc * yearBtcPrice);
+              return sum + (collateralBtc * cumulativeBtcPrice);
             }, 0);
         })()),
         totalRegularDebt: Math.round(Object.values(tempRunningDebt)
