@@ -3311,7 +3311,9 @@ export default function FinancialPlan() {
                                         </>
                                       ) : (
                                         <>
-                                          <p className="text-xs font-semibold text-rose-300 mb-1">⚠️ Partial Liquidation:</p>
+                                          <p className="text-xs font-semibold text-rose-300 mb-1">
+                                            {liq.remainingDebt <= 0 ? '⚠️ Loan Liquidated:' : '⚠️ Partial Liquidation:'}
+                                          </p>
                                           <p className="text-rose-300">• {liq.liabilityName}</p>
                                           <p className="ml-3 text-zinc-500">{liq.message || `Liquidated: ${(liq.btcAmount || 0).toFixed(4)} BTC ($${(liq.proceeds || 0).toLocaleString()})`}</p>
                                           {liq.remainingDebt > 0 && (
