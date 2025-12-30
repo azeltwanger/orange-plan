@@ -575,11 +575,15 @@ export default function FinancialPlan() {
       return 'real_estate';
     }
     
-    // Retirement account types have definitive tax treatments - these override any explicit tax_treatment field
-    if (['traditional_401k', 'traditional_ira', 'sep_ira', '403b'].includes(accountType)) {
+    // Tax-deferred: Traditional 401k, IRA, etc (support both naming conventions)
+    if (['traditional_401k', 'traditional_ira', 'sep_ira', '403b', 
+         '401k_traditional', 'ira_traditional'].includes(accountType)) {
       return 'tax_deferred';
     }
-    if (['roth_401k', 'roth_ira', 'hsa', '529'].includes(accountType)) {
+    
+    // Tax-free: Roth accounts, HSA, 529 (support both naming conventions)
+    if (['roth_401k', 'roth_ira', 'hsa', '529',
+         '401k_roth', 'ira_roth'].includes(accountType)) {
       return 'tax_free';
     }
     
