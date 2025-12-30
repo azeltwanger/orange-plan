@@ -1743,11 +1743,11 @@ export default function FinancialPlan() {
 
         // Calculate taxable portion of Social Security using federal provisional income rules
         // Provisional income uses other income (excluding SS) to determine what % of SS is taxable
-        // Use tax-deferred withdrawal estimate for provisional income calculation
-        const estimatedOtherIncomeForSS = otherRetirementIncome + (baseFromTaxDeferred || 0);
+        // Use estimated retirement withdrawal for provisional income calculation
+        const estimatedWithdrawalForSS = retirementSpendingOnly || desiredWithdrawal || 0;
         const taxableSocialSecurity = calculateTaxableSocialSecurity(
           socialSecurityIncome, 
-          estimatedOtherIncomeForSS, 
+          otherRetirementIncome + estimatedWithdrawalForSS, 
           filingStatus
         );
         
