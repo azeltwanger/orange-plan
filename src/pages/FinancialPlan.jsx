@@ -1512,8 +1512,8 @@ export default function FinancialPlan() {
       let retirementSpendingOnly = 0;
       let totalWithdrawalForTaxCalculation = 0;
 
-      // Reset ranOutOfMoneyThisYear at the start of each iteration
-      ranOutOfMoneyThisYear = false;
+      // Per-year depletion flag - reset each iteration
+      let ranOutOfMoneyThisYear = false;
       
       if (i > 0) { // Always apply growth; if portfolio is 0, growth will be 0, but it can revive with inflows
         // REFACTORED: Grow each asset by its specific CAGR within each account
