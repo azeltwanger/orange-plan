@@ -944,13 +944,13 @@ export default function FinancialPlan() {
         cumulativeBtcPrice = cumulativeBtcPrice * (1 + yearBtcGrowth / 100);
       }
 
-      // Add released BTC back to portfolio as liquid CASH for immediate spending
+      // Add released BTC back to portfolio as liquid BTC for immediate availability
       const totalReleasedBtcValueThisYear = Object.values(releasedBtc).reduce((sum, btcAmount) => {
         return sum + (btcAmount * cumulativeBtcPrice);
       }, 0);
       if (totalReleasedBtcValueThisYear > 0) {
-        // Add released BTC to taxable.cash to make it immediately liquid and spendable
-        portfolio.taxable.cash += totalReleasedBtcValueThisYear;
+        // Add released BTC value to taxable.btc - this is returned collateral
+        portfolio.taxable.btc += totalReleasedBtcValueThisYear;
       }
       // Reset releasedBtc for the next year's calculation
       releasedBtc = {};
