@@ -791,6 +791,10 @@ export default function FinancialPlan() {
     const data = [];
     const currentYear = new Date().getFullYear();
     const currentMonth = new Date().getMonth(); // 0-11
+    
+    // Pro-rata factor for Year 0 - only apply spending/income for remaining months
+    const remainingMonthsThisYear = 12 - currentMonth; // Jan=12, Feb=11, ..., Dec=1
+    const currentYearProRataFactor = remainingMonthsThisYear / 12;
 
     let cumulativeSavings = 0;
 
