@@ -1784,6 +1784,30 @@ export default function FinancialPlan() {
         taxesPaid = (taxEstimate.totalTax || 0) + stateTax;
         penaltyPaid = taxEstimate.totalPenalty || 0;
 
+        // Calculate total withdrawal needed (spending + taxes + penalty)
+        const totalNeededFromAccounts = cappedWithdrawal + taxesPaid + penaltyPaid;
+        
+        // Re-estimate withdrawal sources for the TOTAL amount (spending + taxes)
+        const totalTaxEstimate = estimateRetirementWithdrawalTaxes({
+          withdrawalNeeded: totalNeededFromAccounts,
+          taxableBalance: getAccountTotal('taxable'),
+          taxDeferredBalance: getAccountTotal('taxDeferred'),
+          taxFreeBalance: getAccountTotal('taxFree'),
+          rothContributions: totalRothContributions,
+          taxableGainPercent: estimatedCurrentGainRatio,
+          isLongTermGain: true,
+          filingStatus,
+          age: currentAgeInYear,
+          otherIncome: totalOtherIncome,
+          year: year,
+          inflationRate: inflationRate / 100,
+        });
+
+        // Use the withdrawal sources that cover BOTH spending AND taxes
+        withdrawFromTaxable = totalTaxEstimate.fromTaxable || 0;
+        withdrawFromTaxDeferred = totalTaxEstimate.fromTaxDeferred || 0;
+        withdrawFromTaxFree = totalTaxEstimate.fromTaxFree || 0;
+
         // Adjust cost basis after taxable withdrawal
         if (withdrawFromTaxable > 0 && getAccountTotal('taxable') > 0) {
           const basisRatio = runningTaxableBasis / getAccountTotal('taxable');
