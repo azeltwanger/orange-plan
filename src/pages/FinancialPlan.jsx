@@ -3080,19 +3080,25 @@ export default function FinancialPlan() {
                                       <div key={idx} className="text-xs text-zinc-400 space-y-1 mb-2">
                                         {liq.type === 'top_up' ? (
                                           <>
-                                            <p className="text-xs font-semibold text-amber-300 mb-1">🔄 Collateral Top-Up:</p>
-                                            <p className="text-amber-300">• {liq.liabilityName}</p>
+                                            <p className="text-xs font-semibold text-amber-400 mb-1">🔄 Collateral Top-Up:</p>
+                                            <p className="text-amber-400">• {liq.liabilityName}</p>
+                                            <p className="ml-3 text-zinc-500">{liq.message}</p>
+                                          </>
+                                        ) : liq.type === 'release' ? (
+                                          <>
+                                            <p className="text-xs font-semibold text-cyan-400 mb-1">✅ Collateral Released:</p>
+                                            <p className="text-cyan-400">• {liq.liabilityName}</p>
                                             <p className="ml-3 text-zinc-500">{liq.message}</p>
                                           </>
                                         ) : (
                                           <>
-                                            <p className="text-xs font-semibold text-rose-300 mb-1">
-                                            {liq.remainingDebt <= 0 ? '⚠️ Loan Liquidated:' : '⚠️ Partial Liquidation:'}
-                                          </p>
-                                            <p className="text-rose-300">• {liq.liabilityName}</p>
+                                            <p className="text-xs font-semibold text-rose-400 mb-1">
+                                              {liq.remainingDebt <= 0 ? '⚠️ Loan Liquidated:' : '⚠️ Partial Liquidation:'}
+                                            </p>
+                                            <p className="text-rose-400">• {liq.liabilityName}</p>
                                             <p className="ml-3 text-zinc-500">{liq.message || `Liquidated: ${(liq.btcAmount || 0).toFixed(4)} BTC ($${(liq.proceeds || 0).toLocaleString()})`}</p>
                                             {liq.remainingDebt > 0 && (
-                                              <p className="ml-3 text-zinc-500">Remaining debt: ${liq.remainingDebt.toLocaleString()} • Collateral: {(liq.remainingCollateral || 0).toFixed(4)} BTC</p>
+                                              <p className="ml-3 text-zinc-500">Remaining debt: ${liq.remainingDebt?.toLocaleString()} • Collateral: {(liq.remainingCollateral || 0).toFixed(4)} BTC</p>
                                             )}
                                           </>
                                         )}
