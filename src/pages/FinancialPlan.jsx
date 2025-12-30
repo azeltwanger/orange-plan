@@ -567,7 +567,17 @@ export default function FinancialPlan() {
 
   // Helper to determine tax treatment from account_type or tax_treatment field
   const getTaxTreatmentFromHolding = (h) => {
-    const accountType = h.account_type || '';
+    // Get account_type from holding, or look it up from linked account
+    let accountType = h.account_type || '';
+    
+    // If no account_type on holding but has account_id, try to get it from accounts
+    if (!accountType && h.account_id && accounts?.length > 0) {
+      const linkedAccount = accounts.find(a => a.id === h.account_id);
+      if (linkedAccount?.account_type) {
+        accountType = linkedAccount.account_type;
+      }
+    }
+    
     const assetType = h.asset_type || '';
     
     // Real estate is illiquid - treated separately
