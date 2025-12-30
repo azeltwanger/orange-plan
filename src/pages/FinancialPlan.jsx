@@ -925,12 +925,20 @@ export default function FinancialPlan() {
     const encumberedBtcValue = totalInitialEncumberedBtc * currentPrice;
     portfolio.taxable.btc = Math.max(0, portfolio.taxable.btc - encumberedBtcValue);
 
+    // Track cumulative BTC price for variable growth models (Saylor, etc.)
+    let cumulativeBtcPrice = currentPrice;
+
     for (let i = 0; i <= years; i++) {
       const year = currentYear + i;
       const age = currentAge + i;
 
       // Get BTC growth rate for this year (needed early for collateral calculations)
       const yearBtcGrowth = getBtcGrowthRate(i, effectiveInflation);
+
+      // Update cumulative BTC price for this year (compounds each year's growth rate)
+      if (i > 0) {
+        cumulativeBtcPrice = cumulativeBtcPrice * (1 + yearBtcGrowth / 100);
+      }
 
       // Add released BTC back to portfolio for liquidity if applicable for the current year
       const totalReleasedBtcValueThisYear = Object.values(releasedBtc).reduce((sum, btcAmount) => {
@@ -1167,8 +1175,8 @@ export default function FinancialPlan() {
 
         // Check for BTC collateral management based on LTV
         if (liability.type === 'btc_collateralized' && encumberedBtc[liability.id] > 0) {
-          // For year 0, use currentPrice directly. For future years, apply growth.
-          const yearBtcPrice = i === 0 ? currentPrice : currentPrice * Math.pow(1 + yearBtcGrowth / 100, i);
+          // Use cumulative BTC price (properly compounds variable growth rates like Saylor model)
+          const yearBtcPrice = cumulativeBtcPrice;
           const collateralValue = encumberedBtc[liability.id] * yearBtcPrice;
           const currentLTV = (liability.current_balance / collateralValue) * 100; // LTV as percentage
           const liquidationLTV = liability.liquidation_ltv || 80;
@@ -1288,6 +1296,17 @@ export default function FinancialPlan() {
               if (excessCollateral > 0) {
                 releasedBtc[liability.id] = excessCollateral;
                 encumberedBtc[liability.id] = targetCollateralForLoan;
+                
+                liquidationEvents.push({
+                  year,
+                  age: currentAge + i,
+                  liabilityName: liability.name,
+                  type: 'release',
+                  btcReleased: excessCollateral,
+                  previousLTV: postTopUpLTV,
+                  newLTV: 40,
+                  message: `Released ${excessCollateral.toFixed(4)} BTC back to liquid. LTV increased from ${postTopUpLTV.toFixed(0)}% to 40%`
+                });
               }
             }
           }
@@ -1334,8 +1353,8 @@ export default function FinancialPlan() {
         // Check for collateral release or liquidation
         const loanKey = `loan_${loan.id}`;
         if (encumberedBtc[loanKey] > 0) {
-          // For year 0, use currentPrice directly. For future years, apply growth.
-          const yearBtcPrice = i === 0 ? currentPrice : currentPrice * Math.pow(1 + yearBtcGrowth / 100, i);
+          // Use cumulative BTC price (properly compounds variable growth rates like Saylor model)
+          const yearBtcPrice = cumulativeBtcPrice;
           const collateralValue = encumberedBtc[loanKey] * yearBtcPrice;
           const currentLTV = (loan.current_balance / collateralValue) * 100;
           const liquidationLTV = loan.liquidation_ltv || 80;
@@ -1456,6 +1475,17 @@ export default function FinancialPlan() {
               if (excessCollateral > 0) {
                 releasedBtc[loanKey] = excessCollateral;
                 encumberedBtc[loanKey] = targetCollateralForLoan;
+                
+                liquidationEvents.push({
+                  year,
+                  age: currentAge + i,
+                  liabilityName: loan.name,
+                  type: 'release',
+                  btcReleased: excessCollateral,
+                  previousLTV: postTopUpLTV,
+                  newLTV: 40,
+                  message: `Released ${excessCollateral.toFixed(4)} BTC back to liquid. LTV increased from ${postTopUpLTV.toFixed(0)}% to 40%`
+                });
               }
             }
           }
@@ -3309,6 +3339,12 @@ export default function FinancialPlan() {
                                         <>
                                           <p className="text-xs font-semibold text-amber-300 mb-1">🔄 Collateral Top-Up:</p>
                                           <p className="text-amber-300">• {liq.liabilityName}</p>
+                                          <p className="ml-3 text-zinc-500">{liq.message}</p>
+                                        </>
+                                      ) : liq.type === 'release' ? (
+                                        <>
+                                          <p className="text-xs font-semibold text-emerald-400 mb-1">✅ Collateral Released:</p>
+                                          <p className="text-emerald-400">• {liq.liabilityName}</p>
                                           <p className="ml-3 text-zinc-500">{liq.message}</p>
                                         </>
                                       ) : (
