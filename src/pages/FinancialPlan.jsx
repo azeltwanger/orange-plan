@@ -2137,7 +2137,7 @@ export default function FinancialPlan() {
   const realRetirementValue = projections[retirementYearIndex]?.realTotal || 0;
   const endOfLifeValue = projections[projections.length - 1]?.total || 0;
   
-  // FIX: Check for portfolio depletion at ANY age, not just retirement
+  // Check for portfolio depletion - use the tracked firstDepletionAge from projections
   const depletionIndex = projections.findIndex(p => p.total <= 0);
   const willRunOutOfMoney = depletionIndex !== -1;
   const runOutOfMoneyAge = willRunOutOfMoney ? projections[depletionIndex]?.age : null;
