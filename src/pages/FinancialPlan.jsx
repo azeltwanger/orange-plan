@@ -1199,8 +1199,8 @@ export default function FinancialPlan() {
                 liabilityName: liability.name,
                 type: 'top_up',
                 btcAdded: additionalBtcNeeded,
-                newLtv: targetLTV,
-                message: `Added ${additionalBtcNeeded.toFixed(4)} BTC collateral to reduce LTV from ${currentLTV.toFixed(0)}% to ${targetLTV}%`
+                newLtv: btcTopUpTargetLtv,
+                message: `Added ${additionalBtcNeeded.toFixed(4)} BTC collateral to reduce LTV from ${currentLTV.toFixed(0)}% to ${btcTopUpTargetLtv}%`
               });
             }
             // If not enough liquid BTC, do nothing here - will be handled by liquidation logic below if LTV reaches 80%
@@ -1360,8 +1360,8 @@ export default function FinancialPlan() {
                 liabilityName: loan.name,
                 type: 'top_up',
                 btcAdded: additionalBtcNeeded,
-                newLtv: targetLTV,
-                message: `Added ${additionalBtcNeeded.toFixed(4)} BTC collateral to reduce LTV from ${currentLTV.toFixed(0)}% to ${targetLTV}%`
+                newLtv: btcTopUpTargetLtv,
+                message: `Added ${additionalBtcNeeded.toFixed(4)} BTC collateral to reduce LTV from ${currentLTV.toFixed(0)}% to ${btcTopUpTargetLtv}%`
               });
             }
           }
