@@ -1658,8 +1658,8 @@ export default function FinancialPlan() {
           withdrawFromAccount('taxFree', withdrawFromTaxFree);
 
           // Check if portfolio depleted after withdrawals
-          if (getTotalPortfolio() <= 0 && !ranOutOfMoney) {
-            ranOutOfMoney = true;
+          if (getTotalPortfolio() <= 0) {
+            ranOutOfMoneyThisYear = true;
           }
         } else if (yearSavings > 0) {
           // Positive savings - add to taxable accounts
