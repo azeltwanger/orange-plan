@@ -11,6 +11,58 @@ import {
   getTaxDataForYear
 } from '@/components/shared/taxConfig';
 
+/**
+ * Calculate the taxable portion of Social Security benefits using IRS provisional income rules.
+ * @param {number} socialSecurityBenefits - Total SS benefits received
+ * @param {number} otherIncome - AGI excluding SS (wages, withdrawals, other income)
+ * @param {string} filingStatus - 'single', 'married_filing_jointly', etc.
+ * @returns {number} - Taxable portion of SS benefits
+ */
+export function calculateTaxableSocialSecurity(socialSecurityBenefits, otherIncome, filingStatus) {
+  if (socialSecurityBenefits <= 0) return 0;
+  
+  // Provisional income thresholds (these are statutory and NOT inflation-adjusted)
+  const isMarried = filingStatus === 'married_filing_jointly' || filingStatus === 'married';
+  const thresholds = isMarried 
+    ? { base: 32000, upper: 44000 }
+    : { base: 25000, upper: 34000 }; // Single, HoH, MFS
+  
+  // Provisional income = other income + 50% of SS benefits
+  const provisionalIncome = otherIncome + (socialSecurityBenefits * 0.5);
+  
+  // Tier 1: Below base threshold - 0% taxable
+  if (provisionalIncome <= thresholds.base) {
+    return 0;
+  }
+  
+  // Tier 2: Between base and upper - up to 50% taxable
+  if (provisionalIncome <= thresholds.upper) {
+    // Taxable = lesser of: 50% of SS OR 50% of (provisional income - base threshold)
+    const tier1Taxable = Math.min(
+      socialSecurityBenefits * 0.5,
+      (provisionalIncome - thresholds.base) * 0.5
+    );
+    return tier1Taxable;
+  }
+  
+  // Tier 3: Above upper threshold - up to 85% taxable
+  // Taxable = lesser of:
+  //   85% of SS benefits, OR
+  //   85% of (provisional income - upper threshold) + lesser of:
+  //     $4,500 (single) / $6,000 (MFJ), OR
+  //     50% of SS benefits
+  const maxTier1 = isMarried ? 6000 : 4500;
+  const tier1Portion = Math.min(maxTier1, socialSecurityBenefits * 0.5);
+  const tier2Portion = (provisionalIncome - thresholds.upper) * 0.85;
+  
+  const totalTaxable = Math.min(
+    socialSecurityBenefits * 0.85,
+    tier1Portion + tier2Portion
+  );
+  
+  return Math.max(0, totalTaxable);
+}
+
 import { 
   FEDERAL_LTCG_BRACKETS, 
   getStandardDeduction as getStandardDeductionFromData,

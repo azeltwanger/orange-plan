@@ -10,7 +10,8 @@ import {
   getLTCGRate,
   calculateProgressiveIncomeTax,
   estimateRetirementWithdrawalTaxes,
-  getTaxDataForYear
+  getTaxDataForYear,
+  calculateTaxableSocialSecurity
 } from '@/components/tax/taxCalculations';
 import { getRMDFactor } from '@/components/shared/taxData';
 import { get401kLimit, getRothIRALimit, getHSALimit, getTaxConfigForYear } from '@/components/shared/taxConfig';
@@ -1740,8 +1741,18 @@ export default function FinancialPlan() {
           socialSecurityIncome = socialSecurityAmount * Math.pow(1 + effectiveInflation / 100, yearsOfSSInflation);
         }
 
-        // Total other income = other retirement income + Social Security (if eligible)
-        const totalOtherIncome = otherRetirementIncome + socialSecurityIncome;
+        // Calculate taxable portion of Social Security using federal provisional income rules
+        // Provisional income uses other income (excluding SS) to determine what % of SS is taxable
+        // Use tax-deferred withdrawal estimate for provisional income calculation
+        const estimatedOtherIncomeForSS = otherRetirementIncome + (baseFromTaxDeferred || 0);
+        const taxableSocialSecurity = calculateTaxableSocialSecurity(
+          socialSecurityIncome, 
+          estimatedOtherIncomeForSS, 
+          filingStatus
+        );
+        
+        // Total other income = other retirement income + TAXABLE portion of Social Security
+        const totalOtherIncome = otherRetirementIncome + taxableSocialSecurity;
 
         // Store UNCAPPED desired retirement spending (not capped yearWithdrawal)
         // This ensures remainingShortfall > 0 when liquid can't cover needs, triggering RE liquidation
