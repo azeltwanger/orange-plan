@@ -3738,47 +3738,6 @@ export default function FinancialPlan() {
                 ))}
               </div>
               
-              {/* Loan Activity Summary */}
-              {(() => {
-                let totalBtcReleased = 0;
-                let totalBtcTopUps = 0;
-                let totalBtcLiquidated = 0;
-                let releaseCount = 0;
-                let topUpCount = 0;
-                let liquidationCount = 0;
-                
-                projections.forEach(p => {
-                  (p.liquidations || []).forEach(event => {
-                    if (event.type === 'release') {
-                      totalBtcReleased += event.btcReleased || 0;
-                      releaseCount++;
-                    } else if (event.type === 'top_up') {
-                      totalBtcTopUps += event.btcAdded || 0;
-                      topUpCount++;
-                    } else {
-                      totalBtcLiquidated += event.btcAmount || 0;
-                      liquidationCount++;
-                    }
-                  });
-                });
-                
-                const netBtcImpact = totalBtcReleased - totalBtcTopUps - totalBtcLiquidated;
-                
-                return (releaseCount > 0 || topUpCount > 0 || liquidationCount > 0) && (
-                  <div className="mt-4 p-3 rounded-lg bg-zinc-800/30 border border-zinc-700/50">
-                    <p className="text-sm text-zinc-400">
-                      📊 Projected BTC change from loan activity:{' '}
-                      <span className={cn("font-semibold", netBtcImpact >= 0 ? 'text-emerald-400' : 'text-amber-400')}>
-                        {netBtcImpact >= 0 ? '+' : ''}{netBtcImpact.toFixed(4)} BTC
-                      </span>
-                      <span className="text-zinc-500 ml-2 text-xs">
-                        ({releaseCount} release{releaseCount !== 1 ? 's' : ''}, {topUpCount} top-up{topUpCount !== 1 ? 's' : ''}, {liquidationCount} liquidation{liquidationCount !== 1 ? 's' : ''})
-                      </span>
-                    </p>
-                  </div>
-                );
-              })()}
-              
               {/* Footer */}
               <p className="text-xs text-zinc-500 mt-4 pt-3 border-t border-zinc-700/50">
                 <span className="text-emerald-400">●</span> Healthy &lt;40% • <span className="text-amber-400">●</span> Moderate 40-60% • <span className="text-rose-400">●</span> Elevated &gt;60% • Releases at ≤30% • Liquidates at ≥80%
