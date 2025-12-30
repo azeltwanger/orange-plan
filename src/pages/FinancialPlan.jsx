@@ -1958,11 +1958,18 @@ export default function FinancialPlan() {
       const totalAssetsAfterWithdrawals = getTotalPortfolio();
       const accountTotalAfterWithdrawals = getTotalLiquid();
       
-      // Only mark as depleted for THIS year's display if truly at zero
+      // Track first depletion age for reference line, but allow recovery
+      if (totalAssetsAfterWithdrawals <= 0 && firstDepletionAge === null) {
+        firstDepletionAge = age;
+      } else if (totalAssetsAfterWithdrawals > 0 && firstDepletionAge !== null && firstDepletionAge < age) {
+        // Portfolio recovered (e.g., released BTC came in), clear depletion marker
+        firstDepletionAge = null;
+      }
+      
+      // Only mark this year as depleted for display purposes - don't zero underlying portfolio
       if (totalAssetsAfterWithdrawals <= 0) {
         ranOutOfMoneyThisYear = true;
         total = 0;
-        // Do NOT zero the underlying portfolio - allow future inflows (released BTC) to revive it
       }
 
       const realTotal = total / Math.pow(1 + effectiveInflation / 100, i);
