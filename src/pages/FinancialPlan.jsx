@@ -1549,10 +1549,15 @@ export default function FinancialPlan() {
         const yearNetIncome = yearGrossIncome - yearTaxesPaid;
 
         // Track components for tooltip
-        const yearSpending = (currentAnnualSpending * Math.pow(1 + inflationRate / 100, i)) + activeExpenseAdjustment;
+        // Pro-rate Year 0 spending to only remaining months
+        const baseYearSpending = (currentAnnualSpending * Math.pow(1 + inflationRate / 100, i)) + activeExpenseAdjustment;
+        const yearSpending = i === 0 ? baseYearSpending * currentYearProRataFactor : baseYearSpending;
         
         // Net savings = net income - spending - roth contribution (Roth is after-tax)
-        yearSavings = yearNetIncome - yearSpending - yearRoth;
+        // Also pro-rate Year 0 net income
+        const proRatedNetIncome = i === 0 ? yearNetIncome * currentYearProRataFactor : yearNetIncome;
+        const proRatedYearRoth = i === 0 ? yearRoth * currentYearProRataFactor : yearRoth;
+        yearSavings = proRatedNetIncome - yearSpending - proRatedYearRoth;
         // runningSavings is just a cumulative tracker for display, NOT for compounding
         cumulativeSavings += yearSavings;
         
