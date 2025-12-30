@@ -919,6 +919,12 @@ export default function FinancialPlan() {
       }
     });
 
+    // Subtract encumbered BTC from taxable portfolio to avoid double-counting
+    // Encumbered BTC will be added back separately in total calculations
+    const totalInitialEncumberedBtc = Object.values(encumberedBtc).reduce((sum, amount) => sum + amount, 0);
+    const encumberedBtcValue = totalInitialEncumberedBtc * currentPrice;
+    portfolio.taxable.btc = Math.max(0, portfolio.taxable.btc - encumberedBtcValue);
+
     for (let i = 0; i <= years; i++) {
       const year = currentYear + i;
       const age = currentAge + i;
