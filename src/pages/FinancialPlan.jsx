@@ -3804,16 +3804,28 @@ export default function FinancialPlan() {
 
             {/* BTC Loan Explanation - show if user has BTC loans */}
             {liabilities.some(l => l.type === 'btc_collateralized') && (
-              <div className="mt-4 p-3 rounded-lg bg-orange-500/10 border border-orange-500/20">
-                <p className="text-sm text-orange-400 font-medium mb-1">ℹ️ BTC-Backed Loans</p>
-                <p className="text-xs text-zinc-400">
-                  Your BTC loans auto-refinance annually with interest accruing. No payments are deducted from your portfolio unless:
+              <div className="bg-zinc-800/50 rounded-lg p-4 mt-4">
+                <h4 className="text-sm font-semibold text-orange-400 mb-2 flex items-center gap-2">
+                  <span>₿</span> BTC-Backed Loan Modeling
+                </h4>
+                <p className="text-sm text-zinc-400 mb-3">
+                  Loans auto-refinance annually at 12.4% APR (daily compounding). Your collateral adjusts automatically:
                 </p>
-                <ul className="text-xs text-zinc-400 mt-1 ml-4 list-disc space-y-0.5">
-                  <li><span className="text-emerald-400">LTV ≤ 30%</span>: Collateral released back to you</li>
-                  <li><span className="text-rose-400">LTV ≥ 80%</span>: Collateral liquidated to cover debt</li>
-                </ul>
-                <p className="text-xs text-zinc-500 mt-2">
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-start gap-2">
+                    <span className="text-cyan-400">●</span>
+                    <p><span className="text-cyan-400">LTV ≤ 30%:</span> <span className="text-zinc-400">Excess collateral released back to liquid (targets 40% LTV)</span></p>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="text-amber-400">●</span>
+                    <p><span className="text-amber-400">LTV ≥ 70%:</span> <span className="text-zinc-400">Auto top-up from liquid BTC (targets 65% LTV)</span></p>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="text-rose-400">●</span>
+                    <p><span className="text-rose-400">LTV ≥ 80%:</span> <span className="text-zinc-400">Collateral liquidated to pay off loan entirely</span></p>
+                  </div>
+                </div>
+                <p className="text-xs text-zinc-500 mt-3">
                   To model paying off a loan early, create a Debt Payoff Goal linked to the loan.
                 </p>
               </div>
