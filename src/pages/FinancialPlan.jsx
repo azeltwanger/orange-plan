@@ -1950,8 +1950,9 @@ export default function FinancialPlan() {
       const totalLiquidatedBtc = Object.values(liquidatedBtc).reduce((sum, amount) => sum + amount, 0);
       const yearLiquidations = liquidationEvents.filter(e => e.year === year);
 
-      // Total assets calculation - include encumbered BTC value
-      const totalAssetsThisYear = getTotalPortfolio() + (currentTotalEncumberedBtc * cumulativeBtcPrice);
+      // Total assets calculation - include encumbered BTC value (user still owns it)
+      const encumberedBtcValueThisYear = currentTotalEncumberedBtc * cumulativeBtcPrice;
+      const totalAssetsThisYear = getTotalPortfolio(encumberedBtcValueThisYear);
       
       let total = totalAssetsThisYear + adjustedEventImpact;
 
