@@ -12,6 +12,7 @@ import {
   estimateRetirementWithdrawalTaxes,
   getTaxDataForYear
 } from '@/components/tax/taxCalculations';
+import { getRMDFactor } from '@/components/shared/taxData';
 import { get401kLimit, getRothIRALimit, getHSALimit, getTaxConfigForYear } from '@/components/shared/taxConfig';
 import { getStateOptions, getStateTaxSummary, STATE_TAX_CONFIG, calculateStateTaxOnRetirement, calculateStateCapitalGainsTax } from '@/components/shared/stateTaxConfig';
 import { Button } from "@/components/ui/button";
@@ -1711,20 +1712,10 @@ export default function FinancialPlan() {
         let rmdAmount = 0;
         const taxDeferredBalanceForRMD = getAccountTotal('taxDeferred');
         if (currentAgeInYear >= RMD_START_AGE && taxDeferredBalanceForRMD > 0) {
-          // Simplified RMD calculation using IRS Uniform Lifetime Table approximation
-          const rmdFactor = (() => {
-            if (currentAgeInYear === 73) return 26.5;
-            if (currentAgeInYear === 74) return 25.5;
-            if (currentAgeInYear === 75) return 24.6;
-            if (currentAgeInYear === 76) return 23.7;
-            if (currentAgeInYear === 77) return 22.9;
-            if (currentAgeInYear === 78) return 22.0;
-            if (currentAgeInYear === 79) return 21.1;
-            if (currentAgeInYear === 80) return 20.2;
-            if (currentAgeInYear >= 81 && currentAgeInYear <= 85) return 19.0 - ((currentAgeInYear - 81) * 0.5);
-            return Math.max(10, 16.0 - ((currentAgeInYear - 86) * 0.4)); // Conservative estimate for 86+
-          })();
-          rmdAmount = taxDeferredBalanceForRMD / rmdFactor;
+          const rmdFactor = getRMDFactor(currentAgeInYear);
+          if (rmdFactor > 0) {
+            rmdAmount = taxDeferredBalanceForRMD / rmdFactor;
+          }
 
           // RMDs count as taxable income and must be taken regardless of spending needs
           // If RMD > yearWithdrawal, we still need to take the full RMD
