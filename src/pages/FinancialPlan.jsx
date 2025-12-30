@@ -3408,10 +3408,22 @@ export default function FinancialPlan() {
                                 <div className="w-6 h-0.5 bg-emerald-400" style={{backgroundImage: 'repeating-linear-gradient(90deg, #10b981 0, #10b981 5px, transparent 5px, transparent 10px)'}} />
                                 <span className="text-zinc-400">Debt Payoff</span>
                               </div>
-                              {projections.some(p => p.liquidations && p.liquidations.length > 0) && (
+                              {projections.some(p => p.liquidations?.some(l => l.type === 'top_up')) && (
                                 <div className="flex items-center gap-2">
-                                  <div className="w-6 h-0.5 bg-red-600" style={{backgroundImage: 'repeating-linear-gradient(90deg, #dc2626 0, #dc2626 4px, transparent 4px, transparent 8px)'}} />
-                                  <span className="text-zinc-400">Collateral Event</span>
+                                  <div className="w-6 h-0.5" style={{backgroundImage: 'repeating-linear-gradient(90deg, #f59e0b 0, #f59e0b 4px, transparent 4px, transparent 8px)'}} />
+                                  <span className="text-amber-400">Collateral Top-Up</span>
+                                </div>
+                              )}
+                              {projections.some(p => p.liquidations?.some(l => l.type === 'release')) && (
+                                <div className="flex items-center gap-2">
+                                  <div className="w-6 h-0.5" style={{backgroundImage: 'repeating-linear-gradient(90deg, #22d3ee 0, #22d3ee 4px, transparent 4px, transparent 8px)'}} />
+                                  <span className="text-cyan-400">Collateral Released</span>
+                                </div>
+                              )}
+                              {projections.some(p => p.liquidations?.some(l => l.type !== 'top_up' && l.type !== 'release')) && (
+                                <div className="flex items-center gap-2">
+                                  <div className="w-6 h-0.5" style={{backgroundImage: 'repeating-linear-gradient(90deg, #f43f5e 0, #f43f5e 4px, transparent 4px, transparent 8px)'}} />
+                                  <span className="text-rose-400">Collateral Liquidation</span>
                                 </div>
                               )}
                               {runOutOfMoneyAge && (
@@ -3434,17 +3446,7 @@ export default function FinancialPlan() {
                         yAxisId="left"
                       />
                     )}
-                    {/* Liquidation events - red solid line distinct from depletion */}
-                    {projections.filter(p => p.liquidations && p.liquidations.length > 0).slice(0, 1).map((p) => (
-                      <ReferenceLine
-                        key={`liquidation-line-${p.age}`}
-                        x={p.age}
-                        stroke="#dc2626"
-                        strokeWidth={2}
-                        strokeDasharray="3 3"
-                        yAxisId="left"
-                      />
-                    ))}
+
                     {/* Life Event Reference Lines - NO LABELS */}
                     {lifeEvents.slice(0, 5).map((event, i) => {
                       const eventAge = currentAge + (event.year - new Date().getFullYear());
@@ -3507,23 +3509,31 @@ export default function FinancialPlan() {
                       }
                       return null;
                     })}
-                    {/* Liquidation event markers - NO LABELS */}
-                    {projections.filter(p => p.liquidations && p.liquidations.length > 0).map((p, idx) => {
-                      if (p.age >= currentAge && p.age <= lifeExpectancy) {
+                    {/* Collateral event markers - color-coded by type */}
+                    {projections.flatMap((p, pIdx) => 
+                      (p.liquidations || []).map((liq, liqIdx) => {
+                        if (p.age < currentAge || p.age > lifeExpectancy) return null;
+                        let strokeColor;
+                        if (liq.type === 'top_up') {
+                          strokeColor = '#f59e0b'; // amber-500
+                        } else if (liq.type === 'release') {
+                          strokeColor = '#22d3ee'; // cyan-400
+                        } else {
+                          strokeColor = '#f43f5e'; // rose-500 for liquidation
+                        }
                         return (
                           <ReferenceLine
-                            key={`liquidation-${p.age}-${idx}`}
+                            key={`collateral-${p.age}-${pIdx}-${liqIdx}`}
                             x={p.age}
-                            stroke="#dc2626"
+                            stroke={strokeColor}
                             strokeWidth={2}
                             strokeDasharray="3 3"
                             strokeOpacity={0.8}
                             yAxisId="left"
                           />
                         );
-                      }
-                      return null;
-                    })}
+                      })
+                    )}
                     {/* Goal target lines - only show for accumulation goals (not one-time spending) - NO LABELS */}
                     {goalsWithProjections.filter(g => g.target_amount > 0 && !g.will_be_spent).slice(0, 3).map((goal, i) => (
                       <ReferenceLine
