@@ -1958,19 +1958,11 @@ export default function FinancialPlan() {
       const totalAssetsAfterWithdrawals = getTotalPortfolio();
       const accountTotalAfterWithdrawals = getTotalLiquid();
       
-      if (totalAssetsAfterWithdrawals <= 0 && !ranOutOfMoney) {
-        ranOutOfMoney = true;
-      }
-
-
-
-      // Once out of money, zero everything for this year and subsequent years
-      if (ranOutOfMoney) {
+      // Only mark as depleted for THIS year's display if truly at zero
+      if (totalAssetsAfterWithdrawals <= 0) {
+        ranOutOfMoneyThisYear = true;
         total = 0;
-        portfolio.taxable = { btc: 0, stocks: 0, bonds: 0, cash: 0, other: 0 };
-        portfolio.taxDeferred = { btc: 0, stocks: 0, bonds: 0, cash: 0, other: 0 };
-        portfolio.taxFree = { btc: 0, stocks: 0, bonds: 0, cash: 0, other: 0 };
-        portfolio.realEstate = 0;
+        // Do NOT zero the underlying portfolio - allow future inflows (released BTC) to revive it
       }
 
       const realTotal = total / Math.pow(1 + effectiveInflation / 100, i);
