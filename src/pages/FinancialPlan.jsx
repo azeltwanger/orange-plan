@@ -1512,7 +1512,10 @@ export default function FinancialPlan() {
       let retirementSpendingOnly = 0;
       let totalWithdrawalForTaxCalculation = 0;
 
-      if (i > 0 && !ranOutOfMoney) { // Only grow if portfolio is not depleted
+      // Reset ranOutOfMoneyThisYear at the start of each iteration
+      ranOutOfMoneyThisYear = false;
+      
+      if (i > 0) { // Always apply growth; if portfolio is 0, growth will be 0, but it can revive with inflows
         // REFACTORED: Grow each asset by its specific CAGR within each account
         ['taxable', 'taxDeferred', 'taxFree'].forEach(accountKey => {
           portfolio[accountKey].btc *= (1 + yearBtcGrowth / 100);
