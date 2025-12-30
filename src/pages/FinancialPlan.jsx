@@ -855,7 +855,7 @@ export default function FinancialPlan() {
       return getTotalLiquid() + portfolio.realEstate;
     };
 
-    let ranOutOfMoney = false; // Flag to indicate if the portfolio has been depleted
+    let ranOutOfMoneyThisYear = false; // Flag reset each year - only affects current year's display
 
     // Track cost basis for taxable accounts to dynamically estimate capital gains
     const initialTaxableCostBasis = taxableHoldings.reduce((sum, h) => sum + (h.cost_basis_total || 0), 0);
