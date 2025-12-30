@@ -1956,22 +1956,25 @@ export default function FinancialPlan() {
       
       let total = totalAssetsThisYear + adjustedEventImpact;
 
-      // Check if portfolio ran out of money AFTER withdrawals are processed
-      const totalAssetsAfterWithdrawals = getTotalPortfolio();
+      // Check if LIQUID portfolio ran out of money AFTER withdrawals are processed
+      // Liquid = taxable + taxDeferred + taxFree + realEstate (assets that can cover spending)
+      // Encumbered BTC is still OWNED but cannot cover spending until released
+      const liquidAssetsAfterWithdrawals = getTotalLiquid() + portfolio.realEstate;
       const accountTotalAfterWithdrawals = getTotalLiquid();
       
-      // Track first depletion age for reference line, but allow recovery
-      if (totalAssetsAfterWithdrawals <= 0 && firstDepletionAge === null) {
+      // Track first depletion age for reference line (based on LIQUID assets only)
+      if (liquidAssetsAfterWithdrawals <= 0 && firstDepletionAge === null) {
         firstDepletionAge = age;
-      } else if (totalAssetsAfterWithdrawals > 0 && firstDepletionAge !== null && firstDepletionAge < age) {
+      } else if (liquidAssetsAfterWithdrawals > 0 && firstDepletionAge !== null) {
         // Portfolio recovered (e.g., released BTC came in), clear depletion marker
         firstDepletionAge = null;
       }
       
-      // Only mark this year as depleted for display purposes - don't zero underlying portfolio
-      if (totalAssetsAfterWithdrawals <= 0) {
+      // ranOutOfMoneyThisYear = liquid assets depleted (can't cover spending)
+      // But Total Assets should still show encumbered BTC value (user owns it)
+      if (liquidAssetsAfterWithdrawals <= 0) {
         ranOutOfMoneyThisYear = true;
-        total = 0;
+        // DO NOT set total = 0. Total should reflect ALL owned assets including encumbered BTC.
       }
 
       const realTotal = total / Math.pow(1 + effectiveInflation / 100, i);
