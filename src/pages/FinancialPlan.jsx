@@ -1255,7 +1255,8 @@ export default function FinancialPlan() {
             if (newDebtBalance <= 0.01) {
               liability.paid_off = true;
               if (remainingCollateralBtc > 0) {
-                portfolio.taxable.btc += remainingCollateralBtc * yearBtcPrice;
+                // Store in releasedBtc for NEXT year (so it's available before withdrawals)
+                releasedBtc[liability.id] = (releasedBtc[liability.id] || 0) + remainingCollateralBtc;
                 encumberedBtc[liability.id] = 0;
               }
             }
@@ -1434,7 +1435,8 @@ export default function FinancialPlan() {
                 tempRunningDebt[loan.id].paid_off = true;
               }
               if (remainingCollateralBtc > 0) {
-                portfolio.taxable.btc += remainingCollateralBtc * yearBtcPrice;
+                // Store in releasedBtc for NEXT year (so it's available before withdrawals)
+                releasedBtc[loanKey] = (releasedBtc[loanKey] || 0) + remainingCollateralBtc;
                 encumberedBtc[loanKey] = 0;
               }
             }
