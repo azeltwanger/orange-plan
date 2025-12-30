@@ -1920,8 +1920,8 @@ export default function FinancialPlan() {
         }
 
         // Check if portfolio depleted
-        if (getTotalPortfolio() <= 0 && !ranOutOfMoney) {
-          ranOutOfMoney = true;
+        if (getTotalPortfolio() <= 0) {
+          ranOutOfMoneyThisYear = true;
         }
       }
 
