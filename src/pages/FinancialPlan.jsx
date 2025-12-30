@@ -1915,7 +1915,7 @@ export default function FinancialPlan() {
           
           // 5. If STILL a shortfall after all accounts including RE, portfolio is depleted
           if (remainingShortfall > 0 && getTotalPortfolio() < 100) {
-            ranOutOfMoney = true;
+            ranOutOfMoneyThisYear = true;
           }
         }
 
