@@ -273,7 +273,7 @@ export default function FinancialPlan() {
   // BTC Collateral Management Settings
   const [autoTopUpBtcCollateral, setAutoTopUpBtcCollateral] = useState(true);
   const [btcTopUpTriggerLtv, setBtcTopUpTriggerLtv] = useState(70);
-  const [btcTopUpTargetLtv, setBtcTopUpTargetLtv] = useState(50);
+  const [btcTopUpTargetLtv, setBtcTopUpTargetLtv] = useState(65); // Ledn brings LTV to 65% after auto top-up
 
   // State tax settings
   const [stateOfResidence, setStateOfResidence] = useState(() => {
@@ -1215,23 +1215,23 @@ export default function FinancialPlan() {
             const totalCollateralBtc = encumberedBtc[liability.id];
             const debtBalance = liability.current_balance;
             
-            // Calculate BTC needed as collateral to reach target LTV (50%)
-            const targetCollateralBtc = debtBalance / (targetLTV / 100) / yearBtcPrice;
-            
+            // LIQUIDATION: Sell enough BTC to pay off the ENTIRE loan
+            // Per Ledn terms: At 80% LTV, collateral is sold to cover outstanding loan balance
+            const btcNeededToPayOff = debtBalance / yearBtcPrice;
+
             let btcToSell, proceedsFromSale, newDebtBalance, remainingCollateralBtc;
-            
-            // If we need MORE collateral than we have to reach target LTV, sell everything
-            if (targetCollateralBtc >= totalCollateralBtc) {
-              // FULL LIQUIDATION: Sell all collateral, apply proceeds to debt
+
+            if (btcNeededToPayOff >= totalCollateralBtc) {
+              // Not enough collateral to fully pay off - sell everything
               btcToSell = totalCollateralBtc;
               proceedsFromSale = btcToSell * yearBtcPrice;
               newDebtBalance = Math.max(0, debtBalance - proceedsFromSale);
               remainingCollateralBtc = 0;
             } else {
-              // PARTIAL LIQUIDATION: Sell enough to reach target LTV
-              btcToSell = totalCollateralBtc - targetCollateralBtc;
+              // Enough collateral - sell exactly what's needed to pay off loan
+              btcToSell = btcNeededToPayOff;
               proceedsFromSale = btcToSell * yearBtcPrice;
-              newDebtBalance = Math.max(0, debtBalance - proceedsFromSale);
+              newDebtBalance = 0; // Loan fully paid off
               remainingCollateralBtc = totalCollateralBtc - btcToSell;
             }
             
@@ -1281,7 +1281,8 @@ export default function FinancialPlan() {
             } else {
               // Loan still active: only release EXCESS collateral, keep loan at target LTV
               const currentCollateral = encumberedBtc[liability.id];
-              const targetCollateralForLoan = liability.current_balance / (targetLTV / 100) / yearBtcPrice;
+              const releaseTargetLTV = 40; // Ledn releases excess collateral to bring LTV up to 40%
+              const targetCollateralForLoan = liability.current_balance / (releaseTargetLTV / 100) / yearBtcPrice;
               const excessCollateral = Math.max(0, currentCollateral - targetCollateralForLoan);
               
               if (excessCollateral > 0) {
@@ -1323,10 +1324,10 @@ export default function FinancialPlan() {
 
             loan.current_balance = remainingBalance;
           } else if (hasInterest && i > 0) {
-            // No payment but interest accrues monthly (compound monthly) - ONLY AFTER year 0
-            const monthlyRate = loan.interest_rate / 100 / 12;
-            const monthsInYear = 12;
-            loan.current_balance = loan.current_balance * Math.pow(1 + monthlyRate, monthsInYear);
+            // No payment but interest accrues daily (compound daily) - ONLY AFTER year 0
+            const dailyRate = loan.interest_rate / 100 / 365;
+            const daysInYear = 365;
+            loan.current_balance = loan.current_balance * Math.pow(1 + dailyRate, daysInYear);
           }
         }
 
@@ -1374,23 +1375,23 @@ export default function FinancialPlan() {
             const totalCollateralBtc = encumberedBtc[loanKey];
             const debtBalance = loan.current_balance;
             
-            // Calculate BTC needed as collateral to reach target LTV (50%)
-            const targetCollateralBtc = debtBalance / (targetLTV / 100) / yearBtcPrice;
-            
+            // LIQUIDATION: Sell enough BTC to pay off the ENTIRE loan
+            // Per Ledn terms: At 80% LTV, collateral is sold to cover outstanding loan balance
+            const btcNeededToPayOff = debtBalance / yearBtcPrice;
+
             let btcToSell, proceedsFromSale, newDebtBalance, remainingCollateralBtc;
-            
-            // If we need MORE collateral than we have to reach target LTV, sell everything
-            if (targetCollateralBtc >= totalCollateralBtc) {
-              // FULL LIQUIDATION: Sell all collateral, apply proceeds to debt
+
+            if (btcNeededToPayOff >= totalCollateralBtc) {
+              // Not enough collateral to fully pay off - sell everything
               btcToSell = totalCollateralBtc;
               proceedsFromSale = btcToSell * yearBtcPrice;
               newDebtBalance = Math.max(0, debtBalance - proceedsFromSale);
               remainingCollateralBtc = 0;
             } else {
-              // PARTIAL LIQUIDATION: Sell enough to reach target LTV
-              btcToSell = totalCollateralBtc - targetCollateralBtc;
+              // Enough collateral - sell exactly what's needed to pay off loan
+              btcToSell = btcNeededToPayOff;
               proceedsFromSale = btcToSell * yearBtcPrice;
-              newDebtBalance = Math.max(0, debtBalance - proceedsFromSale);
+              newDebtBalance = 0; // Loan fully paid off
               remainingCollateralBtc = totalCollateralBtc - btcToSell;
             }
             
@@ -1448,7 +1449,8 @@ export default function FinancialPlan() {
             } else {
               // Loan still active: only release EXCESS collateral, keep loan at target LTV
               const currentCollateral = encumberedBtc[loanKey];
-              const targetCollateralForLoan = loan.current_balance / (targetLTV / 100) / yearBtcPrice;
+              const releaseTargetLTV = 40; // Ledn releases excess collateral to bring LTV up to 40%
+              const targetCollateralForLoan = loan.current_balance / (releaseTargetLTV / 100) / yearBtcPrice;
               const excessCollateral = Math.max(0, currentCollateral - targetCollateralForLoan);
               
               if (excessCollateral > 0) {
