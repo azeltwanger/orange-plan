@@ -1689,7 +1689,10 @@ export default function FinancialPlan() {
         // Income-based: withdraw exactly what you need, inflation-adjusted
         // Inflate to retirement age once, then from that nominal base inflate each year in retirement
         const nominalSpendingAtRetirement = retirementAnnualSpending * Math.pow(1 + effectiveInflation / 100, Math.max(0, retirementAge - currentAge));
-        const desiredWithdrawal = nominalSpendingAtRetirement * Math.pow(1 + effectiveInflation / 100, yearsIntoRetirement);
+        const baseDesiredWithdrawal = nominalSpendingAtRetirement * Math.pow(1 + effectiveInflation / 100, yearsIntoRetirement);
+        
+        // Pro-rate Year 0 retirement spending to only remaining months
+        const desiredWithdrawal = i === 0 ? baseDesiredWithdrawal * currentYearProRataFactor : baseDesiredWithdrawal;
         
         // Cap withdrawal to what's actually available
         const totalAvailableForWithdrawal = Math.max(0, accountTotalBeforeWithdrawal);
