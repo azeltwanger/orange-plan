@@ -1174,7 +1174,7 @@ export default function FinancialPlan() {
           const liquidationLTV = liability.liquidation_ltv || 80;
           const releaseLTV = liability.collateral_release_ltv || 30;
           const triggerLTV = btcTopUpTriggerLtv || 70;
-          const targetLTV = btcTopUpTargetLtv;
+          const targetLTV = 65; // Ledn standard: top-up brings LTV to 65%
 
           // AUTO TOP-UP: If enabled and LTV reaches trigger threshold (before liquidation)
           if (autoTopUpBtcCollateral && currentLTV >= triggerLTV && currentLTV < liquidationLTV) {
@@ -1342,7 +1342,7 @@ export default function FinancialPlan() {
           const releaseLTV = loan.collateral_release_ltv || 30;
 
           const triggerLTV = btcTopUpTriggerLtv || 70;
-          const targetLTV = btcTopUpTargetLtv;
+          const targetLTV = 65; // Ledn standard: top-up brings LTV to 65%
 
           // AUTO TOP-UP: If enabled and LTV reaches trigger threshold (before liquidation)
           if (autoTopUpBtcCollateral && currentLTV >= triggerLTV && currentLTV < liquidationLTV) {
