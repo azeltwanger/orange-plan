@@ -1257,17 +1257,17 @@ export default function FinancialPlan() {
               year,
               age: currentAge + i,
               liabilityName: liability.name,
-              type: remainingCollateralBtc === 0 ? 'full_liquidation' : 'partial_liquidation',
+              type: newDebtBalance <= 0 ? 'full_liquidation' : 'partial_liquidation',
               btcAmount: btcToSell,
-              btcReturned: 0,
+              btcReturned: remainingCollateralBtc,
               proceeds: proceedsFromSale,
               debtReduction: proceedsFromSale,
               remainingDebt: newDebtBalance,
               remainingCollateral: remainingCollateralBtc,
               newLtv: newLTV,
-              message: remainingCollateralBtc === 0 
-                ? `Full liquidation: Sold all ${btcToSell.toFixed(4)} BTC to cover debt. Remaining debt: $${Math.round(newDebtBalance).toLocaleString()}`
-                : `Partial liquidation: Sold ${btcToSell.toFixed(4)} BTC to reduce LTV from ${postTopUpLTV.toFixed(0)}% to ${newLTV.toFixed(0)}%`
+              message: newDebtBalance <= 0
+                ? `Loan paid off: Sold ${btcToSell.toFixed(4)} BTC ($${Math.round(proceedsFromSale).toLocaleString()}) to pay off loan. ${remainingCollateralBtc.toFixed(4)} BTC released back to liquid.`
+                : `Partial liquidation: Sold ${btcToSell.toFixed(4)} BTC but debt remains: $${Math.round(newDebtBalance).toLocaleString()}`
             });
           }
           // RELEASE: If LTV drops below release threshold
@@ -1425,17 +1425,17 @@ export default function FinancialPlan() {
               year,
               age: currentAge + i,
               liabilityName: loan.name,
-              type: remainingCollateralBtc === 0 ? 'full_liquidation' : 'partial_liquidation',
+              type: newDebtBalance <= 0 ? 'full_liquidation' : 'partial_liquidation',
               btcAmount: btcToSell,
-              btcReturned: 0,
+              btcReturned: remainingCollateralBtc,
               proceeds: proceedsFromSale,
               debtReduction: proceedsFromSale,
               remainingDebt: newDebtBalance,
               remainingCollateral: remainingCollateralBtc,
               newLtv: newLTV,
-              message: remainingCollateralBtc === 0 
-                ? `Full liquidation: Sold all ${btcToSell.toFixed(4)} BTC to cover debt. Remaining debt: $${Math.round(newDebtBalance).toLocaleString()}`
-                : `Partial liquidation: Sold ${btcToSell.toFixed(4)} BTC to reduce LTV from ${postTopUpLTV.toFixed(0)}% to ${newLTV.toFixed(0)}%`
+              message: newDebtBalance <= 0
+                ? `Loan paid off: Sold ${btcToSell.toFixed(4)} BTC ($${Math.round(proceedsFromSale).toLocaleString()}) to pay off loan. ${remainingCollateralBtc.toFixed(4)} BTC released back to liquid.`
+                : `Partial liquidation: Sold ${btcToSell.toFixed(4)} BTC but debt remains: $${Math.round(newDebtBalance).toLocaleString()}`
             });
           }
           // RELEASE
