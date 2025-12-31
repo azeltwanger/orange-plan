@@ -813,6 +813,14 @@ export default function FinancialPlan() {
 
   // Generate projection data with dynamic withdrawal based on portfolio growth and account types
   const projections = useMemo(() => {
+    console.log('[SS DEBUG]', {
+      socialSecurityAmount,
+      socialSecurityStartAge,
+      useCustomSocialSecurity,
+      effectiveSocialSecurity,
+      estimatedSocialSecurity
+    });
+
     const years = lifeExpectancy - currentAge;
     const data = [];
     const currentYear = new Date().getFullYear();
