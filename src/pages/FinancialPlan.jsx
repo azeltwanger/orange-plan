@@ -4217,7 +4217,9 @@ export default function FinancialPlan() {
                   </div>
 
                 {/* Cash Flow Summary */}
-                <div className="mt-4 p-4 rounded-xl bg-zinc-800/30">
+                <div className="mt-6 pt-4 border-t border-zinc-700">
+                  <h4 className="text-sm font-medium text-zinc-300 mb-3">Cash Flow Summary</h4>
+                <div className="p-4 rounded-xl bg-zinc-800/30">
                   {(() => {
                     // Calculate cash flow BEFORE retirement contributions
                     const cashFlowBeforeSavings = netIncome - currentAnnualSpending;
