@@ -4089,7 +4089,51 @@ export default function FinancialPlan() {
                       </SelectContent>
                     </Select>
                   </div>
-                </div>
+                  </div>
+
+                  {/* Social Security Settings */}
+                  <div className="mt-6 pt-6 border-t border-zinc-800">
+                  <h4 className="font-semibold mb-4">Social Security</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-zinc-400">Social Security (Annual)</Label>
+                      {useCustomSocialSecurity ? (
+                        <Input
+                          type="number"
+                          value={socialSecurityAmount}
+                          onChange={(e) => setSocialSecurityAmount(parseFloat(e.target.value) || 0)}
+                          className="bg-zinc-900 border-zinc-800"
+                        />
+                      ) : (
+                        <div className="w-full bg-zinc-800/50 border border-zinc-700 rounded px-3 py-2 text-emerald-400">
+                          ${estimatedSocialSecurity.toLocaleString()}
+                          <span className="text-zinc-500 text-xs ml-1">(estimated)</span>
+                        </div>
+                      )}
+                      <button 
+                        onClick={() => setUseCustomSocialSecurity(!useCustomSocialSecurity)}
+                        className="text-xs text-blue-400 hover:text-blue-300"
+                      >
+                        {useCustomSocialSecurity ? 'Use estimate' : 'Enter custom amount'}
+                      </button>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-zinc-400">SS Start Age</Label>
+                      <Input
+                        type="number"
+                        value={socialSecurityStartAge}
+                        onChange={(e) => setSocialSecurityStartAge(parseInt(e.target.value) || 67)}
+                        className="bg-zinc-900 border-zinc-800"
+                        min={62}
+                        max={70}
+                      />
+                      <p className="text-xs text-zinc-500">62 (reduced) to 70 (max)</p>
+                    </div>
+                    <div className="flex items-end pb-2">
+                      <p className="text-xs text-zinc-500">Based on current income. Get exact amount at ssa.gov</p>
+                    </div>
+                  </div>
+                  </div>
 
                 {/* Cash Flow Summary */}
                 <div className="mt-4 p-4 rounded-xl bg-zinc-800/30">
