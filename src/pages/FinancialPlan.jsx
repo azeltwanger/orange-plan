@@ -4358,9 +4358,10 @@ export default function FinancialPlan() {
                   })()}
                 </div>
               </div>
+              </div>
 
               <div className="mt-4 space-y-2">
-                <p className="text-xs text-zinc-500">
+              <p className="text-xs text-zinc-500">
                   💡 Pre-tax contributions (401k: {formatNumber(actual401k)}, HSA: {formatNumber(actualHSA)}) reduce your taxable income. 
                   Roth IRA comes from after-tax income. Employer match ({formatNumber(employer401kMatch || 0)}) goes to tax-deferred.
                   Debt payments ({formatNumber(monthlyDebtPayments * 12)}/yr) are tracked separately.
