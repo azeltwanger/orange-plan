@@ -4106,8 +4106,8 @@ export default function FinancialPlan() {
                         />
                       ) : (
                         <div className="w-full bg-zinc-800/50 border border-zinc-700 rounded px-3 py-2 text-emerald-400">
-                          ${estimatedSocialSecurity.toLocaleString()}
-                          <span className="text-zinc-500 text-xs ml-1">(estimated)</span>
+                          ${estimatedSocialSecurity.toLocaleString()}/yr
+                          <span className="text-zinc-500 text-xs ml-1">(today's $)</span>
                         </div>
                       )}
                       <button 
