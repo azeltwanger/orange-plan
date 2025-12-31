@@ -4209,7 +4209,14 @@ export default function FinancialPlan() {
                         <Input
                           type="number"
                           value={socialSecurityAmount}
-                          onChange={(e) => setSocialSecurityAmount(parseFloat(e.target.value) || 0)}
+                          onChange={(e) => {
+                            const newValue = parseFloat(e.target.value) || 0;
+                            setSocialSecurityAmount(newValue);
+                            // Automatically ensure custom mode is active when typing
+                            if (!useCustomSocialSecurity) {
+                              setUseCustomSocialSecurity(true);
+                            }
+                          }}
                           className="bg-zinc-900 border-zinc-800"
                         />
                       ) : (
