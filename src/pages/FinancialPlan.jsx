@@ -267,6 +267,13 @@ export default function FinancialPlan() {
   const [socialSecurityAmount, setSocialSecurityAmount] = useState(0);
   const [useCustomSocialSecurity, setUseCustomSocialSecurity] = useState(false);
 
+  // Savings allocation percentages
+  const [savingsAllocationBtc, setSavingsAllocationBtc] = useState(80);
+  const [savingsAllocationStocks, setSavingsAllocationStocks] = useState(20);
+  const [savingsAllocationBonds, setSavingsAllocationBonds] = useState(0);
+  const [savingsAllocationCash, setSavingsAllocationCash] = useState(0);
+  const [savingsAllocationOther, setSavingsAllocationOther] = useState(0);
+
   // Retirement savings allocation
   const [contribution401k, setContribution401k] = useState(0);
   const [employer401kMatch, setEmployer401kMatch] = useState(0);
@@ -418,6 +425,11 @@ export default function FinancialPlan() {
                   if (settings.social_security_start_age !== undefined) setSocialSecurityStartAge(settings.social_security_start_age);
                   if (settings.social_security_amount !== undefined) setSocialSecurityAmount(settings.social_security_amount);
                   if (settings.use_custom_social_security !== undefined) setUseCustomSocialSecurity(settings.use_custom_social_security);
+                  if (settings.savings_allocation_btc !== undefined) setSavingsAllocationBtc(settings.savings_allocation_btc);
+                  if (settings.savings_allocation_stocks !== undefined) setSavingsAllocationStocks(settings.savings_allocation_stocks);
+                  if (settings.savings_allocation_bonds !== undefined) setSavingsAllocationBonds(settings.savings_allocation_bonds);
+                  if (settings.savings_allocation_cash !== undefined) setSavingsAllocationCash(settings.savings_allocation_cash);
+                  if (settings.savings_allocation_other !== undefined) setSavingsAllocationOther(settings.savings_allocation_other);
                   if (settings.gross_annual_income !== undefined) setGrossAnnualIncome(settings.gross_annual_income);
                   if (settings.contribution_401k !== undefined) setContribution401k(settings.contribution_401k);
                   if (settings.employer_401k_match !== undefined) setEmployer401kMatch(settings.employer_401k_match);
@@ -468,6 +480,11 @@ export default function FinancialPlan() {
                       social_security_start_age: socialSecurityStartAge || 67,
                       social_security_amount: socialSecurityAmount || 0,
                       use_custom_social_security: useCustomSocialSecurity,
+                      savings_allocation_btc: savingsAllocationBtc,
+                      savings_allocation_stocks: savingsAllocationStocks,
+                      savings_allocation_bonds: savingsAllocationBonds,
+                      savings_allocation_cash: savingsAllocationCash,
+                      savings_allocation_other: savingsAllocationOther,
                       gross_annual_income: grossAnnualIncome || 100000,
                       contribution_401k: contribution401k || 0,
                       employer_401k_match: employer401kMatch || 0,
@@ -481,7 +498,7 @@ export default function FinancialPlan() {
                     });
     }, 1000); // Debounce 1 second
     return () => clearTimeout(timeoutId);
-  }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, otherCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, useCustomSocialSecurity, grossAnnualIncome, contribution401k, employer401kMatch, contributionRothIRA, contributionHSA, hsaFamilyCoverage, filingStatus, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv]);
+  }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, otherCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, useCustomSocialSecurity, grossAnnualIncome, contribution401k, employer401kMatch, contributionRothIRA, contributionHSA, hsaFamilyCoverage, filingStatus, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv, savingsAllocationBtc, savingsAllocationStocks, savingsAllocationBonds, savingsAllocationCash, savingsAllocationOther]);
 
   // Calculate accurate debt payments for current month
   const currentMonthForDebt = new Date().getMonth();
@@ -1674,24 +1691,18 @@ export default function FinancialPlan() {
             ranOutOfMoneyThisYear = true;
           }
         } else if (yearSavings > 0) {
-          // Positive savings - add to taxable accounts
-          // New contributions have 100% cost basis (no embedded gain yet)
-          // Add proportionally to existing taxable asset allocation
-          const taxableTotal = getAccountTotal('taxable');
-          if (taxableTotal > 0) {
-            const btcRatio = portfolio.taxable.btc / taxableTotal;
-            const stocksRatio = portfolio.taxable.stocks / taxableTotal;
-            const bondsRatio = portfolio.taxable.bonds / taxableTotal;
-            const cashRatio = portfolio.taxable.cash / taxableTotal;
-            const otherRatio = portfolio.taxable.other / taxableTotal;
-            portfolio.taxable.btc += yearSavings * btcRatio;
-            portfolio.taxable.stocks += yearSavings * stocksRatio;
-            portfolio.taxable.bonds += yearSavings * bondsRatio;
-            portfolio.taxable.cash += yearSavings * cashRatio;
-            portfolio.taxable.other += yearSavings * otherRatio;
+          // Positive savings - add to taxable accounts using user-defined allocation
+          const totalAllocation = savingsAllocationBtc + savingsAllocationStocks + savingsAllocationBonds + savingsAllocationCash + savingsAllocationOther;
+          
+          if (totalAllocation > 0) {
+            portfolio.taxable.btc += yearSavings * (savingsAllocationBtc / totalAllocation);
+            portfolio.taxable.stocks += yearSavings * (savingsAllocationStocks / totalAllocation);
+            portfolio.taxable.bonds += yearSavings * (savingsAllocationBonds / totalAllocation);
+            portfolio.taxable.cash += yearSavings * (savingsAllocationCash / totalAllocation);
+            portfolio.taxable.other += yearSavings * (savingsAllocationOther / totalAllocation);
           } else {
-            // Default to stocks for new savings if no existing assets
-            portfolio.taxable.stocks += yearSavings;
+            // Fallback to 100% BTC if no allocation set
+            portfolio.taxable.btc += yearSavings;
           }
           runningTaxableBasis += yearSavings;
         }
@@ -2089,7 +2100,7 @@ export default function FinancialPlan() {
         });
     }
     return data;
-  }, [btcValue, stocksValue, realEstateValue, bondsValue, cashValue, otherValue, taxableValue, taxDeferredValue, taxFreeValue, currentAge, retirementAge, lifeExpectancy, effectiveBtcCagr, effectiveStocksCagr, realEstateCagr, bondsCagr, effectiveInflation, lifeEvents, goals, annualSavings, incomeGrowth, retirementAnnualSpending, btcReturnModel, filingStatus, taxableHoldings, otherRetirementIncome, socialSecurityStartAge, effectiveSocialSecurity, liabilities, collateralizedLoans, monthlyDebtPayments, btcPrice, cashCagr, otherCagr, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv, stateOfResidence]);
+  }, [btcValue, stocksValue, realEstateValue, bondsValue, cashValue, otherValue, taxableValue, taxDeferredValue, taxFreeValue, currentAge, retirementAge, lifeExpectancy, effectiveBtcCagr, effectiveStocksCagr, realEstateCagr, bondsCagr, effectiveInflation, lifeEvents, goals, annualSavings, incomeGrowth, retirementAnnualSpending, btcReturnModel, filingStatus, taxableHoldings, otherRetirementIncome, socialSecurityStartAge, effectiveSocialSecurity, liabilities, collateralizedLoans, monthlyDebtPayments, btcPrice, cashCagr, otherCagr, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv, stateOfResidence, savingsAllocationBtc, savingsAllocationStocks, savingsAllocationBonds, savingsAllocationCash, savingsAllocationOther]);
 
   // Run Monte Carlo when button clicked
   const handleRunSimulation = () => {
@@ -4015,9 +4026,79 @@ export default function FinancialPlan() {
                 </div>
               </div>
 
-              {/* Retirement Savings Allocation */}
+              {/* New Savings Allocation */}
               <div className="mt-6 pt-6 border-t border-zinc-800">
-                <h4 className="font-semibold mb-4">Retirement Savings Allocation</h4>
+                <div className="space-y-3 mb-6">
+                  <h4 className="font-semibold text-zinc-300">New Savings Allocation</h4>
+                  <p className="text-xs text-zinc-500">How to invest new savings (must total 100%)</p>
+                  
+                  <div className="grid grid-cols-5 gap-2">
+                    <div>
+                      <Label className="text-xs text-zinc-400">BTC %</Label>
+                      <Input
+                        type="number"
+                        value={savingsAllocationBtc}
+                        onChange={(e) => setSavingsAllocationBtc(parseFloat(e.target.value) || 0)}
+                        className="bg-zinc-900 border-zinc-800 text-sm"
+                        min={0}
+                        max={100}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-zinc-400">Stocks %</Label>
+                      <Input
+                        type="number"
+                        value={savingsAllocationStocks}
+                        onChange={(e) => setSavingsAllocationStocks(parseFloat(e.target.value) || 0)}
+                        className="bg-zinc-900 border-zinc-800 text-sm"
+                        min={0}
+                        max={100}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-zinc-400">Bonds %</Label>
+                      <Input
+                        type="number"
+                        value={savingsAllocationBonds}
+                        onChange={(e) => setSavingsAllocationBonds(parseFloat(e.target.value) || 0)}
+                        className="bg-zinc-900 border-zinc-800 text-sm"
+                        min={0}
+                        max={100}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-zinc-400">Cash %</Label>
+                      <Input
+                        type="number"
+                        value={savingsAllocationCash}
+                        onChange={(e) => setSavingsAllocationCash(parseFloat(e.target.value) || 0)}
+                        className="bg-zinc-900 border-zinc-800 text-sm"
+                        min={0}
+                        max={100}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-zinc-400">Other %</Label>
+                      <Input
+                        type="number"
+                        value={savingsAllocationOther}
+                        onChange={(e) => setSavingsAllocationOther(parseFloat(e.target.value) || 0)}
+                        className="bg-zinc-900 border-zinc-800 text-sm"
+                        min={0}
+                        max={100}
+                      />
+                    </div>
+                  </div>
+                  
+                  {(savingsAllocationBtc + savingsAllocationStocks + savingsAllocationBonds + savingsAllocationCash + savingsAllocationOther) !== 100 && (
+                    <p className="text-xs text-amber-400">
+                      ⚠️ Total: {savingsAllocationBtc + savingsAllocationStocks + savingsAllocationBonds + savingsAllocationCash + savingsAllocationOther}% (should be 100%)
+                    </p>
+                  )}
+                </div>
+
+                {/* Retirement Savings Allocation */}
+                <h4 className="font-semibold mb-4">Retirement Account Contributions</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label className="text-zinc-400">401k/403b Contribution</Label>
