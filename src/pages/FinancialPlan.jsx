@@ -2022,7 +2022,7 @@ export default function FinancialPlan() {
 
       // Calculate total withdrawal amount (actual cash withdrawn from accounts)
       const totalWithdrawalAmount = isRetired 
-        ? Math.round((retirementSpendingOnly || 0) + (taxesPaid || 0) + (penaltyPaid || 0) + (yearGoalWithdrawal || 0))
+        ? Math.round((totalWithdrawalForTaxCalculation || 0) + (taxesPaid || 0) + (penaltyPaid || 0))
         : yearSavings < 0 
           ? Math.round(Math.abs(yearSavings) + (taxesPaid || 0) + (penaltyPaid || 0))
           : 0;
