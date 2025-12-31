@@ -1770,15 +1770,21 @@ export default function FinancialPlan() {
           filingStatus
         );
         
-        // Total other income = other retirement income + TAXABLE portion of Social Security
-        const totalOtherIncome = otherRetirementIncome + taxableSocialSecurity;
+        // For spending: use FULL Social Security income (user receives the entire benefit)
+        const totalRetirementIncome = otherRetirementIncome + socialSecurityIncome;
+        
+        // For tax calculations: use only TAXABLE portion of Social Security
+        const totalOtherIncomeForTax = otherRetirementIncome + taxableSocialSecurity;
 
         // Store UNCAPPED desired retirement spending (not capped yearWithdrawal)
         // This ensures remainingShortfall > 0 when liquid can't cover needs, triggering RE liquidation
         retirementSpendingOnly = desiredWithdrawal;
 
-        // Combine retirement withdrawal and goal withdrawal for tax estimation
-        totalWithdrawalForTaxCalculation = retirementSpendingOnly + yearGoalWithdrawal;
+        // Reduce required withdrawal by FULL Social Security income (user receives entire benefit for spending)
+        const netSpendingNeed = Math.max(0, retirementSpendingOnly - totalRetirementIncome);
+        
+        // Combine net spending (after SS) and goal withdrawal for tax estimation
+        totalWithdrawalForTaxCalculation = netSpendingNeed + yearGoalWithdrawal;
 
         // Cap withdrawal to available balance
         const totalAvailableBalance = getTotalLiquid();
@@ -1795,7 +1801,7 @@ export default function FinancialPlan() {
           isLongTermGain: true,
           filingStatus,
           age: currentAgeInYear,
-          otherIncome: totalOtherIncome,
+          otherIncome: totalOtherIncomeForTax,
           year: year,
           inflationRate: inflationRate / 100,
         });
@@ -1810,7 +1816,7 @@ export default function FinancialPlan() {
           state: stateOfResidence,
           age: currentAgeInYear,
           filingStatus: filingStatus,
-          totalAGI: totalOtherIncome + cappedWithdrawal,
+          totalAGI: totalOtherIncomeForTax + cappedWithdrawal,
           socialSecurityIncome: socialSecurityIncome,
           taxDeferredWithdrawal: withdrawFromTaxDeferred,
           taxableWithdrawal: withdrawFromTaxable,
@@ -1836,7 +1842,7 @@ export default function FinancialPlan() {
           isLongTermGain: true,
           filingStatus,
           age: currentAgeInYear,
-          otherIncome: totalOtherIncome,
+          otherIncome: totalOtherIncomeForTax,
           year: year,
           inflationRate: inflationRate / 100,
         });
