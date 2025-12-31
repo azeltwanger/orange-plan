@@ -11,7 +11,8 @@ import {
   calculateProgressiveIncomeTax,
   estimateRetirementWithdrawalTaxes,
   getTaxDataForYear,
-  calculateTaxableSocialSecurity
+  calculateTaxableSocialSecurity,
+  estimateSocialSecurityBenefit
 } from '@/components/tax/taxCalculations';
 import { getRMDFactor } from '@/components/shared/taxData';
 import { get401kLimit, getRothIRALimit, getHSALimit, getTaxConfigForYear } from '@/components/shared/taxConfig';
@@ -262,8 +263,9 @@ export default function FinancialPlan() {
     return localStorage.getItem('userFilingStatus') || 'single';
   });
   const [otherRetirementIncome, setOtherRetirementIncome] = useState(0);
-    const [socialSecurityStartAge, setSocialSecurityStartAge] = useState(67);
-    const [socialSecurityAmount, setSocialSecurityAmount] = useState(0); // Other income in retirement (social security, pension, etc.)
+  const [socialSecurityStartAge, setSocialSecurityStartAge] = useState(67);
+  const [socialSecurityAmount, setSocialSecurityAmount] = useState(0);
+  const [useCustomSocialSecurity, setUseCustomSocialSecurity] = useState(false);
 
   // Retirement savings allocation
   const [contribution401k, setContribution401k] = useState(0);
@@ -415,6 +417,7 @@ export default function FinancialPlan() {
       if (settings.other_retirement_income !== undefined) setOtherRetirementIncome(settings.other_retirement_income);
                   if (settings.social_security_start_age !== undefined) setSocialSecurityStartAge(settings.social_security_start_age);
                   if (settings.social_security_amount !== undefined) setSocialSecurityAmount(settings.social_security_amount);
+                  if (settings.use_custom_social_security !== undefined) setUseCustomSocialSecurity(settings.use_custom_social_security);
                   if (settings.gross_annual_income !== undefined) setGrossAnnualIncome(settings.gross_annual_income);
                   if (settings.contribution_401k !== undefined) setContribution401k(settings.contribution_401k);
                   if (settings.employer_401k_match !== undefined) setEmployer401kMatch(settings.employer_401k_match);
@@ -464,6 +467,7 @@ export default function FinancialPlan() {
                       other_retirement_income: otherRetirementIncome || 0,
                       social_security_start_age: socialSecurityStartAge || 67,
                       social_security_amount: socialSecurityAmount || 0,
+                      use_custom_social_security: useCustomSocialSecurity,
                       gross_annual_income: grossAnnualIncome || 100000,
                       contribution_401k: contribution401k || 0,
                       employer_401k_match: employer401kMatch || 0,
@@ -477,7 +481,7 @@ export default function FinancialPlan() {
                     });
     }, 1000); // Debounce 1 second
     return () => clearTimeout(timeoutId);
-  }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, otherCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, grossAnnualIncome, contribution401k, employer401kMatch, contributionRothIRA, contributionHSA, hsaFamilyCoverage, filingStatus, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv]);
+  }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, otherCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, useCustomSocialSecurity, grossAnnualIncome, contribution401k, employer401kMatch, contributionRothIRA, contributionHSA, hsaFamilyCoverage, filingStatus, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv]);
 
   // Calculate accurate debt payments for current month
   const currentMonthForDebt = new Date().getMonth();

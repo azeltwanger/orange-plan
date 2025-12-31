@@ -12,6 +12,62 @@ import {
 } from '@/components/shared/taxConfig';
 
 /**
+ * Estimate Social Security benefit based on current income
+ * Uses simplified PIA calculation with bend points
+ * @param {number} currentIncome - Current gross annual income
+ * @param {number} claimingAge - Age to start SS (62-70)
+ * @param {number} currentAge - Current age (not used in simplified calc)
+ * @returns {number} - Estimated annual SS benefit
+ */
+export function estimateSocialSecurityBenefit(currentIncome, claimingAge = 67, currentAge = 35) {
+  // SS wage base cap (2024) - income above this doesn't count
+  const ssWageBase = 168600;
+  const cappedIncome = Math.min(currentIncome, ssWageBase);
+  
+  // Estimate AIME (Average Indexed Monthly Earnings)
+  // Simplified: assume current income represents career average
+  const aime = cappedIncome / 12;
+  
+  // 2024 bend points for PIA calculation
+  const bendPoint1 = 1174;
+  const bendPoint2 = 7078;
+  
+  // Calculate PIA (Primary Insurance Amount) using bend point formula
+  let pia = 0;
+  if (aime <= bendPoint1) {
+    pia = aime * 0.90;
+  } else if (aime <= bendPoint2) {
+    pia = (bendPoint1 * 0.90) + ((aime - bendPoint1) * 0.32);
+  } else {
+    pia = (bendPoint1 * 0.90) + ((bendPoint2 - bendPoint1) * 0.32) + ((aime - bendPoint2) * 0.15);
+  }
+  
+  // Adjust for claiming age (Full Retirement Age = 67 for those born 1960+)
+  const fra = 67;
+  let adjustmentFactor = 1.0;
+  
+  if (claimingAge < fra) {
+    // Reduced benefits: ~6.67% per year before FRA (up to 3 years), then 5% per year
+    const yearsEarly = fra - claimingAge;
+    if (yearsEarly <= 3) {
+      adjustmentFactor = 1 - (yearsEarly * 0.0667);
+    } else {
+      adjustmentFactor = 1 - (3 * 0.0667) - ((yearsEarly - 3) * 0.05);
+    }
+  } else if (claimingAge > fra) {
+    // Delayed credits: 8% per year after FRA (up to age 70)
+    const yearsDelayed = Math.min(claimingAge - fra, 3);
+    adjustmentFactor = 1 + (yearsDelayed * 0.08);
+  }
+  
+  // Annual benefit
+  const monthlyBenefit = pia * adjustmentFactor;
+  const annualBenefit = Math.round(monthlyBenefit * 12);
+  
+  return annualBenefit;
+}
+
+/**
  * Calculate the taxable portion of Social Security benefits using IRS provisional income rules.
  * @param {number} socialSecurityBenefits - Total SS benefits received
  * @param {number} otherIncome - AGI excluding SS (wages, withdrawals, other income)
