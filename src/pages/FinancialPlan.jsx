@@ -1786,6 +1786,19 @@ export default function FinancialPlan() {
         // Combine net spending (after SS) and goal withdrawal for tax estimation
         totalWithdrawalForTaxCalculation = netSpendingNeed + yearGoalWithdrawal;
 
+        if (currentAgeInYear >= 70 && currentAgeInYear <= 72) {
+          console.log(`[RETIREMENT Age ${currentAgeInYear}]`, {
+            desiredWithdrawal: Math.round(desiredWithdrawal),
+            socialSecurityIncome: Math.round(socialSecurityIncome),
+            otherRetirementIncome: Math.round(otherRetirementIncome),
+            totalRetirementIncome: Math.round(totalRetirementIncome),
+            retirementSpendingOnly: Math.round(retirementSpendingOnly),
+            netSpendingNeed: Math.round(netSpendingNeed),
+            totalWithdrawalForTaxCalculation: Math.round(totalWithdrawalForTaxCalculation),
+            effectiveSocialSecurity: Math.round(effectiveSocialSecurity)
+          });
+        }
+
         // Cap withdrawal to available balance
         const totalAvailableBalance = getTotalLiquid();
         const cappedWithdrawal = Math.min(totalWithdrawalForTaxCalculation, totalAvailableBalance);
