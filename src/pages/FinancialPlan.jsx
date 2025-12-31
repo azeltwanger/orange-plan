@@ -4393,6 +4393,7 @@ export default function FinancialPlan() {
               </div>
             </div>
           </div>
+          </div>
         </TabsContent>
 
         {/* Monte Carlo Tab */}
