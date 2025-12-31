@@ -1751,10 +1751,6 @@ export default function FinancialPlan() {
           filingStatus
         );
         
-        if (socialSecurityIncome > 0) {
-          console.log(`[SS TAX Age ${currentAgeInYear}] SS Income: $${Math.round(socialSecurityIncome)}, Taxable: $${Math.round(taxableSocialSecurity)} (${Math.round(taxableSocialSecurity/socialSecurityIncome*100)}%)`);
-        }
-        
         // Total other income = other retirement income + TAXABLE portion of Social Security
         const totalOtherIncome = otherRetirementIncome + taxableSocialSecurity;
 
