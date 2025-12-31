@@ -4358,7 +4358,6 @@ export default function FinancialPlan() {
                   })()}
                 </div>
               </div>
-              </div>
 
               <div className="mt-4 space-y-2">
               <p className="text-xs text-zinc-500">
