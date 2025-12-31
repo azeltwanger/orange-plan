@@ -507,6 +507,10 @@ export default function FinancialPlan() {
     return sum;
   }, 0);
 
+  // Calculate estimated Social Security benefit
+  const estimatedSocialSecurity = estimateSocialSecurityBenefit(grossAnnualIncome, socialSecurityStartAge, currentAge);
+  const effectiveSocialSecurity = useCustomSocialSecurity ? socialSecurityAmount : estimatedSocialSecurity;
+
   // Calculate annual net cash flow after estimated income tax and retirement contributions
   const currentYear = new Date().getFullYear();
   const { standardDeductions } = getTaxDataForYear(currentYear);
@@ -1740,9 +1744,9 @@ export default function FinancialPlan() {
         // Calculate Social Security income for this year (inflation-adjusted from start age)
         const currentAgeInYearForSS = currentAge + i;
         let socialSecurityIncome = 0;
-        if (currentAgeInYearForSS >= socialSecurityStartAge && socialSecurityAmount > 0) {
+        if (currentAgeInYearForSS >= socialSecurityStartAge && effectiveSocialSecurity > 0) {
           const yearsOfSSInflation = currentAgeInYearForSS - socialSecurityStartAge;
-          socialSecurityIncome = socialSecurityAmount * Math.pow(1 + effectiveInflation / 100, yearsOfSSInflation);
+          socialSecurityIncome = effectiveSocialSecurity * Math.pow(1 + effectiveInflation / 100, yearsOfSSInflation);
         }
 
         // Calculate taxable portion of Social Security using federal provisional income rules
@@ -2085,7 +2089,7 @@ export default function FinancialPlan() {
         });
     }
     return data;
-  }, [btcValue, stocksValue, realEstateValue, bondsValue, cashValue, otherValue, taxableValue, taxDeferredValue, taxFreeValue, currentAge, retirementAge, lifeExpectancy, effectiveBtcCagr, effectiveStocksCagr, realEstateCagr, bondsCagr, effectiveInflation, lifeEvents, goals, annualSavings, incomeGrowth, retirementAnnualSpending, btcReturnModel, filingStatus, taxableHoldings, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, liabilities, collateralizedLoans, monthlyDebtPayments, btcPrice, cashCagr, otherCagr, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv, stateOfResidence]);
+  }, [btcValue, stocksValue, realEstateValue, bondsValue, cashValue, otherValue, taxableValue, taxDeferredValue, taxFreeValue, currentAge, retirementAge, lifeExpectancy, effectiveBtcCagr, effectiveStocksCagr, realEstateCagr, bondsCagr, effectiveInflation, lifeEvents, goals, annualSavings, incomeGrowth, retirementAnnualSpending, btcReturnModel, filingStatus, taxableHoldings, otherRetirementIncome, socialSecurityStartAge, effectiveSocialSecurity, liabilities, collateralizedLoans, monthlyDebtPayments, btcPrice, cashCagr, otherCagr, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv, stateOfResidence]);
 
   // Run Monte Carlo when button clicked
   const handleRunSimulation = () => {
