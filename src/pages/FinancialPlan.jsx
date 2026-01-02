@@ -1551,6 +1551,7 @@ export default function FinancialPlan() {
       let realEstateSaleProceeds = 0;
       let retirementSpendingOnly = 0;
       let totalWithdrawalForTaxCalculation = 0;
+      let socialSecurityIncome = 0;
 
       // Per-year depletion flag - reset each iteration
       let ranOutOfMoneyThisYear = false;
