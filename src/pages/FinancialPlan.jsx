@@ -3264,21 +3264,41 @@ export default function FinancialPlan() {
                                             <span className="text-cyan-400 text-right">${p.withdrawFromRealEstate.toLocaleString()}</span>
                                           </div>
                                         )}
-                                      </div>
-                                    )}
-                                    {p.realEstateSold && (
-                                      <div className="mt-2 p-2 rounded bg-cyan-500/10 border border-cyan-500/20">
+                                        {p.withdrawFromLoanPayoff > 0 && (
+                                          <div className="flex justify-between gap-6">
+                                            <span>From Loan Payoff:</span>
+                                            <span className="text-orange-400 text-right">${p.withdrawFromLoanPayoff.toLocaleString()}</span>
+                                          </div>
+                                        )}
+                                        </div>
+                                        )}
+                                        {p.loanPayoffs && p.loanPayoffs.length > 0 && (
+                                        <div className="mt-2 p-2 rounded bg-orange-500/10 border border-orange-500/20">
+                                        <p className="text-xs text-orange-400 font-medium">🎉 Loan Paid Off to Unlock Equity</p>
+                                        {p.loanPayoffs.map((lp, lpIdx) => (
+                                          <div key={lpIdx} className="text-[10px] text-zinc-400 mt-1">
+                                            <div className="font-medium text-orange-300">{lp.loanName}</div>
+                                            <div>Debt Cleared: ${Math.round(lp.debtPaid).toLocaleString()}</div>
+                                            <div>BTC Released: {lp.btcReleased.toFixed(4)} BTC (${Math.round(lp.equityReleased).toLocaleString()})</div>
+                                            <div>Tax on Sale: ${Math.round(lp.taxOnSale).toLocaleString()}</div>
+                                            <div>Net Equity Applied: ${Math.round(lp.appliedToDeficit).toLocaleString()}</div>
+                                          </div>
+                                        ))}
+                                        </div>
+                                        )}
+                                        {p.realEstateSold && (
+                                        <div className="mt-2 p-2 rounded bg-cyan-500/10 border border-cyan-500/20">
                                         <p className="text-xs text-cyan-400 font-medium">🏠 Real Estate Sold</p>
                                         <div className="text-[10px] text-zinc-400 mt-1">
                                           <div>Sale Proceeds: ${(p.realEstateSaleProceeds || 0).toLocaleString()}</div>
                                           <div>Used for Withdrawal: ${(p.withdrawFromRealEstate || 0).toLocaleString()}</div>
                                           <div>Added to Taxable: ${((p.realEstateSaleProceeds || 0) - (p.withdrawFromRealEstate || 0)).toLocaleString()}</div>
                                         </div>
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
-                                {!p.isWithdrawing && p.netCashFlow > 0 && (
+                                        </div>
+                                        )}
+                                        </div>
+                                        )}
+                                        {!p.isWithdrawing && p.netCashFlow > 0 && (
                                   <div className="pt-3 mt-3 border-t border-zinc-700/70">
                                     <p className="text-zinc-400 mb-2 font-medium text-xs">Annual Cash Flow:</p>
                                     <div className="text-xs space-y-1.5 text-zinc-500 mb-2">
