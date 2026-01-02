@@ -1977,7 +1977,108 @@ export default function FinancialPlan() {
             remainingShortfall -= forceFromTaxFree;
           }
           
-          // 4. FINALLY: Liquidate Real Estate if liquid accounts can't cover shortfall
+          // 4. Pay off BTC-backed loans to unlock collateral equity (BEFORE Real Estate)
+          if (remainingShortfall > 0) {
+            // Get all active BTC-backed loans with positive equity
+            const activeLoansWithEquity = [
+              ...Object.values(tempRunningDebt).filter(l => 
+                l.type === 'btc_collateralized' && 
+                !l.paid_off && 
+                l.current_balance > 0
+              ),
+              ...Object.values(tempRunningCollateralizedLoans).filter(l => 
+                !l.paid_off && 
+                l.current_balance > 0
+              )
+            ].map(loan => {
+              const loanKey = loan.entity_type === 'CollateralizedLoan' ? `loan_${loan.id}` : loan.id;
+              const lockedBtc = encumberedBtc[loanKey] || loan.collateral_btc_amount || 0;
+              const collateralValue = lockedBtc * cumulativeBtcPrice;
+              const equity = collateralValue - loan.current_balance;
+              return {
+                ...loan,
+                loanKey,
+                lockedBtc,
+                collateralValue,
+                equity,
+                ltv: collateralValue > 0 ? (loan.current_balance / collateralValue) * 100 : 100
+              };
+            }).filter(loan => loan.equity > 0)
+              .sort((a, b) => a.ltv - b.ltv); // Pay off lowest LTV first (most equity)
+            
+            for (const loan of activeLoansWithEquity) {
+              if (remainingShortfall <= 0) break;
+              
+              // Pay off this loan by selling portion of collateral
+              const debtToPay = loan.current_balance;
+              const btcToSellForDebt = debtToPay / cumulativeBtcPrice;
+              const btcReleased = loan.lockedBtc - btcToSellForDebt;
+              const equityReleasedGross = btcReleased * cumulativeBtcPrice;
+              
+              // Calculate tax on sold collateral (estimate 50% cost basis)
+              const costBasisPercent = 0.5;
+              const gainOnSale = debtToPay * (1 - costBasisPercent);
+              const taxOnSale = gainOnSale * getLTCGRate(cumulativeTaxableIncome || 0, filingStatus, year);
+              
+              // Net equity available after tax
+              const netEquityAvailable = equityReleasedGross - taxOnSale;
+              
+              // Apply to deficit
+              const appliedToDeficit = Math.min(netEquityAvailable, remainingShortfall);
+              remainingShortfall -= appliedToDeficit;
+              fromLoanPayoff += appliedToDeficit;
+              totalWithdrawnFromAccounts += appliedToDeficit;
+              
+              // Update loan balances
+              if (tempRunningDebt[loan.id]) {
+                tempRunningDebt[loan.id].current_balance = 0;
+                tempRunningDebt[loan.id].paid_off = true;
+              }
+              if (tempRunningCollateralizedLoans[loan.id]) {
+                tempRunningCollateralizedLoans[loan.id].current_balance = 0;
+                tempRunningCollateralizedLoans[loan.id].paid_off = true;
+              }
+              
+              // Add released BTC to liquid portfolio
+              portfolio.taxable.btc += btcReleased * cumulativeBtcPrice;
+              
+              // Remove from encumbered
+              encumberedBtc[loan.loanKey] = 0;
+              
+              // Add taxes to total
+              taxesPaid += taxOnSale;
+              
+              // Track for tooltip
+              yearLoanPayoffs.push({
+                loanName: loan.name || loan.lender || 'BTC Loan',
+                debtPaid: debtToPay,
+                btcSold: btcToSellForDebt,
+                btcReleased: btcReleased,
+                equityReleased: equityReleasedGross,
+                taxOnSale: taxOnSale,
+                netEquity: netEquityAvailable,
+                appliedToDeficit: appliedToDeficit
+              });
+              
+              // Log the payoff event
+              liquidationEvents.push({
+                year,
+                age: currentAge + i,
+                liabilityName: loan.name || loan.lender || 'BTC Loan',
+                type: 'voluntary_payoff',
+                btcAmount: btcToSellForDebt,
+                btcReturned: btcReleased,
+                proceeds: debtToPay,
+                debtReduction: debtToPay,
+                remainingDebt: 0,
+                remainingCollateral: 0,
+                newLtv: 0,
+                message: `Paid off loan to unlock equity: Sold ${btcToSellForDebt.toFixed(4)} BTC, released ${btcReleased.toFixed(4)} BTC ($${Math.round(equityReleasedGross).toLocaleString()} equity)`
+              });
+            }
+          }
+          
+          // 5. FINALLY: Liquidate Real Estate if liquid accounts can't cover shortfall
           // IMPORTANT: Real estate is all-or-nothing - sell entire property, put excess in taxable
           if (remainingShortfall > 0 && portfolio.realEstate > 0) {
             // Sell ALL real estate
