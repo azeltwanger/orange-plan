@@ -1979,13 +1979,6 @@ export default function FinancialPlan() {
           
           // 4. Pay off BTC-backed loans to unlock collateral equity (BEFORE Real Estate)
           if (remainingShortfall > 0) {
-            // DEBUG: Log state before loan payoff attempt
-            const debugTaxableBalance = getAccountTotal('taxable');
-            const debugTaxDeferredBalance = getAccountTotal('taxDeferred');
-            const debugTaxFreeBalance = getAccountTotal('taxFree');
-            const debugRealEstateBalance = portfolio.realEstate;
-            const debugRemainingDeficit = remainingShortfall;
-            
             // Get all active BTC-backed loans with positive equity
             const activeLoansWithEquity = [
               ...Object.values(tempRunningDebt).filter(l => 
@@ -2085,35 +2078,11 @@ export default function FinancialPlan() {
                 message: `Paid off loan to unlock equity: Sold ${btcToSellForDebt.toFixed(4)} BTC, released ${btcReleased.toFixed(4)} BTC ($${Math.round(equityReleasedGross).toLocaleString()} equity)`
               });
             }
-            
-            // DEBUG: Log loan payoff results
-            if (fromLoanPayoff > 0) {
-              console.log('[WITHDRAWAL ORDER DEBUG Age ' + (currentAge + i) + ']', {
-                remainingDeficitBeforeLoanPayoff: debugRemainingDeficit,
-                taxableBalance: debugTaxableBalance,
-                taxDeferredBalance: debugTaxDeferredBalance,
-                taxFreeBalance: debugTaxFreeBalance,
-                realEstateBalance: debugRealEstateBalance,
-                triggeredLoanPayoff: fromLoanPayoff > 0,
-                loanPayoffAmount: fromLoanPayoff,
-                remainingAfterLoanPayoff: remainingShortfall
-              });
-            }
           }
           
           // 6. FINALLY: Liquidate Real Estate if liquid accounts can't cover shortfall
           // IMPORTANT: Real estate is all-or-nothing - sell entire property, put excess in taxable
           if (remainingShortfall > 0 && portfolio.realEstate > 0) {
-            // DEBUG: Log before real estate sale
-            console.log('[WITHDRAWAL ORDER DEBUG Age ' + (currentAge + i) + '] REAL ESTATE TRIGGERED', {
-              remainingShortfallBeforeRE: remainingShortfall,
-              realEstateValue: portfolio.realEstate,
-              loanPayoffAlreadyApplied: fromLoanPayoff,
-              taxableAfterWithdrawals: getAccountTotal('taxable'),
-              taxDeferredAfterWithdrawals: getAccountTotal('taxDeferred'),
-              taxFreeAfterWithdrawals: getAccountTotal('taxFree')
-            });
-            
             // Sell ALL real estate
             realEstateSaleProceeds = portfolio.realEstate;
             portfolio.realEstate = 0;
