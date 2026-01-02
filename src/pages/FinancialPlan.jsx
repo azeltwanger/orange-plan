@@ -1585,11 +1585,20 @@ export default function FinancialPlan() {
         
         // Pre-tax contributions reduce taxable income
         const yearTaxableIncome = Math.max(0, yearGrossIncome - year401k - yearHSA - currentStandardDeduction);
-        const yearTaxesPaid = calculateProgressiveIncomeTax(yearTaxableIncome, filingStatus, year);
-        taxesPaid = yearTaxesPaid;
+        const yearFederalTax = calculateProgressiveIncomeTax(yearTaxableIncome, filingStatus, year);
         
-        // Net income after taxes
-        const yearNetIncome = yearGrossIncome - yearTaxesPaid;
+        // Calculate state income tax on earned income
+        const yearStateTax = calculateStateIncomeTax({
+          income: yearGrossIncome - year401k - yearHSA,
+          filingStatus: filingStatus,
+          state: stateOfResidence,
+          year: year
+        });
+        
+        taxesPaid = yearFederalTax + yearStateTax;
+        
+        // Net income after taxes (federal + state)
+        const yearNetIncome = yearGrossIncome - (yearFederalTax + yearStateTax);
 
         // Track components for tooltip
         // Pro-rate Year 0 spending to only remaining months
@@ -1664,7 +1673,22 @@ export default function FinancialPlan() {
           withdrawFromTaxable = taxEstimate.fromTaxable || 0;
           withdrawFromTaxDeferred = taxEstimate.fromTaxDeferred || 0;
           withdrawFromTaxFree = taxEstimate.fromTaxFree || 0;
-          taxesPaid = taxEstimate.totalTax || 0;
+          
+          // Calculate state tax on pre-retirement withdrawal
+          const preRetireStateTax = calculateStateTaxOnRetirement({
+            state: stateOfResidence,
+            age: currentAgeThisYear,
+            filingStatus: filingStatus,
+            totalAGI: deficit,
+            socialSecurityIncome: 0,
+            taxDeferredWithdrawal: withdrawFromTaxDeferred,
+            taxableWithdrawal: withdrawFromTaxable,
+            taxableGainPortion: withdrawFromTaxable * estimatedCurrentGainRatio,
+            pensionIncome: 0,
+            year: year,
+          });
+          
+          taxesPaid = (taxEstimate.totalTax || 0) + preRetireStateTax;
           penaltyPaid = taxEstimate.totalPenalty || 0;
 
           // Adjust cost basis after taxable withdrawal
