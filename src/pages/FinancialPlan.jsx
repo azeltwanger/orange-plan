@@ -1858,10 +1858,6 @@ export default function FinancialPlan() {
         const baseFromTaxDeferred = taxEstimate.fromTaxDeferred || 0;
         const baseFromTaxFree = taxEstimate.fromTaxFree || 0;
         
-        // Track loan payoff withdrawals
-        let fromLoanPayoff = 0;
-        const yearLoanPayoffs = [];
-        
         // Calculate state tax on retirement income AND withdrawal
         const stateTax = calculateStateTaxOnRetirement({
           state: stateOfResidence,
