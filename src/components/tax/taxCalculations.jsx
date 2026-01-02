@@ -278,6 +278,7 @@ export const estimateRetirementWithdrawalTaxes = ({
   };
   
   // Track cumulative taxable income for accurate bracket calculation
+  // When calculating taxes on withdrawals, the otherIncome (e.g., taxable SS) fills the lower tax brackets first.
   let cumulativeTaxableIncome = Math.max(0, otherIncome - standardDeduction);
   
   // Optimal withdrawal order depends on age and tax situation
