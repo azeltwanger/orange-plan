@@ -3549,6 +3549,26 @@ export default function FinancialPlan() {
                                           <span className="text-cyan-400 text-right">${p.withdrawFromRealEstate.toLocaleString()}</span>
                                         </div>
                                       )}
+                                      {p.withdrawFromLoanPayoff > 0 && (
+                                        <div className="flex justify-between gap-6">
+                                          <span>From Loan Payoff:</span>
+                                          <span className="text-orange-400 text-right">${p.withdrawFromLoanPayoff.toLocaleString()}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                  {p.loanPayoffs && p.loanPayoffs.length > 0 && (
+                                    <div className="mt-2 p-2 rounded bg-orange-500/10 border border-orange-500/20">
+                                      <p className="text-xs text-orange-400 font-medium">🎉 Loan Paid Off to Unlock Equity</p>
+                                      {p.loanPayoffs.map((lp, lpIdx) => (
+                                        <div key={lpIdx} className="text-[10px] text-zinc-400 mt-1">
+                                          <div className="font-medium text-orange-300">{lp.loanName}</div>
+                                          <div>Debt Cleared: ${Math.round(lp.debtPaid).toLocaleString()}</div>
+                                          <div>BTC Released: {lp.btcReleased.toFixed(4)} BTC (${Math.round(lp.equityReleased).toLocaleString()})</div>
+                                          <div>Tax on Sale: ${Math.round(lp.taxOnSale).toLocaleString()}</div>
+                                          <div>Net Equity Applied: ${Math.round(lp.appliedToDeficit).toLocaleString()}</div>
+                                        </div>
+                                      ))}
                                     </div>
                                   )}
                                   {p.realEstateSold && (
