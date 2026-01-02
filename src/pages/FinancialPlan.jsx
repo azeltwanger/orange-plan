@@ -2078,6 +2078,7 @@ export default function FinancialPlan() {
         netCashFlow: Math.round(yearSavings),
         yearGrossIncome: !isRetired ? Math.round((grossAnnualIncome * Math.pow(1 + incomeGrowth / 100, i)) + activeIncomeAdjustment) : 0,
         yearSpending: !isRetired ? Math.round((currentAnnualSpending * Math.pow(1 + inflationRate / 100, i)) + activeExpenseAdjustment) : 0,
+        socialSecurityIncome: isRetired ? Math.round(socialSecurityIncome || 0) : 0,
         total: Math.round(total),
         realTotal: Math.round(realTotal),
         hasEvent: lifeEvents.some(e => e.year === year) ||
@@ -3083,6 +3084,12 @@ export default function FinancialPlan() {
                                   <div className="pt-3 mt-3 border-t border-zinc-700/70">
                                     <p className="text-zinc-400 mb-2 font-medium text-xs">Annual Outflow:</p>
                                     <div className="text-xs space-y-1.5 text-zinc-500 mb-2">
+                                      {p.socialSecurityIncome > 0 && (
+                                        <div className="flex justify-between gap-6">
+                                          <span className="text-emerald-400">Social Security Income:</span>
+                                          <span className="text-emerald-400 text-right">+${p.socialSecurityIncome.toLocaleString()}</span>
+                                        </div>
+                                      )}
                                       {p.isRetired ? (
                                         <div className="flex justify-between gap-6">
                                           <span>• Spending:</span>
@@ -3362,6 +3369,12 @@ export default function FinancialPlan() {
                                 <div className="pt-3 mt-3 border-t border-zinc-700/70">
                                   <p className="text-zinc-400 mb-2 font-medium text-xs">Annual Outflow:</p>
                                   <div className="text-xs space-y-1.5 text-zinc-500 mb-2">
+                                    {p.socialSecurityIncome > 0 && (
+                                      <div className="flex justify-between gap-6">
+                                        <span className="text-emerald-400">Social Security Income:</span>
+                                        <span className="text-emerald-400 text-right">+${p.socialSecurityIncome.toLocaleString()}</span>
+                                      </div>
+                                    )}
                                     {p.isRetired ? (
                                       <div className="flex justify-between gap-6">
                                         <span>• Spending:</span>
