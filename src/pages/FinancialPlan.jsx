@@ -871,11 +871,14 @@ export default function FinancialPlan() {
         }
         
         // Map asset_type to our categories (support both old 'crypto' and new 'btc')
+        const tickerUpper = h.ticker?.toUpperCase() || '';
+        const assetTypeLower = assetType?.toLowerCase() || '';
+        
         let assetCategory = 'other';
-        if (h.ticker?.toUpperCase() === 'BTC' || assetType === 'btc' || assetType === 'crypto') assetCategory = 'btc';
-        else if (assetType === 'stocks') assetCategory = 'stocks';
-        else if (assetType === 'bonds') assetCategory = 'bonds';
-        else if (assetType === 'cash') assetCategory = 'cash';
+        if (tickerUpper === 'BTC' || assetTypeLower === 'btc' || assetTypeLower === 'crypto') assetCategory = 'btc';
+        else if (assetTypeLower === 'stocks') assetCategory = 'stocks';
+        else if (assetTypeLower === 'bonds') assetCategory = 'bonds';
+        else if (assetTypeLower === 'cash') assetCategory = 'cash';
         
         // Map tax treatment to account
         let accountKey = 'taxable';
