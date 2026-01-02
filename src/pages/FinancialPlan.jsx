@@ -2018,7 +2018,9 @@ export default function FinancialPlan() {
               // Calculate tax on sold collateral (estimate 50% cost basis)
               const costBasisPercent = 0.5;
               const gainOnSale = debtToPay * (1 - costBasisPercent);
-              const taxOnSale = gainOnSale * getLTCGRate(cumulativeTaxableIncome || 0, filingStatus, year);
+              // Use otherIncome + prior withdrawals as taxable income base for LTCG rate
+              const taxableIncomeBase = (totalOtherIncomeForTax || 0) + withdrawFromTaxable + withdrawFromTaxDeferred;
+              const taxOnSale = gainOnSale * getLTCGRate(taxableIncomeBase, filingStatus, year);
               
               // Net equity available after tax
               const netEquityAvailable = equityReleasedGross - taxOnSale;
