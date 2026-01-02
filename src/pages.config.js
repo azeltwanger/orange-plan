@@ -14,7 +14,6 @@ import Pricing from './pages/Pricing';
 import Scenarios from './pages/Scenarios';
 import Settings from './pages/Settings';
 import TaxCenter from './pages/TaxCenter';
-import financialplanTemp from './pages/FinancialPlan_temp';
 import __Layout from './Layout.jsx';
 
 
@@ -35,7 +34,6 @@ export const PAGES = {
     "Scenarios": Scenarios,
     "Settings": Settings,
     "TaxCenter": TaxCenter,
-    "FinancialPlan_temp": financialplanTemp,
 }
 
 export const pagesConfig = {
