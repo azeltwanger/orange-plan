@@ -4080,7 +4080,7 @@ export default function FinancialPlan() {
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-zinc-400">Income (Pre-Retirement)</Label>
+                  <Label className="text-zinc-400">Gross Income (Pre-Retirement)</Label>
                   <Input type="number" value={grossAnnualIncome} onChange={(e) => setGrossAnnualIncome(parseFloat(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
                   <p className="text-xs text-zinc-500">Salary/wages used until retirement age</p>
                 </div>
@@ -4094,7 +4094,7 @@ export default function FinancialPlan() {
                     <Input type="number" value={retirementAnnualSpending} onChange={(e) => setRetirementAnnualSpending(parseFloat(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-zinc-400">Income (In Retirement)</Label>
+                    <Label className="text-zinc-400">Gross Income (In Retirement)</Label>
                     <Input 
                       type="number" 
                       value={otherRetirementIncome} 
