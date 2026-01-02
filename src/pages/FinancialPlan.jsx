@@ -1886,6 +1886,18 @@ export default function FinancialPlan() {
           year: year,
         });
         
+        if (currentAge + i === 70) {
+          console.log('[SS TAX DEBUG Age 70]', {
+            socialSecurityIncome,
+            otherRetirementIncome,
+            taxableSS: calculateTaxableSocialSecurity(socialSecurityIncome, otherRetirementIncome + cappedWithdrawal, filingStatus),
+            totalOtherIncomeForTax,
+            cappedWithdrawal,
+            taxEstimate: taxEstimate?.totalTax,
+            stateTax
+          });
+        }
+
         taxesPaid = (taxEstimate.totalTax || 0) + stateTax;
         penaltyPaid = taxEstimate.totalPenalty || 0;
 
