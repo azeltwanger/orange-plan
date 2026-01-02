@@ -424,7 +424,12 @@ export default function FinancialPlan() {
       if (settings.other_retirement_income !== undefined) setOtherRetirementIncome(settings.other_retirement_income);
                   if (settings.social_security_start_age !== undefined) setSocialSecurityStartAge(settings.social_security_start_age);
                   if (settings.social_security_amount !== undefined) setSocialSecurityAmount(settings.social_security_amount);
-                  if (settings.use_custom_social_security !== undefined) setUseCustomSocialSecurity(settings.use_custom_social_security);
+                  // Auto-enable custom mode if a custom amount was saved (handles legacy data)
+                  if (settings.use_custom_social_security !== undefined) {
+                    setUseCustomSocialSecurity(settings.use_custom_social_security);
+                  } else if (settings.social_security_amount && settings.social_security_amount > 0) {
+                    setUseCustomSocialSecurity(true);
+                  }
                   if (settings.savings_allocation_btc !== undefined) setSavingsAllocationBtc(settings.savings_allocation_btc);
                   if (settings.savings_allocation_stocks !== undefined) setSavingsAllocationStocks(settings.savings_allocation_stocks);
                   if (settings.savings_allocation_bonds !== undefined) setSavingsAllocationBonds(settings.savings_allocation_bonds);
