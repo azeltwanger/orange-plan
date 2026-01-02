@@ -1689,20 +1689,7 @@ export default function FinancialPlan() {
             year: year,
           });
           
-          console.log('[PRE-RETIRE DEFICIT TAX DEBUG]', {
-            year,
-            age: currentAgeThisYear,
-            deficit,
-            estimatedCurrentGainRatio,
-            taxEstimate: {
-              totalTax: taxEstimate.totalTax,
-              fromTaxable: taxEstimate.fromTaxable,
-              fromTaxDeferred: taxEstimate.fromTaxDeferred,
-              fromTaxFree: taxEstimate.fromTaxFree
-            },
-            preRetireStateTax,
-            finalTaxesPaid: (taxEstimate.totalTax || 0) + preRetireStateTax
-          });
+
           
           taxesPaid = (taxEstimate.totalTax || 0) + preRetireStateTax;
           penaltyPaid = taxEstimate.totalPenalty || 0;
@@ -1810,16 +1797,7 @@ export default function FinancialPlan() {
           socialSecurityIncome = effectiveSocialSecurity * Math.pow(1 + effectiveInflation / 100, yearsOfSSInflation);
         }
 
-        if (currentAge + i === 70) {
-          console.log('[SS DEBUG Age 70]', {
-            isRetired,
-            currentAgeInYearForSS,
-            socialSecurityStartAge,
-            effectiveSocialSecurity,
-            socialSecurityIncome,
-            condition: currentAgeInYearForSS >= socialSecurityStartAge && effectiveSocialSecurity > 0
-          });
-        }
+
 
         // Calculate taxable portion of Social Security using federal provisional income rules
         // Provisional income uses other income (excluding SS) to determine what % of SS is taxable
@@ -1894,19 +1872,7 @@ export default function FinancialPlan() {
           year: year,
         });
         
-        if (currentAge + i === 70) {
-          console.log('[SS TAX DEBUG Age 70]', {
-            socialSecurityIncome,
-            otherRetirementIncome,
-            taxableSocialSecurity,
-            totalOtherIncomeForTax,
-            federalTaxOnOtherIncome,
-            cappedWithdrawal,
-            taxEstimateOnWithdrawals: taxEstimate?.totalTax,
-            stateTax,
-            combinedFederalTax: federalTaxOnOtherIncome + (taxEstimate.totalTax || 0)
-          });
-        }
+
 
         // Total taxes = federal tax on other income (pension + taxable SS) + federal tax on withdrawals + state tax
         taxesPaid = federalTaxOnOtherIncome + (taxEstimate.totalTax || 0) + stateTax;
@@ -4337,8 +4303,18 @@ export default function FinancialPlan() {
                     // If currently retired, show retirement cash flow
                     if (isCurrentlyRetired) {
                       const currentSS = currentAge >= socialSecurityStartAge ? effectiveSocialSecurity : 0;
-                      const totalRetirementIncome = otherRetirementIncome + currentSS;
-                      const retirementCashFlow = totalRetirementIncome - retirementAnnualSpending;
+                      const totalRetirementIncomeGross = otherRetirementIncome + currentSS;
+                      
+                      // Calculate tax on retirement income (taxable SS + pension)
+                      const taxableSS = calculateTaxableSocialSecurity(currentSS, otherRetirementIncome, filingStatus);
+                      const taxableRetirementIncome = otherRetirementIncome + taxableSS;
+                      const retirementIncomeTax = calculateProgressiveIncomeTax(
+                        Math.max(0, taxableRetirementIncome - currentStandardDeduction),
+                        filingStatus,
+                        currentYear
+                      );
+                      
+                      const retirementCashFlow = totalRetirementIncomeGross - retirementAnnualSpending - retirementIncomeTax;
                       
                       return (
                         <div className="space-y-2 text-sm">
@@ -4359,6 +4335,12 @@ export default function FinancialPlan() {
                             <div className="flex justify-between">
                               <span className="text-zinc-500">Social Security (starts age {socialSecurityStartAge}):</span>
                               <span className="text-zinc-500">{formatNumber(effectiveSocialSecurity)}</span>
+                            </div>
+                          )}
+                          {retirementIncomeTax > 0 && (
+                            <div className="flex justify-between">
+                              <span className="text-zinc-400">Est. Taxes (on income):</span>
+                              <span className="text-rose-300">-{formatNumber(retirementIncomeTax)}</span>
                             </div>
                           )}
                           <div className="flex justify-between">
