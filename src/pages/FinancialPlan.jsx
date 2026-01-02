@@ -1837,6 +1837,14 @@ export default function FinancialPlan() {
         // For tax calculations: use only TAXABLE portion of Social Security
         const totalOtherIncomeForTax = otherRetirementIncome + taxableSocialSecurity;
 
+        // Calculate federal tax on other income (pension + taxable SS) BEFORE withdrawals
+        // This ensures taxable SS income is properly taxed even when withdrawals are from tax-free accounts
+        const federalTaxOnOtherIncome = calculateProgressiveIncomeTax(
+          Math.max(0, totalOtherIncomeForTax - currentStandardDeduction),
+          filingStatus,
+          year
+        );
+
         // Store UNCAPPED desired retirement spending (not capped yearWithdrawal)
         // This ensures remainingShortfall > 0 when liquid can't cover needs, triggering RE liquidation
         retirementSpendingOnly = desiredWithdrawal;
