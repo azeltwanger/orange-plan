@@ -2104,6 +2104,16 @@ export default function FinancialPlan() {
           // 6. FINALLY: Liquidate Real Estate if liquid accounts can't cover shortfall
           // IMPORTANT: Real estate is all-or-nothing - sell entire property, put excess in taxable
           if (remainingShortfall > 0 && portfolio.realEstate > 0) {
+            // DEBUG: Log before real estate sale
+            console.log('[WITHDRAWAL ORDER DEBUG Age ' + (currentAge + i) + '] REAL ESTATE TRIGGERED', {
+              remainingShortfallBeforeRE: remainingShortfall,
+              realEstateValue: portfolio.realEstate,
+              loanPayoffAlreadyApplied: fromLoanPayoff,
+              taxableAfterWithdrawals: getAccountTotal('taxable'),
+              taxDeferredAfterWithdrawals: getAccountTotal('taxDeferred'),
+              taxFreeAfterWithdrawals: getAccountTotal('taxFree')
+            });
+            
             // Sell ALL real estate
             realEstateSaleProceeds = portfolio.realEstate;
             portfolio.realEstate = 0;
