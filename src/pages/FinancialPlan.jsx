@@ -4314,6 +4314,18 @@ export default function FinancialPlan() {
                         currentYear
                       );
                       
+                      console.log('[CASH FLOW TAX DEBUG]', {
+                        socialSecurityAnnual: currentSS,
+                        otherRetirementIncome,
+                        filingStatus,
+                        currentAge,
+                        currentStandardDeduction,
+                        taxableSS,
+                        taxableRetirementIncome,
+                        taxableIncomeAfterDeduction: Math.max(0, taxableRetirementIncome - currentStandardDeduction),
+                        retirementIncomeTax
+                      });
+                      
                       const retirementCashFlow = totalRetirementIncomeGross - retirementAnnualSpending - retirementIncomeTax;
                       
                       return (
