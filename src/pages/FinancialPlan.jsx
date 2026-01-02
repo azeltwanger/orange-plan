@@ -2085,6 +2085,20 @@ export default function FinancialPlan() {
                 message: `Paid off loan to unlock equity: Sold ${btcToSellForDebt.toFixed(4)} BTC, released ${btcReleased.toFixed(4)} BTC ($${Math.round(equityReleasedGross).toLocaleString()} equity)`
               });
             }
+            
+            // DEBUG: Log loan payoff results
+            if (fromLoanPayoff > 0) {
+              console.log('[WITHDRAWAL ORDER DEBUG Age ' + (currentAge + i) + ']', {
+                remainingDeficitBeforeLoanPayoff: debugRemainingDeficit,
+                taxableBalance: debugTaxableBalance,
+                taxDeferredBalance: debugTaxDeferredBalance,
+                taxFreeBalance: debugTaxFreeBalance,
+                realEstateBalance: debugRealEstateBalance,
+                triggeredLoanPayoff: fromLoanPayoff > 0,
+                loanPayoffAmount: fromLoanPayoff,
+                remainingAfterLoanPayoff: remainingShortfall
+              });
+            }
           }
           
           // 6. FINALLY: Liquidate Real Estate if liquid accounts can't cover shortfall
