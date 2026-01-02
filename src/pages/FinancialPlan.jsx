@@ -2215,6 +2215,8 @@ export default function FinancialPlan() {
         realEstateSold: realEstateSaleProceeds > 0,
         realEstateSaleProceeds: Math.round(realEstateSaleProceeds || 0),
         withdrawFromRealEstate: Math.round(withdrawFromRealEstate || 0),
+        withdrawFromLoanPayoff: Math.round(fromLoanPayoff || 0),
+        loanPayoffs: yearLoanPayoffs,
         // Debt tracking
         totalDebt: Math.round(totalDebt),
         debtPayments: Math.round(actualAnnualDebtPayments),
