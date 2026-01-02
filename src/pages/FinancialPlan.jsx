@@ -1880,17 +1880,17 @@ export default function FinancialPlan() {
         const baseFromTaxDeferred = taxEstimate.fromTaxDeferred || 0;
         const baseFromTaxFree = taxEstimate.fromTaxFree || 0;
         
-        // Calculate state tax on retirement withdrawal
+        // Calculate state tax on retirement income AND withdrawal
         const stateTax = calculateStateTaxOnRetirement({
           state: stateOfResidence,
           age: currentAgeInYear,
           filingStatus: filingStatus,
           totalAGI: totalOtherIncomeForTax + cappedWithdrawal,
           socialSecurityIncome: socialSecurityIncome,
-          taxDeferredWithdrawal: withdrawFromTaxDeferred,
-          taxableWithdrawal: withdrawFromTaxable,
-          taxableGainPortion: withdrawFromTaxable * estimatedCurrentGainRatio,
-          pensionIncome: 0,
+          taxDeferredWithdrawal: baseFromTaxDeferred,
+          taxableWithdrawal: baseFromTaxable,
+          taxableGainPortion: baseFromTaxable * estimatedCurrentGainRatio,
+          pensionIncome: otherRetirementIncome,
           year: year,
         });
         
@@ -1898,15 +1898,18 @@ export default function FinancialPlan() {
           console.log('[SS TAX DEBUG Age 70]', {
             socialSecurityIncome,
             otherRetirementIncome,
-            taxableSS: calculateTaxableSocialSecurity(socialSecurityIncome, otherRetirementIncome + cappedWithdrawal, filingStatus),
+            taxableSocialSecurity,
             totalOtherIncomeForTax,
+            federalTaxOnOtherIncome,
             cappedWithdrawal,
-            taxEstimate: taxEstimate?.totalTax,
-            stateTax
+            taxEstimateOnWithdrawals: taxEstimate?.totalTax,
+            stateTax,
+            combinedFederalTax: federalTaxOnOtherIncome + (taxEstimate.totalTax || 0)
           });
         }
 
-        taxesPaid = (taxEstimate.totalTax || 0) + stateTax;
+        // Total taxes = federal tax on other income (pension + taxable SS) + federal tax on withdrawals + state tax
+        taxesPaid = federalTaxOnOtherIncome + (taxEstimate.totalTax || 0) + stateTax;
         penaltyPaid = taxEstimate.totalPenalty || 0;
 
         // Calculate total withdrawal needed (spending + taxes + penalty)
