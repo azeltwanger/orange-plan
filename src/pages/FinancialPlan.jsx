@@ -973,6 +973,7 @@ export default function FinancialPlan() {
     for (let i = 0; i <= years; i++) {
       const year = currentYear + i;
       const age = currentAge + i;
+      let socialSecurityIncome = 0; // Initialize at top of loop so it's accessible in data.push()
 
       // Get BTC growth rate for this year (needed early for collateral calculations)
       const yearBtcGrowth = getBtcGrowthRate(i, effectiveInflation);
@@ -1551,7 +1552,6 @@ export default function FinancialPlan() {
       let realEstateSaleProceeds = 0;
       let retirementSpendingOnly = 0;
       let totalWithdrawalForTaxCalculation = 0;
-      let socialSecurityIncome = 0;
 
       // Per-year depletion flag - reset each iteration
       let ranOutOfMoneyThisYear = false;
