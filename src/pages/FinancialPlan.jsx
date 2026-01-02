@@ -981,6 +981,26 @@ export default function FinancialPlan() {
     // Encumbered BTC will be added back separately in total calculations
     const totalInitialEncumberedBtc = Object.values(encumberedBtc).reduce((sum, amount) => sum + amount, 0);
     const encumberedBtcValue = totalInitialEncumberedBtc * currentPrice;
+    
+    console.log('[PORTFOLIO INIT DEBUG]', {
+      beforeSubtraction: {
+        taxableBtc: portfolio.taxable.btc,
+        taxFreeBtc: portfolio.taxFree.btc,
+        taxDeferredBtc: portfolio.taxDeferred.btc
+      },
+      encumberedCalc: {
+        totalInitialEncumberedBtc,
+        currentPrice,
+        encumberedBtcValue,
+        encumberedBtcObject: encumberedBtc
+      },
+      afterSubtraction: {
+        taxableBtc: Math.max(0, portfolio.taxable.btc - encumberedBtcValue),
+        taxFreeBtc: portfolio.taxFree.btc,
+        totalBtcAfter: Math.max(0, portfolio.taxable.btc - encumberedBtcValue) + portfolio.taxDeferred.btc + portfolio.taxFree.btc
+      }
+    });
+    
     portfolio.taxable.btc = Math.max(0, portfolio.taxable.btc - encumberedBtcValue);
 
     // Track cumulative BTC price for variable growth models (Saylor, etc.)
