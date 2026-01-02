@@ -2025,18 +2025,6 @@ export default function FinancialPlan() {
           ? Math.round(Math.abs(yearSavings) + (taxesPaid || 0) + (penaltyPaid || 0))
           : 0;
 
-      // Debug log for first year only
-      if (age === currentAge) {
-        console.log('[btcLiquid DEBUG]', {
-          taxableBtc: portfolio.taxable.btc,
-          taxDeferredBtc: portfolio.taxDeferred.btc,
-          taxFreeBtc: portfolio.taxFree.btc,
-          total: portfolio.taxable.btc + portfolio.taxDeferred.btc + portfolio.taxFree.btc,
-          currentTotalEncumberedBtc,
-          encumberedValue: currentTotalEncumberedBtc * cumulativeBtcPrice
-        });
-      }
-
       data.push({
         age: currentAge + i,
         year,
