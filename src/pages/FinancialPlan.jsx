@@ -3732,10 +3732,16 @@ export default function FinancialPlan() {
                                   <span className="text-cyan-400">Collateral Released</span>
                                 </div>
                               )}
-                              {projections.some(p => p.liquidations?.some(l => l.type !== 'top_up' && l.type !== 'release')) && (
+                              {projections.some(p => p.liquidations?.some(l => l.type !== 'top_up' && l.type !== 'release' && l.type !== 'voluntary_payoff')) && (
                                 <div className="flex items-center gap-2">
                                   <div className="w-6 h-0.5" style={{backgroundImage: 'repeating-linear-gradient(90deg, #f43f5e 0, #f43f5e 4px, transparent 4px, transparent 8px)'}} />
                                   <span className="text-rose-400">Collateral Liquidation</span>
+                                </div>
+                              )}
+                              {projections.some(p => p.loanPayoffs?.length > 0) && (
+                                <div className="flex items-center gap-2">
+                                  <div className="w-6 h-0.5" style={{backgroundImage: 'repeating-linear-gradient(90deg, #fb923c 0, #fb923c 4px, transparent 4px, transparent 8px)'}} />
+                                  <span className="text-orange-400">Loan Payoff (Equity Unlock)</span>
                                 </div>
                               )}
                               {runOutOfMoneyAge && (
