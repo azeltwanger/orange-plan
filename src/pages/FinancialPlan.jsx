@@ -2097,7 +2097,7 @@ export default function FinancialPlan() {
             remainingShortfall -= withdrawFromRealEstate;
           }
           
-          // 5. If STILL a shortfall after all accounts including RE, portfolio is depleted
+          // 7. If STILL a shortfall after all accounts including RE, portfolio is depleted
           if (remainingShortfall > 0 && getTotalPortfolio() < 100) {
             ranOutOfMoneyThisYear = true;
           }
