@@ -1688,6 +1688,21 @@ export default function FinancialPlan() {
             year: year,
           });
           
+          console.log('[PRE-RETIRE DEFICIT TAX DEBUG]', {
+            year,
+            age: currentAgeThisYear,
+            deficit,
+            estimatedCurrentGainRatio,
+            taxEstimate: {
+              totalTax: taxEstimate.totalTax,
+              fromTaxable: taxEstimate.fromTaxable,
+              fromTaxDeferred: taxEstimate.fromTaxDeferred,
+              fromTaxFree: taxEstimate.fromTaxFree
+            },
+            preRetireStateTax,
+            finalTaxesPaid: (taxEstimate.totalTax || 0) + preRetireStateTax
+          });
+          
           taxesPaid = (taxEstimate.totalTax || 0) + preRetireStateTax;
           penaltyPaid = taxEstimate.totalPenalty || 0;
 
