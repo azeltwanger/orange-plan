@@ -663,6 +663,28 @@ export default function FinancialPlan() {
   const otherValue = holdings.filter(h => !['BTC'].includes(h.ticker) && !['stocks', 'real_estate', 'bonds', 'cash', 'btc', 'crypto'].includes(h.asset_type)).reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
   const totalValue = btcValue + stocksValue + realEstateValue + bondsValue + cashValue + otherValue;
 
+  // DEBUG: Trace BTC holdings classification
+  console.log('[HOLDINGS DEBUG]', {
+    totalHoldings: holdings?.length,
+    btcHoldings: holdings?.filter(h => h.ticker === 'BTC').map(h => ({
+      id: h.id,
+      ticker: h.ticker,
+      quantity: h.quantity,
+      current_price: h.current_price,
+      calculatedValue: h.ticker === 'BTC' ? h.quantity * currentPrice : h.quantity * (h.current_price || 0),
+      account_id: h.account_id,
+      account_type: h.account_type,
+      tax_treatment: h.tax_treatment,
+      asset_type: h.asset_type,
+      taxTreatmentResolved: getTaxTreatmentFromHolding(h)
+    })),
+    btcValue,
+    taxableValue,
+    taxFreeValue,
+    taxDeferredValue,
+    currentPrice
+  });
+
   // Penalty-free age for retirement accounts
   const PENALTY_FREE_AGE = 59.5;
   const RMD_START_AGE = 73; // Required Minimum Distribution age
