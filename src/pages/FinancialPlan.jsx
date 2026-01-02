@@ -872,7 +872,7 @@ export default function FinancialPlan() {
         
         // Map asset_type to our categories (support both old 'crypto' and new 'btc')
         let assetCategory = 'other';
-        if (h.ticker === 'BTC' || assetType === 'btc' || assetType === 'crypto') assetCategory = 'btc';
+        if (h.ticker?.toUpperCase() === 'BTC' || assetType === 'btc' || assetType === 'crypto') assetCategory = 'btc';
         else if (assetType === 'stocks') assetCategory = 'stocks';
         else if (assetType === 'bonds') assetCategory = 'bonds';
         else if (assetType === 'cash') assetCategory = 'cash';
@@ -897,7 +897,14 @@ export default function FinancialPlan() {
     };
 
     const getAssetTotal = (assetKey) => {
-      return portfolio.taxable[assetKey] + portfolio.taxDeferred[assetKey] + portfolio.taxFree[assetKey];
+      const total = portfolio.taxable[assetKey] + portfolio.taxDeferred[assetKey] + portfolio.taxFree[assetKey];
+      console.log(`[getAssetTotal DEBUG] ${assetKey}:`, {
+        taxable: portfolio.taxable[assetKey],
+        taxDeferred: portfolio.taxDeferred[assetKey],
+        taxFree: portfolio.taxFree[assetKey],
+        total
+      });
+      return total;
     };
 
     const getTotalLiquid = () => {
