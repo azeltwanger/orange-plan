@@ -4080,8 +4080,9 @@ export default function FinancialPlan() {
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-zinc-400">Gross Annual Income</Label>
+                  <Label className="text-zinc-400">Income (Pre-Retirement)</Label>
                   <Input type="number" value={grossAnnualIncome} onChange={(e) => setGrossAnnualIncome(parseFloat(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
+                  <p className="text-xs text-zinc-500">Salary/wages used until retirement age</p>
                 </div>
                 <div className="space-y-2">
                   <Label className="text-zinc-400">Annual Spending (After Tax)</Label>
@@ -4093,7 +4094,7 @@ export default function FinancialPlan() {
                     <Input type="number" value={retirementAnnualSpending} onChange={(e) => setRetirementAnnualSpending(parseFloat(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-zinc-400">Other Retirement Income</Label>
+                    <Label className="text-zinc-400">Income (In Retirement)</Label>
                     <Input 
                       type="number" 
                       value={otherRetirementIncome} 
@@ -4101,7 +4102,7 @@ export default function FinancialPlan() {
                       className="bg-zinc-900 border-zinc-800" 
                       placeholder="0"
                     />
-                    <p className="text-xs text-zinc-500">Pension, rental, etc. (excl. Social Security)</p>
+                    <p className="text-xs text-zinc-500">Pension, part-time work, rental after retirement (excl. SS)</p>
                   </div>
                 </div>
               </div>
@@ -4308,6 +4309,58 @@ export default function FinancialPlan() {
                   <h4 className="text-sm font-medium text-zinc-300 mb-3">Cash Flow Summary</h4>
                 <div className="p-4 rounded-xl bg-zinc-800/30">
                   {(() => {
+                    // Check if user is currently retired
+                    const isCurrentlyRetired = currentAge >= retirementAge;
+                    
+                    // If currently retired, show retirement cash flow
+                    if (isCurrentlyRetired) {
+                      const currentSS = currentAge >= socialSecurityStartAge ? effectiveSocialSecurity : 0;
+                      const totalRetirementIncome = otherRetirementIncome + currentSS;
+                      const retirementCashFlow = totalRetirementIncome - retirementAnnualSpending;
+                      
+                      return (
+                        <div className="space-y-2 text-sm">
+                          <div className="p-2 rounded-lg bg-purple-500/10 border border-purple-500/20 mb-3">
+                            <p className="text-xs text-purple-400 font-medium">You are currently in retirement</p>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-zinc-400">Retirement Income:</span>
+                            <span className="text-zinc-200">{formatNumber(otherRetirementIncome)}</span>
+                          </div>
+                          {currentSS > 0 && (
+                            <div className="flex justify-between">
+                              <span className="text-zinc-400">Social Security:</span>
+                              <span className="text-emerald-400">+{formatNumber(currentSS)}</span>
+                            </div>
+                          )}
+                          {currentAge < socialSecurityStartAge && effectiveSocialSecurity > 0 && (
+                            <div className="flex justify-between">
+                              <span className="text-zinc-500">Social Security (starts age {socialSecurityStartAge}):</span>
+                              <span className="text-zinc-500">{formatNumber(effectiveSocialSecurity)}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between">
+                            <span className="text-zinc-400">Retirement Spending:</span>
+                            <span className="text-zinc-200">-{formatNumber(retirementAnnualSpending)}</span>
+                          </div>
+                          <div className="flex justify-between border-t border-zinc-700 pt-2">
+                            <span className="text-zinc-300 font-medium">Net from Income:</span>
+                            <span className={cn("font-semibold", retirementCashFlow >= 0 ? "text-emerald-400" : "text-rose-400")}>
+                              {retirementCashFlow >= 0 ? '+' : ''}{formatNumber(retirementCashFlow)}
+                            </span>
+                          </div>
+                          {retirementCashFlow < 0 && (
+                            <div className="mt-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                              <p className="text-xs text-amber-400">
+                                Shortfall of {formatNumber(Math.abs(retirementCashFlow))}/yr will be withdrawn from portfolio.
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    }
+                    
+                    // Pre-retirement cash flow
                     // Calculate cash flow BEFORE retirement contributions
                     const cashFlowBeforeSavings = netIncome - currentAnnualSpending;
                     const hasRetirementContributions = actualRoth > 0;
