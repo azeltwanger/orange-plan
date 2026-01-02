@@ -594,27 +594,6 @@ export default function FinancialPlan() {
 
 
 
-  // Calculate total BTC collateral value (locked for loans)
-  const initialEncumberedBtcValue = useMemo(() => {
-    let totalCollateralBtc = 0;
-    
-    // From liabilities with BTC collateral
-    liabilities?.forEach(liability => {
-      if (liability.type === 'btc_collateralized' && liability.collateral_btc_amount > 0) {
-        totalCollateralBtc += liability.collateral_btc_amount;
-      }
-    });
-    
-    // From collateralizedLoans entity
-    collateralizedLoans?.forEach(loan => {
-      if (loan.collateral_btc_amount > 0) {
-        totalCollateralBtc += loan.collateral_btc_amount;
-      }
-    });
-    
-    return totalCollateralBtc * currentPrice;
-  }, [liabilities, collateralizedLoans, currentPrice]);
-
   // Calculate portfolio values by tax treatment
   const getHoldingValue = (h) => h.ticker === 'BTC' ? h.quantity * currentPrice : h.quantity * (h.current_price || 0);
 
@@ -661,7 +640,7 @@ export default function FinancialPlan() {
   const taxableHoldings = holdings.filter(h => getTaxTreatmentFromHolding(h) === 'taxable');
   const taxableValue = taxableHoldings.reduce((sum, h) => sum + getHoldingValue(h), 0);
   const taxableLiquidHoldings = taxableHoldings; // All taxable is now liquid since RE is separate
-  const taxableLiquidValue = Math.max(0, taxableValue - initialEncumberedBtcValue);
+  const taxableLiquidValue = taxableValue;
 
   // Tax-deferred accounts (401k, Traditional IRA) - 10% penalty before 59½
   const taxDeferredHoldings = holdings.filter(h => getTaxTreatmentFromHolding(h) === 'tax_deferred');
@@ -978,8 +957,9 @@ export default function FinancialPlan() {
 
     // Subtract encumbered BTC from taxable portfolio to avoid double-counting
     // Encumbered BTC will be added back separately in total calculations
-    // Use the memoized initialEncumberedBtcValue for consistency
-    portfolio.taxable.btc = Math.max(0, portfolio.taxable.btc - initialEncumberedBtcValue);
+    const totalInitialEncumberedBtc = Object.values(encumberedBtc).reduce((sum, amount) => sum + amount, 0);
+    const encumberedBtcValue = totalInitialEncumberedBtc * currentPrice;
+    portfolio.taxable.btc = Math.max(0, portfolio.taxable.btc - encumberedBtcValue);
 
     // Track cumulative BTC price for variable growth models (Saylor, etc.)
     let cumulativeBtcPrice = currentPrice;
@@ -2131,7 +2111,7 @@ export default function FinancialPlan() {
         });
     }
     return data;
-  }, [btcValue, stocksValue, realEstateValue, bondsValue, cashValue, otherValue, taxableValue, taxDeferredValue, taxFreeValue, currentAge, retirementAge, lifeExpectancy, effectiveBtcCagr, effectiveStocksCagr, realEstateCagr, bondsCagr, effectiveInflation, lifeEvents, goals, annualSavings, incomeGrowth, retirementAnnualSpending, btcReturnModel, filingStatus, taxableHoldings, otherRetirementIncome, socialSecurityStartAge, effectiveSocialSecurity, liabilities, collateralizedLoans, monthlyDebtPayments, btcPrice, cashCagr, otherCagr, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv, stateOfResidence, savingsAllocationBtc, savingsAllocationStocks, savingsAllocationBonds, savingsAllocationCash, savingsAllocationOther, initialEncumberedBtcValue]);
+  }, [btcValue, stocksValue, realEstateValue, bondsValue, cashValue, otherValue, taxableValue, taxDeferredValue, taxFreeValue, currentAge, retirementAge, lifeExpectancy, effectiveBtcCagr, effectiveStocksCagr, realEstateCagr, bondsCagr, effectiveInflation, lifeEvents, goals, annualSavings, incomeGrowth, retirementAnnualSpending, btcReturnModel, filingStatus, taxableHoldings, otherRetirementIncome, socialSecurityStartAge, effectiveSocialSecurity, liabilities, collateralizedLoans, monthlyDebtPayments, btcPrice, cashCagr, otherCagr, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv, stateOfResidence, savingsAllocationBtc, savingsAllocationStocks, savingsAllocationBonds, savingsAllocationCash, savingsAllocationOther]);
 
   // Run Monte Carlo when button clicked
   const handleRunSimulation = () => {
@@ -3814,11 +3794,8 @@ export default function FinancialPlan() {
                   <p className="text-sm text-zinc-400">Taxable (Liquid)</p>
                   <Badge className="bg-emerald-500/20 text-emerald-400 text-[10px]">1st</Badge>
                 </div>
-                <p className="text-2xl font-bold text-emerald-400">{formatNumber(taxableLiquidValue)}</p>
+                <p className="text-2xl font-bold text-emerald-400">{formatNumber(taxableValue)}</p>
                 <p className="text-xs text-zinc-500">Brokerage, self-custody crypto</p>
-                {initialEncumberedBtcValue > 0 && (
-                  <p className="text-xs text-amber-400/70 mt-1">({formatNumber(initialEncumberedBtcValue)} collateralized)</p>
-                )}
               </div>
               <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20">
                 <div className="flex items-center justify-between mb-1">
