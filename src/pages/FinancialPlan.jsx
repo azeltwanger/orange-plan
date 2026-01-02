@@ -4088,22 +4088,21 @@ export default function FinancialPlan() {
                   <Label className="text-zinc-400">Annual Spending (After Tax)</Label>
                   <Input type="number" value={currentAnnualSpending} onChange={(e) => setCurrentAnnualSpending(parseFloat(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-zinc-400">Target Retirement Spending</Label>
-                    <Input type="number" value={retirementAnnualSpending} onChange={(e) => setRetirementAnnualSpending(parseFloat(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-zinc-400">Gross Income (In Retirement)</Label>
-                    <Input 
-                      type="number" 
-                      value={otherRetirementIncome} 
-                      onChange={(e) => setOtherRetirementIncome(parseFloat(e.target.value) || 0)} 
-                      className="bg-zinc-900 border-zinc-800" 
-                      placeholder="0"
-                    />
-                    <p className="text-xs text-zinc-500">Pension, part-time work, rental after retirement (excl. SS)</p>
-                  </div>
+                <div className="space-y-2">
+                  <Label className="text-zinc-400">Target Retirement Spending</Label>
+                  <Input type="number" value={retirementAnnualSpending} onChange={(e) => setRetirementAnnualSpending(parseFloat(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
+                  <p className="text-xs text-zinc-500">Annual spending goal in retirement</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-zinc-400">Gross Income (In Retirement)</Label>
+                  <Input 
+                    type="number" 
+                    value={otherRetirementIncome} 
+                    onChange={(e) => setOtherRetirementIncome(parseFloat(e.target.value) || 0)} 
+                    className="bg-zinc-900 border-zinc-800" 
+                    placeholder="0"
+                  />
+                  <p className="text-xs text-zinc-500">Pension, part-time work, rental (excl. SS)</p>
                 </div>
               </div>
 
