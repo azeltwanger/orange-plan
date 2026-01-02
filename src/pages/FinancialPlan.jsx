@@ -4305,26 +4305,9 @@ export default function FinancialPlan() {
                       const currentSS = currentAge >= socialSecurityStartAge ? effectiveSocialSecurity : 0;
                       const totalRetirementIncomeGross = otherRetirementIncome + currentSS;
                       
-                      // Calculate tax on retirement income (taxable SS + pension)
-                      const taxableSS = calculateTaxableSocialSecurity(currentSS, otherRetirementIncome, filingStatus);
-                      const taxableRetirementIncome = otherRetirementIncome + taxableSS;
-                      const retirementIncomeTax = calculateProgressiveIncomeTax(
-                        Math.max(0, taxableRetirementIncome - currentStandardDeduction),
-                        filingStatus,
-                        currentYear
-                      );
-                      
-                      console.log('[CASH FLOW TAX DEBUG]', {
-                        socialSecurityAnnual: currentSS,
-                        otherRetirementIncome,
-                        filingStatus,
-                        currentAge,
-                        currentStandardDeduction,
-                        taxableSS,
-                        taxableRetirementIncome,
-                        taxableIncomeAfterDeduction: Math.max(0, taxableRetirementIncome - currentStandardDeduction),
-                        retirementIncomeTax
-                      });
+                      // Pull taxes from Year 0 projection data (already calculated correctly)
+                      const currentYearProjection = projections[0];
+                      const retirementIncomeTax = currentYearProjection?.taxesPaid || 0;
                       
                       const retirementCashFlow = totalRetirementIncomeGross - retirementAnnualSpending - retirementIncomeTax;
                       
