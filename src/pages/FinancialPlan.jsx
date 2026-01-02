@@ -1979,6 +1979,13 @@ export default function FinancialPlan() {
           
           // 4. Pay off BTC-backed loans to unlock collateral equity (BEFORE Real Estate)
           if (remainingShortfall > 0) {
+            // DEBUG: Log state before loan payoff attempt
+            const debugTaxableBalance = getAccountTotal('taxable');
+            const debugTaxDeferredBalance = getAccountTotal('taxDeferred');
+            const debugTaxFreeBalance = getAccountTotal('taxFree');
+            const debugRealEstateBalance = portfolio.realEstate;
+            const debugRemainingDeficit = remainingShortfall;
+            
             // Get all active BTC-backed loans with positive equity
             const activeLoansWithEquity = [
               ...Object.values(tempRunningDebt).filter(l => 
