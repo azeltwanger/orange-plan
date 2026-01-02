@@ -1805,10 +1805,20 @@ export default function FinancialPlan() {
 
         // Calculate Social Security income for this year (inflation-adjusted from start age)
         const currentAgeInYearForSS = currentAge + i;
-        let socialSecurityIncome = 0;
         if (currentAgeInYearForSS >= socialSecurityStartAge && effectiveSocialSecurity > 0) {
           const yearsOfSSInflation = currentAgeInYearForSS - socialSecurityStartAge;
           socialSecurityIncome = effectiveSocialSecurity * Math.pow(1 + effectiveInflation / 100, yearsOfSSInflation);
+        }
+
+        if (currentAge + i === 70) {
+          console.log('[SS DEBUG Age 70]', {
+            isRetired,
+            currentAgeInYearForSS,
+            socialSecurityStartAge,
+            effectiveSocialSecurity,
+            socialSecurityIncome,
+            condition: currentAgeInYearForSS >= socialSecurityStartAge && effectiveSocialSecurity > 0
+          });
         }
 
         // Calculate taxable portion of Social Security using federal provisional income rules
