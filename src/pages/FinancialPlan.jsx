@@ -663,27 +663,7 @@ export default function FinancialPlan() {
   const otherValue = holdings.filter(h => !['BTC'].includes(h.ticker) && !['stocks', 'real_estate', 'bonds', 'cash', 'btc', 'crypto'].includes(h.asset_type)).reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
   const totalValue = btcValue + stocksValue + realEstateValue + bondsValue + cashValue + otherValue;
 
-  // DEBUG: Trace BTC holdings classification
-  console.log('[HOLDINGS DEBUG]', {
-    totalHoldings: holdings?.length,
-    btcHoldings: holdings?.filter(h => h.ticker === 'BTC').map(h => ({
-      id: h.id,
-      ticker: h.ticker,
-      quantity: h.quantity,
-      current_price: h.current_price,
-      calculatedValue: h.ticker === 'BTC' ? h.quantity * currentPrice : h.quantity * (h.current_price || 0),
-      account_id: h.account_id,
-      account_type: h.account_type,
-      tax_treatment: h.tax_treatment,
-      asset_type: h.asset_type,
-      taxTreatmentResolved: getTaxTreatmentFromHolding(h)
-    })),
-    btcValue,
-    taxableValue,
-    taxFreeValue,
-    taxDeferredValue,
-    currentPrice
-  });
+
 
   // Penalty-free age for retirement accounts
   const PENALTY_FREE_AGE = 59.5;
@@ -900,14 +880,7 @@ export default function FinancialPlan() {
     };
 
     const getAssetTotal = (assetKey) => {
-      const total = portfolio.taxable[assetKey] + portfolio.taxDeferred[assetKey] + portfolio.taxFree[assetKey];
-      console.log(`[getAssetTotal DEBUG] ${assetKey}:`, {
-        taxable: portfolio.taxable[assetKey],
-        taxDeferred: portfolio.taxDeferred[assetKey],
-        taxFree: portfolio.taxFree[assetKey],
-        total
-      });
-      return total;
+      return portfolio.taxable[assetKey] + portfolio.taxDeferred[assetKey] + portfolio.taxFree[assetKey];
     };
 
     const getTotalLiquid = () => {
@@ -991,25 +964,6 @@ export default function FinancialPlan() {
     // Encumbered BTC will be added back separately in total calculations
     const totalInitialEncumberedBtc = Object.values(encumberedBtc).reduce((sum, amount) => sum + amount, 0);
     const encumberedBtcValue = totalInitialEncumberedBtc * currentPrice;
-    
-    console.log('[PORTFOLIO INIT DEBUG]', {
-      beforeSubtraction: {
-        taxableBtc: portfolio.taxable.btc,
-        taxFreeBtc: portfolio.taxFree.btc,
-        taxDeferredBtc: portfolio.taxDeferred.btc
-      },
-      encumberedCalc: {
-        totalInitialEncumberedBtc,
-        currentPrice,
-        encumberedBtcValue,
-        encumberedBtcObject: encumberedBtc
-      },
-      afterSubtraction: {
-        taxableBtc: Math.max(0, portfolio.taxable.btc - encumberedBtcValue),
-        taxFreeBtc: portfolio.taxFree.btc,
-        totalBtcAfter: Math.max(0, portfolio.taxable.btc - encumberedBtcValue) + portfolio.taxDeferred.btc + portfolio.taxFree.btc
-      }
-    });
     
     portfolio.taxable.btc = Math.max(0, portfolio.taxable.btc - encumberedBtcValue);
 
@@ -2070,6 +2024,17 @@ export default function FinancialPlan() {
         : yearSavings < 0 
           ? Math.round(Math.abs(yearSavings) + (taxesPaid || 0) + (penaltyPaid || 0))
           : 0;
+
+      // Debug log for first year only
+      if (age === currentAge) {
+        console.log('[YEAR 1 BTC DEBUG]', {
+          taxableBtc: portfolio.taxable.btc,
+          taxDeferredBtc: portfolio.taxDeferred.btc,
+          taxFreeBtc: portfolio.taxFree.btc,
+          currentTotalEncumberedBtc,
+          encumberedValue: currentTotalEncumberedBtc * cumulativeBtcPrice
+        });
+      }
 
       data.push({
         age: currentAge + i,
