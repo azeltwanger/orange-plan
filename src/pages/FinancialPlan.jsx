@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -818,4 +819,5 @@ export default function FinancialPlan() {
     return { survives: true, finalPortfolio: portfolio, depleteAge: null };
   };
 
-  // ... continue
+  return <div>Loading...</div>;
+}
