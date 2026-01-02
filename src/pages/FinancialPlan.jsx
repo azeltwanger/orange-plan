@@ -1552,6 +1552,10 @@ export default function FinancialPlan() {
       let realEstateSaleProceeds = 0;
       let retirementSpendingOnly = 0;
       let totalWithdrawalForTaxCalculation = 0;
+      
+      // Track loan payoff withdrawals
+      let fromLoanPayoff = 0;
+      const yearLoanPayoffs = [];
 
       // Per-year depletion flag - reset each iteration
       let ranOutOfMoneyThisYear = false;
