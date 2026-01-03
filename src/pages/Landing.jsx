@@ -108,13 +108,7 @@ export default function Landing() {
           background-clip: text;
         }
         .hero-glow {
-          background: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(247, 147, 26, 0.12), transparent);
-        }
-        .noise-texture {
-          background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
-        }
-        .mockup-float {
-          box-shadow: 0 40px 120px -20px rgba(0, 0, 0, 0.5), 0 0 80px -10px rgba(247, 147, 26, 0.15);
+          background: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(247, 147, 26, 0.08), transparent);
         }
       `}</style>
 
