@@ -108,10 +108,13 @@ export default function Landing() {
           background-clip: text;
         }
         .hero-glow {
-          background: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(247, 147, 26, 0.15), transparent);
+          background: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(247, 147, 26, 0.12), transparent);
         }
-        .card-shine {
-          background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, transparent 50%);
+        .noise-texture {
+          background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+        }
+        .mockup-float {
+          box-shadow: 0 40px 120px -20px rgba(0, 0, 0, 0.5), 0 0 80px -10px rgba(247, 147, 26, 0.15);
         }
       `}</style>
 
@@ -119,26 +122,26 @@ export default function Landing() {
       <div className="fixed inset-0 hero-glow pointer-events-none" />
       
       {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-[#09090b]/80 backdrop-blur-2xl border-b border-white/5">
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-[#09090b]/70 backdrop-blur-2xl border-b border-white/[0.03]">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg brand-gradient flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl brand-gradient flex items-center justify-center shadow-lg shadow-orange-500/20">
               <Zap className="w-5 h-5 text-white" strokeWidth={2.5} />
             </div>
-            <span className="font-semibold text-lg">Orange Plan</span>
+            <span className="font-semibold text-lg tracking-tight">Orange Plan</span>
           </div>
-          <div className="flex items-center gap-6">
-            <Link to={createPageUrl('Features')} className="text-sm text-zinc-400 hover:text-white transition-colors hidden sm:block">
+          <div className="flex items-center gap-8">
+            <Link to={createPageUrl('Features')} className="text-sm text-zinc-500 hover:text-zinc-200 transition-colors hidden sm:block font-light">
               Features
             </Link>
-            <Link to={createPageUrl('Pricing')} className="text-sm text-zinc-400 hover:text-white transition-colors hidden sm:block">
+            <Link to={createPageUrl('Pricing')} className="text-sm text-zinc-500 hover:text-zinc-200 transition-colors hidden sm:block font-light">
               Pricing
             </Link>
-            <Link to={createPageUrl('Dashboard')} className="text-sm text-zinc-400 hover:text-white transition-colors hidden sm:block">
+            <Link to={createPageUrl('Dashboard')} className="text-sm text-zinc-500 hover:text-zinc-200 transition-colors hidden sm:block font-light">
               Sign in
             </Link>
             <Link to={createPageUrl('Dashboard')}>
-              <Button size="sm" className="brand-gradient text-white font-medium hover:opacity-90 shadow-lg shadow-orange-500/25">
+              <Button size="sm" className="brand-gradient text-white font-medium hover:opacity-90 shadow-xl shadow-orange-500/20 rounded-lg px-5 h-10">
                 Try for free
               </Button>
             </Link>
@@ -147,25 +150,25 @@ export default function Landing() {
       </nav>
 
       {/* Hero */}
-      <section className="relative pt-32 pb-24 px-6">
-        <div className="max-w-4xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/20 mb-8 text-sm">
+      <section className="relative pt-40 pb-32 px-6">
+        <div className="max-w-5xl mx-auto text-center">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-orange-500/5 border border-orange-500/10 mb-12 text-sm font-medium">
             <span className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse" />
-            <span className="text-orange-400/90">Live BTC: ${btcPrice?.toLocaleString() || '---'}</span>
+            <span className="text-orange-400/80">Live BTC: ${btcPrice?.toLocaleString() || '---'}</span>
           </div>
           
-          <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight leading-[1.1] mb-6">
+          <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold tracking-[-0.02em] leading-[0.95] mb-8">
             Bitcoin-Native
             <br />
             <span className="brand-gradient-text">Financial Planning</span>
           </h1>
           
-          <p className="text-lg text-zinc-400 max-w-2xl mx-auto mb-10 leading-relaxed">
+          <p className="text-xl text-zinc-500 max-w-2xl mx-auto mb-14 leading-relaxed font-light">
             Track holdings, model retirement, optimize taxes, and manage Bitcoin-backed loans—built specifically for Bitcoiners.
           </p>
           
           <Link to={createPageUrl('Dashboard')}>
-            <Button size="lg" className="brand-gradient text-white font-semibold hover:opacity-90 shadow-xl shadow-orange-500/30 px-8 h-12">
+            <Button size="lg" className="brand-gradient text-white font-semibold hover:opacity-90 shadow-2xl shadow-orange-500/25 px-10 h-14 text-base rounded-xl">
               Get Started Free
               <ArrowRight className="w-5 h-5 ml-2" />
             </Button>
@@ -173,39 +176,39 @@ export default function Landing() {
         </div>
 
         {/* Dashboard Preview */}
-        <div className="max-w-5xl mx-auto mt-20">
+        <div className="max-w-6xl mx-auto mt-32">
           <div className="relative">
-            {/* Glow effect */}
-            <div className="absolute -inset-px rounded-2xl bg-gradient-to-b from-orange-500/20 via-orange-500/5 to-transparent blur-sm" />
+            {/* Enhanced glow effect */}
+            <div className="absolute -inset-8 rounded-3xl bg-gradient-to-b from-orange-500/10 via-orange-500/5 to-transparent blur-3xl" />
 
-            <div className="relative rounded-2xl border border-white/10 bg-zinc-900/80 backdrop-blur-xl overflow-hidden">
+            <div className="relative rounded-3xl border border-white/5 bg-zinc-900/60 backdrop-blur-2xl overflow-hidden mockup-float">
               {/* Window controls */}
-              <div className="flex items-center gap-2 px-4 py-3 border-b border-white/5 bg-black/20">
-                <div className="w-3 h-3 rounded-full bg-red-500/80" />
-                <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
-                <div className="w-3 h-3 rounded-full bg-green-500/80" />
-                <span className="ml-4 text-xs text-zinc-600">Financial Projections</span>
+              <div className="flex items-center gap-2 px-5 py-4 border-b border-white/[0.03] bg-black/10">
+                <div className="w-3 h-3 rounded-full bg-red-500/60" />
+                <div className="w-3 h-3 rounded-full bg-yellow-500/60" />
+                <div className="w-3 h-3 rounded-full bg-green-500/60" />
+                <span className="ml-4 text-xs text-zinc-600 font-light">Financial Projections</span>
               </div>
 
-              <div className="p-6 md:p-8">
+              <div className="p-8 md:p-10">
                 {/* Top section with chart and side panel */}
-                <div className="flex gap-6 mb-6">
+                <div className="flex gap-8 mb-8">
                   {/* Main Chart Area */}
                   <div className="flex-1">
-                    <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center justify-between mb-6">
                       <div>
-                        <p className="text-xs text-zinc-500 uppercase tracking-wider">Net Worth Projection</p>
-                        <p className="text-2xl font-bold brand-gradient-text">$2.4M by 2045</p>
+                        <p className="text-xs text-zinc-600 uppercase tracking-wider font-medium">Net Worth Projection</p>
+                        <p className="text-3xl font-bold brand-gradient-text mt-1">$2.4M by 2045</p>
                       </div>
                       <div className="flex gap-2">
-                        <span className="px-2 py-1 rounded text-[10px] bg-orange-500/20 text-orange-400">BTC</span>
-                        <span className="px-2 py-1 rounded text-[10px] bg-blue-500/20 text-blue-400">Stocks</span>
-                        <span className="px-2 py-1 rounded text-[10px] bg-emerald-500/20 text-emerald-400">401k</span>
+                        <span className="px-3 py-1.5 rounded-lg text-[11px] bg-orange-500/15 text-orange-400 font-medium">BTC</span>
+                        <span className="px-3 py-1.5 rounded-lg text-[11px] bg-blue-500/15 text-blue-400 font-medium">Stocks</span>
+                        <span className="px-3 py-1.5 rounded-lg text-[11px] bg-emerald-500/15 text-emerald-400 font-medium">401k</span>
                       </div>
                     </div>
 
                     {/* Realistic area chart */}
-                    <div className="h-40 rounded-xl bg-gradient-to-br from-white/[0.02] to-transparent border border-white/5 p-4 relative overflow-hidden">
+                    <div className="h-48 rounded-2xl bg-gradient-to-br from-white/[0.015] to-transparent border-0 p-5 relative overflow-hidden">
                       <svg viewBox="0 0 400 120" className="w-full h-full" preserveAspectRatio="none">
                         {/* Grid lines */}
                         <line x1="0" y1="30" x2="400" y2="30" stroke="rgba(255,255,255,0.05)" />
@@ -249,47 +252,47 @@ export default function Landing() {
                   </div>
 
                   {/* Side Stats Panel */}
-                  <div className="w-48 hidden md:block space-y-3">
-                    <div className="p-3 rounded-lg bg-white/[0.03] border border-white/5">
-                      <p className="text-[10px] text-zinc-500">Net Worth</p>
-                      <p className="text-lg font-bold text-white">$847,290</p>
+                  <div className="w-52 hidden lg:block space-y-4">
+                    <div className="p-4 rounded-2xl bg-white/[0.015] border-0">
+                      <p className="text-[10px] text-zinc-600 uppercase tracking-wider font-medium">Net Worth</p>
+                      <p className="text-xl font-bold text-white mt-1">$847,290</p>
                     </div>
-                    <div className="p-3 rounded-lg bg-white/[0.03] border border-white/5">
-                      <p className="text-[10px] text-zinc-500">Retirement Confidence</p>
-                      <p className="text-lg font-bold text-emerald-400">92%</p>
+                    <div className="p-4 rounded-2xl bg-white/[0.015] border-0">
+                      <p className="text-[10px] text-zinc-600 uppercase tracking-wider font-medium">Retirement Confidence</p>
+                      <p className="text-xl font-bold text-emerald-400 mt-1">92%</p>
                     </div>
-                    <div className="p-3 rounded-lg bg-white/[0.03] border border-white/5">
-                      <p className="text-[10px] text-zinc-500">Monthly Savings</p>
-                      <p className="text-lg font-bold text-blue-400">$3,200</p>
+                    <div className="p-4 rounded-2xl bg-white/[0.015] border-0">
+                      <p className="text-[10px] text-zinc-600 uppercase tracking-wider font-medium">Monthly Savings</p>
+                      <p className="text-xl font-bold text-blue-400 mt-1">$3,200</p>
                     </div>
-                    <div className="p-3 rounded-lg bg-white/[0.03] border border-white/5">
-                      <p className="text-[10px] text-zinc-500">Tax Savings Found</p>
-                      <p className="text-lg font-bold text-purple-400">$4,280</p>
+                    <div className="p-4 rounded-2xl bg-white/[0.015] border-0">
+                      <p className="text-[10px] text-zinc-600 uppercase tracking-wider font-medium">Tax Savings Found</p>
+                      <p className="text-xl font-bold text-purple-400 mt-1">$4,280</p>
                     </div>
                   </div>
                 </div>
 
                 {/* Bottom stats row */}
-                <div className="grid grid-cols-3 md:grid-cols-5 gap-3">
-                  <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5 text-center">
-                    <p className="text-lg font-bold text-orange-400">1.847</p>
-                    <p className="text-[10px] text-zinc-500">BTC Stack</p>
+                <div className="grid grid-cols-3 md:grid-cols-5 gap-4">
+                  <div className="p-4 rounded-2xl bg-white/[0.015] border-0 text-center">
+                    <p className="text-xl font-bold text-orange-400">1.847</p>
+                    <p className="text-[10px] text-zinc-600 uppercase tracking-wider mt-1">BTC Stack</p>
                   </div>
-                  <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5 text-center">
-                    <p className="text-lg font-bold text-blue-400">$342K</p>
-                    <p className="text-[10px] text-zinc-500">Stocks</p>
+                  <div className="p-4 rounded-2xl bg-white/[0.015] border-0 text-center">
+                    <p className="text-xl font-bold text-blue-400">$342K</p>
+                    <p className="text-[10px] text-zinc-600 uppercase tracking-wider mt-1">Stocks</p>
                   </div>
-                  <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5 text-center">
-                    <p className="text-lg font-bold text-emerald-400">$285K</p>
-                    <p className="text-[10px] text-zinc-500">401k</p>
+                  <div className="p-4 rounded-2xl bg-white/[0.015] border-0 text-center">
+                    <p className="text-xl font-bold text-emerald-400">$285K</p>
+                    <p className="text-[10px] text-zinc-600 uppercase tracking-wider mt-1">401k</p>
                   </div>
-                  <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5 text-center hidden md:block">
-                    <p className="text-lg font-bold text-purple-400">$45K</p>
-                    <p className="text-[10px] text-zinc-500">Roth IRA</p>
+                  <div className="p-4 rounded-2xl bg-white/[0.015] border-0 text-center hidden md:block">
+                    <p className="text-xl font-bold text-purple-400">$45K</p>
+                    <p className="text-[10px] text-zinc-600 uppercase tracking-wider mt-1">Roth IRA</p>
                   </div>
-                  <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5 text-center hidden md:block">
-                    <p className="text-lg font-bold text-rose-400">-$82K</p>
-                    <p className="text-[10px] text-zinc-500">Liabilities</p>
+                  <div className="p-4 rounded-2xl bg-white/[0.015] border-0 text-center hidden md:block">
+                    <p className="text-xl font-bold text-rose-400">-$82K</p>
+                    <p className="text-[10px] text-zinc-600 uppercase tracking-wider mt-1">Liabilities</p>
                   </div>
                 </div>
               </div>
@@ -299,71 +302,138 @@ export default function Landing() {
       </section>
 
       {/* Why Orange Plan */}
-      <section className="py-24 px-6">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-3">What traditional tools can't do</h2>
-            <p className="text-zinc-500 text-lg">Built specifically for Bitcoin holders.</p>
+      <section className="py-32 px-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-24">
+            <h2 className="text-4xl md:text-5xl font-bold mb-4 tracking-tight">What traditional tools can't do</h2>
+            <p className="text-zinc-500 text-lg font-light">Built specifically for Bitcoin holders.</p>
           </div>
           
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {whyOrangePlan.map((feature, i) => (
-              <div
-                key={i}
-                className="group p-6 rounded-2xl bg-gradient-to-br from-white/[0.04] to-white/[0.01] border border-white/10 hover:border-orange-500/30 hover:bg-white/[0.06] transition-all duration-300 hover:shadow-2xl hover:shadow-orange-500/10"
-              >
-                <div className="w-12 h-12 rounded-xl bg-orange-500/10 flex items-center justify-center mb-5 group-hover:bg-orange-500/20 transition-colors">
-                  <feature.icon className="w-6 h-6 text-orange-400" />
+          {/* Asymmetric Layout */}
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 lg:gap-8">
+            {/* Featured Card - Spans 3 columns */}
+            <div className="lg:col-span-3 group p-10 rounded-3xl bg-gradient-to-br from-white/[0.03] to-transparent border-0 hover:from-white/[0.05] transition-all duration-500 relative overflow-hidden">
+              <div className="absolute inset-0 noise-texture opacity-50" />
+              <div className="relative">
+                <div className="w-11 h-11 rounded-2xl bg-orange-500/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
+                  <whyOrangePlan[0].icon className="w-5 h-5 text-orange-400" strokeWidth={1.5} />
                 </div>
-                <h3 className="font-semibold text-lg mb-3 text-zinc-100">{feature.title}</h3>
-                <p className="text-sm text-zinc-400 leading-relaxed">{feature.description}</p>
+                <h3 className="font-bold text-2xl mb-4 text-zinc-50">{whyOrangePlan[0].title}</h3>
+                <p className="text-base text-zinc-500 leading-relaxed font-light">{whyOrangePlan[0].description}</p>
               </div>
-            ))}
+            </div>
+
+            {/* Stacked Cards - Span 2 columns */}
+            <div className="lg:col-span-2 space-y-6 lg:space-y-8">
+              {whyOrangePlan.slice(1).map((feature, i) => (
+                <div
+                  key={i}
+                  className="group p-8 rounded-3xl bg-gradient-to-br from-white/[0.03] to-transparent border-0 hover:from-white/[0.05] transition-all duration-500 relative overflow-hidden"
+                >
+                  <div className="absolute inset-0 noise-texture opacity-50" />
+                  <div className="relative">
+                    <div className="w-10 h-10 rounded-2xl bg-orange-500/10 flex items-center justify-center mb-5 group-hover:scale-110 transition-transform duration-300">
+                      <feature.icon className="w-4 h-4 text-orange-400" strokeWidth={1.5} />
+                    </div>
+                    <h3 className="font-semibold text-lg mb-3 text-zinc-100">{feature.title}</h3>
+                    <p className="text-sm text-zinc-500 leading-relaxed font-light">{feature.description}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
       {/* Everything Else */}
-      <section className="py-24 px-6 border-t border-white/5">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold mb-3">Everything else you need</h2>
-            <p className="text-zinc-500">Complete financial toolkit in one dashboard.</p>
+      <section className="py-32 px-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-24">
+            <h2 className="text-4xl md:text-5xl font-bold mb-4 tracking-tight">Everything else you need</h2>
+            <p className="text-zinc-500 text-lg font-light">Complete financial toolkit in one dashboard.</p>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {features.map((feature, i) => (
-              <div
-                key={i}
-                className="group p-5 rounded-xl bg-white/[0.02] border border-white/5 hover:border-orange-500/20 hover:bg-white/[0.04] transition-all duration-300"
-              >
-                <div className="w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center mb-4 group-hover:bg-orange-500/20 transition-colors">
-                  <feature.icon className="w-5 h-5 text-orange-400" />
-                </div>
-                <h3 className="font-semibold mb-1.5">{feature.title}</h3>
-                <p className="text-sm text-zinc-500 leading-relaxed">{feature.description}</p>
+          {/* Masonry-style grid with varied sizes */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 auto-rows-auto">
+            {/* Wider card */}
+            <div className="md:col-span-2 group p-8 rounded-3xl bg-gradient-to-br from-white/[0.02] to-transparent border-0 hover:from-white/[0.04] transition-all duration-500 relative overflow-hidden">
+              <div className="absolute inset-0 noise-texture opacity-40" />
+              <div className="relative">
+                <features[0].icon className="w-5 h-5 text-orange-400/80 mb-5" strokeWidth={1.5} />
+                <h3 className="font-semibold text-xl mb-2.5 text-zinc-100">{features[0].title}</h3>
+                <p className="text-sm text-zinc-500 leading-relaxed font-light">{features[0].description}</p>
               </div>
-            ))}
+            </div>
+
+            {/* Regular card */}
+            <div className="group p-8 rounded-3xl bg-gradient-to-br from-white/[0.02] to-transparent border-0 hover:from-white/[0.04] transition-all duration-500 relative overflow-hidden">
+              <div className="absolute inset-0 noise-texture opacity-40" />
+              <div className="relative">
+                <features[1].icon className="w-5 h-5 text-orange-400/80 mb-5" strokeWidth={1.5} />
+                <h3 className="font-semibold text-xl mb-2.5 text-zinc-100">{features[1].title}</h3>
+                <p className="text-sm text-zinc-500 leading-relaxed font-light">{features[1].description}</p>
+              </div>
+            </div>
+
+            {/* Regular card */}
+            <div className="group p-8 rounded-3xl bg-gradient-to-br from-white/[0.02] to-transparent border-0 hover:from-white/[0.04] transition-all duration-500 relative overflow-hidden">
+              <div className="absolute inset-0 noise-texture opacity-40" />
+              <div className="relative">
+                <features[2].icon className="w-5 h-5 text-orange-400/80 mb-5" strokeWidth={1.5} />
+                <h3 className="font-semibold text-xl mb-2.5 text-zinc-100">{features[2].title}</h3>
+                <p className="text-sm text-zinc-500 leading-relaxed font-light">{features[2].description}</p>
+              </div>
+            </div>
+
+            {/* Taller card */}
+            <div className="md:row-span-2 group p-8 rounded-3xl bg-gradient-to-br from-white/[0.02] to-transparent border-0 hover:from-white/[0.04] transition-all duration-500 relative overflow-hidden flex flex-col">
+              <div className="absolute inset-0 noise-texture opacity-40" />
+              <div className="relative flex-1 flex flex-col justify-center">
+                <features[3].icon className="w-5 h-5 text-orange-400/80 mb-5" strokeWidth={1.5} />
+                <h3 className="font-semibold text-xl mb-2.5 text-zinc-100">{features[3].title}</h3>
+                <p className="text-sm text-zinc-500 leading-relaxed font-light">{features[3].description}</p>
+              </div>
+            </div>
+
+            {/* Regular card */}
+            <div className="group p-8 rounded-3xl bg-gradient-to-br from-white/[0.02] to-transparent border-0 hover:from-white/[0.04] transition-all duration-500 relative overflow-hidden">
+              <div className="absolute inset-0 noise-texture opacity-40" />
+              <div className="relative">
+                <features[4].icon className="w-5 h-5 text-orange-400/80 mb-5" strokeWidth={1.5} />
+                <h3 className="font-semibold text-xl mb-2.5 text-zinc-100">{features[4].title}</h3>
+                <p className="text-sm text-zinc-500 leading-relaxed font-light">{features[4].description}</p>
+              </div>
+            </div>
+
+            {/* Regular card */}
+            <div className="group p-8 rounded-3xl bg-gradient-to-br from-white/[0.02] to-transparent border-0 hover:from-white/[0.04] transition-all duration-500 relative overflow-hidden">
+              <div className="absolute inset-0 noise-texture opacity-40" />
+              <div className="relative">
+                <features[5].icon className="w-5 h-5 text-orange-400/80 mb-5" strokeWidth={1.5} />
+                <h3 className="font-semibold text-xl mb-2.5 text-zinc-100">{features[5].title}</h3>
+                <p className="text-sm text-zinc-500 leading-relaxed font-light">{features[5].description}</p>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
       {/* Benefits */}
-      <section className="py-24 px-6 border-t border-white/5">
-        <div className="max-w-5xl mx-auto">
-          <div className="grid lg:grid-cols-2 gap-16 items-center">
+      <section className="py-32 px-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="grid lg:grid-cols-2 gap-24 items-center">
             <div>
-              <h2 className="text-3xl font-bold mb-4">
+              <h2 className="text-4xl md:text-5xl font-bold mb-6 tracking-tight leading-tight">
                 Built for clarity,
                 <br />
-                <span className="text-zinc-500">not complexity</span>
+                <span className="text-zinc-600">not complexity</span>
               </h2>
-              <p className="text-zinc-400 mb-8 leading-relaxed">
+              <p className="text-zinc-500 text-lg mb-10 leading-relaxed font-light">
                 No spreadsheets. No manual calculations. Just a clean interface 
                 that gives you actionable insights about your financial future.
               </p>
               
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {[
                 'Automatic transaction → holdings sync',
                 'Tax lot tracking with optimal selection',
@@ -371,30 +441,32 @@ export default function Landing() {
                 'Multi-account type support (401k, IRA, taxable)',
                 'Real-time price updates'].
                 map((item, i) =>
-                <div key={i} className="flex items-center gap-3">
-                    <CheckCircle className="w-4 h-4 text-orange-400 flex-shrink-0" />
-                    <span className="text-sm text-zinc-300">{item}</span>
+                <div key={i} className="flex items-center gap-4">
+                    <div className="w-5 h-5 rounded-full bg-orange-500/10 flex items-center justify-center flex-shrink-0">
+                      <CheckCircle className="w-3 h-3 text-orange-400" strokeWidth={2.5} />
+                    </div>
+                    <span className="text-sm text-zinc-400 font-light">{item}</span>
                   </div>
                 )}
               </div>
             </div>
             
             <div className="relative">
-              <div className="absolute inset-0 bg-orange-500/5 rounded-2xl blur-3xl" />
-              <div className="relative space-y-3">
+              <div className="absolute inset-0 bg-orange-500/5 rounded-3xl blur-[100px]" />
+              <div className="relative space-y-4">
                 {[
                 { icon: TrendingUp, label: 'Retirement Confidence', value: '94%', color: 'emerald' },
                 { icon: Calculator, label: 'Tax Savings Found', value: '$4,280', color: 'orange' },
                 { icon: Building2, label: 'Accounts Supported', value: '7 types', color: 'purple' }].
                 map((item, i) =>
-                <div key={i} className="flex items-center justify-between p-4 rounded-xl bg-white/[0.03] border border-white/5">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-9 h-9 rounded-lg bg-${item.color}-500/10 flex items-center justify-center`}>
-                        <item.icon className={`w-4 h-4 text-${item.color}-400`} />
+                <div key={i} className="flex items-center justify-between p-6 rounded-2xl bg-white/[0.02] border-0 hover:bg-white/[0.04] transition-all duration-300 group">
+                    <div className="flex items-center gap-4">
+                      <div className={`w-10 h-10 rounded-xl bg-${item.color}-500/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
+                        <item.icon className={`w-4 h-4 text-${item.color}-400`} strokeWidth={1.5} />
                       </div>
-                      <span className="text-sm text-zinc-400">{item.label}</span>
+                      <span className="text-sm text-zinc-500 font-light">{item.label}</span>
                     </div>
-                    <span className={`text-lg font-semibold text-${item.color}-400`}>{item.value}</span>
+                    <span className={`text-xl font-semibold text-${item.color}-400`}>{item.value}</span>
                   </div>
                 )}
               </div>
@@ -406,31 +478,34 @@ export default function Landing() {
 
 
       {/* CTA */}
-      <section className="py-24 px-6">
-        <div className="max-w-2xl mx-auto text-center">
-          <div className="p-10 rounded-2xl bg-gradient-to-b from-orange-500/10 to-transparent border border-orange-500/10">
-            <h2 className="text-2xl font-bold mb-3">Ready to take control?</h2>
-            <p className="text-zinc-500 mb-8">
-              Start tracking your wealth in minutes.
-            </p>
-            <Link to={createPageUrl('Dashboard')}>
-              <Button size="lg" className="brand-gradient text-white font-semibold hover:opacity-90 shadow-xl shadow-orange-500/30 px-8">
-                Open Dashboard
-                <ArrowRight className="w-5 h-5 ml-2" />
-              </Button>
-            </Link>
+      <section className="py-32 px-6">
+        <div className="max-w-3xl mx-auto text-center">
+          <div className="p-16 rounded-3xl bg-gradient-to-b from-orange-500/8 to-transparent border-0 relative overflow-hidden">
+            <div className="absolute inset-0 noise-texture opacity-30" />
+            <div className="relative">
+              <h2 className="text-4xl md:text-5xl font-bold mb-5 tracking-tight">Ready to take control?</h2>
+              <p className="text-zinc-500 text-lg mb-10 font-light">
+                Start tracking your wealth in minutes.
+              </p>
+              <Link to={createPageUrl('Dashboard')}>
+                <Button size="lg" className="brand-gradient text-white font-semibold hover:opacity-90 shadow-2xl shadow-orange-500/25 px-10 h-14 text-base rounded-xl">
+                  Open Dashboard
+                  <ArrowRight className="w-5 h-5 ml-2" />
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       </section>
 
       {/* Privacy Note */}
-      <section className="py-16 px-6 border-t border-white/5">
+      <section className="py-24 px-6">
         <div className="max-w-2xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 mb-4">
-            <Shield className="w-5 h-5 text-purple-400" />
-            <h3 className="font-semibold">Privacy matters.</h3>
+          <div className="inline-flex items-center gap-3 mb-5">
+            <Shield className="w-5 h-5 text-purple-400/80" strokeWidth={1.5} />
+            <h3 className="font-semibold text-lg">Privacy matters.</h3>
           </div>
-          <p className="text-sm text-zinc-500 max-w-lg mx-auto">
+          <p className="text-sm text-zinc-500 max-w-lg mx-auto leading-relaxed font-light">
             We never sell your data. Many free apps rely on ads or selling user data to make money. 
             We don't. Your financial information stays private, just as it should.
           </p>
@@ -438,20 +513,20 @@ export default function Landing() {
       </section>
 
       {/* Footer */}
-      <footer className="py-8 px-6 border-t border-white/5">
-        <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-md brand-gradient flex items-center justify-center">
-              <Zap className="w-3.5 h-3.5 text-white" />
+      <footer className="py-12 px-6 border-t border-white/[0.03]">
+        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl brand-gradient flex items-center justify-center shadow-lg shadow-orange-500/20">
+              <Zap className="w-4 h-4 text-white" strokeWidth={2.5} />
             </div>
-            <span className="text-sm font-medium text-zinc-400">Orange Plan</span>
+            <span className="text-sm font-medium text-zinc-500 tracking-tight">Orange Plan</span>
           </div>
-          <div className="flex items-center gap-6 text-sm text-zinc-500">
-            <Link to={createPageUrl('Features')} className="hover:text-zinc-300 transition-colors">Features</Link>
-            <Link to={createPageUrl('Pricing')} className="hover:text-zinc-300 transition-colors">Pricing</Link>
-            <Link to={createPageUrl('Dashboard')} className="hover:text-zinc-300 transition-colors">Dashboard</Link>
+          <div className="flex items-center gap-8 text-sm text-zinc-600 font-light">
+            <Link to={createPageUrl('Features')} className="hover:text-zinc-400 transition-colors">Features</Link>
+            <Link to={createPageUrl('Pricing')} className="hover:text-zinc-400 transition-colors">Pricing</Link>
+            <Link to={createPageUrl('Dashboard')} className="hover:text-zinc-400 transition-colors">Dashboard</Link>
           </div>
-          <p className="text-xs text-zinc-600">© 2024 Orange Plan</p>
+          <p className="text-xs text-zinc-700 font-light">© 2026 Orange Plan</p>
         </div>
       </footer>
     </div>);
