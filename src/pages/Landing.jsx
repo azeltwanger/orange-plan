@@ -52,33 +52,33 @@ const whyOrangePlan = [
 const features = [
   {
     icon: Receipt,
-    title: 'Tax Harvesting Opportunities',
-    description: 'Automatically find lots to sell for tax loss or gain harvesting.'
+    title: 'Tax Harvesting',
+    description: 'Find losses to offset gains. Automatically.'
   },
   {
     icon: Shield,
-    title: 'Estate & Inheritance',
-    description: 'Dead man\'s switch, beneficiary management, and inheritance protocols.'
+    title: 'Estate Planning',
+    description: 'Dead man\'s switch. Beneficiaries. Peace of mind.'
   },
   {
     icon: Flag,
     title: 'Goal Tracking',
-    description: 'Set targets, track progress, see projected completion dates.'
+    description: 'Set it. Track it. Hit it.'
   },
   {
     icon: Wallet,
-    title: 'Cash Flow & Budgeting',
-    description: 'Income, expenses, and savings calculated automatically.'
+    title: 'Cash Flow',
+    description: 'See exactly where your money goes.'
   },
   {
     icon: TrendingUp,
-    title: 'Performance Analytics',
-    description: 'Track portfolio growth, returns, and allocation over time.'
+    title: 'Performance',
+    description: 'Track returns across every account.'
   },
   {
     icon: Upload,
-    title: 'Easy CSV Upload',
-    description: 'Bulk import transactions from any exchange in seconds.'
+    title: 'CSV Import',
+    description: 'Coinbase, Kraken, Strike—imported in seconds.'
   }
 ];
 
