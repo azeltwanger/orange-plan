@@ -327,9 +327,9 @@ export default function Landing() {
           <div className="grid lg:grid-cols-2 gap-16 items-center">
             <div>
               <h2 className="text-4xl md:text-5xl font-bold mb-6 tracking-tight leading-tight">
-                See Every Lot,
+                Know Your Tax Bill
                 <br />
-                <span className="text-zinc-600">Know Every Gain</span>
+                <span className="text-zinc-600">Before You Sell</span>
               </h2>
               <p className="text-zinc-500 text-lg leading-relaxed font-light mb-8">
                 Track cost basis across hundreds of lots automatically. HIFO, LIFO, FIFO—see unrealized gains, holding periods, and tax-loss harvesting opportunities at a glance.
