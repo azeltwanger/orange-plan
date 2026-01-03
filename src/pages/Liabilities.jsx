@@ -25,6 +25,8 @@ export default function Liabilities() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingLiability, setEditingLiability] = useState(null);
   const [showCollateralSettings, setShowCollateralSettings] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState(null);
   const queryClient = useQueryClient();
 
   // BTC Collateral Management Settings
@@ -662,13 +664,15 @@ export default function Liabilities() {
                         <>
                           <button
                             onClick={() => { setEditingLiability(liability); setFormOpen(true); }}
-                            className="p-2.5 rounded-lg bg-zinc-800/50 hover:bg-zinc-700 transition-colors"
+                            className="p-2.5 rounded-lg bg-zinc-800/50 hover:bg-zinc-700 transition-all duration-200 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/50"
+                            aria-label={`Edit ${liability.name}`}
                           >
                             <Pencil className="w-4 h-4 text-zinc-400" />
                           </button>
                           <button
-                            onClick={() => deleteLiability.mutate(liability.id)}
-                            className="p-2.5 rounded-lg bg-zinc-800/50 hover:bg-rose-600/30 transition-colors"
+                            onClick={() => { setItemToDelete({ type: 'liability', item: liability }); setDeleteConfirmOpen(true); }}
+                            className="p-2.5 rounded-lg bg-zinc-800/50 hover:bg-rose-600/30 transition-all duration-200 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/50"
+                            aria-label={`Delete ${liability.name}`}
                           >
                             <Trash2 className="w-4 h-4 text-zinc-400" />
                           </button>
@@ -947,6 +951,42 @@ export default function Liabilities() {
               </Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <DialogContent className="bg-[#0f0f10] border-zinc-800 text-zinc-100 max-w-md animate-in fade-in-0 zoom-in-95 duration-200">
+          <DialogHeader>
+            <DialogTitle>Delete Liability?</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-zinc-400">
+              Are you sure you want to delete <span className="font-semibold text-zinc-200">{itemToDelete?.item?.name}</span>?
+            </p>
+            <p className="text-sm text-rose-400">This action cannot be undone.</p>
+            <div className="flex gap-3 pt-4">
+              <Button 
+                variant="outline" 
+                onClick={() => { setDeleteConfirmOpen(false); setItemToDelete(null); }} 
+                className="flex-1 bg-transparent border-zinc-700"
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={() => {
+                  if (itemToDelete?.type === 'liability') {
+                    deleteLiability.mutate(itemToDelete.item.id);
+                  }
+                  setDeleteConfirmOpen(false);
+                  setItemToDelete(null);
+                }}
+                className="flex-1 bg-rose-600 hover:bg-rose-700 text-white"
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
