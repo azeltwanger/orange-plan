@@ -1564,6 +1564,11 @@ export default function FinancialPlan() {
         }
       });
 
+      // ========================================
+      // LIFE EVENTS - ASSET IMPACTS
+      // ========================================
+      // Process one-time and recurring life events that affect assets directly
+      // (income/expense adjustments were handled earlier in the loop)
       const isRetired = currentAge + i >= retirementAge;
       const yearsIntoRetirement = isRetired ? currentAge + i - retirementAge : 0;
       const currentAgeThisYear = currentAge + i;
@@ -2902,14 +2907,14 @@ export default function FinancialPlan() {
 
         {/* Projections Tab */}
         <TabsContent value="projections" className="space-y-6">
-          {/* Earliest FI Age - Hero Card - NOW AT TOP */}
-          <div className="card-premium rounded-2xl p-6 border border-orange-500/30 bg-gradient-to-br from-orange-500/10 to-transparent">
+          {/* Earliest FI Age - Hero Card - Mobile Optimized */}
+          <div className="card-premium rounded-2xl p-4 lg:p-6 border border-orange-500/30 bg-gradient-to-br from-orange-500/10 to-transparent">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
               <div>
                 <p className="text-sm text-zinc-400 uppercase tracking-wider mb-2">Earliest Retirement Age</p>
-                <div className="flex items-baseline gap-3">
+                <div className="flex items-baseline gap-2 lg:gap-3">
                   <span className={cn(
-                    "text-5xl font-bold",
+                    "text-3xl lg:text-5xl font-bold",
                     earliestRetirementAge && earliestRetirementAge <= retirementAge ? "text-emerald-400" :
                     earliestRetirementAge ? "text-orange-400" : "text-rose-400"
                   )}>

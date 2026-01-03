@@ -492,16 +492,16 @@ export default function Liabilities() {
         </div>
       )}
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="card-premium rounded-xl p-6 border border-rose-400/10">
+      {/* Summary Cards - Mobile Optimized */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
+        <div className="card-premium rounded-xl p-4 lg:p-6 border border-rose-400/10">
           <div className="flex items-center justify-between mb-4">
             <span className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest">Total Obligations</span>
             <div className="p-2 rounded-lg bg-rose-400/10">
               <TrendingDown className="w-4 h-4 text-rose-400" />
             </div>
           </div>
-          <p className="text-3xl font-bold text-rose-400">${totalLiabilities.toLocaleString()}</p>
+          <p className="text-2xl lg:text-3xl font-bold text-rose-400">${totalLiabilities.toLocaleString()}</p>
         </div>
 
         <div className="card-premium rounded-xl p-6 border border-zinc-700/30">

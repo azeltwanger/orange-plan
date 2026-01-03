@@ -282,8 +282,8 @@ export default function Layout({ children, currentPageName }) {
 
       `}</style>
 
-      {/* Mobile Header */}
-      <header className="lg:hidden fixed top-0 left-0 right-0 z-50 glass-dark border-b border-zinc-800/30">
+      {/* Mobile Header - Responsive Navigation */}
+      <header className="lg:hidden fixed top-0 left-0 right-0 z-50 glass-dark border-b border-zinc-800/30 safe-top">
         <div className="flex items-center justify-between px-4 h-16">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg brand-gradient flex items-center justify-center shadow-lg shadow-orange-500/20">

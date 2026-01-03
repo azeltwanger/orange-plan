@@ -1239,14 +1239,14 @@ export default function TaxCenter() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col gap-4">
         <div>
           <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">Tax Strategy</h1>
           <p className="text-zinc-500 mt-1">Cost basis optimization and tax planning</p>
         </div>
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-2 flex-wrap items-center justify-between sm:justify-start">
           <Select value={selectedYear.toString()} onValueChange={(val) => setSelectedYear(parseInt(val))}>
-            <SelectTrigger className="w-32 bg-zinc-900 border-zinc-700">
+            <SelectTrigger className="w-24 sm:w-32 bg-zinc-900 border-zinc-700 text-sm">
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="bg-zinc-900 border-zinc-700">
@@ -1260,7 +1260,8 @@ export default function TaxCenter() {
             </SelectContent>
           </Select>
           <Button 
-            variant="outline" 
+            variant="outline"
+            size="sm"
             onClick={async () => {
               setExportingYear(true);
               try {
@@ -1281,22 +1282,25 @@ export default function TaxCenter() {
               }
             }}
             disabled={exportingYear}
-            className="bg-transparent border-zinc-700"
+            className="bg-transparent border-zinc-700 text-sm"
           >
-            <Download className="w-4 h-4 mr-2" />
-            {exportingYear ? 'Exporting...' : 'Export 8949'}
+            <Download className="w-4 h-4 mr-1 sm:mr-2" />
+            <span className="hidden sm:inline">{exportingYear ? 'Exporting...' : 'Export 8949'}</span>
+            <span className="sm:hidden">8949</span>
           </Button>
-          <Button variant="outline" onClick={() => setCsvImportOpen(true)} className="bg-transparent border-zinc-700">
-            <Upload className="w-4 h-4 mr-2" />
-            Import CSV
+          <Button variant="outline" size="sm" onClick={() => setCsvImportOpen(true)} className="bg-transparent border-zinc-700 text-sm">
+            <Upload className="w-4 h-4 mr-1 sm:mr-2" />
+            <span className="hidden sm:inline">Import</span>
           </Button>
-          <Button onClick={() => setSaleFormOpen(true)} className="brand-gradient text-white font-semibold shadow-lg shadow-orange-500/20">
-            <Calculator className="w-4 h-4 mr-2" />
-            Record Sale
+          <Button onClick={() => setSaleFormOpen(true)} size="sm" className="brand-gradient text-white font-semibold shadow-lg shadow-orange-500/20 text-sm">
+            <Calculator className="w-4 h-4 mr-1 sm:mr-2" />
+            <span className="hidden sm:inline">Record Sale</span>
+            <span className="sm:hidden">Sell</span>
           </Button>
-          <Button onClick={() => { setEditingTx(null); resetForm(); setFormOpen(true); }} variant="outline" className="border-zinc-600 bg-zinc-800 text-zinc-200 hover:bg-zinc-700">
-            <Plus className="w-4 h-4 mr-2" />
-            Add Buy
+          <Button onClick={() => { setEditingTx(null); resetForm(); setFormOpen(true); }} size="sm" variant="outline" className="border-zinc-600 bg-zinc-800 text-zinc-200 hover:bg-zinc-700 text-sm">
+            <Plus className="w-4 h-4 mr-1 sm:mr-2" />
+            <span className="hidden sm:inline">Add Buy</span>
+            <span className="sm:hidden">Buy</span>
           </Button>
         </div>
       </div>
@@ -1408,8 +1412,8 @@ export default function TaxCenter() {
 
       {/* Summary Cards - NO DUPLICATE CARDS HERE */}
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Summary Cards - Mobile Optimized */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
         <div className="card-premium rounded-xl p-5 border border-zinc-800/50">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs text-zinc-500 uppercase tracking-wider">{selectedYear} Realized Short-Term</span>
@@ -1417,7 +1421,7 @@ export default function TaxCenter() {
               {netShortTerm >= 0 ? <TrendingUp className="w-4 h-4 text-emerald-400" /> : <TrendingDown className="w-4 h-4 text-rose-400" />}
             </div>
           </div>
-          <p className={cn("text-2xl font-bold", netShortTerm >= 0 ? "text-emerald-400" : "text-rose-400")}>
+          <p className={cn("text-2xl lg:text-3xl font-bold", netShortTerm >= 0 ? "text-emerald-400" : "text-rose-400")}>
             {netShortTerm >= 0 ? '+' : '-'}${Math.round(Math.abs(netShortTerm)).toLocaleString()}
           </p>
           <p className="text-xs text-zinc-500 mt-1">{netShortTerm === 0 ? 'No ST sales' : `Taxed at ${(effectiveSTCGRate * 100).toFixed(0)}%`}</p>

@@ -823,10 +823,10 @@ export default function Performance() {
         <p className="text-zinc-500 mt-1">Track your portfolio growth</p>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Stats Grid - Responsive */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((stat, i) => (
-          <div key={i} className="card-glass rounded-xl p-5">
+          <div key={i} className="card-premium rounded-xl p-4 lg:p-5 border border-zinc-800/50">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-1.5">
                 <span className="text-xs text-zinc-500 uppercase tracking-wider">{stat.label}</span>
@@ -849,7 +849,7 @@ export default function Performance() {
                 <stat.icon className={cn("w-4 h-4", stat.color)} />
               </div>
             </div>
-            <p className={cn("text-xl lg:text-2xl font-bold", stat.color)}>
+            <p className={cn("text-2xl lg:text-3xl font-bold", stat.color)}>
               {stat.prefix}{stat.value}
             </p>
             {stat.subtext && (
@@ -881,7 +881,7 @@ export default function Performance() {
 
       {/* Asset Allocation Pie Chart */}
       {assetAllocation.length > 0 && (
-        <div className="card-glass rounded-2xl p-6">
+        <div className="card-premium rounded-2xl p-4 lg:p-6 border border-zinc-800/50">
           <h3 className="font-semibold mb-4">Asset Allocation</h3>
           <div className="flex flex-col lg:flex-row items-center gap-8">
             <div className="w-full lg:w-1/2 h-64">
@@ -932,7 +932,7 @@ export default function Performance() {
       )}
 
       {/* Portfolio Chart */}
-      <div className="card-glass rounded-2xl p-6">
+      <div className="card-premium rounded-2xl p-4 lg:p-6 border border-zinc-800/50">
         <div className="flex items-start justify-between mb-4">
           <h3 className="font-semibold">Portfolio Value Over Time</h3>
           <Select value={timeframe} onValueChange={setTimeframe}>
@@ -1034,7 +1034,7 @@ export default function Performance() {
       </div>
 
       {/* Asset Breakdown by Account */}
-      <div className="card-glass rounded-2xl p-6">
+      <div className="card-premium rounded-2xl p-4 lg:p-6 border border-zinc-800/50">
         <h3 className="font-semibold mb-6">Asset Performance by Account</h3>
         <div className="space-y-4">
           <AccountPerformanceSection 
@@ -1049,7 +1049,7 @@ export default function Performance() {
 
       {/* Realized Gains Section */}
       {transactionStats.realizedGains !== 0 && (
-        <div className="card-glass rounded-2xl p-6">
+        <div className="card-premium rounded-2xl p-4 lg:p-6 border border-zinc-800/50">
           <h3 className="font-semibold mb-4">Realized Gains/Losses</h3>
           <div className="flex items-center justify-between p-4 rounded-xl bg-zinc-800/30">
             <span className="text-zinc-400">Total Realized</span>

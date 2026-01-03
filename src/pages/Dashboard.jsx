@@ -288,11 +288,11 @@ export default function Dashboard() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl lg:text-4xl font-bold tracking-tight">Net Worth Dashboard</h1>
-          <p className="text-zinc-500 mt-2">Your complete financial overview</p>
+          <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">Net Worth Dashboard</h1>
+          <p className="text-zinc-500 mt-1">Your complete financial overview</p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-zinc-800/50 border border-zinc-700/50">
+        <div className="flex items-center gap-2 lg:gap-3 flex-wrap">
+          <div className="flex items-center gap-2 px-3 lg:px-4 py-2 rounded-xl bg-zinc-800/50 border border-zinc-700/50">
             <Bitcoin className="w-4 h-4 text-amber-400" />
             <span className="text-sm text-zinc-400">BTC:</span>
             {priceLoading ? (
@@ -311,14 +311,16 @@ export default function Dashboard() {
           <Button
             variant="outline"
             onClick={() => setCsvImportOpen(true)}
-            className="bg-transparent border-zinc-700"
+            className="bg-transparent border-zinc-700 text-sm"
+            size="sm"
           >
             <Upload className="w-4 h-4 mr-2" />
-            Import CSV
+            <span className="hidden sm:inline">Import CSV</span>
           </Button>
           <Button
             onClick={() => { setEditingHolding(null); setFormOpen(true); }}
-            className="brand-gradient text-white font-semibold hover:opacity-90 shadow-lg shadow-orange-500/20"
+            className="brand-gradient text-white font-semibold hover:opacity-90 shadow-lg shadow-orange-500/20 text-sm"
+            size="sm"
           >
             <Plus className="w-4 h-4 mr-2" />
             Add Asset

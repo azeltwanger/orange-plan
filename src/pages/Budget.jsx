@@ -216,8 +216,8 @@ export default function Budget() {
         </Button>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {/* Summary Cards - Mobile Optimized */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 lg:gap-4">
         <div className="card-glass rounded-xl p-6">
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm text-zinc-500 uppercase tracking-wider">Monthly Income</span>
@@ -225,7 +225,7 @@ export default function Budget() {
               <ArrowUpRight className="w-4 h-4 text-emerald-400" />
             </div>
           </div>
-          <p className="text-3xl font-bold text-emerald-400">${monthlyIncome.toLocaleString()}</p>
+          <p className="text-2xl lg:text-3xl font-bold text-emerald-400">${monthlyIncome.toLocaleString()}</p>
           <p className="text-xs text-zinc-500 mt-1">${annualIncome.toLocaleString()} / year</p>
         </div>
 

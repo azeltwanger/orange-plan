@@ -334,8 +334,8 @@ export default function DCAStrategy() {
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {/* Summary Cards - Mobile Optimized */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 lg:gap-4">
         <div className="card-glass rounded-xl p-6">
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm text-zinc-500 uppercase tracking-wider">Monthly to BTC</span>
@@ -343,7 +343,7 @@ export default function DCAStrategy() {
               <Bitcoin className="w-4 h-4 text-orange-400" />
             </div>
           </div>
-          <p className="text-3xl font-bold text-orange-400">${monthlyBtcAmount.toLocaleString('en-US', { maximumFractionDigits: 0 })}</p>
+          <p className="text-2xl lg:text-3xl font-bold text-orange-400">${monthlyBtcAmount.toLocaleString('en-US', { maximumFractionDigits: 0 })}</p>
           <p className="text-sm text-zinc-500 mt-1">
             ≈ {(monthlyBtcAmount / currentPrice).toFixed(6)} BTC/mo
           </p>

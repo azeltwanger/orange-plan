@@ -273,12 +273,13 @@ export default function Goals() {
           <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">Goals & Life Events</h1>
           <p className="text-zinc-500 mt-1">Track savings goals and plan for life changes</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => { resetEventForm(); setEventFormOpen(true); }} className="bg-zinc-800 border-zinc-700 text-zinc-100 hover:bg-zinc-700">
+        <div className="flex gap-2 flex-wrap">
+          <Button variant="outline" size="sm" onClick={() => { resetEventForm(); setEventFormOpen(true); }} className="bg-zinc-800 border-zinc-700 text-zinc-100 hover:bg-zinc-700 text-sm">
             <Calendar className="w-4 h-4 mr-2" />
-            Life Event
+            <span className="hidden sm:inline">Life Event</span>
+            <span className="sm:hidden">Event</span>
           </Button>
-          <Button onClick={() => { resetGoalForm(); setGoalFormOpen(true); }} className="brand-gradient text-white font-semibold">
+          <Button onClick={() => { resetGoalForm(); setGoalFormOpen(true); }} size="sm" className="brand-gradient text-white font-semibold text-sm">
             <Plus className="w-4 h-4 mr-2" />
             Goal
           </Button>
