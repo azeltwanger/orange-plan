@@ -33,52 +33,52 @@ import { Button } from "@/components/ui/button";
 
 const whyOrangePlan = [
   {
-    icon: Zap,
-    title: 'Bitcoin-Backed Loan Modeling',
-    description: 'Model loans from Ledn and others with real LTV thresholds, interest rates, and collateral tracking. See exactly when loans get called or released.'
+    icon: Calculator,
+    title: 'Automatic Cost Basis Tracking',
+    description: 'HIFO, LIFO, FIFO calculated automatically. Know your exact tax liability on any sale before you make it.'
   },
   {
-    icon: Receipt,
-    title: 'Tax Lot Intelligence',
-    description: 'HIFO, LIFO, FIFO cost basis tracking. Find tax loss harvesting opportunities. Know your exact tax liability before you sell.'
+    icon: Scale,
+    title: 'Bitcoin-Backed Loan Modeling',
+    description: 'Real LTV thresholds, margin call alerts, and collateral tracking. See exactly when loans get called or released.'
   },
   {
     icon: Target,
-    title: 'Bitcoin-First Retirement',
-    description: 'Monte Carlo simulations that actually understand Bitcoin volatility. Model living off Bitcoin without selling it.'
+    title: 'Bitcoin Retirement Simulations',
+    description: 'Monte Carlo projections that understand Bitcoin volatility. Model living off your stack without selling it.'
   }
 ];
 
 const features = [
   {
-    icon: LayoutDashboard,
-    title: 'Net Worth Dashboard',
-    description: 'All accounts in one view—Bitcoin, stocks, real estate, retirement accounts.'
-  },
-  {
-    icon: Wallet,
-    title: 'Cash Flow Tracking',
-    description: 'Income, expenses, and automatic savings calculations.'
-  },
-  {
-    icon: Flag,
-    title: 'Goal Planning',
-    description: 'Set targets, track progress, see projected completion dates.'
-  },
-  {
-    icon: DollarSign,
-    title: 'Fee Analysis',
-    description: 'Compare exchange fees side-by-side.'
+    icon: Receipt,
+    title: 'Tax Harvesting Opportunities',
+    description: 'Automatically find lots to sell for tax loss or gain harvesting.'
   },
   {
     icon: Shield,
-    title: 'Estate Planning',
-    description: 'Inheritance protocols and beneficiary management.'
+    title: 'Estate & Inheritance',
+    description: 'Dead man\'s switch, beneficiary management, and inheritance protocols.'
   },
   {
-    icon: RefreshCw,
-    title: 'Scenario Builder',
-    description: 'Compare different assumptions and strategies.'
+    icon: Flag,
+    title: 'Goal Tracking',
+    description: 'Set targets, track progress, see projected completion dates.'
+  },
+  {
+    icon: Wallet,
+    title: 'Cash Flow & Budgeting',
+    description: 'Income, expenses, and savings calculated automatically.'
+  },
+  {
+    icon: TrendingUp,
+    title: 'Performance Analytics',
+    description: 'Track portfolio growth, returns, and allocation over time.'
+  },
+  {
+    icon: Upload,
+    title: 'Easy CSV Upload',
+    description: 'Bulk import transactions from any exchange in seconds.'
   }
 ];
 
