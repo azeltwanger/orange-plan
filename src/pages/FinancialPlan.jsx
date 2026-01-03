@@ -284,7 +284,8 @@ export default function FinancialPlan() {
   // BTC Collateral Management Settings
   const [autoTopUpBtcCollateral, setAutoTopUpBtcCollateral] = useState(true);
   const [btcTopUpTriggerLtv, setBtcTopUpTriggerLtv] = useState(70);
-  const [btcTopUpTargetLtv, setBtcTopUpTargetLtv] = useState(65); // Ledn brings LTV to 65% after auto top-up
+  const [btcTopUpTargetLtv, setBtcTopUpTargetLtv] = useState(65);
+  const [btcReleaseTargetLtv, setBtcReleaseTargetLtv] = useState(40);
 
   // State tax settings
   const [stateOfResidence, setStateOfResidence] = useState(() => {
@@ -445,6 +446,7 @@ export default function FinancialPlan() {
                   if (settings.auto_top_up_btc_collateral !== undefined) setAutoTopUpBtcCollateral(settings.auto_top_up_btc_collateral);
                   if (settings.btc_top_up_trigger_ltv !== undefined) setBtcTopUpTriggerLtv(settings.btc_top_up_trigger_ltv);
                   if (settings.btc_top_up_target_ltv !== undefined) setBtcTopUpTargetLtv(settings.btc_top_up_target_ltv);
+                  if (settings.btc_release_target_ltv !== undefined) setBtcReleaseTargetLtv(settings.btc_release_target_ltv);
                   setSettingsLoaded(true);
     }
   }, [userSettings, settingsLoaded]);
@@ -500,10 +502,11 @@ export default function FinancialPlan() {
                       auto_top_up_btc_collateral: autoTopUpBtcCollateral,
                       btc_top_up_trigger_ltv: btcTopUpTriggerLtv || 70,
                       btc_top_up_target_ltv: btcTopUpTargetLtv || 65,
+                      btc_release_target_ltv: btcReleaseTargetLtv || 40,
                     });
     }, 1000); // Debounce 1 second
     return () => clearTimeout(timeoutId);
-  }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, otherCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, useCustomSocialSecurity, grossAnnualIncome, contribution401k, employer401kMatch, contributionRothIRA, contributionHSA, hsaFamilyCoverage, filingStatus, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv, savingsAllocationBtc, savingsAllocationStocks, savingsAllocationBonds, savingsAllocationCash, savingsAllocationOther]);
+  }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, otherCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, useCustomSocialSecurity, grossAnnualIncome, contribution401k, employer401kMatch, contributionRothIRA, contributionHSA, hsaFamilyCoverage, filingStatus, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv, btcReleaseTargetLtv, savingsAllocationBtc, savingsAllocationStocks, savingsAllocationBonds, savingsAllocationCash, savingsAllocationOther]);
 
   // Calculate accurate debt payments for current month
   const currentMonthForDebt = new Date().getMonth();
@@ -1224,7 +1227,8 @@ export default function FinancialPlan() {
           const liquidationLTV = liability.liquidation_ltv || 80;
           const releaseLTV = liability.collateral_release_ltv || 30;
           const triggerLTV = btcTopUpTriggerLtv || 70;
-          const targetLTV = 65; // Ledn standard: top-up brings LTV to 65%
+          const targetLTV = btcTopUpTargetLtv || 65;
+          const releaseTargetLTV = btcReleaseTargetLtv || 40;
 
           // AUTO TOP-UP: If enabled and LTV reaches trigger threshold (before liquidation)
           if (autoTopUpBtcCollateral && currentLTV >= triggerLTV && currentLTV < liquidationLTV) {
@@ -1249,8 +1253,8 @@ export default function FinancialPlan() {
                 liabilityName: liability.name,
                 type: 'top_up',
                 btcAdded: additionalBtcNeeded,
-                newLtv: btcTopUpTargetLtv,
-                message: `Added ${additionalBtcNeeded.toFixed(4)} BTC collateral to reduce LTV from ${currentLTV.toFixed(0)}% to 65%`
+                newLtv: targetLTV,
+                message: `Added ${additionalBtcNeeded.toFixed(4)} BTC collateral to reduce LTV from ${currentLTV.toFixed(0)}% to ${targetLTV}%`
               });
             }
             // If not enough liquid BTC, do nothing here - will be handled by liquidation logic below if LTV reaches 80%
@@ -1332,7 +1336,6 @@ export default function FinancialPlan() {
             } else {
               // Loan still active: only release EXCESS collateral, keep loan at target LTV
               const currentCollateral = encumberedBtc[liability.id];
-              const releaseTargetLTV = 40; // Ledn releases excess collateral to bring LTV up to 40%
               const targetCollateralForLoan = liability.current_balance / (releaseTargetLTV / 100) / yearBtcPrice;
               const excessCollateral = Math.max(0, currentCollateral - targetCollateralForLoan);
               
@@ -1347,8 +1350,8 @@ export default function FinancialPlan() {
                   type: 'release',
                   btcReleased: excessCollateral,
                   previousLTV: postTopUpLTV,
-                  newLTV: 40,
-                  message: `Released ${excessCollateral.toFixed(4)} BTC back to liquid. LTV increased from ${postTopUpLTV.toFixed(0)}% to 40%`
+                  newLTV: releaseTargetLTV,
+                  message: `Released ${excessCollateral.toFixed(4)} BTC back to liquid. LTV increased from ${postTopUpLTV.toFixed(0)}% to ${releaseTargetLTV}%`
                 });
               }
             }
@@ -1404,7 +1407,8 @@ export default function FinancialPlan() {
           const releaseLTV = loan.collateral_release_ltv || 30;
 
           const triggerLTV = btcTopUpTriggerLtv || 70;
-          const targetLTV = 65; // Ledn standard: top-up brings LTV to 65%
+          const targetLTV = btcTopUpTargetLtv || 65;
+          const releaseTargetLTV = btcReleaseTargetLtv || 40;
 
           // AUTO TOP-UP: If enabled and LTV reaches trigger threshold (before liquidation)
           if (autoTopUpBtcCollateral && currentLTV >= triggerLTV && currentLTV < liquidationLTV) {
@@ -1422,8 +1426,8 @@ export default function FinancialPlan() {
                 liabilityName: loan.name,
                 type: 'top_up',
                 btcAdded: additionalBtcNeeded,
-                newLtv: btcTopUpTargetLtv,
-                message: `Added ${additionalBtcNeeded.toFixed(4)} BTC collateral to reduce LTV from ${currentLTV.toFixed(0)}% to 65%`
+                newLtv: targetLTV,
+                message: `Added ${additionalBtcNeeded.toFixed(4)} BTC collateral to reduce LTV from ${currentLTV.toFixed(0)}% to ${targetLTV}%`
               });
             }
           }
@@ -1512,7 +1516,6 @@ export default function FinancialPlan() {
             } else {
               // Loan still active: only release EXCESS collateral, keep loan at target LTV
               const currentCollateral = encumberedBtc[loanKey];
-              const releaseTargetLTV = 40; // Ledn releases excess collateral to bring LTV up to 40%
               const targetCollateralForLoan = loan.current_balance / (releaseTargetLTV / 100) / yearBtcPrice;
               const excessCollateral = Math.max(0, currentCollateral - targetCollateralForLoan);
               
@@ -1527,8 +1530,8 @@ export default function FinancialPlan() {
                   type: 'release',
                   btcReleased: excessCollateral,
                   previousLTV: postTopUpLTV,
-                  newLTV: 40,
-                  message: `Released ${excessCollateral.toFixed(4)} BTC back to liquid. LTV increased from ${postTopUpLTV.toFixed(0)}% to 40%`
+                  newLTV: releaseTargetLTV,
+                  message: `Released ${excessCollateral.toFixed(4)} BTC back to liquid. LTV increased from ${postTopUpLTV.toFixed(0)}% to ${releaseTargetLTV}%`
                 });
               }
             }
@@ -4062,16 +4065,30 @@ export default function FinancialPlan() {
                   <span>₿</span> BTC-Backed Loan Modeling
                 </h4>
                 <p className="text-sm text-zinc-400 mb-3">
-                  Loans auto-refinance annually at 12.4% APR (daily compounding). Your collateral adjusts automatically:
+                  {(() => {
+                    const btcLoans = liabilities.filter(l => l.type === 'btc_collateralized');
+                    if (btcLoans.length === 1) {
+                      return `Loan compounds daily at ${btcLoans[0].interest_rate || 12.4}% APR. Your collateral adjusts automatically:`;
+                    } else if (btcLoans.length > 1) {
+                      const rates = btcLoans.map(l => l.interest_rate || 12.4);
+                      const minRate = Math.min(...rates);
+                      const maxRate = Math.max(...rates);
+                      if (minRate === maxRate) {
+                        return `Loans compound daily at ${minRate}% APR. Your collateral adjusts automatically:`;
+                      }
+                      return `Loans compound daily at ${minRate}-${maxRate}% APR. Your collateral adjusts automatically:`;
+                    }
+                    return `Loans compound daily. Your collateral adjusts automatically:`;
+                  })()}
                 </p>
                 <div className="space-y-2 text-sm">
                   <div className="flex items-start gap-2">
                     <span className="text-cyan-400">●</span>
-                    <p><span className="text-cyan-400">LTV ≤ 30%:</span> <span className="text-zinc-400">Excess collateral released back to liquid (targets 40% LTV)</span></p>
+                    <p><span className="text-cyan-400">LTV ≤ 30%:</span> <span className="text-zinc-400">Excess collateral released (targets {btcReleaseTargetLtv || 40}% LTV)</span></p>
                   </div>
                   <div className="flex items-start gap-2">
                     <span className="text-amber-400">●</span>
-                    <p><span className="text-amber-400">LTV ≥ 70%:</span> <span className="text-zinc-400">Auto top-up from liquid BTC (targets 65% LTV)</span></p>
+                    <p><span className="text-amber-400">LTV ≥ {btcTopUpTriggerLtv || 70}%:</span> <span className="text-zinc-400">Auto top-up from liquid BTC (targets {btcTopUpTargetLtv || 65}% LTV)</span></p>
                   </div>
                   <div className="flex items-start gap-2">
                     <span className="text-rose-400">●</span>

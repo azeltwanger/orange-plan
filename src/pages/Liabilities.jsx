@@ -29,7 +29,8 @@ export default function Liabilities() {
   // BTC Collateral Management Settings
   const [autoTopUp, setAutoTopUp] = useState(true);
   const [topUpTriggerLtv, setTopUpTriggerLtv] = useState(70);
-  const [topUpTargetLtv, setTopUpTargetLtv] = useState(50);
+  const [topUpTargetLtv, setTopUpTargetLtv] = useState(65);
+  const [releaseTargetLtv, setReleaseTargetLtv] = useState(40);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
 
   useEffect(() => {
@@ -95,6 +96,7 @@ export default function Liabilities() {
       if (settings.auto_top_up_btc_collateral !== undefined) setAutoTopUp(settings.auto_top_up_btc_collateral);
       if (settings.btc_top_up_trigger_ltv !== undefined) setTopUpTriggerLtv(settings.btc_top_up_trigger_ltv);
       if (settings.btc_top_up_target_ltv !== undefined) setTopUpTargetLtv(settings.btc_top_up_target_ltv);
+      if (settings.btc_release_target_ltv !== undefined) setReleaseTargetLtv(settings.btc_release_target_ltv);
       setSettingsLoaded(true);
     }
   }, [userSettings, settingsLoaded]);
@@ -119,10 +121,11 @@ export default function Liabilities() {
         auto_top_up_btc_collateral: autoTopUp,
         btc_top_up_trigger_ltv: topUpTriggerLtv,
         btc_top_up_target_ltv: topUpTargetLtv,
+        btc_release_target_ltv: releaseTargetLtv,
       });
     }, 1000);
     return () => clearTimeout(timeoutId);
-  }, [settingsLoaded, autoTopUp, topUpTriggerLtv, topUpTargetLtv]);
+  }, [settingsLoaded, autoTopUp, topUpTriggerLtv, topUpTargetLtv, releaseTargetLtv]);
 
   const createLiability = useMutation({
     mutationFn: (data) => base44.entities.Liability.create(data),
@@ -336,7 +339,7 @@ export default function Liabilities() {
               </div>
 
               {autoTopUp && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-xl bg-zinc-800/30">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 rounded-xl bg-zinc-800/30">
                   <div className="space-y-2">
                     <Label className="text-zinc-400 text-xs uppercase tracking-wider">Trigger LTV (%)</Label>
                     <Input
@@ -354,12 +357,24 @@ export default function Liabilities() {
                     <Input
                       type="number"
                       value={topUpTargetLtv}
-                      onChange={(e) => setTopUpTargetLtv(parseInt(e.target.value) || 50)}
+                      onChange={(e) => setTopUpTargetLtv(parseInt(e.target.value) || 65)}
                       min={20}
-                      max={60}
+                      max={70}
                       className="bg-zinc-900 border-zinc-700"
                     />
-                    <p className="text-[10px] text-zinc-500">Top-up brings LTV back to this level (default: 50%)</p>
+                    <p className="text-[10px] text-zinc-500">Top-up brings LTV back to this level (default: 65%)</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-zinc-400 text-xs uppercase tracking-wider">Release Target LTV (%)</Label>
+                    <Input
+                      type="number"
+                      value={releaseTargetLtv}
+                      onChange={(e) => setReleaseTargetLtv(parseInt(e.target.value) || 40)}
+                      min={30}
+                      max={50}
+                      className="bg-zinc-900 border-zinc-700"
+                    />
+                    <p className="text-[10px] text-zinc-500">When collateral releases, LTV targets this level (default: 40%)</p>
                   </div>
                 </div>
               )}
@@ -376,11 +391,10 @@ export default function Liabilities() {
                   ) : (
                     <>
                       <li>• No automatic collateral management</li>
-                      <li>• At <span className="text-rose-400">80% LTV</span>, lender sells enough collateral to bring LTV to <span className="text-emerald-400">50%</span></li>
-                      <li>• Loan remains active with reduced collateral and balance</li>
+                      <li>• At <span className="text-rose-400">80% LTV</span>, lender sells collateral to pay off loan entirely</li>
                     </>
                   )}
-                  <li>• Collateral releases when LTV drops below <span className="text-purple-400">30%</span></li>
+                  <li>• Collateral releases when LTV drops below <span className="text-purple-400">30%</span> (targets <span className="text-emerald-400">{releaseTargetLtv}%</span>)</li>
                 </ul>
               </div>
             </div>
