@@ -14,6 +14,8 @@ import ManageLotsDialog from '@/components/dashboard/ManageLotsDialog';
 import AccountGroup from '@/components/dashboard/AccountGroup';
 import CreateAccountDialog from '@/components/accounts/CreateAccountDialog';
 import EditAccountDialog from '@/components/accounts/EditAccountDialog';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import EmptyState from '@/components/ui/EmptyState';
 
 export default function Dashboard() {
   const [btcPrice, setBtcPrice] = useState(null);
@@ -50,7 +52,7 @@ export default function Dashboard() {
           setExchangeRates(response.data.rates);
         }
       } catch (error) {
-        console.error('Failed to fetch exchange rates:', error);
+  
       }
     };
     fetchRates();
@@ -185,7 +187,7 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
     },
     onError: (error) => {
-      console.error('Delete failed:', error);
+      alert('Failed to delete holding. Please try again.');
     },
   });
 
@@ -196,7 +198,7 @@ export default function Dashboard() {
     if (rate) {
       return price * rate;
     }
-    console.warn(`No exchange rate for ${currency}, returning unconverted price`);
+
     return price;
   };
 
@@ -361,29 +363,15 @@ export default function Dashboard() {
         </div>
 
         {holdingsLoading ? (
-          <div className="space-y-4">
-            {[1, 2].map((i) => (
-              <div key={i} className="card-premium rounded-xl p-5 animate-pulse border border-zinc-800/50">
-                <div className="h-6 bg-zinc-800/50 rounded w-48 mb-2" />
-                <div className="h-4 bg-zinc-800/50 rounded w-32" />
-              </div>
-            ))}
-          </div>
+          <LoadingSpinner text="Loading holdings..." />
         ) : holdings.length === 0 ? (
-          <div className="card-premium rounded-2xl p-16 text-center border border-zinc-800/50">
-            <div className="w-20 h-20 rounded-2xl bg-orange-500/10 mx-auto flex items-center justify-center mb-6">
-              <Bitcoin className="w-10 h-10 text-orange-400" />
-            </div>
-            <h3 className="text-xl font-semibold mb-3 text-zinc-200">Begin Your Journey</h3>
-            <p className="text-zinc-500 mb-6 max-w-sm mx-auto">Add your first asset to start tracking your wealth</p>
-            <Button
-              onClick={() => setFormOpen(true)}
-              className="brand-gradient text-white font-semibold shadow-lg shadow-orange-500/20"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Add Your First Asset
-            </Button>
-          </div>
+          <EmptyState
+            icon={Bitcoin}
+            title="Begin Your Journey"
+            description="Add your first asset to start tracking your wealth"
+            actionText="Add Your First Asset"
+            onAction={() => setFormOpen(true)}
+          />
         ) : (
           <div className="space-y-4">
             {/* All accounts (including empty ones) */}
