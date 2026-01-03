@@ -23,6 +23,8 @@ import CsvImportDialog from '@/components/transactions/CsvImportDialog';
 import AccountSelector from '@/components/accounts/AccountSelector';
 import CreateAccountDialog from '@/components/accounts/CreateAccountDialog';
 import { cn } from "@/lib/utils";
+import EmptyState from '@/components/ui/EmptyState';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
 
 // 2025 Tax Brackets and Standard Deductions
 // LTCG brackets are based on TAXABLE income (after standard deduction)
@@ -1692,7 +1694,11 @@ export default function TaxCenter() {
               </div>
             </div>
             {taxLots.length === 0 ? (
-              <p className="text-center text-zinc-500 py-12">No tax lots. Add buy transactions to create lots.</p>
+              <EmptyState
+                icon={Receipt}
+                title="No Tax Lots"
+                description="Add buy transactions to track your cost basis"
+              />
             ) : (
               <div className="space-y-3">
                 {(() => {
@@ -1927,7 +1933,13 @@ export default function TaxCenter() {
               </div>
             )}
             {allTransactions.length === 0 ? (
-              <p className="text-center text-zinc-500 py-12">No transactions recorded yet</p>
+              <EmptyState
+                icon={Plus}
+                title="No Transactions"
+                description="Record buys and sells to track cost basis and tax impact"
+                actionText="Add Transaction"
+                onAction={() => { resetForm(); setFormOpen(true); }}
+              />
             ) : (
               <div className="space-y-3">
                 {[...allTransactions]
@@ -2097,10 +2109,11 @@ export default function TaxCenter() {
             )}
 
             {harvestLossOpportunities.length === 0 ? (
-              <div className="text-center py-12">
-                <CheckCircle className="w-12 h-12 text-emerald-400/50 mx-auto mb-4" />
-                <p className="text-zinc-400">No losses to harvest - all lots are in profit!</p>
-              </div>
+              <EmptyState
+                icon={CheckCircle}
+                title="No Losses to Harvest"
+                description="All your lots are in profit - great job!"
+              />
             ) : (
               <div className="space-y-3">
                 {harvestLossOpportunities
@@ -2257,10 +2270,11 @@ export default function TaxCenter() {
             )}
 
             {gainHarvestOpportunities.length === 0 ? (
-              <div className="text-center py-12">
-                <TrendingDown className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
-                <p className="text-zinc-400">No long-term gains to harvest (lots must be held 1+ year)</p>
-              </div>
+              <EmptyState
+                icon={TrendingDown}
+                title="No Long-Term Gains"
+                description="Lots must be held 1+ year to qualify for 0% harvesting"
+              />
             ) : (
               <div className="space-y-3">
                 {gainHarvestOpportunities

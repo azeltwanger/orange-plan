@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import CashFlowProjections from '@/components/budget/CashFlowProjections';
 import { calculateCurrentMonthlyDebtPayments, calculateCurrentYearDebtPayments } from '@/components/shared/debtCalculations';
+import EmptyState from '@/components/ui/EmptyState';
 
 const categoryLabels = {
   salary: 'Salary',
@@ -366,7 +367,13 @@ export default function Budget() {
           <div className="card-glass rounded-2xl p-6">
             <h3 className="font-semibold mb-6">Income Sources</h3>
             {incomeItems.length === 0 ? (
-              <p className="text-center text-zinc-500 py-12">No income sources added yet</p>
+              <EmptyState
+                icon={ArrowUpRight}
+                title="No Income Sources"
+                description="Add your salary, investments, or other income streams"
+                actionText="Add Income"
+                onAction={() => { setFormData({ ...formData, type: 'income', category: 'salary' }); setFormOpen(true); }}
+              />
             ) : (
               <div className="space-y-3">
                 {incomeItems.map((item) => (
@@ -382,7 +389,13 @@ export default function Budget() {
             <h3 className="font-semibold mb-6">Expenses</h3>
             <div className="space-y-3">
               {expenseItems.length === 0 && liabilities.filter(l => l.monthly_payment > 0).length === 0 ? (
-                <p className="text-center text-zinc-500 py-12">No expenses added yet</p>
+                <EmptyState
+                  icon={ArrowDownRight}
+                  title="No Expenses Tracked"
+                  description="Add your monthly costs to see where your money goes"
+                  actionText="Add Expense"
+                  onAction={() => { setFormData({ ...formData, type: 'expense', category: 'other_expense' }); setFormOpen(true); }}
+                />
               ) : (
                 <>
                   {/* Budget expenses */}

@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import EmptyState from '@/components/ui/EmptyState';
 
 const SCENARIO_COLORS = ['#F7931A', '#3B82F6', '#10B981', '#A855F7', '#F43F5E', '#06B6D4'];
 
@@ -717,17 +718,13 @@ export default function Scenarios() {
         <h3 className="font-semibold">Your Scenarios</h3>
         
         {scenarios.length === 0 ? (
-          <div className="card-premium rounded-2xl p-12 text-center border border-zinc-800/50">
-            <div className="w-16 h-16 rounded-2xl bg-orange-500/10 mx-auto flex items-center justify-center mb-4">
-              <Sparkles className="w-8 h-8 text-orange-400" />
-            </div>
-            <h3 className="text-lg font-semibold mb-2">No Scenarios Yet</h3>
-            <p className="text-zinc-500 mb-6 max-w-sm mx-auto">Create scenarios to explore different financial futures and compare outcomes</p>
-            <Button onClick={() => setFormOpen(true)} className="brand-gradient text-white font-semibold">
-              <Plus className="w-4 h-4 mr-2" />
-              Create Your First Scenario
-            </Button>
-          </div>
+          <EmptyState
+            icon={Sparkles}
+            title="No Scenarios Yet"
+            description="Explore different financial futures and compare outcomes side-by-side"
+            actionText="Create Your First Scenario"
+            onAction={() => setFormOpen(true)}
+          />
         ) : (
           <div className="grid gap-4">
             {scenarios.map((scenario, index) => {

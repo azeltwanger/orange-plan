@@ -13,6 +13,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
+import EmptyState from '@/components/ui/EmptyState';
 
 // BTC Collateral Loan Constants
 const INITIAL_LTV = 0.50; // 50% LTV at loan origination
@@ -591,13 +592,13 @@ export default function Liabilities() {
         </div>
 
         {allDebts.length === 0 ? (
-          <div className="text-center py-16">
-            <div className="w-16 h-16 rounded-2xl bg-zinc-800/50 flex items-center justify-center mx-auto mb-4">
-              <Lock className="w-8 h-8 text-zinc-600" />
-            </div>
-            <h4 className="text-lg font-semibold text-zinc-300 mb-2">No debt positions</h4>
-            <p className="text-zinc-500 max-w-sm mx-auto">Track your liabilities to understand your true net worth and manage leverage safely.</p>
-          </div>
+          <EmptyState
+            icon={Lock}
+            title="No Debt Positions"
+            description="Track liabilities to understand true net worth and manage leverage safely"
+            actionText="Add First Position"
+            onAction={() => { resetForm(); setFormOpen(true); }}
+          />
         ) : (
           <div className="space-y-4">
             {allDebts.map((liability) => {

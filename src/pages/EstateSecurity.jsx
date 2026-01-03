@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import EmptyState from '@/components/ui/EmptyState';
 
 // Auto-calculated security scores based on custody type
 const SECURITY_SCORES = {
@@ -791,10 +792,13 @@ export default function EstateSecurity() {
             )}
 
             {btcCustody.length === 0 ? (
-              <div className="text-center py-12">
-                <Key className="w-12 h-12 text-zinc-700 mx-auto mb-4" />
-                <p className="text-zinc-500">No Bitcoin custody locations added yet</p>
-              </div>
+              <EmptyState
+                icon={Key}
+                title="No Custody Locations"
+                description="Document where your Bitcoin is stored for estate planning"
+                actionText="Add Custody Location"
+                onAction={() => { resetForm(); setFormData(prev => ({ ...prev, item_type: 'custody_location', asset_type: 'btc' })); setFormOpen(true); }}
+              />
             ) : (
               <div className="space-y-4">
                 {btcCustody.map((location) => {
@@ -1099,10 +1103,11 @@ export default function EstateSecurity() {
             )}
 
             {custodyLocations.length === 0 ? (
-              <div className="text-center py-12">
-                <FileText className="w-12 h-12 text-zinc-700 mx-auto mb-4" />
-                <p className="text-zinc-500">Add custody locations first to create recovery protocols</p>
-              </div>
+              <EmptyState
+                icon={FileText}
+                title="Add Custody First"
+                description="Create custody locations before adding recovery protocols"
+              />
             ) : (
               <div className="space-y-6">
                 {custodyLocations.map(custody => {
@@ -1204,10 +1209,13 @@ export default function EstateSecurity() {
             )}
 
             {beneficiaries.length === 0 ? (
-              <div className="text-center py-12">
-                <Users className="w-12 h-12 text-zinc-700 mx-auto mb-4" />
-                <p className="text-zinc-500">No beneficiaries added yet</p>
-              </div>
+              <EmptyState
+                icon={Users}
+                title="No Beneficiaries"
+                description="Add beneficiaries and allocate your estate"
+                actionText="Add Beneficiary"
+                onAction={() => { resetForm(); setFormData(prev => ({ ...prev, item_type: 'beneficiary' })); setFormOpen(true); }}
+              />
             ) : (
               <div className="space-y-3">
                 {beneficiaries.map((beneficiary) => (

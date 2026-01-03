@@ -18,6 +18,7 @@ import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 
 import DCAvsLumpSum from '@/components/investing/DCAvsLumpSum';
+import EmptyState from '@/components/ui/EmptyState';
 
 export default function DCAStrategy() {
   const [btcPrice, setBtcPrice] = useState(null);
@@ -439,10 +440,13 @@ export default function DCAStrategy() {
         <h3 className="font-semibold mb-2">Your DCA Plans</h3>
         <p className="text-sm text-zinc-500 mb-6">Schedule recurring buys. Withdrawals are managed in Projections → Retirement Planning.</p>
         {dcaPlans.length === 0 ? (
-          <div className="text-center py-12">
-            <Bitcoin className="w-12 h-12 text-zinc-700 mx-auto mb-4" />
-            <p className="text-zinc-500">No DCA plans yet. Create your first strategy.</p>
-          </div>
+          <EmptyState
+            icon={Bitcoin}
+            title="No DCA Plans"
+            description="Set up recurring Bitcoin purchases to stack sats automatically"
+            actionText="Create First Plan"
+            onAction={() => { resetForm(); setFormOpen(true); }}
+          />
         ) : (
           <div className="space-y-4">
             {dcaPlans.map((plan) => {

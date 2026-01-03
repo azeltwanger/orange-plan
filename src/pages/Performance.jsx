@@ -7,6 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { format, subMonths, subYears, differenceInDays, parseISO } from 'date-fns';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import EmptyState from '@/components/ui/EmptyState';
 
 // Helper to parse various date formats (M/D/YYYY or YYYY-MM-DD)
 const parseDate = (dateStr) => {
@@ -123,7 +125,13 @@ function AccountPerformanceSection({ holdings, transactions, accounts, getCurren
   const accountIds = Object.keys(holdingsByAccount);
 
   if (holdings.length === 0) {
-    return <p className="text-center text-zinc-500 py-8">No holdings to display</p>;
+    return (
+      <EmptyState
+        icon={Building2}
+        title="Add Holdings First"
+        description="Performance tracking requires holdings data"
+      />
+    );
   }
 
   return (
@@ -974,12 +982,13 @@ export default function Performance() {
           {chartData.length === 0 ? (
             <div className="h-full flex items-center justify-center">
               {(cryptoTickers.length > 0 || stockTickers.length > 0) && Object.keys(historicalPrices).length === 0 && Object.keys(stockPrices).length === 0 ? (
-                <div className="text-center">
-                  <Loader2 className="w-8 h-8 animate-spin text-orange-400 mx-auto mb-3" />
-                  <p className="text-zinc-500 text-sm">Loading historical prices...</p>
-                </div>
+                <LoadingSpinner text="Loading historical prices..." />
               ) : (
-                <p className="text-zinc-500">No chart data available. Add transactions to see performance.</p>
+                <EmptyState
+                  icon={BarChart3}
+                  title="Add Transactions"
+                  description="Track purchases to see performance over time"
+                />
               )}
             </div>
           ) : (

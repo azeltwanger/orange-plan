@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
+import EmptyState from '@/components/ui/EmptyState';
 
 const eventIcons = {
   income_change: Briefcase,
@@ -295,10 +296,13 @@ export default function Goals() {
         </div>
 
         {sortedGoals.length === 0 ? (
-          <div className="text-center py-8">
-            <Target className="w-12 h-12 text-zinc-600 mx-auto mb-3" />
-            <p className="text-sm text-zinc-500">No goals yet. Add your first goal to start tracking.</p>
-          </div>
+          <EmptyState
+            icon={Target}
+            title="No Goals Set"
+            description="Create savings goals or debt payoff plans to track progress"
+            actionText="Create Your First Goal"
+            onAction={() => { resetGoalForm(); setGoalFormOpen(true); }}
+          />
         ) : (
           <div className="space-y-3">
             {sortedGoals.map(goal => {
@@ -402,10 +406,13 @@ export default function Goals() {
         </div>
 
         {sortedEvents.length === 0 ? (
-          <div className="text-center py-8">
-            <Calendar className="w-12 h-12 text-zinc-600 mx-auto mb-3" />
-            <p className="text-sm text-zinc-500">No life events planned. Add events to see them in your projections.</p>
-          </div>
+          <EmptyState
+            icon={Calendar}
+            title="No Life Events Planned"
+            description="Model future milestones like home purchases or career changes"
+            actionText="Plan a Life Event"
+            onAction={() => { resetEventForm(); setEventFormOpen(true); }}
+          />
         ) : (
           <div className="space-y-2">
             {sortedEvents.map(event => {
