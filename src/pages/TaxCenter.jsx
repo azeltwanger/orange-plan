@@ -166,7 +166,7 @@ export default function TaxCenter() {
         }
       }
     } catch (err) {
-      console.log('Price fetch failed:', err);
+
     } finally {
       setFetchingPrice(false);
     }
@@ -299,7 +299,7 @@ export default function TaxCenter() {
 
       // If this is a SELL transaction, update the buy lots' remaining_quantity
       if (data.type === 'sell' && data.lots_used && data.lots_used.length > 0) {
-        console.log("=== UPDATING LOT REMAINING QUANTITIES ===");
+
         
         const allTransactions = await base44.entities.Transaction.list();
         
@@ -310,7 +310,7 @@ export default function TaxCenter() {
             const currentRemaining = buyLot.remaining_quantity ?? buyLot.quantity;
             const newRemaining = currentRemaining - lotUsage.quantity_sold;
             
-            console.log(`Lot ${lotUsage.lot_id}: ${currentRemaining} - ${lotUsage.quantity_sold} = ${newRemaining}`);
+
             
             await base44.entities.Transaction.update(lotUsage.lot_id, {
               remaining_quantity: Math.max(0, newRemaining)
@@ -318,7 +318,7 @@ export default function TaxCenter() {
           }
         }
         
-        console.log("=== LOT UPDATES COMPLETE ===");
+
       }
 
       // Sync holdings from lots (source of truth)
@@ -334,8 +334,7 @@ export default function TaxCenter() {
       resetForm();
     },
     onError: (error) => {
-      console.error('Transaction error:', error);
-      alert(error.message || 'Failed to create transaction');
+      alert(error.message || 'Could not save transaction. Please check your data and try again.');
     },
   });
 
@@ -368,8 +367,7 @@ export default function TaxCenter() {
       if (tx && tx.type === 'sell') {
         // REVERSE THE SALE - restore tax lots
         if (tx.lots_used && tx.lots_used.length > 0) {
-          console.log("=== REVERSING SELL - RESTORING LOTS ===");
-          console.log("lots_used:", tx.lots_used);
+
           
           for (const lotUsage of tx.lots_used) {
             // Fetch the buy transaction directly from database
@@ -379,13 +377,13 @@ export default function TaxCenter() {
               const currentRemaining = buyTx.remaining_quantity ?? buyTx.quantity;
               const newRemaining = currentRemaining + lotUsage.quantity_sold;
               
-              console.log(`Restoring lot ${lotUsage.lot_id}: ${currentRemaining} + ${lotUsage.quantity_sold} = ${newRemaining}`);
+
               
               await base44.entities.Transaction.update(buyTx.id, {
                 remaining_quantity: newRemaining
               });
             } else {
-              console.log(`WARNING: Could not find lot ${lotUsage.lot_id}`);
+
             }
           }
         }
@@ -396,7 +394,7 @@ export default function TaxCenter() {
       
       // Sync holdings from lots (source of truth)
       if (tx) {
-        console.log("=== SYNCING HOLDINGS AFTER DELETE ===");
+
         await syncHoldingFromLots(tx.asset_ticker, tx.account_id || null);
       }
     },
@@ -408,7 +406,7 @@ export default function TaxCenter() {
 
   const bulkDeleteTx = useMutation({
     mutationFn: async (ids) => {
-      console.log(`Deleting ${ids.length} transactions...`);
+
       
       // Track affected assets for sync
       const affectedAssets = new Set();
@@ -432,7 +430,7 @@ export default function TaxCenter() {
         }
         
         const progress = Math.min(i + batchSize, ids.length);
-        console.log(`Deleted ${progress} / ${ids.length}`);
+
         
         // Wait between batches
         if (i + batchSize < ids.length) {
@@ -441,7 +439,7 @@ export default function TaxCenter() {
       }
       
       // Sync holdings for all affected tickers/accounts
-      console.log("Syncing holdings for affected assets...");
+
       for (const key of affectedAssets) {
         const [ticker, accountId] = key.split('|');
         if (ticker && accountId) {
@@ -601,7 +599,7 @@ export default function TaxCenter() {
   // Build tax lots from buy transactions, accounting for sales
   // Only include transactions from TAXABLE accounts (exclude 401k, IRA, etc.)
   const taxLots = useMemo(() => {
-    console.log("=== TAX LOTS CALCULATION ===");
+
     
     // Group by asset ticker to process each separately
     const allTickers = [...new Set(allTransactions.map(t => t.asset_ticker))];
@@ -618,7 +616,7 @@ export default function TaxCenter() {
       const remainingQuantity = tx.remaining_quantity ?? tx.quantity ?? 0;
       const originalQuantity = tx.quantity || 0;
       
-      console.log(`Lot ${tx.id}: tx.remaining_quantity=${tx.remaining_quantity}, tx.quantity=${tx.quantity}, using remainingQuantity=${remainingQuantity}`);
+
       
       // Get current price for this ticker
       const tickerPrice = pricesByTicker[ticker] || (tx.price_per_unit || 0);
@@ -660,7 +658,7 @@ export default function TaxCenter() {
       allLots.push(...tickerLots);
     }
     
-    console.log("Total lots remaining:", allLots.reduce((sum, l) => sum + l.remainingQuantity, 0));
+
     
     return allLots;
   }, [allTransactions, pricesByTicker, holdings]);

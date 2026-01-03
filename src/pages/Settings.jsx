@@ -41,7 +41,7 @@ export default function Settings() {
         window.location.href = data.url;
       }
     } catch (error) {
-      console.error('Checkout error:', error);
+
     } finally {
       setLoading(false);
     }
@@ -55,7 +55,7 @@ export default function Settings() {
         window.location.href = data.url;
       }
     } catch (error) {
-      console.error('Billing portal error:', error);
+
     } finally {
       setLoading(false);
     }

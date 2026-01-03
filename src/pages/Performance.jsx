@@ -271,7 +271,7 @@ export default function Performance() {
         const response = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd`);
         
         if (!response.ok) {
-          console.log('Price fetch failed, keeping existing prices');
+
           return;
         }
         
@@ -290,7 +290,7 @@ export default function Performance() {
           setCurrentPrices(prev => ({ ...prev, ...prices }));
         }
       } catch (err) {
-        console.log('Failed to fetch live prices, keeping existing prices:', err.message);
+
       }
     };
     
@@ -359,7 +359,7 @@ export default function Performance() {
         if (response.data?.success) {
           setIrrMetrics(response.data.metrics);
         } else {
-          console.log('IRR calculation:', response.data?.error || 'No data');
+
         }
       } catch (err) {
         console.error('Failed to fetch IRR metrics:', err);
