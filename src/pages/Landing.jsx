@@ -378,25 +378,22 @@ export default function Landing() {
               </div>
             </div>
             
-            <div className="relative">
-              <div className="absolute inset-0 bg-orange-500/5 rounded-3xl blur-[100px]" />
-              <div className="relative space-y-4">
-                {[
-                { icon: TrendingUp, label: 'Retirement Confidence', value: '94%', color: 'emerald' },
-                { icon: Calculator, label: 'Tax Savings Found', value: '$4,280', color: 'orange' },
-                { icon: Building2, label: 'Accounts Supported', value: '7 types', color: 'purple' }].
-                map((item, i) =>
-                <div key={i} className="flex items-center justify-between p-6 rounded-2xl bg-white/[0.02] border-0 hover:bg-white/[0.04] transition-all duration-300 group">
-                    <div className="flex items-center gap-4">
-                      <div className={`w-10 h-10 rounded-xl bg-${item.color}-500/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
-                        <item.icon className={`w-4 h-4 text-${item.color}-400`} strokeWidth={1.5} />
-                      </div>
-                      <span className="text-sm text-zinc-500 font-light">{item.label}</span>
+            <div className="space-y-4">
+              {[
+              { icon: TrendingUp, label: 'Retirement Confidence', value: '94%', color: 'emerald' },
+              { icon: Calculator, label: 'Tax Savings Found', value: '$4,280', color: 'orange' },
+              { icon: Building2, label: 'Accounts Supported', value: '7 types', color: 'purple' }].
+              map((item, i) =>
+              <div key={i} className="flex items-center justify-between p-5 rounded-2xl bg-white/[0.03] border border-white/[0.05] hover:bg-white/[0.05] transition-colors duration-200">
+                  <div className="flex items-center gap-4">
+                    <div className={`w-10 h-10 rounded-xl bg-${item.color}-500/10 flex items-center justify-center`}>
+                      <item.icon className={`w-4 h-4 text-${item.color}-400`} strokeWidth={1.5} />
                     </div>
-                    <span className={`text-xl font-semibold text-${item.color}-400`}>{item.value}</span>
+                    <span className="text-sm text-zinc-500">{item.label}</span>
                   </div>
-                )}
-              </div>
+                  <span className={`text-xl font-semibold text-${item.color}-400`}>{item.value}</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
