@@ -152,13 +152,13 @@ export default function Landing() {
           </div>
           
           <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold tracking-[-0.02em] leading-[0.95] mb-8">
-            Bitcoin-Native
+            Stop Guessing.
             <br />
-            <span className="brand-gradient-text">Financial Planning</span>
+            <span className="brand-gradient-text">Start Planning.</span>
           </h1>
           
           <p className="text-xl text-zinc-500 max-w-2xl mx-auto mb-14 leading-relaxed font-light">
-            Track holdings, model retirement, optimize taxes, and manage Bitcoin-backed loans—built specifically for Bitcoiners.
+            Most Bitcoiners have no idea what they'll owe in taxes, when they can retire, or if their loans are safe. Orange Plan fixes that.
           </p>
           
           <Link to={createPageUrl('Dashboard')}>
