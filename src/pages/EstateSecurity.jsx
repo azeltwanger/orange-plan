@@ -1168,10 +1168,18 @@ export default function EstateSecurity() {
                                 )}
                               </div>
                               <div className="flex gap-1">
-                                <button onClick={() => { setEditingProtocol(protocol); setProtocolFormOpen(true); }} className="p-1.5 rounded hover:bg-zinc-700">
+                                <button 
+                                  onClick={() => { setEditingProtocol(protocol); setProtocolFormOpen(true); }} 
+                                  className="p-1.5 rounded hover:bg-zinc-700 transition-all duration-200 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/50"
+                                  aria-label={`Edit recovery protocol step ${protocol.step_number}`}
+                                >
                                   <Pencil className="w-3.5 h-3.5 text-zinc-400" />
                                 </button>
-                                <button onClick={() => deleteProtocol.mutate(protocol.id)} className="p-1.5 rounded hover:bg-rose-600/50">
+                                <button 
+                                  onClick={() => deleteProtocol.mutate(protocol.id)} 
+                                  className="p-1.5 rounded hover:bg-rose-600/50 transition-all duration-200 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/50"
+                                  aria-label={`Delete recovery protocol step ${protocol.step_number}`}
+                                >
                                   <Trash2 className="w-3.5 h-3.5 text-zinc-400" />
                                 </button>
                               </div>

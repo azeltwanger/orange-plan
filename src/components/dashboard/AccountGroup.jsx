@@ -211,34 +211,32 @@ export default function AccountGroup({ account, holdings, getPrice, onEditHoldin
                   <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
                     <button
                       onClick={(e) => { e.stopPropagation(); setReassigningHoldingId(holding.id); }}
-                      className="p-1.5 rounded-lg bg-zinc-800/90 hover:bg-zinc-700 transition-colors"
-                      title="Move to another account"
+                      className="p-1.5 rounded-lg bg-zinc-800/90 hover:bg-zinc-700 transition-all duration-200 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/50"
+                      aria-label={`Move ${holding.asset_name} to another account`}
                     >
                       <ArrowRightLeft className="w-3.5 h-3.5 text-zinc-400" />
                     </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); onManageLots?.(holding); }}
-                      className="p-1.5 rounded-lg bg-zinc-800/90 hover:bg-orange-600/50 transition-colors"
-                      title="Manage Tax Lots"
+                      className="p-1.5 rounded-lg bg-zinc-800/90 hover:bg-orange-600/50 transition-all duration-200 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/50"
+                      aria-label={`Manage tax lots for ${holding.asset_name}`}
                     >
                       <Package className="w-3.5 h-3.5 text-zinc-400" />
                     </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); onEditHolding?.(holding); }}
-                      className="p-1.5 rounded-lg bg-zinc-800/90 hover:bg-zinc-700 transition-colors"
-                      title="Edit"
+                      className="p-1.5 rounded-lg bg-zinc-800/90 hover:bg-zinc-700 transition-all duration-200 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/50"
+                      aria-label={`Edit ${holding.asset_name}`}
                     >
                       <Pencil className="w-3.5 h-3.5 text-zinc-400" />
                     </button>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (window.confirm(`Delete ${holding.asset_name}?`)) {
-                          onDeleteHolding?.(holding);
-                        }
+                        onDeleteHolding?.(holding);
                       }}
-                      className="p-1.5 rounded-lg bg-zinc-800/90 hover:bg-rose-600/50 transition-colors"
-                      title="Delete"
+                      className="p-1.5 rounded-lg bg-zinc-800/90 hover:bg-rose-600/50 transition-all duration-200 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/50"
+                      aria-label={`Delete ${holding.asset_name}`}
                     >
                       <Trash2 className="w-3.5 h-3.5 text-zinc-400" />
                     </button>
