@@ -973,20 +973,32 @@ export default function FinancialPlan() {
     // Track cumulative BTC price for variable growth models (Saylor, etc.)
     let cumulativeBtcPrice = currentPrice;
 
+    // ========================================
+    // MAIN PROJECTION LOOP - YEAR BY YEAR
+    // ========================================
     for (let i = 0; i <= years; i++) {
       const year = currentYear + i;
       const age = currentAge + i;
       let socialSecurityIncome = 0; // Initialize at top of loop so it's accessible in data.push()
 
+      // ========================================
+      // PORTFOLIO INITIALIZATION & GROWTH
+      // ========================================
+      
       // Get BTC growth rate for this year (needed early for collateral calculations)
       const yearBtcGrowth = getBtcGrowthRate(i, effectiveInflation);
 
-      // Update cumulative BTC price for this year (compounds each year's growth rate)
+      // Track cumulative BTC price across years for accurate collateral valuations
+      // This properly compounds variable growth rates (e.g., Saylor model declines over time)
       if (i > 0) {
         cumulativeBtcPrice = cumulativeBtcPrice * (1 + yearBtcGrowth / 100);
       }
 
+      // ========================================
+      // RELEASED COLLATERAL PROCESSING
+      // ========================================
       // Add released BTC back to portfolio as liquid BTC for immediate availability
+      // This happens at START of year so released collateral is available for spending
       const totalReleasedBtcValueThisYear = Object.values(releasedBtc).reduce((sum, btcAmount) => {
         return sum + (btcAmount * cumulativeBtcPrice);
       }, 0);
@@ -1026,6 +1038,9 @@ export default function FinancialPlan() {
         }
       });
 
+      // ========================================
+      // GOAL FUNDING & ASSET LIFE EVENTS
+      // ========================================
       // Calculate life event impacts for this year (with income growth applied)
         let eventImpact = 0;
         let yearGoalWithdrawal = 0; // Track goal-specific withdrawals for this year
@@ -1146,7 +1161,11 @@ export default function FinancialPlan() {
         }
       });
 
+      // ========================================
+      // DEBT PAYMENTS & AMORTIZATION
+      // ========================================
       // Calculate actual debt payments for this year with month-by-month simulation
+      // Accurately models interest accrual and payoff timing
       let actualAnnualDebtPayments = 0;
       const debtPayoffEvents = []; // Track debts paid off this year
 
@@ -1218,17 +1237,22 @@ export default function FinancialPlan() {
           // If no payment and no interest, debt stays constant
         }
 
-        // Check for BTC collateral management based on LTV
+        // ========================================
+        // BTC COLLATERAL MANAGEMENT - REGULAR LIABILITIES
+        // ========================================
+        // Monitor LTV and handle: Auto Top-Up, Liquidation, Collateral Release
         if (liability.type === 'btc_collateralized' && encumberedBtc[liability.id] > 0) {
           // Use cumulative BTC price (properly compounds variable growth rates like Saylor model)
           const yearBtcPrice = cumulativeBtcPrice;
           const collateralValue = encumberedBtc[liability.id] * yearBtcPrice;
           const currentLTV = (liability.current_balance / collateralValue) * 100; // LTV as percentage
-          const liquidationLTV = liability.liquidation_ltv || 80;
-          const releaseLTV = liability.collateral_release_ltv || 30;
-          const triggerLTV = btcTopUpTriggerLtv || 70;
-          const targetLTV = btcTopUpTargetLtv || 65;
-          const releaseTargetLTV = btcReleaseTargetLtv || 40;
+          
+          // LTV thresholds - determines collateral actions
+          const liquidationLTV = liability.liquidation_ltv || 80;  // Lender sells collateral
+          const releaseLTV = liability.collateral_release_ltv || 30;  // Collateral becomes available
+          const triggerLTV = btcTopUpTriggerLtv || 70;  // Auto top-up triggers (if enabled)
+          const targetLTV = btcTopUpTargetLtv || 65;  // Target after top-up
+          const releaseTargetLTV = btcReleaseTargetLtv || 40;  // Target after release
 
           // AUTO TOP-UP: If enabled and LTV reaches trigger threshold (before liquidation)
           if (autoTopUpBtcCollateral && currentLTV >= triggerLTV && currentLTV < liquidationLTV) {
@@ -1505,7 +1529,8 @@ export default function FinancialPlan() {
                 : `Partial liquidation: Sold ${btcToSell.toFixed(4)} BTC but debt remains: $${Math.round(newDebtBalance).toLocaleString()}`
             });
           }
-          // RELEASE
+          // COLLATERAL RELEASE: If LTV drops below release threshold (≤30%)
+          // Excess collateral becomes liquid, but keep loan at target LTV
           else if (postTopUpLTV <= releaseLTV) {
             // If loan is paid off, release ALL collateral
             if (loan.current_balance <= 0) {
@@ -1543,6 +1568,9 @@ export default function FinancialPlan() {
       const yearsIntoRetirement = isRetired ? currentAge + i - retirementAge : 0;
       const currentAgeThisYear = currentAge + i;
 
+      // ========================================
+      // SAVINGS/WITHDRAWALS & TAX CALCULATIONS
+      // ========================================
       // Pre-retirement: save and grow. Post-retirement: grow then withdraw
       let yearSavings = 0;
       let yearWithdrawal = 0;
@@ -1563,8 +1591,10 @@ export default function FinancialPlan() {
       // Per-year depletion flag - reset each iteration
       let ranOutOfMoneyThisYear = false;
       
+      // Apply growth to all asset classes within each account type
+      // Each asset grows at its own rate (BTC: variable, Stocks: 7%, etc.)
       if (i > 0) { // Always apply growth; if portfolio is 0, growth will be 0, but it can revive with inflows
-        // REFACTORED: Grow each asset by its specific CAGR within each account
+        // Grow each asset by its specific CAGR within each account
         ['taxable', 'taxDeferred', 'taxFree'].forEach(accountKey => {
           portfolio[accountKey].btc *= (1 + yearBtcGrowth / 100);
           portfolio[accountKey].stocks *= (1 + effectiveStocksCagr / 100);
@@ -1575,6 +1605,9 @@ export default function FinancialPlan() {
         portfolio.realEstate *= (1 + realEstateCagr / 100);
       }
 
+      // ========================================
+      // PRE-RETIREMENT: INCOME, TAXES, SAVINGS
+      // ========================================
       if (!isRetired) {
         // Calculate gross income with income growth and life event adjustments
         const baseGrossIncome = grossAnnualIncome * Math.pow(1 + incomeGrowth / 100, i);
@@ -1753,6 +1786,9 @@ export default function FinancialPlan() {
         }
         // If yearSavings is exactly 0, do nothing
       } else {
+        // ========================================
+        // RETIREMENT: WITHDRAWAL STRATEGY & TAXES
+        // ========================================
         // Calculate withdrawal based on strategy
         const totalBeforeWithdrawal = getTotalPortfolio();
         const accountTotalBeforeWithdrawal = getTotalLiquid();
@@ -1769,11 +1805,18 @@ export default function FinancialPlan() {
         const totalAvailableForWithdrawal = Math.max(0, accountTotalBeforeWithdrawal);
         yearWithdrawal = Math.min(desiredWithdrawal, totalAvailableForWithdrawal);
 
+        // ========================================
+        // TAX-OPTIMIZED WITHDRAWAL PRIORITY ORDER
+        // ========================================
         // Smart withdrawal order based on age and account types with TAX CALCULATION
         const currentAgeInYear = currentAge + i;
         const canAccessRetirementPenaltyFree = currentAgeInYear >= PENALTY_FREE_AGE;
 
-        // Required Minimum Distributions (RMDs) from tax-deferred accounts starting at age 73
+        // ========================================
+        // REQUIRED MINIMUM DISTRIBUTIONS (RMDs)
+        // ========================================
+        // IRS requires withdrawals from tax-deferred accounts starting age 73
+        // RMD = Account Balance / IRS Life Expectancy Factor
         let rmdAmount = 0;
         const taxDeferredBalanceForRMD = getAccountTotal('taxDeferred');
         if (currentAgeInYear >= RMD_START_AGE && taxDeferredBalanceForRMD > 0) {
@@ -1980,7 +2023,11 @@ export default function FinancialPlan() {
             remainingShortfall -= forceFromTaxFree;
           }
           
+          // ========================================
+          // EMERGENCY MEASURES - UNLOCK EQUITY FROM LOANS
+          // ========================================
           // 4. Pay off BTC-backed loans to unlock collateral equity (BEFORE Real Estate)
+          // Selling collateral to pay off loan releases remaining BTC as liquid
           if (remainingShortfall > 0) {
             // Get all active BTC-backed loans with positive equity
             const activeLoansWithEquity = [
@@ -2083,6 +2130,9 @@ export default function FinancialPlan() {
             }
           }
           
+          // ========================================
+          // LAST RESORT - REAL ESTATE LIQUIDATION
+          // ========================================
           // 6. FINALLY: Liquidate Real Estate if liquid accounts can't cover shortfall
           // IMPORTANT: Real estate is all-or-nothing - sell entire property, put excess in taxable
           if (remainingShortfall > 0 && portfolio.realEstate > 0) {
@@ -2114,6 +2164,9 @@ export default function FinancialPlan() {
         }
       }
 
+      // ========================================
+      // FINALIZE YEAR - APPLY EVENTS & CALCULATE TOTALS
+      // ========================================
       // Apply event impacts to total
       // For proportionate allocation or non-asset impacts, apply to total
       // Custom allocations were already applied directly to asset buckets above
