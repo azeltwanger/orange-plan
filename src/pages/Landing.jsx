@@ -175,7 +175,7 @@ export default function Landing() {
             {/* Enhanced glow effect */}
             <div className="absolute -inset-8 rounded-3xl bg-gradient-to-b from-orange-500/10 via-orange-500/5 to-transparent blur-3xl" />
 
-            <div className="relative rounded-3xl border border-white/5 bg-zinc-900/60 backdrop-blur-2xl overflow-hidden mockup-float">
+            <div className="relative rounded-3xl border border-white/[0.06] bg-zinc-900/80 overflow-hidden">
               {/* Window controls */}
               <div className="flex items-center gap-2 px-5 py-4 border-b border-white/[0.03] bg-black/10">
                 <div className="w-3 h-3 rounded-full bg-red-500/60" />
