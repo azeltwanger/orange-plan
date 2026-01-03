@@ -12,12 +12,21 @@ import {
 } from '@/components/shared/taxConfig';
 
 /**
- * Estimate Social Security benefit based on current income
- * Uses simplified PIA calculation with bend points
- * @param {number} currentIncome - Current gross annual income
- * @param {number} claimingAge - Age to start SS (62-70)
- * @param {number} currentAge - Current age (not used in simplified calc)
- * @returns {number} - Estimated annual SS benefit
+ * Estimate Social Security benefit based on current income.
+ * Uses simplified PIA (Primary Insurance Amount) calculation with bend points.
+ * 
+ * Formula:
+ * 1. Calculate AIME (Average Indexed Monthly Earnings) from current income
+ * 2. Apply bend points to determine PIA:
+ *    - 90% of first $1,226
+ *    - 32% of amount between $1,226 and $7,391
+ *    - 15% of amount above $7,391
+ * 3. Adjust for claiming age (reductions if early, increases if delayed)
+ * 
+ * @param {number} currentIncome - Current gross annual income (capped at SS wage base)
+ * @param {number} claimingAge - Age to start SS (62-70). FRA=67 for those born 1960+
+ * @param {number} currentAge - Current age (not used in simplified calculation)
+ * @returns {number} - Estimated annual SS benefit in today's dollars
  */
 export function estimateSocialSecurityBenefit(currentIncome, claimingAge = 67, currentAge = 35) {
   // SS wage base cap (2024) - income above this doesn't count
@@ -69,10 +78,20 @@ export function estimateSocialSecurityBenefit(currentIncome, claimingAge = 67, c
 
 /**
  * Calculate the taxable portion of Social Security benefits using IRS provisional income rules.
- * @param {number} socialSecurityBenefits - Total SS benefits received
- * @param {number} otherIncome - AGI excluding SS (wages, withdrawals, other income)
- * @param {string} filingStatus - 'single', 'married_filing_jointly', etc.
- * @returns {number} - Taxable portion of SS benefits
+ * 
+ * IRS uses a "provisional income" test to determine how much of SS is taxable:
+ * - Provisional Income = Other Income + 50% of SS benefits
+ * 
+ * Tier 1 (0% taxable): Provisional income ≤ base threshold ($25k single, $32k married)
+ * Tier 2 (up to 50% taxable): Provisional income between base and upper threshold
+ * Tier 3 (up to 85% taxable): Provisional income > upper threshold ($34k single, $44k married)
+ * 
+ * NOTE: These thresholds are NOT inflation-adjusted - they are statutory since 1984/1993.
+ * 
+ * @param {number} socialSecurityBenefits - Total SS benefits received this year
+ * @param {number} otherIncome - AGI excluding SS (wages, withdrawals, pensions, etc.)
+ * @param {string} filingStatus - 'single', 'married_filing_jointly', 'married', etc.
+ * @returns {number} - Taxable portion of SS benefits (0 to 85% of benefits)
  */
 export function calculateTaxableSocialSecurity(socialSecurityBenefits, otherIncome, filingStatus) {
   if (socialSecurityBenefits <= 0) return 0;
@@ -177,7 +196,19 @@ export const TAX_BRACKETS_2024 = {
   },
 };
 
-// Calculate capital gains tax (simplified - uses marginal rate)
+/**
+ * Calculate federal capital gains tax on a realized gain.
+ * 
+ * Short-term gains (held ≤ 1 year): Taxed as ordinary income at marginal rate
+ * Long-term gains (held > 1 year): Taxed at preferential LTCG rates (0%, 15%, or 20%)
+ * 
+ * @param {number} gain - Realized capital gain amount
+ * @param {boolean} isLongTerm - True if held > 365 days
+ * @param {number} taxableIncome - Taxpayer's taxable income (for determining rate)
+ * @param {string} filingStatus - 'single' or 'married_filing_jointly'
+ * @param {number} year - Tax year (for inflation-adjusted brackets)
+ * @returns {number} - Tax owed on the gain
+ */
 export const calculateCapitalGainsTax = (gain, isLongTerm, taxableIncome, filingStatus = 'single', year = 2025) => {
   if (gain <= 0) return 0;
   
@@ -188,7 +219,24 @@ export const calculateCapitalGainsTax = (gain, isLongTerm, taxableIncome, filing
   return gain * rate;
 };
 
-// Calculate tax on withdrawal from different account types
+/**
+ * Calculate federal tax on retirement account withdrawals.
+ * 
+ * Account types:
+ * - tax_free: Roth IRA/401k, HSA (qualified) → No tax
+ * - tax_deferred: Traditional IRA/401k → Taxed as ordinary income
+ * - taxable: Brokerage accounts → Only gains taxed (at LTCG or STCG rates)
+ * 
+ * @param {Object} params - Withdrawal parameters
+ * @param {number} params.withdrawalAmount - Total amount withdrawn
+ * @param {string} params.accountType - 'taxable', 'tax_deferred', or 'tax_free'
+ * @param {number} params.capitalGainAmount - Gain portion (for taxable accounts)
+ * @param {boolean} params.isLongTermGain - True if held > 1 year
+ * @param {number} params.otherIncome - Other taxable income this year
+ * @param {string} params.filingStatus - 'single' or 'married'
+ * @param {number} params.year - Tax year
+ * @returns {number} - Tax owed on the withdrawal
+ */
 export const calculateWithdrawalTax = ({
   withdrawalAmount,
   accountType, // 'taxable', 'tax_deferred', 'tax_free'
@@ -224,7 +272,34 @@ export const calculateWithdrawalTax = ({
   return 0;
 };
 
-// Estimate taxes for a retirement withdrawal scenario
+/**
+ * Estimate total taxes for a retirement withdrawal using tax-optimized withdrawal order.
+ * 
+ * Withdrawal priority (age 59.5+):
+ * 1. Taxable accounts (LTCG rates: 0%, 15%, 20%)
+ * 2. Tax-deferred (ordinary income rates: 10%-37%)
+ * 3. Tax-free (no tax - preserve for last)
+ * 
+ * Withdrawal priority (before 59.5):
+ * 1. Taxable accounts
+ * 2. Tax-free (Roth contributions accessible penalty-free)
+ * 3. Tax-deferred (ordinary income + 10% penalty - avoid if possible)
+ * 
+ * @param {Object} params - Withdrawal scenario parameters
+ * @param {number} params.withdrawalNeeded - Total amount needed (pre-tax)
+ * @param {number} params.taxableBalance - Available in taxable accounts
+ * @param {number} params.taxDeferredBalance - Available in traditional IRA/401k
+ * @param {number} params.taxFreeBalance - Available in Roth/HSA
+ * @param {number} params.rothContributions - Roth contribution basis (accessible penalty-free)
+ * @param {number} params.taxableGainPercent - Portion of taxable that is gains (0-1)
+ * @param {boolean} params.isLongTermGain - True if taxable gains held > 1 year
+ * @param {string} params.filingStatus - 'single' or 'married'
+ * @param {number} params.age - Current age (determines penalty)
+ * @param {number} params.otherIncome - Other income this year (pension, SS, etc.)
+ * @param {number} params.year - Tax year
+ * @param {number} params.inflationRate - For projecting brackets (optional)
+ * @returns {Object} - Detailed breakdown of withdrawal sources, taxes, and penalties
+ */
 export const estimateRetirementWithdrawalTaxes = ({
   withdrawalNeeded,
   taxableBalance,
@@ -410,8 +485,30 @@ export const estimateRetirementWithdrawalTaxes = ({
   };
 };
 
-// Calculate federal long-term capital gains tax with 0%/15%/20% brackets
-// Uses actual bracket stacking and standard deduction
+/**
+ * Calculate federal long-term capital gains tax with accurate bracket stacking.
+ * 
+ * LTCG brackets (2025 single): 0% up to $48,350 | 15% up to $533,400 | 20% above
+ * LTCG brackets (2025 married): 0% up to $96,700 | 15% up to $600,050 | 20% above
+ * 
+ * Key insight: Standard deduction applies to ordinary income FIRST, then remaining
+ * deduction can offset LTCG. Ordinary income "fills" lower brackets before LTCG stacks on top.
+ * 
+ * Example: Single filer, $20k wages, $40k LTCG, $15k std deduction
+ * - Taxable ordinary: $20k - $15k = $5k
+ * - LTCG stacks on top: Room in 0% bracket = $48,350 - $5k = $43,350
+ * - First $40k of LTCG taxed at 0%
+ * 
+ * @param {Object} params - Tax calculation parameters
+ * @param {number} params.longTermGains - Long-term capital gains amount
+ * @param {number} params.shortTermGains - Short-term gains (taxed as ordinary income)
+ * @param {number} params.ordinaryIncome - Wages, pension, etc.
+ * @param {string} params.filingStatus - 'single', 'married_filing_jointly', 'married'
+ * @param {number} params.age - Age (for extra standard deduction if 65+)
+ * @param {number} params.year - Tax year
+ * @param {number} params.inflationRate - For projecting future years (optional)
+ * @returns {Object} - Detailed LTCG tax breakdown by bracket
+ */
 export function calculateFederalLTCGTax({
   longTermGains = 0,
   shortTermGains = 0,
