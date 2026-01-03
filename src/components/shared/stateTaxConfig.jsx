@@ -215,7 +215,21 @@ export const STATE_TAX_CONFIG = {
 // CALCULATION FUNCTIONS
 // ===========================================
 
-// Calculate state income tax using progressive brackets
+/**
+ * Calculate state income tax using progressive brackets.
+ * 
+ * Each state has unique brackets, deductions, and exemptions:
+ * - Standard deduction: Reduces taxable income before applying brackets
+ * - Personal exemption: Additional per-person deduction (some states only)
+ * - Taxpayer credit: Dollar-for-dollar tax reduction (Utah)
+ * 
+ * @param {Object} params - Tax calculation parameters
+ * @param {number} params.income - Gross income
+ * @param {string} params.filingStatus - 'single', 'married_filing_jointly', 'married'
+ * @param {string} params.state - Two-letter state code (e.g., 'CA', 'NY', 'TX')
+ * @param {number} params.year - Tax year
+ * @returns {number} - State income tax owed
+ */
 export function calculateStateIncomeTax({
   income,
   filingStatus = 'single',
@@ -270,7 +284,26 @@ export function calculateStateIncomeTax({
 }
 
 
-// Calculate state capital gains tax with special treatments
+/**
+ * Calculate state capital gains tax accounting for special treatments.
+ * 
+ * State LTCG treatments vary widely:
+ * - 'ordinary': Taxed same as wages (most states) - CA, NY, NJ, etc.
+ * - 'exempt': No state tax on capital gains - PA, IL, IA, MS
+ * - 'deduction': Partial deduction (SC 44%, ND 40%, WI 30%, AZ 25%)
+ * - 'exclusion': Vermont's 40% exclusion (capped at $350k)
+ * - 'credit': Montana's 2% credit
+ * - 'special': Unique rules (WA 7% on gains > $270k, HI 7.25% flat, MA dual rate)
+ * 
+ * @param {Object} params - Cap gains calculation parameters  
+ * @param {number} params.longTermGains - LTCG amount (held > 1 year)
+ * @param {number} params.shortTermGains - STCG amount (held ≤ 1 year)
+ * @param {number} params.otherIncome - Ordinary income (wages, etc.)
+ * @param {string} params.filingStatus - 'single', 'married_filing_jointly', 'married'
+ * @param {string} params.state - Two-letter state code
+ * @param {number} params.year - Tax year
+ * @returns {Object} - { tax, taxOnGains, effectiveRate }
+ */
 export function calculateStateCapitalGainsTax({
   longTermGains = 0,
   shortTermGains = 0,

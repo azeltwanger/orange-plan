@@ -257,7 +257,23 @@ export const TAX_CONFIG = {
   },
 };
 
-// Helper functions
+/**
+ * Get complete tax configuration for a specific year with inflation adjustments.
+ * 
+ * For 2024+: Uses taxData.js (supports inflation projection)
+ * For pre-2024: Uses historical data from TAX_CONFIG
+ * 
+ * Returns all tax-related values for the year:
+ * - Federal income brackets (10% to 37%)
+ * - LTCG brackets (0%, 15%, 20%)
+ * - Standard deductions (includes 65+ bonus)
+ * - Contribution limits (401k, IRA, HSA with catch-up)
+ * - Social Security wage base and tax rate
+ * - NIIT and Medicare thresholds
+ * 
+ * @param {number} year - Tax year (e.g., 2025)
+ * @returns {Object} - Complete tax config for that year
+ */
 export function getTaxConfigForYear(year) {
   // For 2024+ use taxData.js (supports inflation adjustment)
   if (year >= 2024) {
@@ -337,7 +353,16 @@ export function getTaxConfigForYear(year) {
   };
 }
 
-// ----- CONTRIBUTION LIMIT HELPERS -----
+/**
+ * Get 401(k) contribution limit for a specific year and age.
+ * 
+ * 2025 limits: $23,500 base + $7,500 catch-up (50+) = $31,000 max
+ * NEW 2025: Ages 60-63 get super catch-up of $11,250 instead of $7,500
+ * 
+ * @param {number} year - Tax year
+ * @param {number} age - Participant's age
+ * @returns {number} - Maximum 401(k) employee contribution
+ */
 export function get401kLimit(year, age) {
   const config = getTaxConfigForYear(year);
   const limits = config.contributionLimits;
@@ -346,6 +371,16 @@ export function get401kLimit(year, age) {
     : limits.traditional401k;
 }
 
+/**
+ * Get Roth IRA contribution limit for a specific year and age.
+ * 
+ * 2025 limits: $7,000 base + $1,000 catch-up (50+) = $8,000 max
+ * Note: Subject to income phase-outs (see ROTH_INCOME_LIMITS in taxData.js)
+ * 
+ * @param {number} year - Tax year
+ * @param {number} age - Contributor's age
+ * @returns {number} - Maximum Roth IRA contribution
+ */
 export function getRothIRALimit(year, age) {
   const config = getTaxConfigForYear(year);
   const limits = config.contributionLimits;
@@ -354,6 +389,18 @@ export function getRothIRALimit(year, age) {
     : limits.rothIRA;
 }
 
+/**
+ * Get HSA contribution limit for a specific year, age, and coverage type.
+ * 
+ * 2025 limits: 
+ * - Individual: $4,300 + $1,000 catch-up (55+) = $5,300 max
+ * - Family: $8,550 + $1,000 catch-up (55+) = $9,550 max
+ * 
+ * @param {number} year - Tax year
+ * @param {number} age - Account holder's age
+ * @param {boolean} familyCoverage - True for family, false for individual
+ * @returns {number} - Maximum HSA contribution
+ */
 export function getHSALimit(year, age, familyCoverage = false) {
   const config = getTaxConfigForYear(year);
   const limits = config.contributionLimits;
@@ -361,8 +408,17 @@ export function getHSALimit(year, age, familyCoverage = false) {
   return age >= 55 ? base + limits.hsa_catchUp : base;
 }
 
-// ----- TAX CALCULATION HELPERS -----
-// Get marginal income tax rate for a given taxable income
+/**
+ * Get marginal federal income tax rate for a given taxable income.
+ * 
+ * 2025 brackets (single): 10%, 12%, 22%, 24%, 32%, 35%, 37%
+ * This is the rate on your NEXT dollar of income, not your effective rate.
+ * 
+ * @param {number} taxableIncome - Taxable income (after deductions)
+ * @param {string} filingStatus - 'single' or 'married'
+ * @param {number} year - Tax year
+ * @returns {number} - Marginal tax rate (0.10 to 0.37)
+ */
 export const getIncomeTaxRate = (taxableIncome, filingStatus = 'single', year = 2025) => {
   const config = getTaxConfigForYear(year);
   const brackets = config.federalBrackets[filingStatus] || config.federalBrackets.single;
@@ -373,7 +429,19 @@ export const getIncomeTaxRate = (taxableIncome, filingStatus = 'single', year = 
   return 0.37;
 };
 
-// Get long-term capital gains rate for a given taxable income
+/**
+ * Get long-term capital gains rate for a given taxable income level.
+ * 
+ * LTCG brackets stack on TOP of ordinary income:
+ * - 0% bracket: Taxable income + LTCG ≤ threshold ($48,350 single, $96,700 married for 2025)
+ * - 15% bracket: Up to $533,400 single, $600,050 married
+ * - 20% bracket: Above 15% threshold
+ * 
+ * @param {number} taxableIncome - Taxable income (ordinary income fills brackets first)
+ * @param {string} filingStatus - 'single' or 'married'
+ * @param {number} year - Tax year
+ * @returns {number} - LTCG rate (0, 0.15, or 0.20)
+ */
 export const getLTCGRate = (taxableIncome, filingStatus = 'single', year = 2025) => {
   const config = getTaxConfigForYear(year);
   const brackets = config.capitalGainsBrackets[filingStatus] || config.capitalGainsBrackets.single;
@@ -384,12 +452,37 @@ export const getLTCGRate = (taxableIncome, filingStatus = 'single', year = 2025)
   return 0.20;
 };
 
-// Get short-term capital gains rate (same as ordinary income tax rate)
+/**
+ * Get short-term capital gains rate (same as ordinary income).
+ * 
+ * STCG (assets held ≤ 1 year) = ordinary income rate = your marginal bracket
+ * 
+ * @param {number} taxableIncome - Taxable income
+ * @param {string} filingStatus - 'single' or 'married'
+ * @param {number} year - Tax year
+ * @returns {number} - STCG rate (same as income rate: 0.10 to 0.37)
+ */
 export const getSTCGRate = (taxableIncome, filingStatus = 'single', year = 2025) => {
   return getIncomeTaxRate(taxableIncome, filingStatus, year);
 };
 
-// Calculate progressive income tax on a given amount
+/**
+ * Calculate federal income tax using progressive brackets.
+ * 
+ * Progressive taxation: Each bracket is taxed at its own rate, not all income at top rate.
+ * 
+ * Example (2025 single):
+ * - Income: $60,000
+ * - 10% on first $11,925 = $1,193
+ * - 12% on next $36,550 ($11,925 to $48,475) = $4,386
+ * - 22% on remaining $11,525 ($48,475 to $60,000) = $2,536
+ * - Total tax: $8,115 (effective rate: 13.5%)
+ * 
+ * @param {number} taxableIncome - Taxable income (after deductions)
+ * @param {string} filingStatus - 'single' or 'married'
+ * @param {number} year - Tax year
+ * @returns {number} - Total federal income tax owed
+ */
 export const calculateProgressiveIncomeTax = (taxableIncome, filingStatus = 'single', year = 2025) => {
   const config = getTaxConfigForYear(year);
   const brackets = config.federalBrackets[filingStatus] || config.federalBrackets.single;

@@ -288,6 +288,21 @@ export const FULL_RETIREMENT_AGE = {
 // ===========================================
 // REQUIRED MINIMUM DISTRIBUTIONS (RMD)
 // ===========================================
+/**
+ * RMD (Required Minimum Distribution) rules for tax-deferred accounts.
+ * 
+ * Starting age depends on birth year:
+ * - Born before 1951: Age 70.5
+ * - Born 1951-1959: Age 73
+ * - Born 1960+: Age 75
+ * 
+ * Uniform Lifetime Table: IRS actuarial table for RMD divisor by age.
+ * RMD Amount = Account Balance / Distribution Period
+ * 
+ * Example: Age 75 with $1M in Traditional IRA
+ * - Distribution period: 24.6
+ * - RMD: $1,000,000 / 24.6 = $40,650
+ */
 export const RMD_RULES = {
   // Starting age for RMDs
   startingAge: {
@@ -399,7 +414,21 @@ export const NIIT = {
 // HELPER FUNCTIONS
 // ===========================================
 
-// Get data for a specific year with fallback and custom inflation
+/**
+ * Get tax data for a specific year with inflation adjustment for future projections.
+ * 
+ * If exact year exists in data: Returns actual values
+ * If year is in future: Projects from most recent data using inflation rate
+ * 
+ * Inflation projection example:
+ * - 2025 bracket max: $48,475
+ * - 2030 projection (2.5% inflation): $48,475 × 1.025^5 = $54,848
+ * 
+ * @param {Object} dataObject - Tax data object (e.g., FEDERAL_INCOME_BRACKETS)
+ * @param {number} year - Target year
+ * @param {number} customInflationRate - Inflation rate override (default 2.5%)
+ * @returns {Object} - Tax data for that year (actual or inflated)
+ */
 export function getYearData(dataObject, year, customInflationRate = null) {
   if (dataObject[year]) {
     return dataObject[year];
@@ -500,7 +529,14 @@ export function getContributionLimit(year, type, age = 0) {
   return limit;
 }
 
-// Get RMD factor for an age
+/**
+ * Get Required Minimum Distribution divisor for a given age.
+ * 
+ * Uses IRS Uniform Lifetime Table. RMD = Account Balance / Factor
+ * 
+ * @param {number} age - Age of account owner
+ * @returns {number|null} - Distribution period divisor, or null if under 72
+ */
 export function getRMDFactor(age) {
   const table = RMD_RULES.uniformLifetimeTable;
   if (age < 72) return null; // No RMD required yet
