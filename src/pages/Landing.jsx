@@ -362,11 +362,11 @@ export default function Landing() {
               
               <div className="space-y-4">
                 {[
-                'Automatic transaction → holdings sync',
-                'Tax lot tracking with optimal selection',
-                'Monte Carlo retirement simulations',
-                'Multi-account type support (401k, IRA, taxable)',
-                'Real-time price updates'].
+                'Transactions sync to holdings automatically',
+                'HIFO/LIFO/FIFO lot selection built in',
+                '10,000+ Monte Carlo simulations per projection',
+                '401k, IRA, Roth, taxable—all supported',
+                'Price updates every 60 seconds'].
                 map((item, i) =>
                 <div key={i} className="flex items-center gap-4">
                     <div className="w-5 h-5 rounded-full bg-orange-500/10 flex items-center justify-center flex-shrink-0">
