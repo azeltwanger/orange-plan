@@ -401,16 +401,26 @@ export default function Landing() {
 
 
 
+      {/* Social Proof */}
+      <section className="py-32 px-6">
+        <div className="max-w-3xl mx-auto text-center">
+          <h2 className="text-4xl md:text-5xl font-bold mb-5 tracking-tight">Built by Bitcoiners, for Bitcoiners</h2>
+          <p className="text-zinc-500 text-lg max-w-xl mx-auto">
+            We hold Bitcoin too. We built the tool we couldn't find anywhere else.
+          </p>
+        </div>
+      </section>
+
       {/* CTA */}
       <section className="py-32 px-6">
         <div className="max-w-3xl mx-auto text-center">
-          <h2 className="text-4xl md:text-5xl font-bold mb-5 tracking-tight">Ready to take control?</h2>
+          <h2 className="text-4xl md:text-5xl font-bold mb-5 tracking-tight">Your financial clarity starts here</h2>
           <p className="text-zinc-500 text-lg mb-10">
-            Start tracking your wealth in minutes.
+            Free to start. No credit card required.
           </p>
           <Link to={createPageUrl('Dashboard')}>
             <Button size="lg" className="brand-gradient text-white font-semibold hover:opacity-90 px-10 h-14 text-base rounded-xl">
-              Open Dashboard
+              Get Started Free
               <ArrowRight className="w-5 h-5 ml-2" />
             </Button>
           </Link>
