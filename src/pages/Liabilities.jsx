@@ -896,14 +896,14 @@ export default function Liabilities() {
                   <p className="text-[10px] text-zinc-500">LTV threshold at which collateral becomes liquid again (typically 30%)</p>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-zinc-400 text-xs uppercase tracking-wider">Annual Renewal Date</Label>
+                  <Label className="text-zinc-400 text-xs uppercase tracking-wider">Loan Maturity Date</Label>
                   <Input
                     type="date"
                     value={formData.renewal_date}
                     onChange={(e) => setFormData({ ...formData, renewal_date: e.target.value })}
                     className="bg-zinc-900 border-zinc-800"
                   />
-                  <p className="text-[10px] text-zinc-500">Loan automatically renews at 50% LTV on this date each year</p>
+                  <p className="text-[10px] text-zinc-500">For tracking only - Ledn loans auto-renew if LTV ≤ 60%. Interest rolls into balance at renewal.</p>
                 </div>
                 </>
                 )}
