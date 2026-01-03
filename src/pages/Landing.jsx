@@ -327,9 +327,9 @@ export default function Landing() {
           <div className="grid lg:grid-cols-2 gap-16 items-center">
             <div>
               <h2 className="text-4xl md:text-5xl font-bold mb-6 tracking-tight leading-tight">
-                Know Your Tax Bill
+                See Every Lot,
                 <br />
-                <span className="text-zinc-600">Before You Sell</span>
+                <span className="text-zinc-600">Know Every Gain</span>
               </h2>
               <p className="text-zinc-500 text-lg leading-relaxed font-light mb-8">
                 Track cost basis across hundreds of lots automatically. HIFO, LIFO, FIFO—see unrealized gains, holding periods, and tax-loss harvesting opportunities at a glance.
@@ -338,7 +338,7 @@ export default function Landing() {
                 <div className="w-5 h-5 rounded-full bg-orange-500/10 flex items-center justify-center">
                   <CheckCircle className="w-3 h-3 text-orange-400" strokeWidth={2.5} />
                 </div>
-                <span className="text-sm text-zinc-400 font-light">432 lots tracked automatically in this example</span>
+                <span className="text-sm text-zinc-400 font-light">Supports all major lot selection methods</span>
               </div>
             </div>
             <div className="relative">
