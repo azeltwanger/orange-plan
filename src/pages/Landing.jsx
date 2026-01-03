@@ -181,9 +181,7 @@ export default function Landing() {
 
         {/* Dashboard Preview */}
         <div className="max-w-6xl mx-auto mt-32">
-          <div className="relative">
-            {/* Enhanced glow effect */}
-            <div className="absolute -inset-8 rounded-3xl bg-gradient-to-b from-orange-500/10 via-orange-500/5 to-transparent blur-3xl" />
+        <div className="relative">
 
             <div className="relative rounded-3xl border border-white/[0.06] bg-zinc-900/80 overflow-hidden">
               {/* Window controls */}
@@ -329,18 +327,18 @@ export default function Landing() {
           <div className="grid lg:grid-cols-2 gap-16 items-center">
             <div>
               <h2 className="text-4xl md:text-5xl font-bold mb-6 tracking-tight leading-tight">
-                Know Your Tax Bill
+                See Every Lot,
                 <br />
-                <span className="text-zinc-600">Before You Sell</span>
+                <span className="text-zinc-600">Know Every Gain</span>
               </h2>
               <p className="text-zinc-500 text-lg leading-relaxed font-light mb-8">
-                HIFO, LIFO, FIFO—calculated automatically. See exactly what you'll owe on any sale. Find tax loss harvesting opportunities instantly.
+                Track cost basis across hundreds of lots automatically. HIFO, LIFO, FIFO—see unrealized gains, holding periods, and tax-loss harvesting opportunities at a glance.
               </p>
               <div className="flex items-center gap-4">
                 <div className="w-5 h-5 rounded-full bg-orange-500/10 flex items-center justify-center">
                   <CheckCircle className="w-3 h-3 text-orange-400" strokeWidth={2.5} />
                 </div>
-                <span className="text-sm text-zinc-400 font-light">Supports all major lot selection methods</span>
+                <span className="text-sm text-zinc-400 font-light">432 lots tracked automatically in this example</span>
               </div>
             </div>
             <div className="relative">
