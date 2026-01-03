@@ -110,6 +110,16 @@ export default function Landing() {
         .hero-glow {
           background: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(247, 147, 26, 0.08), transparent);
         }
+        @keyframes scroll {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+        .marquee {
+          animation: scroll 30s linear infinite;
+        }
+        .marquee:hover {
+          animation-play-state: paused;
+        }
       `}</style>
 
       {/* Ambient background */}
