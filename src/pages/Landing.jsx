@@ -183,7 +183,7 @@ export default function Landing() {
         <div className="max-w-6xl mx-auto mt-32">
         <div className="relative">
 
-            <div className="relative rounded-3xl border border-white/[0.06] bg-zinc-900/80 overflow-hidden">
+            <div className="relative rounded-3xl border border-white/[0.08] bg-zinc-900/80 overflow-hidden">
               {/* Window controls */}
               <div className="flex items-center gap-2 px-5 py-4 border-b border-white/[0.03] bg-black/10">
                 <div className="w-3 h-3 rounded-full bg-red-500/60" />
