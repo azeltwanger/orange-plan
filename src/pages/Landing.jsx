@@ -26,128 +26,63 @@ import {
   RefreshCw,
   ArrowLeftRight,
   Flag,
-  Upload
+  Upload,
+  Building2
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 
-const features = [
-{
-  icon: PieChart,
-  title: 'Net Worth Tracking',
-  description: 'Unified view of crypto, stocks, real estate, and retirement accounts.'
-},
-{
-  icon: Target,
-  title: 'Retirement Modeling',
-  description: 'Monte Carlo simulations with multiple withdrawal strategies.'
-},
-{
-  icon: Calculator,
-  title: 'Tax Optimization',
-  description: 'FIFO, LIFO, HIFO lot selection and harvest opportunities.'
-},
-{
-  icon: Wallet,
-  title: 'Cash Flow',
-  description: 'Income, expenses, and automatic savings calculations.'
-},
-{
-  icon: BarChart3,
-  title: 'DCA Planning',
-  description: 'Automated investment plans with allocation strategies.'
-},
-{
-  icon: Shield,
-  title: 'Estate Security',
-  description: 'Inheritance protocols and beneficiary management.'
-}];
-
-const newToFeatures = [
+const whyOrangePlan = [
   {
-    icon: Target,
-    title: 'Retirement Planning',
-    description: 'Map out your path to financial independence with detailed projections.',
-    link: '#'
-  },
-  {
-    icon: Scale,
-    title: 'Cash Flow',
-    description: 'Track your income, expenses, and monthly surplus or shortfall.',
-    link: '#'
+    icon: Zap,
+    title: 'Bitcoin-Backed Loan Modeling',
+    description: 'Model loans from Ledn and others with real LTV thresholds, interest rates, and collateral tracking. See exactly when loans get called or released.'
   },
   {
     icon: Receipt,
-    title: 'Tax Analytics',
-    description: 'Save on tax harvesting gains and losses.',
-    link: '#'
+    title: 'Tax Lot Intelligence',
+    description: 'HIFO, LIFO, FIFO cost basis tracking. Find tax loss harvesting opportunities. Know your exact tax liability before you sell.'
   },
+  {
+    icon: Target,
+    title: 'Bitcoin-First Retirement',
+    description: 'Monte Carlo simulations that actually understand Bitcoin volatility. Model living off Bitcoin without selling it.'
+  }
+];
+
+const features = [
   {
     icon: LayoutDashboard,
-    title: 'Net Worth',
-    description: 'Calculate and track your net worth over time.',
-    link: '#'
+    title: 'Net Worth Dashboard',
+    description: 'All accounts in one view—Bitcoin, stocks, real estate, retirement accounts.'
   },
   {
-    icon: Gauge,
-    title: 'Chance of Success',
-    description: 'Gauge your chance of success with Monte Carlo simulations.',
-    link: '#'
+    icon: Wallet,
+    title: 'Cash Flow Tracking',
+    description: 'Income, expenses, and automatic savings calculations.'
   },
   {
-    icon: BarChart3,
-    title: 'Investment Plans',
-    description: 'Create automated investment plans and DCA strategies.',
-    link: '#'
+    icon: Flag,
+    title: 'Goal Planning',
+    description: 'Set targets, track progress, see projected completion dates.'
+  },
+  {
+    icon: DollarSign,
+    title: 'Fee Analysis',
+    description: 'Compare exchange fees side-by-side.'
+  },
+  {
+    icon: Shield,
+    title: 'Estate Planning',
+    description: 'Inheritance protocols and beneficiary management.'
   },
   {
     icon: RefreshCw,
     title: 'Scenario Builder',
-    description: 'Compare different financial futures and assumptions.',
-    link: '#'
-  },
-  {
-    icon: TrendingUp,
-    title: 'Performance',
-    description: 'Track your portfolio growth and returns over time.',
-    link: '#'
-  },
-  {
-    icon: ArrowLeftRight,
-    title: 'Exchange Fee Analysis',
-    description: 'Save money on fees by comparing exchange rates.',
-    link: '#'
-  },
-  {
-    icon: Scale,
-    title: 'Debt Management',
-    description: 'Highlight your liabilities and analyze debt payoff strategies.',
-    link: '#'
-  },
-  {
-    icon: Shield,
-    title: 'Automated Inheritance Protocol',
-    description: 'Estate planning and asset security management.',
-    link: '#'
-  },
-  {
-    icon: PieChart,
-    title: 'DCA vs. Lump Sum',
-    description: 'Compare investment strategies to maximize returns.',
-    link: '#'
-  },
-  {
-    icon: Flag,
-    title: 'Goal Tracking',
-    description: 'Set and track progress towards your financial goals.',
-    link: '#'
-  },
-  {
-    icon: Upload,
-    title: 'Easy Transaction Upload',
-    description: 'Bulk import transactions via CSV.',
-    link: '#'
+    description: 'Compare different assumptions and strategies.'
   }
 ];
+
+
 
 
 export default function Landing() {
@@ -220,14 +155,13 @@ export default function Landing() {
           </div>
           
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight leading-[1.1] mb-6">
-            Build Your Bitcoin
+            Bitcoin-Native
             <br />
-            <span className="brand-gradient-text">Financial Plan</span>
+            <span className="brand-gradient-text">Financial Planning</span>
           </h1>
           
-          <p className="text-lg text-zinc-400 max-w-xl mx-auto mb-10 leading-relaxed">
-            Track your net worth, model retirement scenarios, compare fees, optimize taxes, 
-            and secure your legacy—all in one unified dashboard.
+          <p className="text-lg text-zinc-400 max-w-2xl mx-auto mb-10 leading-relaxed">
+            Track holdings, model retirement, optimize taxes, and manage Bitcoin-backed loans—built specifically for Bitcoiners.
           </p>
           
           <Link to={createPageUrl('Dashboard')}>
@@ -321,7 +255,7 @@ export default function Landing() {
                       <p className="text-lg font-bold text-white">$847,290</p>
                     </div>
                     <div className="p-3 rounded-lg bg-white/[0.03] border border-white/5">
-                      <p className="text-[10px] text-zinc-500">Retirement Ready</p>
+                      <p className="text-[10px] text-zinc-500">Retirement Confidence</p>
                       <p className="text-lg font-bold text-emerald-400">92%</p>
                     </div>
                     <div className="p-3 rounded-lg bg-white/[0.03] border border-white/5">
@@ -329,7 +263,7 @@ export default function Landing() {
                       <p className="text-lg font-bold text-blue-400">$3,200</p>
                     </div>
                     <div className="p-3 rounded-lg bg-white/[0.03] border border-white/5">
-                      <p className="text-[10px] text-zinc-500">Tax Saved YTD</p>
+                      <p className="text-[10px] text-zinc-500">Tax Savings Found</p>
                       <p className="text-lg font-bold text-purple-400">$4,280</p>
                     </div>
                   </div>
@@ -364,27 +298,52 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Features */}
+      {/* Why Orange Plan */}
       <section className="py-24 px-6">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold mb-3">Complete financial toolkit</h2>
-            <p className="text-zinc-500">Everything you need, nothing you don't.</p>
+            <h2 className="text-3xl md:text-4xl font-bold mb-3">What traditional tools can't do</h2>
+            <p className="text-zinc-500 text-lg">Built specifically for Bitcoin holders.</p>
+          </div>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {whyOrangePlan.map((feature, i) => (
+              <div
+                key={i}
+                className="group p-6 rounded-2xl bg-gradient-to-br from-white/[0.04] to-white/[0.01] border border-white/10 hover:border-orange-500/30 hover:bg-white/[0.06] transition-all duration-300 hover:shadow-2xl hover:shadow-orange-500/10"
+              >
+                <div className="w-12 h-12 rounded-xl bg-orange-500/10 flex items-center justify-center mb-5 group-hover:bg-orange-500/20 transition-colors">
+                  <feature.icon className="w-6 h-6 text-orange-400" />
+                </div>
+                <h3 className="font-semibold text-lg mb-3 text-zinc-100">{feature.title}</h3>
+                <p className="text-sm text-zinc-400 leading-relaxed">{feature.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Everything Else */}
+      <section className="py-24 px-6 border-t border-white/5">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl font-bold mb-3">Everything else you need</h2>
+            <p className="text-zinc-500">Complete financial toolkit in one dashboard.</p>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {features.map((feature, i) =>
-            <div
-              key={i}
-              className="group p-5 rounded-xl bg-white/[0.02] border border-white/5 hover:border-orange-500/20 hover:bg-white/[0.04] transition-all duration-300">
-
+            {features.map((feature, i) => (
+              <div
+                key={i}
+                className="group p-5 rounded-xl bg-white/[0.02] border border-white/5 hover:border-orange-500/20 hover:bg-white/[0.04] transition-all duration-300"
+              >
                 <div className="w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center mb-4 group-hover:bg-orange-500/20 transition-colors">
                   <feature.icon className="w-5 h-5 text-orange-400" />
                 </div>
                 <h3 className="font-semibold mb-1.5">{feature.title}</h3>
                 <p className="text-sm text-zinc-500 leading-relaxed">{feature.description}</p>
               </div>
-            )}
+            ))}
           </div>
         </div>
       </section>
@@ -424,9 +383,9 @@ export default function Landing() {
               <div className="absolute inset-0 bg-orange-500/5 rounded-2xl blur-3xl" />
               <div className="relative space-y-3">
                 {[
-                { icon: TrendingUp, label: 'Projection Success', value: '94%', color: 'emerald' },
-                { icon: Calculator, label: 'Tax Saved (YTD)', value: '$4,280', color: 'orange' },
-                { icon: Lock, label: 'Security Score', value: '9.2', color: 'purple' }].
+                { icon: TrendingUp, label: 'Retirement Confidence', value: '94%', color: 'emerald' },
+                { icon: Calculator, label: 'Tax Savings Found', value: '$4,280', color: 'orange' },
+                { icon: Building2, label: 'Accounts Supported', value: '7 types', color: 'purple' }].
                 map((item, i) =>
                 <div key={i} className="flex items-center justify-between p-4 rounded-xl bg-white/[0.03] border border-white/5">
                     <div className="flex items-center gap-3">
@@ -444,46 +403,7 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* New to Orange Plan? Section */}
-      <section className="py-24 px-6 bg-[#0f0f10] border-t border-white/5 relative overflow-hidden">
-        {/* Decorative background glow */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] bg-orange-500/5 blur-[100px] rounded-full pointer-events-none" />
-        
-        <div className="max-w-6xl mx-auto relative z-10">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">New to Orange Plan?</h2>
-            <p className="text-zinc-500 text-lg">Explore our comprehensive suite of financial tools and features</p>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {newToFeatures.map((item, i) => {
-              const isLink = item.link !== '#';
-              const Component = isLink ? Link : 'div';
-              const props = isLink ? {
-                to: item.link.startsWith('http') ? item.link : createPageUrl(item.link),
-                target: item.link.startsWith('http') ? "_blank" : "_self",
-                rel: item.link.startsWith('http') ? "noopener noreferrer" : ""
-              } : {};
 
-              return (
-                <Component
-                  key={i}
-                  {...props}
-                  className={`group p-6 rounded-2xl bg-white/[0.03] border border-white/5 transition-all duration-300 flex items-start gap-5 ${isLink ? 'hover:border-orange-500/30 hover:bg-white/[0.06] hover:-translate-y-1 hover:shadow-2xl hover:shadow-orange-500/10 cursor-pointer' : ''}`}
-                >
-                  <div className={`w-12 h-12 rounded-xl bg-orange-500/10 flex items-center justify-center flex-shrink-0 transition-all duration-300 ${isLink ? 'group-hover:bg-orange-500/20 group-hover:scale-110' : ''}`}>
-                    <item.icon className="w-6 h-6 text-orange-400" strokeWidth={1.5} />
-                  </div>
-                  <div>
-                    <h3 className={`font-semibold text-lg mb-2 text-zinc-100 transition-colors ${isLink ? 'group-hover:text-white' : ''}`}>{item.title}</h3>
-                    <p className={`text-sm text-zinc-400 leading-relaxed transition-colors ${isLink ? 'group-hover:text-zinc-300' : ''}`}>{item.description}</p>
-                  </div>
-                </Component>
-              );
-            })}
-          </div>
-        </div>
-      </section>
 
       {/* CTA */}
       <section className="py-24 px-6">
