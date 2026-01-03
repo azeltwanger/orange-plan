@@ -365,9 +365,9 @@ export default function Landing() {
             <div className="md:col-span-2 group p-8 rounded-3xl bg-gradient-to-br from-white/[0.02] to-transparent border-0 hover:from-white/[0.04] transition-all duration-500 relative overflow-hidden">
               <div className="absolute inset-0 noise-texture opacity-40" />
               <div className="relative">
-                <features[0].icon className="w-5 h-5 text-orange-400/80 mb-5" strokeWidth={1.5} />
-                <h3 className="font-semibold text-xl mb-2.5 text-zinc-100">{features[0].title}</h3>
-                <p className="text-sm text-zinc-500 leading-relaxed font-light">{features[0].description}</p>
+                <LayoutDashboard className="w-5 h-5 text-orange-400/80 mb-5" strokeWidth={1.5} />
+                <h3 className="font-semibold text-xl mb-2.5 text-zinc-100">Net Worth Dashboard</h3>
+                <p className="text-sm text-zinc-500 leading-relaxed font-light">All accounts in one view—Bitcoin, stocks, real estate, retirement accounts.</p>
               </div>
             </div>
 
@@ -375,9 +375,9 @@ export default function Landing() {
             <div className="group p-8 rounded-3xl bg-gradient-to-br from-white/[0.02] to-transparent border-0 hover:from-white/[0.04] transition-all duration-500 relative overflow-hidden">
               <div className="absolute inset-0 noise-texture opacity-40" />
               <div className="relative">
-                <features[1].icon className="w-5 h-5 text-orange-400/80 mb-5" strokeWidth={1.5} />
-                <h3 className="font-semibold text-xl mb-2.5 text-zinc-100">{features[1].title}</h3>
-                <p className="text-sm text-zinc-500 leading-relaxed font-light">{features[1].description}</p>
+                <Wallet className="w-5 h-5 text-orange-400/80 mb-5" strokeWidth={1.5} />
+                <h3 className="font-semibold text-xl mb-2.5 text-zinc-100">Cash Flow Tracking</h3>
+                <p className="text-sm text-zinc-500 leading-relaxed font-light">Income, expenses, and automatic savings calculations.</p>
               </div>
             </div>
 
@@ -385,9 +385,9 @@ export default function Landing() {
             <div className="group p-8 rounded-3xl bg-gradient-to-br from-white/[0.02] to-transparent border-0 hover:from-white/[0.04] transition-all duration-500 relative overflow-hidden">
               <div className="absolute inset-0 noise-texture opacity-40" />
               <div className="relative">
-                <features[2].icon className="w-5 h-5 text-orange-400/80 mb-5" strokeWidth={1.5} />
-                <h3 className="font-semibold text-xl mb-2.5 text-zinc-100">{features[2].title}</h3>
-                <p className="text-sm text-zinc-500 leading-relaxed font-light">{features[2].description}</p>
+                <Flag className="w-5 h-5 text-orange-400/80 mb-5" strokeWidth={1.5} />
+                <h3 className="font-semibold text-xl mb-2.5 text-zinc-100">Goal Planning</h3>
+                <p className="text-sm text-zinc-500 leading-relaxed font-light">Set targets, track progress, see projected completion dates.</p>
               </div>
             </div>
 
@@ -395,9 +395,9 @@ export default function Landing() {
             <div className="md:row-span-2 group p-8 rounded-3xl bg-gradient-to-br from-white/[0.02] to-transparent border-0 hover:from-white/[0.04] transition-all duration-500 relative overflow-hidden flex flex-col">
               <div className="absolute inset-0 noise-texture opacity-40" />
               <div className="relative flex-1 flex flex-col justify-center">
-                <features[3].icon className="w-5 h-5 text-orange-400/80 mb-5" strokeWidth={1.5} />
-                <h3 className="font-semibold text-xl mb-2.5 text-zinc-100">{features[3].title}</h3>
-                <p className="text-sm text-zinc-500 leading-relaxed font-light">{features[3].description}</p>
+                <DollarSign className="w-5 h-5 text-orange-400/80 mb-5" strokeWidth={1.5} />
+                <h3 className="font-semibold text-xl mb-2.5 text-zinc-100">Fee Analysis</h3>
+                <p className="text-sm text-zinc-500 leading-relaxed font-light">Compare exchange fees side-by-side.</p>
               </div>
             </div>
 
@@ -405,9 +405,9 @@ export default function Landing() {
             <div className="group p-8 rounded-3xl bg-gradient-to-br from-white/[0.02] to-transparent border-0 hover:from-white/[0.04] transition-all duration-500 relative overflow-hidden">
               <div className="absolute inset-0 noise-texture opacity-40" />
               <div className="relative">
-                <features[4].icon className="w-5 h-5 text-orange-400/80 mb-5" strokeWidth={1.5} />
-                <h3 className="font-semibold text-xl mb-2.5 text-zinc-100">{features[4].title}</h3>
-                <p className="text-sm text-zinc-500 leading-relaxed font-light">{features[4].description}</p>
+                <Shield className="w-5 h-5 text-orange-400/80 mb-5" strokeWidth={1.5} />
+                <h3 className="font-semibold text-xl mb-2.5 text-zinc-100">Estate Planning</h3>
+                <p className="text-sm text-zinc-500 leading-relaxed font-light">Inheritance protocols and beneficiary management.</p>
               </div>
             </div>
 
@@ -415,9 +415,9 @@ export default function Landing() {
             <div className="group p-8 rounded-3xl bg-gradient-to-br from-white/[0.02] to-transparent border-0 hover:from-white/[0.04] transition-all duration-500 relative overflow-hidden">
               <div className="absolute inset-0 noise-texture opacity-40" />
               <div className="relative">
-                <features[5].icon className="w-5 h-5 text-orange-400/80 mb-5" strokeWidth={1.5} />
-                <h3 className="font-semibold text-xl mb-2.5 text-zinc-100">{features[5].title}</h3>
-                <p className="text-sm text-zinc-500 leading-relaxed font-light">{features[5].description}</p>
+                <RefreshCw className="w-5 h-5 text-orange-400/80 mb-5" strokeWidth={1.5} />
+                <h3 className="font-semibold text-xl mb-2.5 text-zinc-100">Scenario Builder</h3>
+                <p className="text-sm text-zinc-500 leading-relaxed font-light">Compare different assumptions and strategies.</p>
               </div>
             </div>
           </div>
