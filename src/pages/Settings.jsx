@@ -103,8 +103,9 @@ export default function Settings() {
                   type="text"
                   value={profileForm.full_name}
                   onChange={(e) => setProfileForm({ ...profileForm, full_name: e.target.value })}
-                  className="bg-zinc-900 border-zinc-800"
+                  className="bg-zinc-900 border-zinc-800 focus-visible:ring-2 focus-visible:ring-orange-500/50"
                   placeholder="Enter your full name"
+                  aria-label="Full name"
                 />
               </div>
 
@@ -131,7 +132,7 @@ export default function Settings() {
 
               <Button 
                 type="submit" 
-                className="brand-gradient text-white"
+                className="brand-gradient text-white transition-transform active:scale-[0.98] hover:shadow-lg"
                 disabled={updateProfile.isPending}
               >
                 {updateProfile.isPending ? 'Saving...' : 'Save Changes'}
@@ -151,7 +152,7 @@ export default function Settings() {
             </p>
             <Button 
               variant="outline" 
-              className="bg-transparent border-zinc-700"
+              className="bg-transparent border-zinc-700 transition-all duration-200 active:scale-95 focus-visible:ring-2 focus-visible:ring-orange-500/50"
               onClick={() => base44.auth.logout()}
             >
               Sign Out
@@ -214,7 +215,7 @@ export default function Settings() {
                 <Button 
                   onClick={handleStartTrial}
                   disabled={loading}
-                  className="brand-gradient text-white w-full"
+                  className="brand-gradient text-white w-full transition-transform active:scale-[0.98] hover:shadow-lg"
                 >
                   {loading ? 'Loading...' : 'Start Free Trial'}
                 </Button>

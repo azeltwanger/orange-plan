@@ -295,7 +295,9 @@ export default function Layout({ children, currentPageName }) {
           </div>
           <button 
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-2 rounded-lg hover:bg-zinc-800/50 transition-colors"
+            className="p-2 rounded-lg hover:bg-zinc-800/50 transition-all duration-200 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/50"
+            aria-label={sidebarOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={sidebarOpen}
           >
             {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
@@ -331,13 +333,14 @@ export default function Layout({ children, currentPageName }) {
                   to={createPageUrl(item.page)}
                   onClick={() => setSidebarOpen(false)}
                   className={cn(
-                    "flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-all duration-200 group",
+                    "flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-all duration-200 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/50",
                     isActive 
                       ? darkMode ? "sidebar-item-active text-orange-400" : "bg-orange-50 text-orange-600 border-l-2 border-orange-500"
                       : darkMode 
                         ? "text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/30"
                         : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
                   )}
+                  aria-current={isActive ? 'page' : undefined}
                 >
                   <item.icon className={cn(
                     "w-5 h-5 transition-colors",

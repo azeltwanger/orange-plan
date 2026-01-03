@@ -671,12 +671,12 @@ export default function EstateSecurity() {
             </div>
           </div>
           <p className={cn(
-            "text-2xl font-bold",
+            "text-2xl font-bold transition-all duration-300",
             weightedSecurityScore >= 7 ? "text-emerald-400" : weightedSecurityScore >= 4 ? "text-amber-400" : "text-rose-400"
           )}>
             {weightedSecurityScore.toFixed(1)}/10
           </p>
-          <Progress value={weightedSecurityScore * 10} className="h-2 mt-3 bg-zinc-800" />
+          <Progress value={weightedSecurityScore * 10} className="h-2 mt-3 bg-zinc-800 transition-all duration-500 ease-out" />
           <p className="text-xs text-zinc-500 mt-2">Weighted by BTC amount</p>
         </div>
 
@@ -808,7 +808,7 @@ export default function EstateSecurity() {
                   const hasProtocol = recoveryProtocols.some(p => p.custody_location_id === location.id);
 
                   return (
-                    <div key={location.id} className="p-5 rounded-xl bg-zinc-800/30 hover:bg-zinc-800/50 transition-colors border border-zinc-800">
+                    <div key={location.id} className="p-5 rounded-xl bg-zinc-800/30 hover:bg-zinc-800/50 hover:translate-y-[-2px] hover:shadow-lg transition-all duration-200 border border-zinc-800">
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex items-center gap-4">
                           <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center border", colorClass)}>
@@ -829,10 +829,18 @@ export default function EstateSecurity() {
                               No Protocol
                             </Badge>
                           )}
-                          <button onClick={() => { setEditingItem(location); setFormOpen(true); }} className="p-2 rounded-lg hover:bg-zinc-700">
+                          <button 
+                            onClick={() => { setEditingItem(location); setFormOpen(true); }} 
+                            className="p-2 rounded-lg hover:bg-zinc-700 transition-all duration-200 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/50"
+                            aria-label={`Edit ${location.title}`}
+                          >
                             <Pencil className="w-4 h-4 text-zinc-400" />
                           </button>
-                          <button onClick={() => deleteItem.mutate(location.id)} className="p-2 rounded-lg hover:bg-rose-600/50">
+                          <button 
+                            onClick={() => deleteItem.mutate(location.id)} 
+                            className="p-2 rounded-lg hover:bg-rose-600/50 transition-all duration-200 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/50"
+                            aria-label={`Delete ${location.title}`}
+                          >
                             <Trash2 className="w-4 h-4 text-zinc-400" />
                           </button>
                         </div>
@@ -1023,10 +1031,18 @@ export default function EstateSecurity() {
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
-                            <button onClick={() => { setEditingItem(asset); setFormOpen(true); }} className="p-2 rounded-lg hover:bg-zinc-700">
+                            <button 
+                              onClick={() => { setEditingItem(asset); setFormOpen(true); }} 
+                              className="p-2 rounded-lg hover:bg-zinc-700 transition-all duration-200 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/50"
+                              aria-label={`Edit ${asset.title}`}
+                            >
                               <Pencil className="w-4 h-4 text-zinc-400" />
                             </button>
-                            <button onClick={() => deleteItem.mutate(asset.id)} className="p-2 rounded-lg hover:bg-rose-600/50">
+                            <button 
+                              onClick={() => deleteItem.mutate(asset.id)} 
+                              className="p-2 rounded-lg hover:bg-rose-600/50 transition-all duration-200 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/50"
+                              aria-label={`Delete ${asset.title}`}
+                            >
                               <Trash2 className="w-4 h-4 text-zinc-400" />
                             </button>
                           </div>
@@ -1243,10 +1259,18 @@ export default function EstateSecurity() {
                         </p>
                       </div>
                       <div className="flex gap-1">
-                        <button onClick={() => { setEditingItem(beneficiary); setFormOpen(true); }} className="p-1.5 rounded-lg hover:bg-zinc-700">
+                        <button 
+                          onClick={() => { setEditingItem(beneficiary); setFormOpen(true); }} 
+                          className="p-1.5 rounded-lg hover:bg-zinc-700 transition-all duration-200 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/50"
+                          aria-label={`Edit beneficiary ${beneficiary.beneficiary_name || beneficiary.title}`}
+                        >
                           <Pencil className="w-3.5 h-3.5 text-zinc-400" />
                         </button>
-                        <button onClick={() => deleteItem.mutate(beneficiary.id)} className="p-1.5 rounded-lg hover:bg-rose-600/50">
+                        <button 
+                          onClick={() => deleteItem.mutate(beneficiary.id)} 
+                          className="p-1.5 rounded-lg hover:bg-rose-600/50 transition-all duration-200 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/50"
+                          aria-label={`Delete beneficiary ${beneficiary.beneficiary_name || beneficiary.title}`}
+                        >
                           <Trash2 className="w-3.5 h-3.5 text-zinc-400" />
                         </button>
                       </div>
@@ -1437,7 +1461,13 @@ export default function EstateSecurity() {
           <form onSubmit={handleSubmit} className="space-y-4 mt-4">
             <div className="space-y-2">
               <Label className="text-zinc-400">Title</Label>
-              <Input value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} className="bg-zinc-900 border-zinc-800" required />
+              <Input 
+                value={formData.title} 
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })} 
+                className="bg-zinc-900 border-zinc-800 focus-visible:ring-2 focus-visible:ring-orange-500/50" 
+                required 
+                aria-required="true"
+              />
             </div>
 
             {formData.item_type === 'custody_location' && (
@@ -1501,7 +1531,20 @@ export default function EstateSecurity() {
                       </div>
                       <div className="space-y-2">
                         <Label className="text-zinc-400">BTC Amount</Label>
-                        <Input type="number" step="any" value={formData.btc_amount} onChange={(e) => setFormData({ ...formData, btc_amount: e.target.value })} className="bg-zinc-900 border-zinc-800" />
+                        <Input 
+                          type="number" 
+                          step="0.00000001" 
+                          min="0"
+                          value={formData.btc_amount} 
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value);
+                            if (val < 0) return;
+                            setFormData({ ...formData, btc_amount: e.target.value });
+                          }}
+                          className="bg-zinc-900 border-zinc-800 focus-visible:ring-2 focus-visible:ring-orange-500/50"
+                          aria-label="Bitcoin amount (up to 8 decimal places)"
+                        />
+                        <p className="text-xs text-zinc-500">Supports up to 8 decimal places</p>
                       </div>
                     </div>
                   </>
@@ -1570,7 +1613,27 @@ export default function EstateSecurity() {
                 </div>
                 <div className="space-y-2">
                   <Label className="text-zinc-400">Allocation %</Label>
-                  <Input type="number" min="0" max="100" value={formData.beneficiary_allocation_percent} onChange={(e) => setFormData({ ...formData, beneficiary_allocation_percent: e.target.value })} className="bg-zinc-900 border-zinc-800" />
+                  <Input 
+                    type="number" 
+                    min="0" 
+                    max="100" 
+                    value={formData.beneficiary_allocation_percent} 
+                    onChange={(e) => {
+                      const val = parseFloat(e.target.value);
+                      if (val < 0 || val > 100) return;
+                      setFormData({ ...formData, beneficiary_allocation_percent: e.target.value });
+                    }}
+                    className={cn(
+                      "bg-zinc-900 border-zinc-800 focus-visible:ring-2 focus-visible:ring-orange-500/50",
+                      formData.beneficiary_allocation_percent > 100 && "border-rose-500"
+                    )}
+                    aria-label="Beneficiary allocation percentage"
+                    aria-describedby="allocation-hint"
+                  />
+                  <p id="allocation-hint" className="text-xs text-zinc-500">0-100% of estate</p>
+                  {formData.beneficiary_allocation_percent > 100 && (
+                    <p className="text-xs text-rose-400">Allocation cannot exceed 100%</p>
+                  )}
                 </div>
               </>
             )}
