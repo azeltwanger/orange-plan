@@ -98,6 +98,8 @@ export default function TaxCenter() {
   const [assetTypeFilter, setAssetTypeFilter] = useState('all');
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [exportingYear, setExportingYear] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState(null);
   const queryClient = useQueryClient();
 
   // Tax planning settings
@@ -2043,10 +2045,18 @@ export default function TaxCenter() {
                         )}
                       </div>
                       <div className="flex gap-1">
-                        <button onClick={() => { setEditingTx(tx); setFormOpen(true); }} className="p-1.5 rounded-lg hover:bg-zinc-700">
+                        <button 
+                          onClick={() => { setEditingTx(tx); setFormOpen(true); }} 
+                          className="p-1.5 rounded-lg hover:bg-zinc-700 transition-all duration-200 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/50"
+                          aria-label={`Edit transaction for ${tx.asset_ticker}`}
+                        >
                           <Pencil className="w-3.5 h-3.5 text-zinc-400" />
                         </button>
-                        <button onClick={() => deleteTx.mutate(tx.id)} className="p-1.5 rounded-lg hover:bg-rose-600/50">
+                        <button 
+                          onClick={() => { setItemToDelete({ type: 'transaction', item: tx }); setDeleteConfirmOpen(true); }} 
+                          className="p-1.5 rounded-lg hover:bg-rose-600/50 transition-all duration-200 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/50"
+                          aria-label={`Delete transaction for ${tx.asset_ticker}`}
+                        >
                           <Trash2 className="w-3.5 h-3.5 text-zinc-400" />
                         </button>
                       </div>
@@ -2857,6 +2867,46 @@ export default function TaxCenter() {
           setFormData({ ...formData, account_id: newAccount.id });
         }}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <DialogContent className="bg-[#0f0f10] border-zinc-800 text-zinc-100 max-w-md animate-in fade-in-0 zoom-in-95 duration-200">
+          <DialogHeader>
+            <DialogTitle>Delete Transaction?</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-zinc-400">
+              {itemToDelete?.type === 'transaction' && (
+                <>
+                  Are you sure you want to delete this <span className="font-semibold text-zinc-200">{itemToDelete.item?.type === 'buy' ? 'buy' : 'sell'}</span> transaction for <span className="font-semibold text-zinc-200">{itemToDelete.item?.asset_ticker}</span>?
+                </>
+              )}
+            </p>
+            <p className="text-sm text-rose-400">This action cannot be undone. Tax lots and holdings will be automatically updated.</p>
+            <div className="flex gap-3 pt-4">
+              <Button 
+                variant="outline" 
+                onClick={() => { setDeleteConfirmOpen(false); setItemToDelete(null); }} 
+                className="flex-1 bg-transparent border-zinc-700"
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={() => {
+                  if (itemToDelete?.type === 'transaction') {
+                    deleteTx.mutate(itemToDelete.item.id);
+                  }
+                  setDeleteConfirmOpen(false);
+                  setItemToDelete(null);
+                }}
+                className="flex-1 bg-rose-600 hover:bg-rose-700 text-white"
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

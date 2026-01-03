@@ -68,6 +68,8 @@ export default function Dashboard() {
   const [editingAccount, setEditingAccount] = useState(null);
   const [csvImportOpen, setCsvImportOpen] = useState(false);
   const [showAllLiabilities, setShowAllLiabilities] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState(null);
   const queryClient = useQueryClient();
 
   const { data: holdings = [], isLoading: holdingsLoading } = useQuery({
@@ -386,7 +388,7 @@ export default function Dashboard() {
                   holdings={accountHoldings}
                   getPrice={getPriceByTicker}
                   onEditHolding={handleEdit}
-                  onDeleteHolding={(h) => deleteHolding.mutate(h)}
+                  onDeleteHolding={(h) => { setItemToDelete({ type: 'holding', item: h }); setDeleteConfirmOpen(true); }}
                   onManageLots={setLotsDialogHolding}
                   onEditAccount={setEditingAccount}
                 />
@@ -400,7 +402,7 @@ export default function Dashboard() {
                 holdings={holdingsByAccount['_unassigned_']}
                 getPrice={getPriceByTicker}
                 onEditHolding={handleEdit}
-                onDeleteHolding={(h) => deleteHolding.mutate(h)}
+                onDeleteHolding={(h) => { setItemToDelete({ type: 'holding', item: h }); setDeleteConfirmOpen(true); }}
                 onManageLots={setLotsDialogHolding}
               />
             )}
@@ -498,6 +500,44 @@ export default function Dashboard() {
         open={csvImportOpen} 
         onClose={() => setCsvImportOpen(false)} 
       />
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <DialogContent className="bg-[#0f0f10] border-zinc-800 text-zinc-100 max-w-md animate-in fade-in-0 zoom-in-95 duration-200">
+          <DialogHeader>
+            <DialogTitle>Delete {itemToDelete?.type === 'holding' ? 'Holding' : 'Item'}?</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-zinc-400">
+              {itemToDelete?.type === 'holding' && (
+                <>Are you sure you want to delete <span className="font-semibold text-zinc-200">{itemToDelete.item?.asset_name || itemToDelete.item?.ticker}</span>?</>
+              )}
+            </p>
+            <p className="text-sm text-rose-400">This action cannot be undone. All related transactions will also be deleted.</p>
+            <div className="flex gap-3 pt-4">
+              <Button 
+                variant="outline" 
+                onClick={() => { setDeleteConfirmOpen(false); setItemToDelete(null); }} 
+                className="flex-1 bg-transparent border-zinc-700"
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={() => {
+                  if (itemToDelete?.type === 'holding') {
+                    deleteHolding.mutate(itemToDelete.item);
+                  }
+                  setDeleteConfirmOpen(false);
+                  setItemToDelete(null);
+                }}
+                className="flex-1 bg-rose-600 hover:bg-rose-700 text-white"
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
       </div>
       );
       }
