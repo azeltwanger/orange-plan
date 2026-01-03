@@ -305,52 +305,116 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* What Traditional Tools Can't Do */}
-      <section className="py-32 px-6">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-24">
-            <h2 className="text-4xl md:text-5xl font-bold mb-4 tracking-tight">What traditional tools can't do</h2>
-            <p className="text-zinc-500 text-lg font-light">Built specifically for Bitcoin holders.</p>
-          </div>
-          
-          {/* Equal 3 cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {whyOrangePlan.map((item, i) => {
-              const Icon = item.icon;
-              return (
-                <div key={i} className="group p-8 rounded-2xl bg-white/[0.03] border border-white/[0.05] hover:bg-white/[0.05] transition-colors duration-200">
-                  <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center mb-5">
-                    <Icon className="w-5 h-5 text-orange-400" strokeWidth={1.5} />
+      {/* Scrolling Feature Ticker */}
+      <section className="py-8 border-y border-white/[0.03] overflow-hidden">
+        <div className="relative">
+          <div className="flex marquee whitespace-nowrap">
+            {[...Array(2)].map((_, setIndex) => (
+              <div key={setIndex} className="flex items-center gap-8 px-4">
+                {['Cost Basis Tracking', 'Monte Carlo Simulations', 'Bitcoin Loans', 'Tax Harvesting', 'Estate Planning', 'Goal Tracking', 'CSV Import', 'Multi-Account Support', 'Real-Time Prices'].map((feature, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <span className="w-1.5 h-1.5 rounded-full bg-orange-400/60" />
+                    <span className="text-sm text-zinc-500 font-light">{feature}</span>
                   </div>
-                  <h3 className="font-semibold text-lg mb-2 text-zinc-100">{item.title}</h3>
-                  <p className="text-sm text-zinc-500 leading-relaxed">{item.description}</p>
-                </div>
-              );
-            })}
+                ))}
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* Everything Else */}
+      {/* Feature Section A - Tax Strategy */}
       <section className="py-32 px-6">
         <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-24">
-            <h2 className="text-4xl md:text-5xl font-bold mb-4 tracking-tight">Everything else you need</h2>
-            <p className="text-zinc-500 text-lg font-light">Complete financial toolkit in one dashboard.</p>
-          </div>
-          
-          {/* Clean 3x2 grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {features.map((item, i) => {
-              const Icon = item.icon;
-              return (
-                <div key={i} className="group p-8 rounded-2xl bg-white/[0.03] border border-white/[0.05] hover:bg-white/[0.05] transition-colors duration-200">
-                  <Icon className="w-5 h-5 text-orange-400/80 mb-5" strokeWidth={1.5} />
-                  <h3 className="font-semibold text-lg mb-2 text-zinc-100">{item.title}</h3>
-                  <p className="text-sm text-zinc-500 leading-relaxed">{item.description}</p>
+          <div className="grid lg:grid-cols-2 gap-16 items-center">
+            <div>
+              <h2 className="text-4xl md:text-5xl font-bold mb-6 tracking-tight leading-tight">
+                Know Your Tax Bill
+                <br />
+                <span className="text-zinc-600">Before You Sell</span>
+              </h2>
+              <p className="text-zinc-500 text-lg leading-relaxed font-light mb-8">
+                HIFO, LIFO, FIFO—calculated automatically. See exactly what you'll owe on any sale. Find tax loss harvesting opportunities instantly.
+              </p>
+              <div className="flex items-center gap-4">
+                <div className="w-5 h-5 rounded-full bg-orange-500/10 flex items-center justify-center">
+                  <CheckCircle className="w-3 h-3 text-orange-400" strokeWidth={2.5} />
                 </div>
-              );
-            })}
+                <span className="text-sm text-zinc-400 font-light">Supports all major lot selection methods</span>
+              </div>
+            </div>
+            <div className="relative">
+              <div className="rounded-2xl border border-white/[0.06] bg-zinc-900/80 overflow-hidden aspect-[4/3] flex items-center justify-center">
+                <div className="text-center">
+                  <Receipt className="w-12 h-12 text-zinc-700 mx-auto mb-3" />
+                  <p className="text-zinc-600 text-sm">Tax Strategy Preview</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Feature Section B - Retirement Planning */}
+      <section className="py-32 px-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="grid lg:grid-cols-2 gap-16 items-center">
+            <div className="order-2 lg:order-1 relative">
+              <div className="rounded-2xl border border-white/[0.06] bg-zinc-900/80 overflow-hidden aspect-[4/3] flex items-center justify-center">
+                <div className="text-center">
+                  <Target className="w-12 h-12 text-zinc-700 mx-auto mb-3" />
+                  <p className="text-zinc-600 text-sm">Retirement Planning Preview</p>
+                </div>
+              </div>
+            </div>
+            <div className="order-1 lg:order-2">
+              <h2 className="text-4xl md:text-5xl font-bold mb-6 tracking-tight leading-tight">
+                Retire on Bitcoin
+                <br />
+                <span className="text-zinc-600">Without Selling It</span>
+              </h2>
+              <p className="text-zinc-500 text-lg leading-relaxed font-light mb-8">
+                Model Bitcoin-backed loans, track LTV thresholds, and run Monte Carlo simulations that actually understand volatility.
+              </p>
+              <div className="flex items-center gap-4">
+                <div className="w-5 h-5 rounded-full bg-orange-500/10 flex items-center justify-center">
+                  <CheckCircle className="w-3 h-3 text-orange-400" strokeWidth={2.5} />
+                </div>
+                <span className="text-sm text-zinc-400 font-light">10,000+ simulations per projection</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Feature Section C - Dashboard Overview */}
+      <section className="py-32 px-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="grid lg:grid-cols-2 gap-16 items-center">
+            <div>
+              <h2 className="text-4xl md:text-5xl font-bold mb-6 tracking-tight leading-tight">
+                Your Whole
+                <br />
+                <span className="text-zinc-600">Financial Picture</span>
+              </h2>
+              <p className="text-zinc-500 text-lg leading-relaxed font-light mb-8">
+                Bitcoin, stocks, real estate, retirement accounts—all in one dashboard. Track performance, set goals, plan your estate.
+              </p>
+              <div className="flex items-center gap-4">
+                <div className="w-5 h-5 rounded-full bg-orange-500/10 flex items-center justify-center">
+                  <CheckCircle className="w-3 h-3 text-orange-400" strokeWidth={2.5} />
+                </div>
+                <span className="text-sm text-zinc-400 font-light">401k, IRA, Roth, taxable—all supported</span>
+              </div>
+            </div>
+            <div className="relative">
+              <div className="rounded-2xl border border-white/[0.06] bg-zinc-900/80 overflow-hidden aspect-[4/3] flex items-center justify-center">
+                <div className="text-center">
+                  <LayoutDashboard className="w-12 h-12 text-zinc-700 mx-auto mb-3" />
+                  <p className="text-zinc-600 text-sm">Dashboard Preview</p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
