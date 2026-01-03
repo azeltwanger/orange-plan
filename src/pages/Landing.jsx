@@ -334,13 +334,10 @@ export default function Landing() {
             {features.map((item, i) => {
               const Icon = item.icon;
               return (
-                <div key={i} className="group p-8 rounded-3xl bg-gradient-to-br from-white/[0.02] to-transparent border-0 hover:from-white/[0.04] transition-all duration-500 relative overflow-hidden">
-                  <div className="absolute inset-0 noise-texture opacity-40" />
-                  <div className="relative">
-                    <Icon className="w-5 h-5 text-orange-400/80 mb-5" strokeWidth={1.5} />
-                    <h3 className="font-semibold text-xl mb-2.5 text-zinc-100">{item.title}</h3>
-                    <p className="text-sm text-zinc-500 leading-relaxed font-light">{item.description}</p>
-                  </div>
+                <div key={i} className="group p-8 rounded-2xl bg-white/[0.03] border border-white/[0.05] hover:bg-white/[0.05] transition-colors duration-200">
+                  <Icon className="w-5 h-5 text-orange-400/80 mb-5" strokeWidth={1.5} />
+                  <h3 className="font-semibold text-lg mb-2 text-zinc-100">{item.title}</h3>
+                  <p className="text-sm text-zinc-500 leading-relaxed">{item.description}</p>
                 </div>
               );
             })}
