@@ -407,21 +407,16 @@ export default function Landing() {
       {/* CTA */}
       <section className="py-32 px-6">
         <div className="max-w-3xl mx-auto text-center">
-          <div className="p-16 rounded-3xl bg-gradient-to-b from-orange-500/8 to-transparent border-0 relative overflow-hidden">
-            <div className="absolute inset-0 noise-texture opacity-30" />
-            <div className="relative">
-              <h2 className="text-4xl md:text-5xl font-bold mb-5 tracking-tight">Ready to take control?</h2>
-              <p className="text-zinc-500 text-lg mb-10 font-light">
-                Start tracking your wealth in minutes.
-              </p>
-              <Link to={createPageUrl('Dashboard')}>
-                <Button size="lg" className="brand-gradient text-white font-semibold hover:opacity-90 shadow-2xl shadow-orange-500/25 px-10 h-14 text-base rounded-xl">
-                  Open Dashboard
-                  <ArrowRight className="w-5 h-5 ml-2" />
-                </Button>
-              </Link>
-            </div>
-          </div>
+          <h2 className="text-4xl md:text-5xl font-bold mb-5 tracking-tight">Ready to take control?</h2>
+          <p className="text-zinc-500 text-lg mb-10">
+            Start tracking your wealth in minutes.
+          </p>
+          <Link to={createPageUrl('Dashboard')}>
+            <Button size="lg" className="brand-gradient text-white font-semibold hover:opacity-90 px-10 h-14 text-base rounded-xl">
+              Open Dashboard
+              <ArrowRight className="w-5 h-5 ml-2" />
+            </Button>
+          </Link>
         </div>
       </section>
 
