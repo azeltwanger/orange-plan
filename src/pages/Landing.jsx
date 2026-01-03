@@ -35,17 +35,17 @@ const whyOrangePlan = [
   {
     icon: Calculator,
     title: 'Automatic Cost Basis Tracking',
-    description: 'HIFO, LIFO, FIFO calculated automatically. Know your exact tax liability on any sale before you make it.'
+    description: 'Spreadsheets break. Tax software doesn\'t understand Bitcoin. We calculate HIFO, LIFO, and FIFO automatically—so you know your exact tax bill before you sell.'
   },
   {
     icon: Scale,
     title: 'Bitcoin-Backed Loan Modeling',
-    description: 'Real LTV thresholds, margin call alerts, and collateral tracking. See exactly when loans get called or released.'
+    description: 'One bad day and your collateral gets liquidated. We model real LTV thresholds and alert you before margin calls hit.'
   },
   {
     icon: Target,
     title: 'Bitcoin Retirement Simulations',
-    description: 'Monte Carlo projections that understand Bitcoin volatility. Model living off your stack without selling it.'
+    description: 'Traditional calculators assume 7% returns. Bitcoin doesn\'t work that way. Our Monte Carlo simulations actually understand volatility.'
   }
 ];
 
