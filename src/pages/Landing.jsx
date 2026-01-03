@@ -301,7 +301,7 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Why Orange Plan */}
+      {/* What Traditional Tools Can't Do */}
       <section className="py-32 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-24">
@@ -309,44 +309,23 @@ export default function Landing() {
             <p className="text-zinc-500 text-lg font-light">Built specifically for Bitcoin holders.</p>
           </div>
           
-          {/* Asymmetric Layout */}
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 lg:gap-8">
-            {/* Featured Card - Spans 3 columns */}
-            <div className="lg:col-span-3 group p-10 rounded-3xl bg-gradient-to-br from-white/[0.03] to-transparent border-0 hover:from-white/[0.05] transition-all duration-500 relative overflow-hidden">
-              <div className="absolute inset-0 noise-texture opacity-50" />
-              <div className="relative">
-                <div className="w-11 h-11 rounded-2xl bg-orange-500/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
-                  <Zap className="w-5 h-5 text-orange-400" strokeWidth={1.5} />
-                </div>
-                <h3 className="font-bold text-2xl mb-4 text-zinc-50">Bitcoin-Backed Loan Modeling</h3>
-                <p className="text-base text-zinc-500 leading-relaxed font-light">Model loans from Ledn and others with real LTV thresholds, interest rates, and collateral tracking. See exactly when loans get called or released.</p>
-              </div>
-            </div>
-
-            {/* Stacked Cards - Span 2 columns */}
-            <div className="lg:col-span-2 space-y-6 lg:space-y-8">
-              <div className="group p-8 rounded-3xl bg-gradient-to-br from-white/[0.03] to-transparent border-0 hover:from-white/[0.05] transition-all duration-500 relative overflow-hidden">
-                <div className="absolute inset-0 noise-texture opacity-50" />
-                <div className="relative">
-                  <div className="w-10 h-10 rounded-2xl bg-orange-500/10 flex items-center justify-center mb-5 group-hover:scale-110 transition-transform duration-300">
-                    <Receipt className="w-4 h-4 text-orange-400" strokeWidth={1.5} />
+          {/* Equal 3 cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {whyOrangePlan.map((item, i) => {
+              const Icon = item.icon;
+              return (
+                <div key={i} className="group p-8 rounded-3xl bg-gradient-to-br from-white/[0.03] to-transparent border-0 hover:from-white/[0.05] transition-all duration-500 relative overflow-hidden">
+                  <div className="absolute inset-0 noise-texture opacity-50" />
+                  <div className="relative">
+                    <div className="w-11 h-11 rounded-2xl bg-orange-500/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
+                      <Icon className="w-5 h-5 text-orange-400" strokeWidth={1.5} />
+                    </div>
+                    <h3 className="font-semibold text-xl mb-3 text-zinc-100">{item.title}</h3>
+                    <p className="text-sm text-zinc-500 leading-relaxed font-light">{item.description}</p>
                   </div>
-                  <h3 className="font-semibold text-lg mb-3 text-zinc-100">Tax Lot Intelligence</h3>
-                  <p className="text-sm text-zinc-500 leading-relaxed font-light">HIFO, LIFO, FIFO cost basis tracking. Find tax loss harvesting opportunities. Know your exact tax liability before you sell.</p>
                 </div>
-              </div>
-              
-              <div className="group p-8 rounded-3xl bg-gradient-to-br from-white/[0.03] to-transparent border-0 hover:from-white/[0.05] transition-all duration-500 relative overflow-hidden">
-                <div className="absolute inset-0 noise-texture opacity-50" />
-                <div className="relative">
-                  <div className="w-10 h-10 rounded-2xl bg-orange-500/10 flex items-center justify-center mb-5 group-hover:scale-110 transition-transform duration-300">
-                    <Target className="w-4 h-4 text-orange-400" strokeWidth={1.5} />
-                  </div>
-                  <h3 className="font-semibold text-lg mb-3 text-zinc-100">Bitcoin-First Retirement</h3>
-                  <p className="text-sm text-zinc-500 leading-relaxed font-light">Monte Carlo simulations that actually understand Bitcoin volatility. Model living off Bitcoin without selling it.</p>
-                </div>
-              </div>
-            </div>
+              );
+            })}
           </div>
         </div>
       </section>
