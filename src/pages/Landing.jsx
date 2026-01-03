@@ -338,67 +338,21 @@ export default function Landing() {
             <p className="text-zinc-500 text-lg font-light">Complete financial toolkit in one dashboard.</p>
           </div>
           
-          {/* Masonry-style grid with varied sizes */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 auto-rows-auto">
-            {/* Wider card */}
-            <div className="md:col-span-2 group p-8 rounded-3xl bg-gradient-to-br from-white/[0.02] to-transparent border-0 hover:from-white/[0.04] transition-all duration-500 relative overflow-hidden">
-              <div className="absolute inset-0 noise-texture opacity-40" />
-              <div className="relative">
-                <LayoutDashboard className="w-5 h-5 text-orange-400/80 mb-5" strokeWidth={1.5} />
-                <h3 className="font-semibold text-xl mb-2.5 text-zinc-100">Net Worth Dashboard</h3>
-                <p className="text-sm text-zinc-500 leading-relaxed font-light">All accounts in one view—Bitcoin, stocks, real estate, retirement accounts.</p>
-              </div>
-            </div>
-
-            {/* Regular card */}
-            <div className="group p-8 rounded-3xl bg-gradient-to-br from-white/[0.02] to-transparent border-0 hover:from-white/[0.04] transition-all duration-500 relative overflow-hidden">
-              <div className="absolute inset-0 noise-texture opacity-40" />
-              <div className="relative">
-                <Wallet className="w-5 h-5 text-orange-400/80 mb-5" strokeWidth={1.5} />
-                <h3 className="font-semibold text-xl mb-2.5 text-zinc-100">Cash Flow Tracking</h3>
-                <p className="text-sm text-zinc-500 leading-relaxed font-light">Income, expenses, and automatic savings calculations.</p>
-              </div>
-            </div>
-
-            {/* Regular card */}
-            <div className="group p-8 rounded-3xl bg-gradient-to-br from-white/[0.02] to-transparent border-0 hover:from-white/[0.04] transition-all duration-500 relative overflow-hidden">
-              <div className="absolute inset-0 noise-texture opacity-40" />
-              <div className="relative">
-                <Flag className="w-5 h-5 text-orange-400/80 mb-5" strokeWidth={1.5} />
-                <h3 className="font-semibold text-xl mb-2.5 text-zinc-100">Goal Planning</h3>
-                <p className="text-sm text-zinc-500 leading-relaxed font-light">Set targets, track progress, see projected completion dates.</p>
-              </div>
-            </div>
-
-            {/* Taller card */}
-            <div className="md:row-span-2 group p-8 rounded-3xl bg-gradient-to-br from-white/[0.02] to-transparent border-0 hover:from-white/[0.04] transition-all duration-500 relative overflow-hidden flex flex-col">
-              <div className="absolute inset-0 noise-texture opacity-40" />
-              <div className="relative flex-1 flex flex-col justify-center">
-                <DollarSign className="w-5 h-5 text-orange-400/80 mb-5" strokeWidth={1.5} />
-                <h3 className="font-semibold text-xl mb-2.5 text-zinc-100">Fee Analysis</h3>
-                <p className="text-sm text-zinc-500 leading-relaxed font-light">Compare exchange fees side-by-side.</p>
-              </div>
-            </div>
-
-            {/* Regular card */}
-            <div className="group p-8 rounded-3xl bg-gradient-to-br from-white/[0.02] to-transparent border-0 hover:from-white/[0.04] transition-all duration-500 relative overflow-hidden">
-              <div className="absolute inset-0 noise-texture opacity-40" />
-              <div className="relative">
-                <Shield className="w-5 h-5 text-orange-400/80 mb-5" strokeWidth={1.5} />
-                <h3 className="font-semibold text-xl mb-2.5 text-zinc-100">Estate Planning</h3>
-                <p className="text-sm text-zinc-500 leading-relaxed font-light">Inheritance protocols and beneficiary management.</p>
-              </div>
-            </div>
-
-            {/* Regular card */}
-            <div className="group p-8 rounded-3xl bg-gradient-to-br from-white/[0.02] to-transparent border-0 hover:from-white/[0.04] transition-all duration-500 relative overflow-hidden">
-              <div className="absolute inset-0 noise-texture opacity-40" />
-              <div className="relative">
-                <RefreshCw className="w-5 h-5 text-orange-400/80 mb-5" strokeWidth={1.5} />
-                <h3 className="font-semibold text-xl mb-2.5 text-zinc-100">Scenario Builder</h3>
-                <p className="text-sm text-zinc-500 leading-relaxed font-light">Compare different assumptions and strategies.</p>
-              </div>
-            </div>
+          {/* Clean 3x2 grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {features.map((item, i) => {
+              const Icon = item.icon;
+              return (
+                <div key={i} className="group p-8 rounded-3xl bg-gradient-to-br from-white/[0.02] to-transparent border-0 hover:from-white/[0.04] transition-all duration-500 relative overflow-hidden">
+                  <div className="absolute inset-0 noise-texture opacity-40" />
+                  <div className="relative">
+                    <Icon className="w-5 h-5 text-orange-400/80 mb-5" strokeWidth={1.5} />
+                    <h3 className="font-semibold text-xl mb-2.5 text-zinc-100">{item.title}</h3>
+                    <p className="text-sm text-zinc-500 leading-relaxed font-light">{item.description}</p>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
