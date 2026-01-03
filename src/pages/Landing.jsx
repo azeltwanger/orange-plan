@@ -308,15 +308,12 @@ export default function Landing() {
             {whyOrangePlan.map((item, i) => {
               const Icon = item.icon;
               return (
-                <div key={i} className="group p-8 rounded-3xl bg-gradient-to-br from-white/[0.03] to-transparent border-0 hover:from-white/[0.05] transition-all duration-500 relative overflow-hidden">
-                  <div className="absolute inset-0 noise-texture opacity-50" />
-                  <div className="relative">
-                    <div className="w-11 h-11 rounded-2xl bg-orange-500/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
-                      <Icon className="w-5 h-5 text-orange-400" strokeWidth={1.5} />
-                    </div>
-                    <h3 className="font-semibold text-xl mb-3 text-zinc-100">{item.title}</h3>
-                    <p className="text-sm text-zinc-500 leading-relaxed font-light">{item.description}</p>
+                <div key={i} className="group p-8 rounded-2xl bg-white/[0.03] border border-white/[0.05] hover:bg-white/[0.05] transition-colors duration-200">
+                  <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center mb-5">
+                    <Icon className="w-5 h-5 text-orange-400" strokeWidth={1.5} />
                   </div>
+                  <h3 className="font-semibold text-lg mb-2 text-zinc-100">{item.title}</h3>
+                  <p className="text-sm text-zinc-500 leading-relaxed">{item.description}</p>
                 </div>
               );
             })}
