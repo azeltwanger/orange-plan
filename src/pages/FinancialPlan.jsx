@@ -4084,7 +4084,7 @@ export default function FinancialPlan() {
                 <div className="space-y-2 text-sm">
                   <div className="flex items-start gap-2">
                     <span className="text-cyan-400">●</span>
-                    <p><span className="text-cyan-400">LTV ≤ 30%:</span> <span className="text-zinc-400">Excess collateral released (targets {btcReleaseTargetLtv || 40}% LTV)</span></p>
+                    <p><span className="text-cyan-400">LTV ≤ 30%:</span> <span className="text-zinc-400">Excess collateral released back to liquid (LTV brought up to {btcReleaseTargetLtv || 40}%)</span></p>
                   </div>
                   <div className="flex items-start gap-2">
                     <span className="text-amber-400">●</span>

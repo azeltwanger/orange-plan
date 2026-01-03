@@ -374,7 +374,7 @@ export default function Liabilities() {
                       max={50}
                       className="bg-zinc-900 border-zinc-700"
                     />
-                    <p className="text-[10px] text-zinc-500">When collateral releases, LTV targets this level (default: 40%)</p>
+                    <p className="text-[10px] text-zinc-500">After release is triggered (below 30% LTV), loan is brought back up to this level (default: 40%)</p>
                   </div>
                 </div>
               )}
@@ -394,7 +394,7 @@ export default function Liabilities() {
                       <li>• At <span className="text-rose-400">80% LTV</span>, lender sells collateral to pay off loan entirely</li>
                     </>
                   )}
-                  <li>• Collateral releases when LTV drops below <span className="text-purple-400">30%</span> (targets <span className="text-emerald-400">{releaseTargetLtv}%</span>)</li>
+                  <li>• When LTV drops below <span className="text-purple-400">30%</span>, excess collateral is released back to liquid (bringing LTV up to <span className="text-emerald-400">{releaseTargetLtv}%</span>)</li>
                 </ul>
               </div>
             </div>
