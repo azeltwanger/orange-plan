@@ -409,7 +409,7 @@ export default function EstateSecurity() {
   const totalOtherAssetsValue = otherAssets.reduce((sum, a) => sum + (a.asset_value || 0), 0);
 
   // Calculate total estate value (BTC + other manual assets + auto-synced holdings)
-  const totalBtcHoldingsValue = btcHoldings.reduce((sum, h) => sum + (h.quantity * (h.current_price || 0)), 0);
+  const totalBtcHoldingsValue = btcHoldings.reduce((sum, h) => sum + (h.quantity * currentPrice), 0);
   const totalNonBtcHoldingsValue = nonBtcHoldings.reduce((sum, h) => sum + (h.quantity * (h.current_price || 0)), 0);
   
   // Separate non-BTC holdings by asset type
