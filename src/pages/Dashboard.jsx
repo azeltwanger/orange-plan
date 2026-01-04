@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, RefreshCw, Pencil, Trash2, Bitcoin, Package, Building2, Upload } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import CsvImportDialog from '@/components/transactions/CsvImportDialog';
 import useAssetPrices from '@/components/shared/useAssetPrices';
 import { syncHoldingFromLots } from '@/components/shared/syncHoldings';
