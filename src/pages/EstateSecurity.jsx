@@ -411,6 +411,16 @@ export default function EstateSecurity() {
   // Calculate total estate value (BTC + other manual assets + auto-synced holdings)
   const totalBtcHoldingsValue = btcHoldings.reduce((sum, h) => sum + (h.quantity * (h.current_price || 0)), 0);
   const totalNonBtcHoldingsValue = nonBtcHoldings.reduce((sum, h) => sum + (h.quantity * (h.current_price || 0)), 0);
+  
+  // Separate non-BTC holdings by asset type
+  const stocksBondsHoldings = holdings.filter(h => h.ticker !== 'BTC' && (h.asset_type === 'stocks' || h.asset_type === 'bonds'));
+  const realEstateHoldings = holdings.filter(h => h.asset_type === 'real_estate');
+  const otherHoldings = holdings.filter(h => h.ticker !== 'BTC' && h.asset_type !== 'stocks' && h.asset_type !== 'bonds' && h.asset_type !== 'real_estate' && h.asset_type !== 'btc');
+  
+  const totalStocksBondsValue = stocksBondsHoldings.reduce((sum, h) => sum + (h.quantity * (h.current_price || 0)), 0);
+  const totalRealEstateValue = realEstateHoldings.reduce((sum, h) => sum + (h.quantity * (h.current_price || 0)), 0);
+  const totalOtherHoldingsValue = otherHoldings.reduce((sum, h) => sum + (h.quantity * (h.current_price || 0)), 0);
+  
   const totalHoldingsValue = totalBtcHoldingsValue + totalNonBtcHoldingsValue;
   const totalEstateValue = totalBtcHoldingsValue + totalOtherAssetsValue + totalNonBtcHoldingsValue;
 
