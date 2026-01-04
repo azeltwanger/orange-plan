@@ -1323,7 +1323,7 @@ export default function EstateSecurity() {
             {/* Estate Summary */}
             <div className="p-5 rounded-xl bg-orange-500/5 border border-orange-500/20 mb-6">
               <h4 className="font-semibold text-orange-400 mb-4">Estate Summary</h4>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
                 <div>
                   <p className="text-sm text-zinc-500">Bitcoin</p>
                   <p className="text-xl font-bold text-orange-400">{totalBtcHoldings.toFixed(4)} BTC</p>
@@ -1331,11 +1331,15 @@ export default function EstateSecurity() {
                 </div>
                 <div>
                   <p className="text-sm text-zinc-500">Stocks/Bonds</p>
-                  <p className="text-xl font-bold text-blue-400">${totalNonBtcHoldingsValue.toLocaleString()}</p>
+                  <p className="text-xl font-bold text-blue-400">${totalStocksBondsValue.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-zinc-500">Real Estate</p>
+                  <p className="text-xl font-bold text-purple-400">${totalRealEstateValue.toLocaleString()}</p>
                 </div>
                 <div>
                   <p className="text-sm text-zinc-500">Other Assets</p>
-                  <p className="text-xl font-bold text-emerald-400">${totalOtherAssetsValue.toLocaleString()}</p>
+                  <p className="text-xl font-bold text-emerald-400">${(totalOtherAssetsValue + totalOtherHoldingsValue).toLocaleString()}</p>
                 </div>
                 <div>
                   <p className="text-sm text-zinc-500">Total Net Worth</p>
