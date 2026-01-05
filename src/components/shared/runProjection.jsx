@@ -784,18 +784,19 @@ export function runUnifiedProjection({
         inflationRate: effectiveInflation / 100,
       });
 
-      withdrawFromTaxable = totalTaxEstimate.fromTaxable || 0;
-      withdrawFromTaxDeferred = rmdWithdrawn + (totalTaxEstimate.fromTaxDeferred || 0);
-      withdrawFromTaxFree = totalTaxEstimate.fromTaxFree || 0;
+      const requestedFromTaxable = totalTaxEstimate.fromTaxable || 0;
+      const requestedFromTaxDeferred = totalTaxEstimate.fromTaxDeferred || 0;
+      const requestedFromTaxFree = totalTaxEstimate.fromTaxFree || 0;
 
-      if (withdrawFromTaxable > 0 && getAccountTotal('taxable') > 0) {
+      if (requestedFromTaxable > 0 && getAccountTotal('taxable') > 0) {
         const basisRatio = runningTaxableBasis / getAccountTotal('taxable');
-        runningTaxableBasis = Math.max(0, runningTaxableBasis - (withdrawFromTaxable * basisRatio));
+        runningTaxableBasis = Math.max(0, runningTaxableBasis - (requestedFromTaxable * basisRatio));
       }
 
-      withdrawFromAccount('taxable', withdrawFromTaxable);
-      withdrawFromAccount('taxDeferred', totalTaxEstimate.fromTaxDeferred || 0);
-      withdrawFromAccount('taxFree', withdrawFromTaxFree);
+      withdrawFromTaxable = withdrawFromAccount('taxable', requestedFromTaxable);
+      const actualFromTaxDeferred = withdrawFromAccount('taxDeferred', requestedFromTaxDeferred);
+      withdrawFromTaxFree = withdrawFromAccount('taxFree', requestedFromTaxFree);
+      withdrawFromTaxDeferred = rmdWithdrawn + actualFromTaxDeferred;
 
       let totalWithdrawnFromAccounts = withdrawFromTaxable + withdrawFromTaxDeferred + withdrawFromTaxFree;
       let remainingShortfall = totalWithdrawalForTaxCalculation - totalWithdrawnFromAccounts;
