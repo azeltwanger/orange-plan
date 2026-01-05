@@ -1822,17 +1822,29 @@ export default function FinancialPlan() {
         // ========================================
         // IRS requires withdrawals from tax-deferred accounts starting age 73
         // RMD = Account Balance / IRS Life Expectancy Factor
+        // CRITICAL: RMDs MUST come from tax-deferred accounts - cannot be satisfied from taxable/Roth
         let rmdAmount = 0;
+        let rmdWithdrawn = 0;
         const taxDeferredBalanceForRMD = getAccountTotal('taxDeferred');
         if (currentAgeInYear >= RMD_START_AGE && taxDeferredBalanceForRMD > 0) {
           const rmdFactor = getRMDFactor(currentAgeInYear);
           if (rmdFactor > 0) {
             rmdAmount = taxDeferredBalanceForRMD / rmdFactor;
           }
-
-          // RMDs count as taxable income and must be taken regardless of spending needs
-          // If RMD > yearWithdrawal, we still need to take the full RMD
-          yearWithdrawal = Math.max(yearWithdrawal, rmdAmount);
+        }
+        
+        // Force RMD withdrawal from tax-deferred FIRST (IRS requirement)
+        // This must happen before normal withdrawal priority logic
+        if (rmdAmount > 0) {
+          const taxDeferredAvailable = getAccountTotal('taxDeferred');
+          rmdWithdrawn = Math.min(rmdAmount, taxDeferredAvailable);
+          
+          // Withdraw RMD directly from tax-deferred account
+          if (rmdWithdrawn > 0) {
+            withdrawFromAccount('taxDeferred', rmdWithdrawn);
+            // Track this for withdrawal breakdown
+            withdrawFromTaxDeferred = rmdWithdrawn;
+          }
         }
 
         // Dynamically calculate capital gains ratio based on current value vs cost basis
@@ -1867,11 +1879,11 @@ export default function FinancialPlan() {
         // For spending: use FULL Social Security income (user receives the entire benefit)
         const totalRetirementIncome = otherRetirementIncome + socialSecurityIncome;
         
-        // For tax calculations: use only TAXABLE portion of Social Security
-        const totalOtherIncomeForTax = otherRetirementIncome + taxableSocialSecurity;
+        // For tax calculations: use only TAXABLE portion of Social Security + RMD (RMD is ordinary income)
+        const totalOtherIncomeForTax = otherRetirementIncome + taxableSocialSecurity + rmdWithdrawn;
 
-        // Calculate federal tax on other income (pension + taxable SS) BEFORE withdrawals
-        // This ensures taxable SS income is properly taxed even when withdrawals are from tax-free accounts
+        // Calculate federal tax on other income (pension + taxable SS + RMD) BEFORE additional withdrawals
+        // RMD is taxed as ordinary income
         const federalTaxOnOtherIncome = calculateProgressiveIncomeTax(
           Math.max(0, totalOtherIncomeForTax - currentStandardDeduction),
           filingStatus,
@@ -1882,35 +1894,46 @@ export default function FinancialPlan() {
         // This ensures remainingShortfall > 0 when liquid can't cover needs, triggering RE liquidation
         retirementSpendingOnly = desiredWithdrawal;
 
-        // Reduce required withdrawal by FULL Social Security income (user receives entire benefit for spending)
-        const netSpendingNeed = Math.max(0, retirementSpendingOnly - totalRetirementIncome);
+        // Reduce required withdrawal by FULL Social Security income AND RMD already withdrawn
+        // RMD counts toward spending needs (user receives the cash)
+        const netSpendingNeed = Math.max(0, retirementSpendingOnly - totalRetirementIncome - rmdWithdrawn);
         
-        // Combine net spending (after SS) and goal withdrawal for tax estimation
+        // If RMD exceeds spending need, excess is reinvested in taxable (user must take RMD but can reinvest)
+        const excessRmd = Math.max(0, rmdWithdrawn - Math.max(0, retirementSpendingOnly - totalRetirementIncome));
+        if (excessRmd > 0) {
+          portfolio.taxable.cash += excessRmd;
+          // Adjust cost basis for the reinvested amount
+          runningTaxableBasis += excessRmd;
+        }
+        
+        // Combine net spending (after SS and RMD) and goal withdrawal for tax estimation
         totalWithdrawalForTaxCalculation = netSpendingNeed + yearGoalWithdrawal;
 
-        // Cap withdrawal to available balance
+        // Cap withdrawal to available balance (RMD already withdrawn, so check remaining liquid)
         const totalAvailableBalance = getTotalLiquid();
         const cappedWithdrawal = Math.min(totalWithdrawalForTaxCalculation, totalAvailableBalance);
 
-        // Use tax calculation utility for accurate withdrawal taxes
+        // Use tax calculation utility for accurate withdrawal taxes on REMAINING need (after RMD)
+        // RMD tax is already included in federalTaxOnOtherIncome above
         const taxEstimate = estimateRetirementWithdrawalTaxes({
           withdrawalNeeded: cappedWithdrawal,
           taxableBalance: getAccountTotal('taxable'),
-          taxDeferredBalance: getAccountTotal('taxDeferred'),
+          taxDeferredBalance: getAccountTotal('taxDeferred'), // Already reduced by RMD
           taxFreeBalance: getAccountTotal('taxFree'),
           rothContributions: totalRothContributions,
           taxableGainPercent: estimatedCurrentGainRatio,
           isLongTermGain: true,
           filingStatus,
           age: currentAgeInYear,
-          otherIncome: totalOtherIncomeForTax,
+          otherIncome: totalOtherIncomeForTax, // Includes RMD as income
           year: year,
           inflationRate: inflationRate / 100,
         });
 
         // Store initial withdrawal amounts (for spending only)
+        // Note: withdrawFromTaxDeferred already includes rmdWithdrawn from above
         const baseFromTaxable = taxEstimate.fromTaxable || 0;
-        const baseFromTaxDeferred = taxEstimate.fromTaxDeferred || 0;
+        const baseFromTaxDeferred = (taxEstimate.fromTaxDeferred || 0); // Additional beyond RMD
         const baseFromTaxFree = taxEstimate.fromTaxFree || 0;
         
         // Calculate state tax on retirement income AND withdrawal
@@ -1929,32 +1952,33 @@ export default function FinancialPlan() {
         
 
 
-        // Total taxes = federal tax on other income (pension + taxable SS) + federal tax on withdrawals + state tax
+        // Total taxes = federal tax on other income (pension + taxable SS + RMD) + federal tax on additional withdrawals + state tax
         taxesPaid = federalTaxOnOtherIncome + (taxEstimate.totalTax || 0) + stateTax;
         penaltyPaid = taxEstimate.totalPenalty || 0;
 
-        // Calculate total withdrawal needed (spending + taxes + penalty)
-        const totalNeededFromAccounts = cappedWithdrawal + taxesPaid + penaltyPaid;
+        // Calculate total additional withdrawal needed (spending + taxes + penalty) - RMD already withdrawn
+        const totalNeededFromAccounts = cappedWithdrawal + (taxEstimate.totalTax || 0) + stateTax + penaltyPaid;
         
-        // Re-estimate withdrawal sources for the TOTAL amount (spending + taxes)
+        // Re-estimate withdrawal sources for the TOTAL additional amount (spending + taxes beyond RMD)
         const totalTaxEstimate = estimateRetirementWithdrawalTaxes({
           withdrawalNeeded: totalNeededFromAccounts,
           taxableBalance: getAccountTotal('taxable'),
-          taxDeferredBalance: getAccountTotal('taxDeferred'),
+          taxDeferredBalance: getAccountTotal('taxDeferred'), // Already reduced by RMD
           taxFreeBalance: getAccountTotal('taxFree'),
           rothContributions: totalRothContributions,
           taxableGainPercent: estimatedCurrentGainRatio,
           isLongTermGain: true,
           filingStatus,
           age: currentAgeInYear,
-          otherIncome: totalOtherIncomeForTax,
+          otherIncome: totalOtherIncomeForTax, // Includes RMD
           year: year,
           inflationRate: inflationRate / 100,
         });
 
         // Use the withdrawal sources that cover BOTH spending AND taxes
+        // withdrawFromTaxDeferred already includes rmdWithdrawn, add any additional needed
         withdrawFromTaxable = totalTaxEstimate.fromTaxable || 0;
-        withdrawFromTaxDeferred = totalTaxEstimate.fromTaxDeferred || 0;
+        withdrawFromTaxDeferred = rmdWithdrawn + (totalTaxEstimate.fromTaxDeferred || 0);
         withdrawFromTaxFree = totalTaxEstimate.fromTaxFree || 0;
 
         // Adjust cost basis after taxable withdrawal
@@ -1983,8 +2007,9 @@ export default function FinancialPlan() {
           return actualWithdrawal;
         };
 
+        // Apply additional withdrawals (RMD already withdrawn above)
         withdrawFromAccount('taxable', withdrawFromTaxable);
-        withdrawFromAccount('taxDeferred', withdrawFromTaxDeferred);
+        withdrawFromAccount('taxDeferred', totalTaxEstimate.fromTaxDeferred || 0); // Only additional beyond RMD
         withdrawFromAccount('taxFree', withdrawFromTaxFree);
 
         // Calculate how much was withdrawn from tax-optimized approach
@@ -2310,6 +2335,9 @@ export default function FinancialPlan() {
             };
           });
         })(),
+        rmdAmount: Math.round(rmdAmount),
+        rmdWithdrawn: Math.round(rmdWithdrawn),
+        excessRmdReinvested: Math.round(excessRmd || 0),
         totalBtcLoanDebt: Math.round(Object.values(tempRunningDebt)
           .filter(l => l.type === 'btc_collateralized' && !l.paid_off)
           .reduce((sum, l) => sum + l.current_balance, 0)),
