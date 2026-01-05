@@ -4100,19 +4100,28 @@ export default function FinancialPlan() {
                     const allReleased = loans.length > 0 && loans.every(l => l.status === 'released');
                     const anyLiquidated = loans.some(l => l.status === 'liquidated');
                     const totalCollateralBtc = loans.reduce((sum, l) => sum + (l.collateralBtc || 0), 0);
+                    const hadReleaseEvent = s.data?.liquidations?.some(l => l.type === 'release');
                     
                     return (
                       <div key={idx} className="p-3 rounded-xl bg-zinc-800/50 border border-zinc-700/50">
                         <p className="text-xs text-zinc-500 mb-1">{s.label}</p>
-                        {allReleased ? (
-                          <p className="text-lg font-bold text-purple-400">✓ Released</p>
-                        ) : anyLiquidated ? (
-                          <p className="text-lg font-bold text-rose-400">✗ Liquidated</p>
-                        ) : (
-                          <p className={cn(
-                            "text-lg font-bold",
-                            avgLtv < 40 ? "text-emerald-400" : avgLtv < 60 ? "text-amber-400" : "text-rose-400"
-                          )}>{avgLtv}% LTV</p>
+                        {/* Always show LTV percentage - it's the key metric */}
+                        <p className={cn(
+                          "text-lg font-bold",
+                          anyLiquidated ? "text-rose-400" :
+                          avgLtv < 40 ? "text-emerald-400" : 
+                          avgLtv < 60 ? "text-amber-400" : 
+                          "text-rose-400"
+                        )}>
+                          {avgLtv}% LTV
+                          {anyLiquidated && <span className="text-xs ml-1">✗</span>}
+                        </p>
+                        {/* Show release/liquidation indicator separately */}
+                        {(allReleased || hadReleaseEvent) && !anyLiquidated && (
+                          <p className="text-[10px] text-purple-400 font-medium">✓ Collateral released</p>
+                        )}
+                        {anyLiquidated && (
+                          <p className="text-[10px] text-rose-400 font-medium">Liquidation occurred</p>
                         )}
                         <p className="text-[10px] text-zinc-500 mt-1">
                           Debt: ${(s.data?.totalBtcLoanDebt || 0).toLocaleString()}
