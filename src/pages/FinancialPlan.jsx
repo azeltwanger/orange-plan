@@ -677,7 +677,13 @@ export default function FinancialPlan() {
 
   // Penalty-free age for retirement accounts
   const PENALTY_FREE_AGE = 59.5;
-  const RMD_START_AGE = 73; // Required Minimum Distribution age
+  
+  // RMD start age based on birth year (SECURE Act 2.0)
+  const getRMDStartAge = (birthYear) => {
+    if (birthYear <= 1950) return 72;
+    if (birthYear <= 1959) return 73;
+    return 75; // 1960 or later
+  };
 
   // Calculate effective tax rates based on filing status
   const standardDeduction = STANDARD_DEDUCTION_2024[filingStatus] || STANDARD_DEDUCTION_2024.single;
@@ -834,6 +840,10 @@ export default function FinancialPlan() {
     const data = [];
     const currentYear = new Date().getFullYear();
     const currentMonth = new Date().getMonth(); // 0-11
+    
+    // Calculate birth year and RMD start age (SECURE Act 2.0)
+    const birthYear = currentYear - currentAge;
+    const rmdStartAge = getRMDStartAge(birthYear);
     
     // Pro-rata factor for Year 0 - only apply spending/income for remaining months
     const remainingMonthsThisYear = 12 - currentMonth; // Jan=12, Feb=11, ..., Dec=1
@@ -1830,11 +1840,12 @@ export default function FinancialPlan() {
         // ========================================
         // REQUIRED MINIMUM DISTRIBUTIONS (RMDs)
         // ========================================
-        // IRS requires withdrawals from tax-deferred accounts starting age 73
+        // IRS requires withdrawals from tax-deferred accounts (SECURE Act 2.0)
+        // Age 72 if born ≤1950, Age 73 if born 1951-1959, Age 75 if born ≥1960
         // RMD = Account Balance / IRS Life Expectancy Factor
         // CRITICAL: RMDs MUST come from tax-deferred accounts - cannot be satisfied from taxable/Roth
         const taxDeferredBalanceForRMD = getAccountTotal('taxDeferred');
-        if (currentAgeInYear >= RMD_START_AGE && taxDeferredBalanceForRMD > 0) {
+        if (currentAgeInYear >= rmdStartAge && taxDeferredBalanceForRMD > 0) {
           const rmdFactor = getRMDFactor(currentAgeInYear);
           if (rmdFactor > 0) {
             rmdAmount = taxDeferredBalanceForRMD / rmdFactor;
@@ -2326,6 +2337,7 @@ export default function FinancialPlan() {
         rmdAmount: Math.round(rmdAmount),
         rmdWithdrawn: Math.round(rmdWithdrawn),
         excessRmdReinvested: Math.round(excessRmd || 0),
+        rmdStartAge: rmdStartAge,
         totalBtcLoanDebt: Math.round(Object.values(tempRunningDebt)
           .filter(l => l.type === 'btc_collateralized' && !l.paid_off)
           .reduce((sum, l) => sum + l.current_balance, 0)),
@@ -4198,6 +4210,29 @@ export default function FinancialPlan() {
                 </p>
               </div>
             )}
+
+            {/* RMD Start Age Notice */}
+            <div className="mt-4 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+              <p className="text-sm text-blue-400 font-medium mb-1">
+                ℹ️ Required Minimum Distributions (RMDs)
+              </p>
+              <p className="text-sm text-zinc-300">
+                Based on your birth year ({currentYear - currentAge}), RMDs begin at age {(() => {
+                  const birthYear = currentYear - currentAge;
+                  return getRMDStartAge(birthYear);
+                })()}.
+                {(() => {
+                  const birthYear = currentYear - currentAge;
+                  const startAge = getRMDStartAge(birthYear);
+                  if (birthYear <= 1950) return " (Born 1950 or earlier)";
+                  if (birthYear <= 1959) return " (Born 1951-1959)";
+                  return " (Born 1960+, SECURE Act 2.0)";
+                })()}
+              </p>
+              <p className="text-xs text-zinc-500 mt-1">
+                RMDs are calculated from your total tax-deferred balance and are taxed as ordinary income. Excess RMDs (beyond spending needs) are reinvested in taxable accounts.
+              </p>
+            </div>
 
             {retirementAge < PENALTY_FREE_AGE && (() => {
                 const yearsUntilPenaltyFree = Math.ceil(PENALTY_FREE_AGE - retirementAge);
