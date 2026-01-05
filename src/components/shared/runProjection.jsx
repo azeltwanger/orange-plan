@@ -666,9 +666,9 @@ export function runUnifiedProjection({
           runningTaxableBasis = Math.max(0, runningTaxableBasis - (taxEstimate.fromTaxable * basisRatio));
         }
 
-        withdrawFromAccount('taxable', taxEstimate.fromTaxable);
-        withdrawFromAccount('taxDeferred', taxEstimate.fromTaxDeferred);
-        withdrawFromAccount('taxFree', taxEstimate.fromTaxFree);
+        withdrawFromTaxable = withdrawFromAccount('taxable', taxEstimate.fromTaxable || 0);
+        withdrawFromTaxDeferred = withdrawFromAccount('taxDeferred', taxEstimate.fromTaxDeferred || 0);
+        withdrawFromTaxFree = withdrawFromAccount('taxFree', taxEstimate.fromTaxFree || 0);
 
         if (getTotalPortfolio() <= 0) ranOutOfMoneyThisYear = true;
       } else if (yearSavings > 0) {
