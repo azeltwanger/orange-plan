@@ -22,7 +22,8 @@ export default function NetWorthCard({ totalAssets, totalLiabilities, btcHolding
 
   // Calculate Money-Weighted Return using XIRR
   const returnData = useMemo(() => {
-    const btcTxs = transactions.filter(t => t.asset_ticker === 'BTC');
+    // Filter out soft-deleted transactions (check both root and data.is_deleted)
+    const btcTxs = transactions.filter(t => t.asset_ticker === 'BTC' && t.is_deleted !== true && t.data?.is_deleted !== true);
     if (btcTxs.length === 0 || btcHoldings <= 0) return null;
 
     const now = new Date();

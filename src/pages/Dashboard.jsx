@@ -111,9 +111,9 @@ export default function Dashboard() {
   });
 
   // Get lot counts per ticker AND account type (key = "ticker|account_type")
-  // FILTER OUT soft-deleted transactions
+  // FILTER OUT soft-deleted transactions (check both root and data.is_deleted)
   const lotCountsByTickerAndAccount = transactions
-    .filter(t => t.type === 'buy' && t.is_deleted !== true)
+    .filter(t => t.type === 'buy' && t.is_deleted !== true && t.data?.is_deleted !== true)
     .reduce((acc, t) => {
       const accountType = t.account_type || 'taxable';
       const key = `${t.asset_ticker}|${accountType}`;

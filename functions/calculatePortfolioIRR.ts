@@ -130,8 +130,8 @@ Deno.serve(async (req) => {
     // Filter transactions with valid dates and exclude soft-deleted
     const validTransactions = transactions.filter(tx => {
       const date = parseDate(tx.date);
-      // Exclude soft-deleted transactions and those without valid dates
-      if (tx.is_deleted === true) return false;
+      // Exclude soft-deleted transactions (check both root and data.is_deleted)
+      if (tx.is_deleted === true || tx.data?.is_deleted === true) return false;
       return date !== null;
     });
     
