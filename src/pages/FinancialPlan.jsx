@@ -749,7 +749,7 @@ export default function FinancialPlan() {
   // Used for deriving earliestRetirementAge and maxSustainableSpending
   const runProjectionForRetirementAge = useCallback((testRetirementAge, testSpending = null) => {
     const spendingToUse = testSpending !== null ? testSpending : retirementAnnualSpending;
-    const DEBUG = false; // Set to true to enable console logging
+    const DEBUG = true; // Set to true to enable console logging
     
     if (DEBUG) console.log('=== Testing Retirement Age:', testRetirementAge, '===');
     if (DEBUG) console.log('Spending to use:', spendingToUse);
@@ -898,8 +898,9 @@ export default function FinancialPlan() {
         const estimatedTaxRate = 0.20; // Combined federal + state estimate
         const grossWithdrawalNeeded = netSpendingNeed > 0 ? netSpendingNeed / (1 - estimatedTaxRate) : 0;
         
-        if (DEBUG && age % 5 === 0) {
-          console.log(`Age ${age}: Portfolio=$${Math.round(getTotalPortfolio())}, Spending=$${Math.round(inflatedSpending)}, SS=$${Math.round(ssIncome)}, NetNeed=$${Math.round(netSpendingNeed)}, GrossWithdraw=$${Math.round(grossWithdrawalNeeded)}`);
+        if (DEBUG && (age % 5 === 0 || age === testRetirementAge || getTotalPortfolio() < 1000000)) {
+          console.log(`Age ${age}: Portfolio=$${Math.round(getTotalPortfolio())}, Taxable=$${Math.round(getAccountTotal('taxable'))}, TaxDeferred=$${Math.round(getAccountTotal('taxDeferred'))}, TaxFree=$${Math.round(getAccountTotal('taxFree'))}, RE=$${Math.round(portfolio.realEstate)}`);
+          console.log(`  Spending=$${Math.round(inflatedSpending)}, SS=$${Math.round(ssIncome)}, OtherInc=$${Math.round(inflatedOtherIncome)}, RMD=$${Math.round(rmdWithdrawn)}, NetNeed=$${Math.round(netSpendingNeed)}, GrossWithdraw=$${Math.round(grossWithdrawalNeeded)}`);
         }
         
         if (grossWithdrawalNeeded > 0) {
