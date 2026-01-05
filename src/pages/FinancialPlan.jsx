@@ -2577,18 +2577,24 @@ export default function FinancialPlan() {
       return {
         type: 'on_track',
         title: 'Nearly On Track',
-        description: `Close to target! Earliest retirement: Age ${earliestRetirementAge} (${gap} years from target).`,
+        description: `Close to target! Earliest retirement: Age ${earliestRetirementAge} (${gap} year${gap !== 1 ? 's' : ''} from target).`,
+        icon: <TrendingUp className="w-5 h-5" />
+      };
+    } else if (gap === 0) {
+      // Exactly on target
+      return {
+        type: 'on_track',
+        title: 'On Track!',
+        description: `Your target retirement at Age ${retirementAge} is achievable.`,
         icon: <TrendingUp className="w-5 h-5" />
       };
     } else {
-      // gap <= 0 means can retire at or before target age
+      // gap < 0 means can retire before target age
       const yearsEarly = Math.abs(gap);
       return {
         type: 'optimistic',
         title: 'Ahead of Schedule!',
-        description: yearsEarly > 0
-          ? `You can retire ${yearsEarly} year${yearsEarly !== 1 ? 's' : ''} earlier at Age ${earliestRetirementAge}.`
-          : `On track to retire at Age ${retirementAge} as planned.`,
+        description: `You can retire ${yearsEarly} year${yearsEarly !== 1 ? 's' : ''} earlier at Age ${earliestRetirementAge}.`,
         icon: <Sparkles className="w-5 h-5" />
       };
     }
