@@ -56,9 +56,10 @@ export default function AccountGroup({ account, holdings, getPrice, onEditHoldin
     const value = holding.quantity * getPrice(holding.ticker);
     
     // Get cost basis from transactions for this holding/account combo
-    // FILTER OUT soft-deleted transactions
+    // FILTER OUT soft-deleted transactions (check both root and data.is_deleted)
     const holdingTxs = transactions.filter(t => 
       t.is_deleted !== true &&
+      t.data?.is_deleted !== true &&
       t.asset_ticker === holding.ticker && 
       (t.account_id === holding.account_id || (!t.account_id && !holding.account_id))
     );
