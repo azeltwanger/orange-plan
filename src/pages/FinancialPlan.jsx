@@ -3002,11 +3002,13 @@ export default function FinancialPlan() {
                   )}
                 </div>
                 <p className="text-sm text-zinc-400 mt-2">
-                  {earliestRetirementAge && earliestRetirementAge <= retirementAge
-                    ? `You can retire ${retirementAge - earliestRetirementAge} years earlier than your target!`
-                    : earliestRetirementAge
-                      ? `Your target age ${retirementAge} is ${earliestRetirementAge - retirementAge} years too early based on current trajectory.`
-                      : "Increase savings or reduce spending to retire."}
+                  {earliestRetirementAge === null
+                    ? "Increase savings or reduce spending to retire."
+                    : earliestRetirementAge < retirementAge
+                      ? `You can retire ${retirementAge - earliestRetirementAge} year${retirementAge - earliestRetirementAge !== 1 ? 's' : ''} earlier than your target!`
+                      : earliestRetirementAge === retirementAge
+                        ? `Your target retirement at Age ${retirementAge} is achievable.`
+                        : `Your target age ${retirementAge} is ${earliestRetirementAge - retirementAge} year${earliestRetirementAge - retirementAge !== 1 ? 's' : ''} too early based on current trajectory.`}
                 </p>
               </div>
               <div className="flex flex-col gap-2 text-sm">
