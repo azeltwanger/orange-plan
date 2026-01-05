@@ -2600,7 +2600,7 @@ export default function FinancialPlan() {
     if (total <= 0) return null;
     
     // Binary search for earliest sustainable retirement age
-    let low = currentAge + 1;
+    let low = currentAge;  // Include current age (can I retire NOW?)
     let high = lifeExpectancy - 5;
     let earliest = null;
     
