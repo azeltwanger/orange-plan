@@ -980,6 +980,9 @@ export default function FinancialPlan() {
       const year = currentYear + i;
       const age = currentAge + i;
       let socialSecurityIncome = 0; // Initialize at top of loop so it's accessible in data.push()
+      let rmdAmount = 0; // Initialize RMD variables at top of loop
+      let rmdWithdrawn = 0;
+      let excessRmd = 0;
 
       // ========================================
       // PORTFOLIO INITIALIZATION & GROWTH
@@ -1823,8 +1826,6 @@ export default function FinancialPlan() {
         // IRS requires withdrawals from tax-deferred accounts starting age 73
         // RMD = Account Balance / IRS Life Expectancy Factor
         // CRITICAL: RMDs MUST come from tax-deferred accounts - cannot be satisfied from taxable/Roth
-        let rmdAmount = 0;
-        let rmdWithdrawn = 0;
         const taxDeferredBalanceForRMD = getAccountTotal('taxDeferred');
         if (currentAgeInYear >= RMD_START_AGE && taxDeferredBalanceForRMD > 0) {
           const rmdFactor = getRMDFactor(currentAgeInYear);
@@ -1899,7 +1900,7 @@ export default function FinancialPlan() {
         const netSpendingNeed = Math.max(0, retirementSpendingOnly - totalRetirementIncome - rmdWithdrawn);
         
         // If RMD exceeds spending need, excess is reinvested in taxable (user must take RMD but can reinvest)
-        const excessRmd = Math.max(0, rmdWithdrawn - Math.max(0, retirementSpendingOnly - totalRetirementIncome));
+        excessRmd = Math.max(0, rmdWithdrawn - Math.max(0, retirementSpendingOnly - totalRetirementIncome));
         if (excessRmd > 0) {
           portfolio.taxable.cash += excessRmd;
           // Adjust cost basis for the reinvested amount
