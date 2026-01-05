@@ -806,7 +806,9 @@ export default function FinancialPlan() {
     return result;
   }, [holdings, accounts, liabilities, collateralizedLoans, currentPrice, currentAge, lifeExpectancy, 
       retirementAnnualSpending, effectiveSocialSecurity, socialSecurityStartAge, otherRetirementIncome,
-      annualSavings, incomeGrowth, getBtcGrowthRate, effectiveInflation, effectiveStocksCagr, bondsCagr, 
+      annualSavings, incomeGrowth, grossAnnualIncome, currentAnnualSpending, filingStatus, stateOfResidence,
+      contribution401k, employer401kMatch, contributionRothIRA, contributionHSA, hsaFamilyCoverage,
+      getBtcGrowthRate, effectiveInflation, effectiveStocksCagr, bondsCagr, 
       realEstateCagr, cashCagr, otherCagr, savingsAllocationBtc, savingsAllocationStocks, savingsAllocationBonds,
       savingsAllocationCash, savingsAllocationOther, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv,
       btcReleaseTargetLtv, goals, lifeEvents, getTaxTreatmentFromHolding]);
