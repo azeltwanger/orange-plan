@@ -602,38 +602,45 @@ export default function FinancialPlan() {
 
   // Helper to determine tax treatment from account_type or tax_treatment field
   const getTaxTreatmentFromHolding = (h) => {
-    // Get account_type from holding, or look it up from linked account
-    let accountType = h.account_type || '';
-    
-    // If no account_type on holding but has account_id, try to get it from accounts
-    if (!accountType && h.account_id && accounts?.length > 0) {
-      const linkedAccount = accounts.find(a => a.id === h.account_id);
-      if (linkedAccount?.account_type) {
-        accountType = linkedAccount.account_type;
+    // If holding is linked to an account, ALWAYS derive from account (ignore holding's tax_treatment)
+    if (h.account_id && accounts?.length > 0) {
+      const account = accounts.find(a => a.id === h.account_id);
+      if (account) {
+        const accountType = account.account_type || '';
+        
+        // Real estate accounts
+        if (accountType === 'taxable_real_estate' || account.tax_treatment === 'real_estate') {
+          return 'real_estate';
+        }
+        
+        // Tax-deferred: Traditional 401k, IRA, etc (support both naming conventions)
+        if (['traditional_401k', 'traditional_ira', 'sep_ira', '403b', 
+             '401k_traditional', 'ira_traditional'].includes(accountType)) {
+          return 'tax_deferred';
+        }
+        
+        // Tax-free: Roth accounts, HSA, 529 (support both naming conventions)
+        if (['roth_401k', 'roth_ira', 'hsa', '529',
+             '401k_roth', 'ira_roth'].includes(accountType)) {
+          return 'tax_free';
+        }
+        
+        // Use account's explicit tax_treatment if set
+        if (account.tax_treatment) {
+          return account.tax_treatment;
+        }
       }
     }
     
+    // No account linked - use holding's own fields (standalone holding)
     const assetType = h.asset_type || '';
-    
-    // Real estate is illiquid - treated separately
-    if (assetType === 'real_estate' || accountType === 'taxable_real_estate') {
+    if (assetType === 'real_estate') {
       return 'real_estate';
     }
     
-    // Tax-deferred: Traditional 401k, IRA, etc (support both naming conventions)
-    if (['traditional_401k', 'traditional_ira', 'sep_ira', '403b', 
-         '401k_traditional', 'ira_traditional'].includes(accountType)) {
-      return 'tax_deferred';
+    if (h.tax_treatment) {
+      return h.tax_treatment;
     }
-    
-    // Tax-free: Roth accounts, HSA, 529 (support both naming conventions)
-    if (['roth_401k', 'roth_ira', 'hsa', '529',
-         '401k_roth', 'ira_roth'].includes(accountType)) {
-      return 'tax_free';
-    }
-    
-    // For non-retirement accounts, use explicit tax_treatment if set
-    if (h.tax_treatment) return h.tax_treatment;
     
     // Default to taxable
     return 'taxable';
