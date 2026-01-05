@@ -363,27 +363,6 @@ export default function FinancialPlan() {
 
   const currentPrice = btcPrice || 97000;
   
-  // Calculate portfolio values by tax treatment
-  const getHoldingValue = (h) => h.ticker === 'BTC' ? h.quantity * currentPrice : h.quantity * (h.current_price || 0);
-
-  // Helper to determine tax treatment from account_type or tax_treatment field
-  const getTaxTreatmentFromHolding = (h) => {
-    if (h.account_id && accounts?.length > 0) {
-      const account = accounts.find(a => a.id === h.account_id);
-      if (account) {
-        const accountType = account.account_type || '';
-        if (accountType === 'taxable_real_estate' || account.tax_treatment === 'real_estate') return 'real_estate';
-        if (['traditional_401k', 'traditional_ira', 'sep_ira', '403b', '401k_traditional', 'ira_traditional'].includes(accountType)) return 'tax_deferred';
-        if (['roth_401k', 'roth_ira', 'hsa', '529', '401k_roth', 'ira_roth'].includes(accountType)) return 'tax_free';
-        if (account.tax_treatment) return account.tax_treatment;
-      }
-    }
-    const assetType = h.asset_type || '';
-    if (assetType === 'real_estate') return 'real_estate';
-    if (h.tax_treatment) return h.tax_treatment;
-    return 'taxable';
-  };
-
   // Queries
   const { data: holdings = [] } = useQuery({
     queryKey: ['holdings'],
