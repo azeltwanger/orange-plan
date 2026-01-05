@@ -167,7 +167,10 @@ export function runUnifiedProjection({
   let firstDepletionAge = null;
   const birthYear = currentYear - currentAge;
   const rmdStartAge = birthYear <= 1950 ? 72 : birthYear <= 1959 ? 73 : 75;
+  const PENALTY_FREE_AGE = 59.5;
   let cumulativeBtcPrice = currentPrice;
+  let cumulativeSavings = 0;
+  const liquidationEvents = [];
 
   // Initialize debt tracking
   const tempRunningDebt = {};
