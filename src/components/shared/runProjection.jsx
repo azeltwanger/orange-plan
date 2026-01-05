@@ -222,7 +222,8 @@ export function runUnifiedProjection({
   let runningTaxableBasis = initialTaxableCostBasis;
 
   // Get standard deduction
-  const { standardDeductions } = getTaxConfigForYear(currentYear);
+  const taxConfigForYear = getTaxConfigForYear(currentYear);
+  const standardDeductions = taxConfigForYear?.standardDeduction || { single: 15000, married: 30000 };
   const currentStandardDeduction = standardDeductions[filingStatus] || standardDeductions.single;
 
   // Main projection loop
