@@ -746,9 +746,64 @@ export default function FinancialPlan() {
     return `$${num.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
   };
 
-  // Reusable projection function that mirrors the main projection logic
-  // Used for deriving earliestRetirementAge and maxSustainableSpending
+  // Reusable projection function using unified projection engine
   const runProjectionForRetirementAge = useCallback((testRetirementAge, testSpending = null) => {
+    const spendingToUse = testSpending !== null ? testSpending : retirementAnnualSpending;
+    
+    const result = runUnifiedProjection({
+      holdings,
+      accounts,
+      liabilities,
+      collateralizedLoans,
+      currentPrice,
+      currentAge,
+      retirementAge: testRetirementAge,
+      lifeExpectancy,
+      retirementAnnualSpending: spendingToUse,
+      effectiveSocialSecurity,
+      socialSecurityStartAge,
+      otherRetirementIncome,
+      annualSavings,
+      incomeGrowth,
+      getBtcGrowthRate,
+      effectiveInflation,
+      effectiveStocksCagr,
+      bondsCagr,
+      realEstateCagr,
+      cashCagr,
+      otherCagr,
+      savingsAllocationBtc,
+      savingsAllocationStocks,
+      savingsAllocationBonds,
+      savingsAllocationCash,
+      savingsAllocationOther,
+      autoTopUpBtcCollateral,
+      btcTopUpTriggerLtv,
+      btcTopUpTargetLtv,
+      btcReleaseTargetLtv,
+      goals,
+      lifeEvents,
+      getTaxTreatmentFromHolding,
+      DEBUG: false,
+    });
+    
+    console.log("RETIRE_UNIFIED", { 
+      testAge: testRetirementAge, 
+      survives: result.survives, 
+      depletionAge: result.depleteAge,
+      finalPortfolio: Math.round(result.finalPortfolio)
+    });
+    
+    return result;
+  }, [holdings, accounts, liabilities, collateralizedLoans, currentPrice, currentAge, lifeExpectancy, 
+      retirementAnnualSpending, effectiveSocialSecurity, socialSecurityStartAge, otherRetirementIncome,
+      annualSavings, incomeGrowth, getBtcGrowthRate, effectiveInflation, effectiveStocksCagr, bondsCagr, 
+      realEstateCagr, cashCagr, otherCagr, savingsAllocationBtc, savingsAllocationStocks, savingsAllocationBonds,
+      savingsAllocationCash, savingsAllocationOther, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv,
+      btcReleaseTargetLtv, goals, lifeEvents, getTaxTreatmentFromHolding]);
+
+  // OLD IMPLEMENTATION REMOVED - now uses runUnifiedProjection
+  const OLD_runProjectionForRetirementAge_REMOVED = useCallback((testRetirementAge, testSpending = null) => {
     const spendingToUse = testSpending !== null ? testSpending : retirementAnnualSpending;
     const DEBUG = true; // Set to true to enable console logging
     
