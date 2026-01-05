@@ -799,7 +799,23 @@ export function runUnifiedProjection({
       withdrawFromTaxDeferred = rmdWithdrawn + actualFromTaxDeferred;
 
       let totalWithdrawnFromAccounts = withdrawFromTaxable + withdrawFromTaxDeferred + withdrawFromTaxFree;
-      let remainingShortfall = totalWithdrawalForTaxCalculation - totalWithdrawnFromAccounts;
+      
+      // CRITICAL: Calculate shortfall against FULL need (spending + taxes), not capped amount
+      // This ensures we tap real estate when liquid assets aren't enough
+      const fullWithdrawalNeed = totalWithdrawalForTaxCalculation + (taxEstimate.totalTax || 0) + stateTax + penaltyPaid;
+      let remainingShortfall = fullWithdrawalNeed - totalWithdrawnFromAccounts;
+      
+      if (DEBUG || remainingShortfall > 1000) {
+        console.log("SHORTFALL_CALC", {
+          age,
+          fullNeed: fullWithdrawalNeed,
+          totalWithdrawn: totalWithdrawnFromAccounts,
+          remainingShortfall,
+          liquidAvailable: getTotalLiquid(),
+          realEstate: portfolio.realEstate,
+          willTriggerRE: remainingShortfall > 0 && portfolio.realEstate > 0
+        });
+      }
       
       // Force additional withdrawals if shortfall
       if (remainingShortfall > 0) {
