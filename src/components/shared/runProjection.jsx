@@ -799,23 +799,7 @@ export function runUnifiedProjection({
       withdrawFromTaxDeferred = rmdWithdrawn + actualFromTaxDeferred;
 
       let totalWithdrawnFromAccounts = withdrawFromTaxable + withdrawFromTaxDeferred + withdrawFromTaxFree;
-      
-      // CRITICAL: remainingShortfall must be based on ORIGINAL spending need, not capped withdrawal
-      // Otherwise when liquid assets are exhausted, we never trigger real estate liquidation
-      const originalSpendingNeed = netSpendingNeed + yearGoalWithdrawal;
-      let remainingShortfall = originalSpendingNeed - totalWithdrawnFromAccounts;
-      
-      console.log("RE_LIQUIDATION_CHECK", { 
-        age, 
-        originalSpendingNeed,
-        totalWithdrawalForTaxCalculation,
-        cappedWithdrawal,
-        totalWithdrawnFromAccounts,
-        remainingShortfall, 
-        realEstate: portfolio.realEstate,
-        liquidAssets: getTotalLiquid(),
-        willTriggerRE: remainingShortfall > 0 && portfolio.realEstate > 0 
-      });
+      let remainingShortfall = totalWithdrawalForTaxCalculation - totalWithdrawnFromAccounts;
       
       // Force additional withdrawals if shortfall
       if (remainingShortfall > 0) {
