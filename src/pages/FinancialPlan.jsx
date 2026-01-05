@@ -1028,15 +1028,9 @@ export default function FinancialPlan() {
       }
     }
     
-    const finalResult = { survives: true, finalPortfolio: getTotalPortfolio(), depleteAge: null };
-    console.log("RETIRE_DEBUG", { testAge: testRetirementAge, survives: true, depletionAge: null, finalPortfolio: Math.round(getTotalPortfolio()) });
-    return finalResult;
-  }, [holdings, currentAge, lifeExpectancy, retirementAnnualSpending, effectiveSocialSecurity, 
-      socialSecurityStartAge, effectiveInflation, annualSavings, incomeGrowth, currentPrice,
-      getBtcGrowthRate, effectiveStocksCagr, bondsCagr, realEstateCagr, cashCagr, otherCagr,
-      savingsAllocationBtc, savingsAllocationStocks, savingsAllocationBonds, savingsAllocationCash, 
-      savingsAllocationOther, liabilities, collateralizedLoans, otherRetirementIncome,
-      getTaxTreatmentFromHolding]);
+    // OLD CODE - keeping structure to avoid breaking dependencies
+    return { survives: true, finalPortfolio: 0, depleteAge: null };
+  }, []);
 
   // Generate projection data with dynamic withdrawal based on portfolio growth and account types
   const projections = useMemo(() => {
