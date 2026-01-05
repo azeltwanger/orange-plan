@@ -111,8 +111,9 @@ export default function Dashboard() {
   });
 
   // Get lot counts per ticker AND account type (key = "ticker|account_type")
+  // FILTER OUT soft-deleted transactions
   const lotCountsByTickerAndAccount = transactions
-    .filter(t => t.type === 'buy')
+    .filter(t => t.type === 'buy' && t.is_deleted !== true)
     .reduce((acc, t) => {
       const accountType = t.account_type || 'taxable';
       const key = `${t.asset_ticker}|${accountType}`;
@@ -171,10 +172,11 @@ export default function Dashboard() {
 
   const deleteHolding = useMutation({
     mutationFn: async (holding) => {
-      // Delete all transactions for this ticker and account_id
+      // Delete ALL transactions for this ticker AND account_id, OR by holding_id
       const relatedTransactions = transactions.filter(t => 
-        t.asset_ticker === holding.ticker && 
-        (holding.account_id ? t.account_id === holding.account_id : !t.account_id)
+        t.holding_id === holding.id ||
+        (t.asset_ticker === holding.ticker && 
+         (holding.account_id ? t.account_id === holding.account_id : !t.account_id))
       );
       
       // Delete all related transactions
@@ -188,6 +190,8 @@ export default function Dashboard() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['holdings'] });
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['portfolioIRR'] });
+      queryClient.invalidateQueries({ queryKey: ['performance'] });
     },
     onError: (error) => {
       alert('Failed to delete holding. Please try again.');
