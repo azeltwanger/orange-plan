@@ -58,56 +58,48 @@ export default function EditAccountDialog({ open, onClose, account }) {
 
   const deleteAccount = useMutation({
     mutationFn: async () => {
-      console.log("=== DELETING ACCOUNT AND ALL DATA ===", account.id, account.name);
-      
-      // Get associated holdings
+      // Get associated holdings for this account
       const allHoldings = await base44.entities.Holding.list();
       const accountHoldings = allHoldings.filter(h => h.account_id === account.id);
-      console.log(`Found ${accountHoldings.length} holdings to delete`);
+      const holdingIds = accountHoldings.map(h => h.id);
       
-      // Get associated transactions (both buys and sells)
+      // Get ALL related transactions - by account_id OR by holding_id (catches orphans)
       const allTransactions = await base44.entities.Transaction.list();
-      const accountTransactions = allTransactions.filter(t => t.account_id === account.id);
-      console.log(`Found ${accountTransactions.length} transactions to delete`);
+      const relatedTransactions = allTransactions.filter(t => 
+        t.account_id === account.id || 
+        holdingIds.includes(t.holding_id)
+      );
       
-      // Delete holdings first
+      // Delete transactions first (in batches)
+      const batchSize = 20;
+      for (let i = 0; i < relatedTransactions.length; i += batchSize) {
+        const batch = relatedTransactions.slice(i, i + batchSize);
+        await Promise.all(batch.map(t => base44.entities.Transaction.delete(t.id)));
+        if (i + batchSize < relatedTransactions.length) {
+          await new Promise(resolve => setTimeout(resolve, 300));
+        }
+      }
+      
+      // Delete holdings
       for (const h of accountHoldings) {
         await base44.entities.Holding.delete(h.id);
       }
-      console.log(`✅ Deleted ${accountHoldings.length} holdings`);
       
-      // Delete transactions in batches to avoid rate limits
-      const batchSize = 20;
-      for (let i = 0; i < accountTransactions.length; i += batchSize) {
-        const batch = accountTransactions.slice(i, i + batchSize);
-        
-        await Promise.all(batch.map(t => 
-          base44.entities.Transaction.delete(t.id)
-        ));
-        
-        console.log(`Deleted transactions ${i + 1} to ${Math.min(i + batchSize, accountTransactions.length)} of ${accountTransactions.length}`);
-        
-        // Delay between batches to avoid rate limits
-        if (i + batchSize < accountTransactions.length) {
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
-      }
-      console.log(`✅ Deleted ${accountTransactions.length} transactions`);
-      
-      // Now delete the account
+      // Delete the account
       await base44.entities.Account.delete(account.id);
-      console.log("✅ Account deleted");
       
       return true;
     },
     onSuccess: () => {
+      // Invalidate ALL relevant caches
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
       queryClient.invalidateQueries({ queryKey: ['holdings'] });
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['portfolioIRR'] });
+      queryClient.invalidateQueries({ queryKey: ['performance'] });
       onClose();
     },
     onError: (error) => {
-      console.error("Delete failed:", error);
       alert("Delete failed: " + error.message);
     }
   });
