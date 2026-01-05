@@ -425,32 +425,6 @@ export default function FinancialPlan() {
     queryFn: () => base44.entities.UserSettings.list(),
   });
 
-  // Calculate portfolio values by asset type
-  const taxableHoldings = holdings.filter(h => getTaxTreatmentFromHolding(h) === 'taxable');
-  const taxableValue = taxableHoldings.reduce((sum, h) => sum + getHoldingValue(h), 0);
-  const taxableLiquidHoldings = taxableHoldings;
-  const taxableLiquidValue = taxableValue;
-  const taxDeferredHoldings = holdings.filter(h => getTaxTreatmentFromHolding(h) === 'tax_deferred');
-  const taxDeferredValue = taxDeferredHoldings.reduce((sum, h) => sum + getHoldingValue(h), 0);
-  const taxFreeHoldings = holdings.filter(h => getTaxTreatmentFromHolding(h) === 'tax_free');
-  const taxFreeValue = taxFreeHoldings.reduce((sum, h) => sum + getHoldingValue(h), 0);
-  const realEstateHoldings = holdings.filter(h => getTaxTreatmentFromHolding(h) === 'real_estate');
-  const realEstateAccountValue = realEstateHoldings.reduce((sum, h) => sum + getHoldingValue(h), 0);
-  const btcValue = holdings.filter(h => h.ticker === 'BTC').reduce((sum, h) => sum + h.quantity * currentPrice, 0);
-  const stocksValue = holdings.filter(h => h.asset_type === 'stocks').reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
-  const realEstateValue = holdings.filter(h => h.asset_type === 'real_estate').reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
-  const bondsValue = holdings.filter(h => h.asset_type === 'bonds').reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
-  const cashValue = holdings.filter(h => h.asset_type === 'cash').reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
-  const otherValue = holdings.filter(h => !['BTC'].includes(h.ticker) && !['stocks', 'real_estate', 'bonds', 'cash', 'btc', 'crypto'].includes(h.asset_type)).reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
-  
-  const PENALTY_FREE_AGE = 59.5;
-  const getRMDStartAge = (birthYear) => {
-    if (birthYear <= 1950) return 72;
-    if (birthYear <= 1959) return 73;
-    return 75;
-  };
-  const standardDeduction = STANDARD_DEDUCTION_2024[filingStatus] || STANDARD_DEDUCTION_2024.single;
-
   // Load settings from UserSettings entity
   useEffect(() => {
     if (userSettings.length > 0 && !settingsLoaded) {
