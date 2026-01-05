@@ -751,8 +751,16 @@ export default function FinancialPlan() {
     const spendingToUse = testSpending !== null ? testSpending : retirementAnnualSpending;
     const DEBUG = true; // Set to true to enable console logging
     
-    if (DEBUG) console.log('=== Testing Retirement Age:', testRetirementAge, '===');
-    if (DEBUG) console.log('Spending to use:', spendingToUse);
+    if (DEBUG) {
+      console.log('=== runProjectionForRetirementAge ===');
+      console.log('Testing retirement age:', testRetirementAge);
+      console.log('Spending to use:', spendingToUse);
+      console.log('Life expectancy:', lifeExpectancy);
+      console.log('Current age:', currentAge);
+      console.log('SS amount:', effectiveSocialSecurity, 'starts at age:', socialSecurityStartAge);
+      console.log('Other retirement income:', otherRetirementIncome);
+      console.log('Inflation:', effectiveInflation);
+    }
     
     // Initialize portfolio structure from current holdings (same as main projection)
     const portfolio = {
@@ -808,7 +816,15 @@ export default function FinancialPlan() {
       return getTotalLiquid() + portfolio.realEstate;
     };
     
-    if (DEBUG) console.log('Starting Portfolio:', Math.round(getTotalPortfolio()));
+    if (DEBUG) {
+      console.log('Starting Portfolio:', Math.round(getTotalPortfolio()));
+      console.log('Portfolio breakdown:', JSON.stringify({
+        taxable: Math.round(getAccountTotal('taxable')),
+        taxDeferred: Math.round(getAccountTotal('taxDeferred')),
+        taxFree: Math.round(getAccountTotal('taxFree')),
+        realEstate: Math.round(portfolio.realEstate)
+      }));
+    }
     
     // Withdraw from account proportionally (same as main projection)
     const withdrawFromAccount = (accountKey, amount) => {
@@ -956,8 +972,9 @@ export default function FinancialPlan() {
       }
     }
     
-    if (DEBUG) console.log('Result: survives=true, finalPortfolio=', Math.round(getTotalPortfolio()));
-    return { survives: true, finalPortfolio: getTotalPortfolio(), depleteAge: null };
+    const finalResult = { survives: true, finalPortfolio: getTotalPortfolio(), depleteAge: null };
+    if (DEBUG) console.log('Final result:', finalResult);
+    return finalResult;
   }, [holdings, currentAge, lifeExpectancy, retirementAnnualSpending, effectiveSocialSecurity, 
       socialSecurityStartAge, effectiveInflation, annualSavings, incomeGrowth, currentPrice,
       getBtcGrowthRate, effectiveStocksCagr, bondsCagr, realEstateCagr, cashCagr, otherCagr,
