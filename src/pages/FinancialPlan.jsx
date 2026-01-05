@@ -3020,6 +3020,12 @@ export default function FinancialPlan() {
                           ? `Your target retirement at Age ${retirementAge} is achievable.`
                           : `Your target age ${retirementAge} is ${earliestRetirementAge - retirementAge} year${earliestRetirementAge - retirementAge !== 1 ? 's' : ''} too early based on current trajectory.`}
                 </p>
+                {/* Depletion warning when plan is not sustainable */}
+                {((earliestRetirementAge === null || retirementAge < earliestRetirementAge) && runOutOfMoneyAge) && (
+                  <p className="text-xs text-amber-400 mt-2">
+                    ⚠️ With current plan: Portfolio depletes at age {runOutOfMoneyAge}
+                  </p>
+                )}
               </div>
               <div className="flex flex-col gap-2 text-sm">
                     <div className="flex items-center gap-2">
