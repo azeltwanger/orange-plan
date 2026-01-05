@@ -1755,26 +1755,6 @@ export default function FinancialPlan() {
             runningTaxableBasis = Math.max(0, runningTaxableBasis - (withdrawFromTaxable * basisRatio));
           }
 
-          // REFACTORED: Withdraw from accounts (which automatically reduces assets within them)
-          const withdrawFromAccount = (accountKey, amount) => {
-            const acct = portfolio[accountKey];
-            const total = getAccountTotal(accountKey);
-            
-            if (total <= 0 || amount <= 0) return 0;
-            
-            const actualWithdrawal = Math.min(amount, total);
-            const ratio = actualWithdrawal / total;
-            
-            // Reduce each asset proportionally within this account
-            acct.btc = Math.max(0, acct.btc * (1 - ratio));
-            acct.stocks = Math.max(0, acct.stocks * (1 - ratio));
-            acct.bonds = Math.max(0, acct.bonds * (1 - ratio));
-            acct.cash = Math.max(0, acct.cash * (1 - ratio));
-            acct.other = Math.max(0, acct.other * (1 - ratio));
-            
-            return actualWithdrawal;
-          };
-
           withdrawFromAccount('taxable', withdrawFromTaxable);
           withdrawFromAccount('taxDeferred', withdrawFromTaxDeferred);
           withdrawFromAccount('taxFree', withdrawFromTaxFree);
@@ -1841,6 +1821,26 @@ export default function FinancialPlan() {
           }
         }
         
+        // REFACTORED: Withdraw from accounts (assets within accounts reduced proportionally)
+        const withdrawFromAccount = (accountKey, amount) => {
+          const acct = portfolio[accountKey];
+          const total = getAccountTotal(accountKey);
+          
+          if (total <= 0 || amount <= 0) return 0;
+          
+          const actualWithdrawal = Math.min(amount, total);
+          const ratio = actualWithdrawal / total;
+          
+          // Reduce each asset proportionally within this account
+          acct.btc = Math.max(0, acct.btc * (1 - ratio));
+          acct.stocks = Math.max(0, acct.stocks * (1 - ratio));
+          acct.bonds = Math.max(0, acct.bonds * (1 - ratio));
+          acct.cash = Math.max(0, acct.cash * (1 - ratio));
+          acct.other = Math.max(0, acct.other * (1 - ratio));
+          
+          return actualWithdrawal;
+        };
+
         // Force RMD withdrawal from tax-deferred FIRST (IRS requirement)
         // This must happen before normal withdrawal priority logic
         if (rmdAmount > 0) {
@@ -1994,26 +1994,6 @@ export default function FinancialPlan() {
           const basisRatio = runningTaxableBasis / getAccountTotal('taxable');
           runningTaxableBasis = Math.max(0, runningTaxableBasis - (withdrawFromTaxable * basisRatio));
         }
-
-        // REFACTORED: Withdraw from accounts (assets within accounts reduced proportionally)
-        const withdrawFromAccount = (accountKey, amount) => {
-          const acct = portfolio[accountKey];
-          const total = getAccountTotal(accountKey);
-          
-          if (total <= 0 || amount <= 0) return 0;
-          
-          const actualWithdrawal = Math.min(amount, total);
-          const ratio = actualWithdrawal / total;
-          
-          // Reduce each asset proportionally within this account
-          acct.btc = Math.max(0, acct.btc * (1 - ratio));
-          acct.stocks = Math.max(0, acct.stocks * (1 - ratio));
-          acct.bonds = Math.max(0, acct.bonds * (1 - ratio));
-          acct.cash = Math.max(0, acct.cash * (1 - ratio));
-          acct.other = Math.max(0, acct.other * (1 - ratio));
-          
-          return actualWithdrawal;
-        };
 
         // Apply additional withdrawals (RMD already withdrawn above)
         withdrawFromAccount('taxable', withdrawFromTaxable);
