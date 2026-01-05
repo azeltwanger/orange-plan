@@ -14,6 +14,7 @@ import {
   calculateTaxableSocialSecurity,
   estimateSocialSecurityBenefit
 } from '@/components/tax/taxCalculations';
+import { runUnifiedProjection } from '@/components/shared/runProjection';
 import { getRMDFactor } from '@/components/shared/taxData';
 import { get401kLimit, getRothIRALimit, getHSALimit, getTaxConfigForYear } from '@/components/shared/taxConfig';
 import { getStateOptions, getStateTaxSummary, STATE_TAX_CONFIG, calculateStateTaxOnRetirement, calculateStateCapitalGainsTax, calculateStateIncomeTax } from '@/components/shared/stateTaxConfig';
