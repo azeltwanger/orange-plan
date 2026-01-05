@@ -3003,18 +3003,22 @@ export default function FinancialPlan() {
                   </span>
                   {earliestRetirementAge && (
                     <span className="text-zinc-500">
-                      ({earliestRetirementAge - currentAge} years from now)
+                      {earliestRetirementAge === currentAge 
+                        ? "— You can retire now!" 
+                        : `(${earliestRetirementAge - currentAge} years from now)`}
                     </span>
                   )}
                 </div>
                 <p className="text-sm text-zinc-400 mt-2">
                   {earliestRetirementAge === null
                     ? "Increase savings or reduce spending to retire."
-                    : earliestRetirementAge < retirementAge
-                      ? `You can retire ${retirementAge - earliestRetirementAge} year${retirementAge - earliestRetirementAge !== 1 ? 's' : ''} earlier than your target!`
-                      : earliestRetirementAge === retirementAge
-                        ? `Your target retirement at Age ${retirementAge} is achievable.`
-                        : `Your target age ${retirementAge} is ${earliestRetirementAge - retirementAge} year${earliestRetirementAge - retirementAge !== 1 ? 's' : ''} too early based on current trajectory.`}
+                    : earliestRetirementAge === currentAge
+                      ? `You're ${retirementAge - earliestRetirementAge} year${retirementAge - earliestRetirementAge !== 1 ? 's' : ''} ahead of your target!`
+                      : earliestRetirementAge < retirementAge
+                        ? `You can retire ${retirementAge - earliestRetirementAge} year${retirementAge - earliestRetirementAge !== 1 ? 's' : ''} earlier than your target!`
+                        : earliestRetirementAge === retirementAge
+                          ? `Your target retirement at Age ${retirementAge} is achievable.`
+                          : `Your target age ${retirementAge} is ${earliestRetirementAge - retirementAge} year${earliestRetirementAge - retirementAge !== 1 ? 's' : ''} too early based on current trajectory.`}
                 </p>
               </div>
               <div className="flex flex-col gap-2 text-sm">
@@ -3042,38 +3046,8 @@ export default function FinancialPlan() {
                   </div>
                   </div>
 
-                  {/* Retirement Status Indicator */}
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-            {/* Status Card */}
-            <div className={cn(
-              "lg:col-span-1 card-premium rounded-xl p-4 border flex items-start gap-3",
-              retirementStatus.type === 'optimistic' && "border-emerald-500/30 bg-emerald-500/5",
-              retirementStatus.type === 'on_track' && "border-emerald-500/30 bg-emerald-500/5",
-              retirementStatus.type === 'at_risk' && "border-amber-500/30 bg-amber-500/5",
-              retirementStatus.type === 'critical' && "border-rose-500/30 bg-rose-500/5"
-            )}>
-              <div className={cn(
-                "p-2 rounded-lg shrink-0",
-                retirementStatus.type === 'optimistic' && "bg-emerald-500/20 text-emerald-400",
-                retirementStatus.type === 'on_track' && "bg-emerald-500/20 text-emerald-400",
-                retirementStatus.type === 'at_risk' && "bg-amber-500/20 text-amber-400",
-                retirementStatus.type === 'critical' && "bg-rose-500/20 text-rose-400"
-              )}>
-                {retirementStatus.icon}
-              </div>
-              <div>
-                <h4 className={cn(
-                  "font-semibold text-sm mb-1",
-                  retirementStatus.type === 'optimistic' && "text-emerald-400",
-                  retirementStatus.type === 'on_track' && "text-emerald-400",
-                  retirementStatus.type === 'at_risk' && "text-amber-400",
-                  retirementStatus.type === 'critical' && "text-rose-400"
-                )}>{retirementStatus.title}</h4>
-                <p className="text-xs text-zinc-400">{retirementStatus.description}</p>
-              </div>
-            </div>
-
-            {/* Actionable Insights - Show when behind schedule or plan not sustainable */}
+                  {/* Actionable Insights - Show when behind schedule or plan not sustainable */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             {(!earliestRetirementAge || earliestRetirementAge > retirementAge || willRunOutOfMoney || retirementStatus.type === 'critical' || retirementStatus.type === 'at_risk') && (
               <>
                 {/* Savings Insight */}
