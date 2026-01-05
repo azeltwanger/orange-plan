@@ -749,6 +749,10 @@ export default function FinancialPlan() {
   // Used for deriving earliestRetirementAge and maxSustainableSpending
   const runProjectionForRetirementAge = useCallback((testRetirementAge, testSpending = null) => {
     const spendingToUse = testSpending !== null ? testSpending : retirementAnnualSpending;
+    const DEBUG = false; // Set to true to enable console logging
+    
+    if (DEBUG) console.log('=== Testing Retirement Age:', testRetirementAge, '===');
+    if (DEBUG) console.log('Spending to use:', spendingToUse);
     
     // Initialize portfolio structure from current holdings (same as main projection)
     const portfolio = {
@@ -803,6 +807,8 @@ export default function FinancialPlan() {
     const getTotalPortfolio = () => {
       return getTotalLiquid() + portfolio.realEstate;
     };
+    
+    if (DEBUG) console.log('Starting Portfolio:', Math.round(getTotalPortfolio()));
     
     // Withdraw from account proportionally (same as main projection)
     const withdrawFromAccount = (accountKey, amount) => {
@@ -892,6 +898,10 @@ export default function FinancialPlan() {
         const estimatedTaxRate = 0.20; // Combined federal + state estimate
         const grossWithdrawalNeeded = netSpendingNeed > 0 ? netSpendingNeed / (1 - estimatedTaxRate) : 0;
         
+        if (DEBUG && age % 5 === 0) {
+          console.log(`Age ${age}: Portfolio=$${Math.round(getTotalPortfolio())}, Spending=$${Math.round(inflatedSpending)}, SS=$${Math.round(ssIncome)}, NetNeed=$${Math.round(netSpendingNeed)}, GrossWithdraw=$${Math.round(grossWithdrawalNeeded)}`);
+        }
+        
         if (grossWithdrawalNeeded > 0) {
           let remaining = grossWithdrawalNeeded;
           
@@ -909,6 +919,7 @@ export default function FinancialPlan() {
           
           // Check if we couldn't meet spending need (>5% shortfall = failure)
           if (remaining > grossWithdrawalNeeded * 0.05) {
+            if (DEBUG) console.log(`DEPLETED at age ${age}: remaining=$${Math.round(remaining)}, needed=$${Math.round(grossWithdrawalNeeded)}`);
             return { survives: false, finalPortfolio: getTotalPortfolio(), depleteAge: age };
           }
         }
@@ -936,12 +947,15 @@ export default function FinancialPlan() {
         }
       }
       
-      // Check for depletion
-      if (getTotalPortfolio() <= 0) {
+      // Check for depletion at end of each year
+      const portfolioAfterYear = getTotalPortfolio();
+      if (portfolioAfterYear <= 0) {
+        if (DEBUG) console.log(`DEPLETED at age ${age}: portfolio=$${Math.round(portfolioAfterYear)}`);
         return { survives: false, finalPortfolio: 0, depleteAge: age };
       }
     }
     
+    if (DEBUG) console.log('Result: survives=true, finalPortfolio=', Math.round(getTotalPortfolio()));
     return { survives: true, finalPortfolio: getTotalPortfolio(), depleteAge: null };
   }, [holdings, currentAge, lifeExpectancy, retirementAnnualSpending, effectiveSocialSecurity, 
       socialSecurityStartAge, effectiveInflation, annualSavings, incomeGrowth, currentPrice,
