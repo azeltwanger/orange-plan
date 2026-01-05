@@ -4267,28 +4267,30 @@ export default function FinancialPlan() {
               </div>
             )}
 
-            {/* RMD Start Age Notice */}
-            <div className="mt-4 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
-              <p className="text-sm text-blue-400 font-medium mb-1">
-                ℹ️ Required Minimum Distributions (RMDs)
-              </p>
-              <p className="text-sm text-zinc-300">
-                Based on your birth year ({currentYear - currentAge}), RMDs begin at age {(() => {
-                  const birthYear = currentYear - currentAge;
-                  return getRMDStartAge(birthYear);
-                })()}.
-                {(() => {
-                  const birthYear = currentYear - currentAge;
-                  const startAge = getRMDStartAge(birthYear);
-                  if (birthYear <= 1950) return " (Born 1950 or earlier)";
-                  if (birthYear <= 1959) return " (Born 1951-1959)";
-                  return " (Born 1960+, SECURE Act 2.0)";
-                })()}
-              </p>
-              <p className="text-xs text-zinc-500 mt-1">
-                RMDs are calculated from your total tax-deferred balance and are taxed as ordinary income. Excess RMDs (beyond spending needs) are reinvested in taxable accounts.
-              </p>
-            </div>
+            {/* RMD Start Age Notice - only show if user has tax-deferred accounts */}
+            {taxDeferredValue > 0 && (
+              <div className="mt-4 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                <p className="text-sm text-blue-400 font-medium mb-1">
+                  ℹ️ Required Minimum Distributions (RMDs)
+                </p>
+                <p className="text-sm text-zinc-300">
+                  Based on your birth year ({currentYear - currentAge}), RMDs begin at age {(() => {
+                    const birthYear = currentYear - currentAge;
+                    return getRMDStartAge(birthYear);
+                  })()}.
+                  {(() => {
+                    const birthYear = currentYear - currentAge;
+                    const startAge = getRMDStartAge(birthYear);
+                    if (birthYear <= 1950) return " (Born 1950 or earlier)";
+                    if (birthYear <= 1959) return " (Born 1951-1959)";
+                    return " (Born 1960+, SECURE Act 2.0)";
+                  })()}
+                </p>
+                <p className="text-xs text-zinc-500 mt-1">
+                  RMDs are calculated from your total tax-deferred balance and are taxed as ordinary income. Excess RMDs (beyond spending needs) are reinvested in taxable accounts.
+                </p>
+              </div>
+            )}
 
             {retirementAge < PENALTY_FREE_AGE && (() => {
                 const yearsUntilPenaltyFree = Math.ceil(PENALTY_FREE_AGE - retirementAge);
