@@ -2624,65 +2624,19 @@ export default function FinancialPlan() {
     setEarliestRetirementAge(derivedEarliestRetirementAge);
   }, [derivedEarliestRetirementAge]);
 
-  // UNIFIED: Derive maxSustainableSpending using binary search simulation
+  // UNIFIED: Derive maxSustainableSpending using binary search with accurate projection
   const derivedMaxSustainableSpending = useMemo(() => {
     const total = btcValue + stocksValue + realEstateValue + bondsValue + cashValue + otherValue;
     if (total <= 0) return 0;
     
-    // Calculate current allocation
-    const btcPct = btcValue / total;
-    const stocksPct = stocksValue / total;
-    const realEstatePct = realEstateValue / total;
-    const bondsPct = bondsValue / total;
-    const cashPct = cashValue / total;
-    const otherPct = otherValue / total;
-    
-    // First, estimate portfolio at retirement to set proper search bounds
-    const projectionResult = simulateForward({
-      startingPortfolio: total,
-      startAge: currentAge,
-      endAge: retirementAge,
-      retireAge: retirementAge,
-      annualSpending: 0,
-      annualSavings: annualSavings,
-      inflationRate: effectiveInflation,
-      btcPct,
-      stocksPct,
-      realEstatePct,
-      bondsPct,
-      cashPct,
-      otherPct,
-    });
-
-    // Convert projected retirement portfolio to today's dollars
-    const yearsToRetirement = Math.max(0, retirementAge - currentAge);
-    const estimatedRetirementPortfolio = projectionResult.finalPortfolio || total;
-    const retirementPortfolioTodaysDollars = yearsToRetirement > 0 
-      ? estimatedRetirementPortfolio / Math.pow(1 + effectiveInflation / 100, yearsToRetirement)
-      : estimatedRetirementPortfolio;
-
-    // Binary search for max sustainable spending
+    // Binary search for max sustainable spending (in today's dollars)
     let low = 0;
-    let high = Math.max(total * 0.20, retirementPortfolioTodaysDollars * 0.20);
+    let high = total * 0.15; // Start with 15% of portfolio as upper bound
     
     for (let iteration = 0; iteration < 30; iteration++) {
       const testSpending = (low + high) / 2;
       
-      const result = simulateForward({
-        startingPortfolio: total,
-        startAge: currentAge,
-        endAge: lifeExpectancy,
-        retireAge: retirementAge,
-        annualSpending: testSpending,
-        annualSavings: annualSavings,
-        inflationRate: effectiveInflation,
-        btcPct,
-        stocksPct,
-        realEstatePct,
-        bondsPct,
-        cashPct,
-        otherPct,
-      });
+      const result = runProjectionForRetirementAge(retirementAge, testSpending);
       
       if (result.survives) {
         low = testSpending;
@@ -2692,7 +2646,7 @@ export default function FinancialPlan() {
     }
     
     return Math.round(low);
-  }, [currentAge, retirementAge, lifeExpectancy, btcValue, stocksValue, realEstateValue, bondsValue, cashValue, otherValue, annualSavings, effectiveInflation, effectiveStocksCagr, realEstateCagr, bondsCagr, cashCagr, otherCagr, incomeGrowth, getBtcGrowthRate]);
+  }, [btcValue, stocksValue, realEstateValue, bondsValue, cashValue, otherValue, retirementAge, runProjectionForRetirementAge]);
 
   // Update state when derived value changes
   useEffect(() => {
