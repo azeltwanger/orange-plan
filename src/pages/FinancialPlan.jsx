@@ -3288,6 +3288,18 @@ export default function FinancialPlan() {
                                           <span className="text-emerald-400 text-right">+${p.socialSecurityIncome.toLocaleString()}</span>
                                         </div>
                                       )}
+                                      {p.rmdWithdrawn > 0 && (
+                                        <div className="flex justify-between gap-6">
+                                          <span className="text-amber-400">RMD (Required):</span>
+                                          <span className="text-amber-400 text-right">${p.rmdWithdrawn.toLocaleString()}</span>
+                                        </div>
+                                      )}
+                                      {p.excessRmdReinvested > 0 && (
+                                        <div className="flex justify-between gap-6 text-xs">
+                                          <span className="text-zinc-500">└ Excess RMD Reinvested:</span>
+                                          <span className="text-zinc-400 text-right">${p.excessRmdReinvested.toLocaleString()}</span>
+                                        </div>
+                                      )}
                                       {p.isRetired ? (
                                         <div className="flex justify-between gap-6">
                                           <span>• Spending:</span>
@@ -3591,6 +3603,18 @@ export default function FinancialPlan() {
                                       <div className="flex justify-between gap-6">
                                         <span className="text-emerald-400">Social Security Income:</span>
                                         <span className="text-emerald-400 text-right">+${p.socialSecurityIncome.toLocaleString()}</span>
+                                      </div>
+                                    )}
+                                    {p.rmdWithdrawn > 0 && (
+                                      <div className="flex justify-between gap-6">
+                                        <span className="text-amber-400">RMD (Required):</span>
+                                        <span className="text-amber-400 text-right">${p.rmdWithdrawn.toLocaleString()}</span>
+                                      </div>
+                                    )}
+                                    {p.excessRmdReinvested > 0 && (
+                                      <div className="flex justify-between gap-6 text-xs">
+                                        <span className="text-zinc-500">└ Excess RMD Reinvested:</span>
+                                        <span className="text-zinc-400 text-right">${p.excessRmdReinvested.toLocaleString()}</span>
                                       </div>
                                     )}
                                     {p.isRetired ? (
