@@ -2594,44 +2594,30 @@ export default function FinancialPlan() {
     }
   }, [earliestRetirementAge, retirementAge, willRunOutOfMoney, runOutOfMoneyAge, currentAge]);
 
-  // UNIFIED: Derive earliestRetirementAge using forward simulation
+  // UNIFIED: Derive earliestRetirementAge using binary search with accurate projection
   const derivedEarliestRetirementAge = useMemo(() => {
     const total = btcValue + stocksValue + realEstateValue + bondsValue + cashValue + otherValue;
     if (total <= 0) return null;
     
-    // Calculate current allocation
-    const btcPct = btcValue / total;
-    const stocksPct = stocksValue / total;
-    const realEstatePct = realEstateValue / total;
-    const bondsPct = bondsValue / total;
-    const cashPct = cashValue / total;
-    const otherPct = otherValue / total;
+    // Binary search for earliest sustainable retirement age
+    let low = currentAge + 1;
+    let high = lifeExpectancy - 5;
+    let earliest = null;
     
-    // Test each potential retirement age
-    for (let testRetireAge = currentAge + 1; testRetireAge <= lifeExpectancy - 5; testRetireAge++) {
-      const result = simulateForward({
-        startingPortfolio: total,
-        startAge: currentAge,
-        endAge: lifeExpectancy,
-        retireAge: testRetireAge,
-        annualSpending: retirementAnnualSpending,
-        annualSavings: annualSavings,
-        inflationRate: effectiveInflation,
-        btcPct,
-        stocksPct,
-        realEstatePct,
-        bondsPct,
-        cashPct,
-        otherPct,
-      });
+    while (low <= high) {
+      const mid = Math.floor((low + high) / 2);
+      const result = runProjectionForRetirementAge(mid);
       
       if (result.survives) {
-        return testRetireAge;
+        earliest = mid;
+        high = mid - 1; // Try earlier
+      } else {
+        low = mid + 1; // Need to work longer
       }
     }
     
-    return null; // Not achievable at any tested age
-  }, [currentAge, lifeExpectancy, btcValue, stocksValue, realEstateValue, bondsValue, cashValue, otherValue, retirementAnnualSpending, annualSavings, effectiveInflation, effectiveStocksCagr, realEstateCagr, bondsCagr, cashCagr, otherCagr, incomeGrowth, getBtcGrowthRate]);
+    return earliest;
+  }, [currentAge, lifeExpectancy, btcValue, stocksValue, realEstateValue, bondsValue, cashValue, otherValue, runProjectionForRetirementAge]);
 
   // Update state when derived value changes
   useEffect(() => {
