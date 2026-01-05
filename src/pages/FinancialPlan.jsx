@@ -1043,22 +1043,55 @@ export default function FinancialPlan() {
     return { survives: true, finalPortfolio: 0, depleteAge: null };
   }, []);
 
-  // Generate projection data with dynamic withdrawal based on portfolio growth and account types
+  // Generate projection data using unified projection engine
   const projections = useMemo(() => {
-    const years = lifeExpectancy - currentAge;
-    const data = [];
-    const currentYear = new Date().getFullYear();
-    const currentMonth = new Date().getMonth(); // 0-11
+    const result = runUnifiedProjection({
+      holdings,
+      accounts,
+      liabilities,
+      collateralizedLoans,
+      currentPrice,
+      currentAge,
+      retirementAge,
+      lifeExpectancy,
+      retirementAnnualSpending,
+      effectiveSocialSecurity,
+      socialSecurityStartAge,
+      otherRetirementIncome,
+      annualSavings,
+      incomeGrowth,
+      grossAnnualIncome,
+      currentAnnualSpending,
+      filingStatus,
+      stateOfResidence,
+      contribution401k,
+      employer401kMatch,
+      contributionRothIRA,
+      contributionHSA,
+      hsaFamilyCoverage,
+      getBtcGrowthRate,
+      effectiveInflation,
+      effectiveStocksCagr,
+      bondsCagr,
+      realEstateCagr,
+      cashCagr,
+      otherCagr,
+      savingsAllocationBtc,
+      savingsAllocationStocks,
+      savingsAllocationBonds,
+      savingsAllocationCash,
+      savingsAllocationOther,
+      autoTopUpBtcCollateral,
+      btcTopUpTriggerLtv,
+      btcTopUpTargetLtv,
+      btcReleaseTargetLtv,
+      goals,
+      lifeEvents,
+      getTaxTreatmentFromHolding,
+      DEBUG: false,
+    });
     
-    // Calculate birth year and RMD start age (SECURE Act 2.0)
-    const birthYear = currentYear - currentAge;
-    const rmdStartAge = getRMDStartAge(birthYear);
-    
-    // Pro-rata factor for Year 0 - only apply spending/income for remaining months
-    const remainingMonthsThisYear = 12 - currentMonth; // Jan=12, Feb=11, ..., Dec=1
-    const currentYearProRataFactor = remainingMonthsThisYear / 12;
-
-    let cumulativeSavings = 0;
+    return result.yearByYear;
 
     // REFACTORED: Initialize asset-in-account structure from actual holdings
     const initializePortfolio = () => {
