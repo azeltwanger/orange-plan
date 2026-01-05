@@ -853,7 +853,7 @@ export default function FinancialPlan() {
         const nominalSpendingAtRetirement = spendingToUse * Math.pow(1 + effectiveInflation / 100, Math.max(0, testRetirementAge - currentAge));
         const inflatedSpending = nominalSpendingAtRetirement * Math.pow(1 + effectiveInflation / 100, yearsIntoRetirement);
         
-        // Calculate Social Security income
+        // Calculate Social Security income (same logic as main projection)
         // SS benefit is specified in TODAY's dollars, so:
         // 1. Inflate from today to SS start age (pre-claiming growth)
         // 2. Then apply COLA each year AFTER SS start age
@@ -865,6 +865,9 @@ export default function FinancialPlan() {
             Math.pow(1 + effectiveInflation / 100, yearsToSSStart) * 
             Math.pow(1 + effectiveInflation / 100, yearsReceivingSS);
         }
+        
+        // Inflate other retirement income from today
+        const inflatedOtherIncome = (otherRetirementIncome || 0) * Math.pow(1 + effectiveInflation / 100, yearsFromNow);
         
         // Calculate RMD if applicable
         let rmdAmount = 0;
@@ -882,8 +885,8 @@ export default function FinancialPlan() {
           rmdWithdrawn = withdrawFromAccount('taxDeferred', rmdAmount);
         }
         
-        // Net spending need after SS and RMD (RMD counts toward spending)
-        const netSpendingNeed = Math.max(0, inflatedSpending - ssIncome - rmdWithdrawn - (otherRetirementIncome || 0));
+        // Net spending need after SS, other income, and RMD (RMD counts toward spending)
+        const netSpendingNeed = Math.max(0, inflatedSpending - ssIncome - rmdWithdrawn - inflatedOtherIncome);
         
         // Estimate tax on withdrawal (simplified but reasonable)
         const estimatedTaxRate = 0.20; // Combined federal + state estimate
