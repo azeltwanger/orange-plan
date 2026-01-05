@@ -603,90 +603,45 @@ export default function FinancialPlan() {
 
   // Helper to determine tax treatment from account_type or tax_treatment field
   const getTaxTreatmentFromHolding = (h) => {
-    // If holding is linked to an account, ALWAYS derive from account (ignore holding's tax_treatment)
     if (h.account_id && accounts?.length > 0) {
       const account = accounts.find(a => a.id === h.account_id);
       if (account) {
         const accountType = account.account_type || '';
-        
-        // Real estate accounts
-        if (accountType === 'taxable_real_estate' || account.tax_treatment === 'real_estate') {
-          return 'real_estate';
-        }
-        
-        // Tax-deferred: Traditional 401k, IRA, etc (support both naming conventions)
-        if (['traditional_401k', 'traditional_ira', 'sep_ira', '403b', 
-             '401k_traditional', 'ira_traditional'].includes(accountType)) {
-          return 'tax_deferred';
-        }
-        
-        // Tax-free: Roth accounts, HSA, 529 (support both naming conventions)
-        if (['roth_401k', 'roth_ira', 'hsa', '529',
-             '401k_roth', 'ira_roth'].includes(accountType)) {
-          return 'tax_free';
-        }
-        
-        // Use account's explicit tax_treatment if set
-        if (account.tax_treatment) {
-          return account.tax_treatment;
-        }
+        if (accountType === 'taxable_real_estate' || account.tax_treatment === 'real_estate') return 'real_estate';
+        if (['traditional_401k', 'traditional_ira', 'sep_ira', '403b', '401k_traditional', 'ira_traditional'].includes(accountType)) return 'tax_deferred';
+        if (['roth_401k', 'roth_ira', 'hsa', '529', '401k_roth', 'ira_roth'].includes(accountType)) return 'tax_free';
+        if (account.tax_treatment) return account.tax_treatment;
       }
     }
-    
-    // No account linked - use holding's own fields (standalone holding)
     const assetType = h.asset_type || '';
-    if (assetType === 'real_estate') {
-      return 'real_estate';
-    }
-    
-    if (h.tax_treatment) {
-      return h.tax_treatment;
-    }
-    
-    // Default to taxable
+    if (assetType === 'real_estate') return 'real_estate';
+    if (h.tax_treatment) return h.tax_treatment;
     return 'taxable';
   };
 
-  // Taxable accounts (accessible anytime) - excludes real estate which is separate
   const taxableHoldings = holdings.filter(h => getTaxTreatmentFromHolding(h) === 'taxable');
   const taxableValue = taxableHoldings.reduce((sum, h) => sum + getHoldingValue(h), 0);
-  const taxableLiquidHoldings = taxableHoldings; // All taxable is now liquid since RE is separate
+  const taxableLiquidHoldings = taxableHoldings;
   const taxableLiquidValue = taxableValue;
-
-  // Tax-deferred accounts (401k, Traditional IRA) - 10% penalty before 59½
   const taxDeferredHoldings = holdings.filter(h => getTaxTreatmentFromHolding(h) === 'tax_deferred');
   const taxDeferredValue = taxDeferredHoldings.reduce((sum, h) => sum + getHoldingValue(h), 0);
-
-  // Tax-free accounts (Roth, HSA) - contributions accessible, gains after 59½
   const taxFreeHoldings = holdings.filter(h => getTaxTreatmentFromHolding(h) === 'tax_free');
   const taxFreeValue = taxFreeHoldings.reduce((sum, h) => sum + getHoldingValue(h), 0);
-
-  // Real estate (illiquid) - last resort for withdrawals
   const realEstateHoldings = holdings.filter(h => getTaxTreatmentFromHolding(h) === 'real_estate');
   const realEstateAccountValue = realEstateHoldings.reduce((sum, h) => sum + getHoldingValue(h), 0);
-
-  // By asset type for projections
   const btcValue = holdings.filter(h => h.ticker === 'BTC').reduce((sum, h) => sum + h.quantity * currentPrice, 0);
   const stocksValue = holdings.filter(h => h.asset_type === 'stocks').reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
   const realEstateValue = holdings.filter(h => h.asset_type === 'real_estate').reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
   const bondsValue = holdings.filter(h => h.asset_type === 'bonds').reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
   const cashValue = holdings.filter(h => h.asset_type === 'cash').reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
   const otherValue = holdings.filter(h => !['BTC'].includes(h.ticker) && !['stocks', 'real_estate', 'bonds', 'cash', 'btc', 'crypto'].includes(h.asset_type)).reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
-  const totalValue = btcValue + stocksValue + realEstateValue + bondsValue + cashValue + otherValue;
-
-
-
-  // Penalty-free age for retirement accounts
-  const PENALTY_FREE_AGE = 59.5;
   
-  // RMD start age based on birth year (SECURE Act 2.0)
+  const PENALTY_FREE_AGE = 59.5;
   const getRMDStartAge = (birthYear) => {
     if (birthYear <= 1950) return 72;
     if (birthYear <= 1959) return 73;
-    return 75; // 1960 or later
+    return 75;
   };
-
-  // Calculate effective tax rates based on filing status
   const standardDeduction = STANDARD_DEDUCTION_2024[filingStatus] || STANDARD_DEDUCTION_2024.single;
 
   // Use slider values directly (scenarios removed)
@@ -1260,7 +1215,7 @@ export default function FinancialPlan() {
     }
     
     return earliest;
-  }, [currentAge, lifeExpectancy, btcValue, stocksValue, realEstateValue, bondsValue, cashValue, otherValue, runProjectionForRetirementAge]);
+  }, [currentAge, lifeExpectancy, projections, runProjectionForRetirementAge]);
 
   // Update state when derived value changes
   useEffect(() => {
@@ -1289,7 +1244,7 @@ export default function FinancialPlan() {
     }
     
     return Math.round(low);
-  }, [btcValue, stocksValue, realEstateValue, bondsValue, cashValue, otherValue, retirementAge, runProjectionForRetirementAge]);
+  }, [projections, retirementAge, runProjectionForRetirementAge]);
 
   // Update state when derived value changes
   useEffect(() => {
@@ -1324,7 +1279,7 @@ export default function FinancialPlan() {
     );
 
     return weightedReturn;
-  }, [btcValue, stocksValue, realEstateValue, bondsValue, cashValue, otherValue, totalValue, effectiveStocksCagr, realEstateCagr, bondsCagr, cashCagr, getBtcGrowthRate, otherCagr, effectiveInflation]);
+  }, [projections, effectiveStocksCagr, realEstateCagr, bondsCagr, cashCagr, otherCagr, getBtcGrowthRate, effectiveInflation]);
 
   // Calculate when goals will be met based on projections
   const goalsWithProjections = useMemo(() => {

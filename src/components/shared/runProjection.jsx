@@ -246,6 +246,10 @@ export function runUnifiedProjection({
     let realEstateSaleProceeds = 0;
     let fromLoanPayoff = 0;
     const yearLoanPayoffs = [];
+    let yearSavings = 0;
+    let yearGrossIncome = 0;
+    let yearSpending = 0;
+    let desiredWithdrawal = 0;
 
     // BTC growth and price tracking
     const yearBtcGrowth = getBtcGrowthRate(yearsFromNow, effectiveInflation);
@@ -594,7 +598,7 @@ export function runUnifiedProjection({
     // PRE-RETIREMENT
     if (!isRetired) {
       const baseGrossIncome = grossAnnualIncome * Math.pow(1 + incomeGrowth / 100, i);
-      const yearGrossIncome = baseGrossIncome + activeIncomeAdjustment;
+      yearGrossIncome = baseGrossIncome + activeIncomeAdjustment;
       
       const yearLimit401k = get401kLimit(year, age);
       const yearLimitRoth = getRothIRALimit(year, age);
@@ -613,11 +617,12 @@ export function runUnifiedProjection({
       const yearNetIncome = yearGrossIncome - taxesPaid;
 
       const baseYearSpending = (currentAnnualSpending * Math.pow(1 + effectiveInflation / 100, i)) + activeExpenseAdjustment;
-      const yearSpending = i === 0 ? baseYearSpending * currentYearProRataFactor : baseYearSpending;
+      yearSpending = i === 0 ? baseYearSpending * currentYearProRataFactor : baseYearSpending;
       
       const proRatedNetIncome = i === 0 ? yearNetIncome * currentYearProRataFactor : yearNetIncome;
       const proRatedYearRoth = i === 0 ? yearRoth * currentYearProRataFactor : yearRoth;
-      const yearSavings = proRatedNetIncome - yearSpending - proRatedYearRoth;
+      yearSavings = proRatedNetIncome - yearSpending - proRatedYearRoth;
+      cumulativeSavings += yearSavings;
       
       addToAccount('taxDeferred', year401k + yearEmployerMatch);
       addToAccount('taxFree', yearRoth + yearHSA);
@@ -688,7 +693,8 @@ export function runUnifiedProjection({
       // RETIREMENT
       const nominalSpendingAtRetirement = retirementAnnualSpending * Math.pow(1 + effectiveInflation / 100, Math.max(0, retirementAge - currentAge));
       const baseDesiredWithdrawal = nominalSpendingAtRetirement * Math.pow(1 + effectiveInflation / 100, age - retirementAge);
-      const desiredWithdrawal = i === 0 ? baseDesiredWithdrawal * currentYearProRataFactor : baseDesiredWithdrawal;
+      desiredWithdrawal = i === 0 ? baseDesiredWithdrawal * currentYearProRataFactor : baseDesiredWithdrawal;
+      yearSpending = desiredWithdrawal;
 
       // RMD calculation
       const taxDeferredBalanceForRMD = getAccountTotal('taxDeferred');
@@ -924,13 +930,129 @@ export function runUnifiedProjection({
       firstDepletionAge = null;
     }
 
+    // Get asset totals
+    const getAssetTotal = (assetKey) => {
+      return portfolio.taxable[assetKey] + portfolio.taxDeferred[assetKey] + portfolio.taxFree[assetKey];
+    };
+    
+    // Calculate total debt
+    const totalDebt = Object.values(tempRunningDebt).reduce((sum, liab) => sum + liab.current_balance, 0) +
+                      Object.values(tempRunningCollateralizedLoans).reduce((sum, loan) => sum + loan.current_balance, 0);
+    
+    // BTC Loan Details
+    const btcLoanDetails = Object.values(tempRunningDebt)
+      .filter(l => l.type === 'btc_collateralized' && !l.paid_off)
+      .map(loan => {
+        const collateralBtc = encumberedBtc[loan.id] || loan.collateral_btc_amount || 0;
+        const collateralValue = collateralBtc * cumulativeBtcPrice;
+        const ltv = collateralValue > 0 ? (loan.current_balance / collateralValue) * 100 : 0;
+        return {
+          name: loan.name,
+          balance: Math.round(loan.current_balance),
+          collateralBtc: collateralBtc,
+          collateralValue: Math.round(collateralValue),
+          ltv: Math.round(ltv),
+          status: ltv < 40 ? 'healthy' : ltv < 60 ? 'moderate' : 'elevated'
+        };
+      });
+    
+    const yearLiquidations = liquidationEvents.filter(e => e.year === year);
+    const realTotal = getTotalPortfolio(encumberedBtcValueThisYear) / Math.pow(1 + effectiveInflation / 100, i);
+    
+    const totalWithdrawalAmount = isRetired 
+      ? Math.round((desiredWithdrawal || 0) + (taxesPaid || 0) + (penaltyPaid || 0))
+      : yearSavings < 0 
+        ? Math.round(Math.abs(yearSavings) + (taxesPaid || 0) + (penaltyPaid || 0))
+        : 0;
+
     results.push({
       year,
       age,
       isRetired,
-      total: getTotalPortfolio(encumberedBtcValueThisYear),
-      liquid: getTotalLiquid(),
       depleted: ranOutOfMoneyThisYear,
+      
+      // Asset values for chart stacking
+      btcLiquid: Math.round(getAssetTotal('btc')),
+      btcEncumbered: Math.round(encumberedBtcValueThisYear),
+      stocks: Math.round(getAssetTotal('stocks')),
+      realEstate: Math.round(portfolio.realEstate),
+      bonds: Math.round(getAssetTotal('bonds')),
+      cash: Math.round(getAssetTotal('cash')),
+      
+      // Totals
+      total: Math.round(getTotalPortfolio(encumberedBtcValueThisYear)),
+      realTotal: Math.round(realTotal),
+      liquid: Math.round(getTotalLiquid()),
+      taxable: Math.round(getAccountTotal('taxable')),
+      taxDeferred: Math.round(getAccountTotal('taxDeferred')),
+      taxFree: Math.round(getAccountTotal('taxFree')),
+      accountTotal: Math.round(getTotalLiquid()),
+      totalDebt: Math.round(totalDebt),
+      
+      // Income/Spending
+      savings: Math.round(cumulativeSavings),
+      netCashFlow: Math.round(yearSavings),
+      yearGrossIncome: !isRetired ? Math.round(yearGrossIncome) : 0,
+      yearSpending: !isRetired ? Math.round(yearSpending) : 0,
+      socialSecurityIncome: isRetired ? Math.round(socialSecurityIncome) : 0,
+      
+      // Withdrawals
+      isWithdrawing: isRetired || yearSavings < 0,
+      yearWithdrawal: isRetired ? Math.round(desiredWithdrawal) : 0,
+      yearGoalWithdrawal: Math.round(yearGoalWithdrawal),
+      retirementSpendingOnly: isRetired ? Math.round(desiredWithdrawal) : 0,
+      withdrawFromTaxable: Math.round(withdrawFromTaxable),
+      withdrawFromTaxDeferred: Math.round(withdrawFromTaxDeferred),
+      withdrawFromTaxFree: Math.round(withdrawFromTaxFree),
+      withdrawFromRealEstate: Math.round(withdrawFromRealEstate),
+      withdrawFromLoanPayoff: Math.round(fromLoanPayoff),
+      realEstateSold: realEstateSaleProceeds > 0,
+      realEstateSaleProceeds: Math.round(realEstateSaleProceeds),
+      totalWithdrawalAmount: totalWithdrawalAmount,
+      
+      // Taxes & Penalties
+      taxesPaid: Math.round(taxesPaid),
+      penaltyPaid: Math.round(penaltyPaid),
+      canAccessPenaltyFree: age >= PENALTY_FREE_AGE,
+      
+      // RMD
+      rmdAmount: Math.round(rmdAmount),
+      rmdWithdrawn: Math.round(rmdWithdrawn),
+      excessRmdReinvested: Math.round(excessRmd),
+      rmdStartAge: rmdStartAge,
+      
+      // Debt tracking
+      debtPayments: Math.round(actualAnnualDebtPayments),
+      loanPayoffs: yearLoanPayoffs,
+      debtPayoffs: [],
+      liquidations: yearLiquidations,
+      
+      // BTC info
+      btcPrice: Math.round(cumulativeBtcPrice),
+      btcGrowthRate: yearBtcGrowth,
+      encumberedBtc: currentTotalEncumberedBtc,
+      liquidBtc: Math.max(0, getAssetTotal('btc') / cumulativeBtcPrice),
+      
+      // BTC Loan details
+      btcLoanDetails: btcLoanDetails,
+      totalBtcLoanDebt: Math.round(Object.values(tempRunningDebt)
+        .filter(l => l.type === 'btc_collateralized' && !l.paid_off)
+        .reduce((sum, l) => sum + l.current_balance, 0)),
+      totalBtcCollateralValue: Math.round(Object.values(tempRunningDebt)
+        .filter(l => l.type === 'btc_collateralized' && !l.paid_off)
+        .reduce((sum, l) => {
+          const collateralBtc = encumberedBtc[l.id] || l.collateral_btc_amount || 0;
+          return sum + (collateralBtc * cumulativeBtcPrice);
+        }, 0)),
+      totalRegularDebt: Math.round(Object.values(tempRunningDebt)
+        .filter(l => l.type !== 'btc_collateralized' && !l.paid_off)
+        .reduce((sum, l) => sum + l.current_balance, 0)),
+      
+      // Event markers
+      hasEvent: lifeEvents.some(e => e.year === year) ||
+        goals.some(g => (g.withdraw_from_portfolio || g.will_be_spent) && g.target_date && new Date(g.target_date).getFullYear() === year),
+      hasGoalWithdrawal: yearGoalWithdrawal > 0,
+      goalNames: [],
     });
   }
   
