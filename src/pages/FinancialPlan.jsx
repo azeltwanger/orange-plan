@@ -854,10 +854,16 @@ export default function FinancialPlan() {
         const inflatedSpending = nominalSpendingAtRetirement * Math.pow(1 + effectiveInflation / 100, yearsIntoRetirement);
         
         // Calculate Social Security income
+        // SS benefit is specified in TODAY's dollars, so:
+        // 1. Inflate from today to SS start age (pre-claiming growth)
+        // 2. Then apply COLA each year AFTER SS start age
         let ssIncome = 0;
         if (age >= socialSecurityStartAge && effectiveSocialSecurity > 0) {
-          const yearsOfSSInflation = age - socialSecurityStartAge;
-          ssIncome = effectiveSocialSecurity * Math.pow(1 + effectiveInflation / 100, yearsOfSSInflation);
+          const yearsToSSStart = Math.max(0, socialSecurityStartAge - currentAge);
+          const yearsReceivingSS = age - socialSecurityStartAge;
+          ssIncome = effectiveSocialSecurity * 
+            Math.pow(1 + effectiveInflation / 100, yearsToSSStart) * 
+            Math.pow(1 + effectiveInflation / 100, yearsReceivingSS);
         }
         
         // Calculate RMD if applicable
@@ -1983,11 +1989,20 @@ export default function FinancialPlan() {
           .filter(a => ['401k_roth', 'ira_roth', 'hsa'].includes(a.account_type))
           .reduce((sum, a) => sum + (a.roth_contributions || 0), 0);
 
-        // Calculate Social Security income for this year (inflation-adjusted from start age)
+        // Calculate Social Security income for this year
+        // SS benefit is specified in TODAY's dollars, so:
+        // 1. Inflate from today to SS start age (pre-claiming growth)
+        // 2. Then apply COLA each year AFTER SS start age
         const currentAgeInYearForSS = currentAge + i;
         if (currentAgeInYearForSS >= socialSecurityStartAge && effectiveSocialSecurity > 0) {
-          const yearsOfSSInflation = currentAgeInYearForSS - socialSecurityStartAge;
-          socialSecurityIncome = effectiveSocialSecurity * Math.pow(1 + effectiveInflation / 100, yearsOfSSInflation);
+          // Years from today to SS start age (pre-claiming inflation)
+          const yearsToSSStart = Math.max(0, socialSecurityStartAge - currentAge);
+          // Years receiving SS (post-claiming COLA)
+          const yearsReceivingSS = currentAgeInYearForSS - socialSecurityStartAge;
+          // Inflate to SS start age, then apply COLA for each year receiving
+          socialSecurityIncome = effectiveSocialSecurity * 
+            Math.pow(1 + effectiveInflation / 100, yearsToSSStart) * 
+            Math.pow(1 + effectiveInflation / 100, yearsReceivingSS);
         }
 
 
