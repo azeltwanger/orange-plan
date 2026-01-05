@@ -936,7 +936,7 @@ export default function FinancialPlan() {
           
           // Check if we couldn't meet spending need (>5% shortfall = failure)
           if (remaining > grossWithdrawalNeeded * 0.05) {
-            if (DEBUG) console.log(`DEPLETED at age ${age}: remaining=$${Math.round(remaining)}, needed=$${Math.round(grossWithdrawalNeeded)}`);
+            console.log("RETIRE_DEBUG", { testAge: testRetirementAge, survives: false, depletionAge: age, shortfall: Math.round(remaining) });
             return { survives: false, finalPortfolio: getTotalPortfolio(), depleteAge: age };
           }
         }
@@ -967,13 +967,13 @@ export default function FinancialPlan() {
       // Check for depletion at end of each year
       const portfolioAfterYear = getTotalPortfolio();
       if (portfolioAfterYear <= 0) {
-        if (DEBUG) console.log(`DEPLETED at age ${age}: portfolio=$${Math.round(portfolioAfterYear)}`);
+        console.log("RETIRE_DEBUG", { testAge: testRetirementAge, survives: false, depletionAge: age, reason: 'portfolio<=0' });
         return { survives: false, finalPortfolio: 0, depleteAge: age };
       }
     }
     
     const finalResult = { survives: true, finalPortfolio: getTotalPortfolio(), depleteAge: null };
-    if (DEBUG) console.log('Final result:', finalResult);
+    console.log("RETIRE_DEBUG", { testAge: testRetirementAge, survives: true, depletionAge: null, finalPortfolio: Math.round(getTotalPortfolio()) });
     return finalResult;
   }, [holdings, currentAge, lifeExpectancy, retirementAnnualSpending, effectiveSocialSecurity, 
       socialSecurityStartAge, effectiveInflation, annualSavings, incomeGrowth, currentPrice,
