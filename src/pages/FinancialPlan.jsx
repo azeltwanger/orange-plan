@@ -1855,15 +1855,16 @@ export default function FinancialPlan() {
                         backgroundColor: '#18181b', 
                         border: '1px solid #27272a', 
                         borderRadius: '12px',
-                        maxHeight: '70vh',
+                        maxHeight: '60vh',
                         overflowY: 'auto',
                         pointerEvents: 'auto'
                       }}
                       wrapperStyle={{ 
                         zIndex: 1000,
-                        pointerEvents: 'auto'
+                        pointerEvents: 'auto',
+                        position: lockedTooltipData ? 'fixed' : 'absolute'
                       }}
-                      position={lockedTooltipData ? { x: lockedTooltipData.x + 15, y: lockedTooltipData.y } : { y: 0 }}
+                      position={lockedTooltipData ? { x: Math.min(lockedTooltipData.x + 15, window.innerWidth - 300), y: 100 } : { y: 0 }}
                       active={lockedTooltipData ? true : undefined}
                       cursor={lockedTooltipData ? false : true}
                       content={({ active, payload, label, coordinate }) => {
