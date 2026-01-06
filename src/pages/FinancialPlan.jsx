@@ -487,7 +487,7 @@ export default function FinancialPlan() {
                   if (settings.savings_allocation_bonds !== undefined) setSavingsAllocationBonds(settings.savings_allocation_bonds);
                   if (settings.savings_allocation_cash !== undefined) setSavingsAllocationCash(settings.savings_allocation_cash);
                   if (settings.savings_allocation_other !== undefined) setSavingsAllocationOther(settings.savings_allocation_other);
-                  if (settings.gross_annual_income !== undefined) setGrossAnnualIncome(settings.gross_annual_income);
+                  if (settings.gross_annual_income !== undefined && settings.gross_annual_income !== null) setGrossAnnualIncome(settings.gross_annual_income);
                   if (settings.contribution_401k !== undefined) setContribution401k(settings.contribution_401k);
                   if (settings.employer_401k_match !== undefined) setEmployer401kMatch(settings.employer_401k_match);
                   if (settings.contribution_roth_ira !== undefined) setContributionRothIRA(settings.contribution_roth_ira);
