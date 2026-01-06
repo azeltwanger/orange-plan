@@ -68,6 +68,14 @@ export function runUnifiedProjection({
   getTaxTreatmentFromHolding,
   DEBUG = false,
 }) {
+  // DEBUG: Log holdings passed to projection
+  console.log("=== HOLDINGS PASSED TO PROJECTION ===");
+  console.log("Holdings count:", holdings.length);
+  holdings.forEach(h => {
+    const value = h.ticker === 'BTC' ? h.quantity * currentPrice : h.quantity * (h.current_price || 0);
+    console.log(`- ${h.asset_name || h.name}: ${h.ticker} qty=${h.quantity} price=${h.current_price || currentPrice} value=${value} account_id=${h.account_id}`);
+  });
+
   const results = [];
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth();
@@ -114,6 +122,13 @@ export function runUnifiedProjection({
   };
 
   let portfolio = initializePortfolio();
+
+  // DEBUG: Log portfolio after initialization
+  console.log("=== PORTFOLIO AFTER INIT (before encumbered subtraction) ===");
+  console.log("Taxable:", JSON.stringify(portfolio.taxable));
+  console.log("TaxDeferred:", JSON.stringify(portfolio.taxDeferred));
+  console.log("TaxFree:", JSON.stringify(portfolio.taxFree));
+  console.log("RealEstate:", portfolio.realEstate);
 
   // Helper functions
   const getAccountTotal = (accountKey) => {
@@ -219,6 +234,12 @@ export function runUnifiedProjection({
   const totalInitialEncumberedBtc = Object.values(encumberedBtc).reduce((sum, amount) => sum + amount, 0);
   const initialEncumberedBtcValue = totalInitialEncumberedBtc * currentPrice;
   portfolio.taxable.btc = Math.max(0, portfolio.taxable.btc - initialEncumberedBtcValue);
+
+  // DEBUG: Log after encumbered subtraction
+  console.log("=== AFTER ENCUMBERED SUBTRACTION ===");
+  console.log("Encumbered BTC:", totalInitialEncumberedBtc);
+  console.log("Encumbered Value:", initialEncumberedBtcValue);
+  console.log("Taxable BTC now:", portfolio.taxable.btc);
 
   // Track cost basis for taxable accounts
   const taxableHoldings = holdings.filter(h => getTaxTreatmentFromHolding(h) === 'taxable');
