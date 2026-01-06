@@ -1833,12 +1833,15 @@ export default function FinancialPlan() {
                         if (lockedTooltipData && lockedTooltipData.label === e.activeLabel) {
                           setLockedTooltipData(null);
                         } else {
-                          // Lock to this data point with position
+                          // Lock to this data point
                           setLockedTooltipData({ 
                             payload: e.activePayload, 
-                            label: e.activeLabel,
+                            label: e.activeLabel
+                          });
+                          // Store position separately for the portal
+                          setLockedTooltipPosition({
                             x: e.activeCoordinate.x,
-                            y: 50 // Fixed y position near top
+                            y: e.activeCoordinate.y
                           });
                         }
                       } else {
