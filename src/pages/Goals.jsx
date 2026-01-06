@@ -11,6 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import EmptyState from '@/components/ui/EmptyState';
+import { LoadingSkeleton } from '@/components/ui/LoadingSkeleton';
 
 const eventIcons = {
   income_change: Briefcase,
@@ -68,6 +69,9 @@ export default function Goals() {
     queryKey: ['collateralizedLoans'],
     queryFn: () => base44.entities.CollateralizedLoan.list(),
   });
+
+  // Check if critical data is loading
+  const isLoadingData = !goals || !liabilities || !collateralizedLoans;
 
   // Sort goals by creation date (newest first)
   const sortedGoals = useMemo(() => {
@@ -266,6 +270,11 @@ export default function Goals() {
   };
 
   const currentYear = new Date().getFullYear();
+
+  // Show loading skeleton while data is being fetched
+  if (isLoadingData) {
+    return <LoadingSkeleton />;
+  }
 
   return (
     <div className="space-y-6">

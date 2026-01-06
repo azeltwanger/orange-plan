@@ -110,6 +110,9 @@ export default function Dashboard() {
     queryFn: () => base44.entities.Transaction.list(),
   });
 
+  // Check if critical data is loading
+  const isLoadingData = holdingsLoading || !accounts || !budgetItems || !liabilities;
+
   // Get lot counts per ticker AND account type (key = "ticker|account_type")
   // FILTER OUT soft-deleted transactions (check both root and data.is_deleted)
   const lotCountsByTickerAndAccount = transactions
@@ -289,6 +292,11 @@ export default function Dashboard() {
     setEditingHolding(holding);
     setFormOpen(true);
   };
+
+  // Show loading skeleton while data is being fetched
+  if (isLoadingData) {
+    return <LoadingSkeleton />;
+  }
 
   return (
     <div className="space-y-6">

@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import EmptyState from '@/components/ui/EmptyState';
+import { LoadingSkeleton } from '@/components/ui/LoadingSkeleton';
 
 const SCENARIO_COLORS = ['#F7931A', '#3B82F6', '#10B981', '#A855F7', '#F43F5E', '#06B6D4'];
 
@@ -170,6 +171,9 @@ export default function Scenarios() {
     queryKey: ['liabilities'],
     queryFn: () => base44.entities.Liability.list(),
   });
+
+  // Check if critical data is loading
+  const isLoadingData = !userSettings || !holdings || !budgetItems;
 
   const settings = userSettings[0] || {};
   
@@ -590,6 +594,11 @@ export default function Scenarios() {
 
   const baseRetirementValue = allProjections.base.data.find(d => d.age === baseAssumptions.retirementAge)?.total || 0;
   const baseEndValue = allProjections.base.data[allProjections.base.data.length - 1]?.total || 0;
+
+  // Show loading skeleton while data is being fetched
+  if (isLoadingData) {
+    return <LoadingSkeleton />;
+  }
 
   return (
     <div className="space-y-6">
