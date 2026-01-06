@@ -3241,18 +3241,15 @@ export default function FinancialPlan() {
                   <h4 className="text-sm font-medium text-zinc-300 mb-3">Cash Flow Summary</h4>
                 <div className="p-4 rounded-xl bg-zinc-800/30">
                   {(() => {
-                    // Check if user is currently retired
+                    // Use the actual projection data for Year 0 to ensure consistency
+                    const currentYearProjection = projections[0];
                     const isCurrentlyRetired = currentAge >= retirementAge;
                     
                     // If currently retired, show retirement cash flow
                     if (isCurrentlyRetired) {
                       const currentSS = currentAge >= socialSecurityStartAge ? effectiveSocialSecurity : 0;
                       const totalRetirementIncomeGross = otherRetirementIncome + currentSS;
-                      
-                      // Pull taxes from Year 0 projection data (already calculated correctly)
-                      const currentYearProjection = projections[0];
                       const retirementIncomeTax = currentYearProjection?.taxesPaid || 0;
-                      
                       const retirementCashFlow = totalRetirementIncomeGross - retirementAnnualSpending - retirementIncomeTax;
                       
                       return (
@@ -3303,13 +3300,45 @@ export default function FinancialPlan() {
                       );
                     }
                     
-                    // Pre-retirement cash flow
-                    // Calculate cash flow BEFORE retirement contributions
+                    // Pre-retirement - use projection data for accuracy
+                    // The projection already accounts for pro-rata factors and all calculations
+                    if (currentYearProjection) {
+                      const projGrossIncome = currentYearProjection.yearGrossIncome || 0;
+                      const projTaxes = currentYearProjection.taxesPaid || 0;
+                      const projSpending = currentYearProjection.yearSpending || 0;
+                      const projNetCashFlow = currentYearProjection.netCashFlow || 0;
+                      
+                      return (
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-zinc-400">Gross Income:</span>
+                            <span className="text-emerald-400">{formatNumber(projGrossIncome)}</span>
+                          </div>
+                          {projTaxes > 0 && (
+                            <div className="flex justify-between">
+                              <span className="text-zinc-400">Taxes Paid:</span>
+                              <span className="text-rose-300">-{formatNumber(projTaxes)}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between">
+                            <span className="text-zinc-400">Spending:</span>
+                            <span className="text-zinc-200">-{formatNumber(projSpending)}</span>
+                          </div>
+                          <div className="flex justify-between border-t border-zinc-700 pt-2">
+                            <span className="text-zinc-300 font-medium">Net Savings:</span>
+                            <span className={cn("font-semibold", projNetCashFlow >= 0 ? "text-emerald-400" : "text-rose-400")}>
+                              {projNetCashFlow >= 0 ? '+' : ''}{formatNumber(projNetCashFlow)}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    }
+                    
+                    // Fallback if no projection data
                     const cashFlowBeforeSavings = netIncome - currentAnnualSpending;
                     const hasRetirementContributions = actualRoth > 0;
 
                     if (cashFlowBeforeSavings >= 0) {
-                      // Positive cash flow - normal display
                       return (
                         <div className="space-y-2 text-sm">
                           <div className="flex justify-between">
