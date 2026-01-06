@@ -45,7 +45,7 @@ export function runUnifiedProjection({
   contribution401k,
   employer401kMatch,
   contributionRothIRA,
-  contributionalIRA,
+  contributionTraditionalIRA,
   contributionHSA,
   hsaFamilyCoverage,
   getBtcGrowthRate,
