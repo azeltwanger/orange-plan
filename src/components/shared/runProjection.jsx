@@ -237,6 +237,78 @@ export function runUnifiedProjection({
     const isRetired = age >= retirementAge;
     const yearsFromNow = i;
 
+    // If already depleted, skip all calculations and just record zero values
+    if (firstDepletionAge !== null && age > firstDepletionAge) {
+      // Update BTC price for tracking purposes
+      const yearBtcGrowth = getBtcGrowthRate(yearsFromNow, effectiveInflation);
+      if (i > 0) {
+        cumulativeBtcPrice = cumulativeBtcPrice * (1 + yearBtcGrowth / 100);
+      }
+      
+      results.push({
+        year,
+        age,
+        isRetired,
+        depleted: true,
+        btcLiquid: 0,
+        btcEncumbered: 0,
+        stocks: 0,
+        realEstate: 0,
+        bonds: 0,
+        cash: 0,
+        total: 0,
+        realTotal: 0,
+        liquid: 0,
+        taxable: 0,
+        taxDeferred: 0,
+        taxFree: 0,
+        accountTotal: 0,
+        totalDebt: 0,
+        savings: Math.round(cumulativeSavings),
+        netCashFlow: 0,
+        yearGrossIncome: 0,
+        yearSpending: 0,
+        socialSecurityIncome: 0,
+        isWithdrawing: false,
+        yearWithdrawal: 0,
+        yearGoalWithdrawal: 0,
+        retirementSpendingOnly: 0,
+        withdrawFromTaxable: 0,
+        withdrawFromTaxDeferred: 0,
+        withdrawFromTaxFree: 0,
+        withdrawFromRealEstate: 0,
+        withdrawFromLoanPayoff: 0,
+        realEstateSold: false,
+        realEstateSaleProceeds: 0,
+        totalWithdrawalAmount: 0,
+        taxesPaid: 0,
+        federalTaxPaid: 0,
+        stateTaxPaid: 0,
+        penaltyPaid: 0,
+        canAccessPenaltyFree: age >= PENALTY_FREE_AGE,
+        rmdAmount: 0,
+        rmdWithdrawn: 0,
+        excessRmdReinvested: 0,
+        rmdStartAge: rmdStartAge,
+        debtPayments: 0,
+        loanPayoffs: [],
+        debtPayoffs: [],
+        liquidations: [],
+        btcPrice: Math.round(cumulativeBtcPrice),
+        btcGrowthRate: yearBtcGrowth,
+        encumberedBtc: 0,
+        liquidBtc: 0,
+        btcLoanDetails: [],
+        totalBtcLoanDebt: 0,
+        totalBtcCollateralValue: 0,
+        totalRegularDebt: 0,
+        hasEvent: false,
+        hasGoalWithdrawal: false,
+        goalNames: [],
+      });
+      continue; // Skip to next year
+    }
+
     let socialSecurityIncome = 0;
     let rmdAmount = 0;
     let rmdWithdrawn = 0;
@@ -779,6 +851,11 @@ export function runUnifiedProjection({
           if (firstDepletionAge === null) {
             firstDepletionAge = age;
           }
+          // ZERO OUT THE PORTFOLIO - can't recover from this
+          portfolio.taxable = { btc: 0, stocks: 0, bonds: 0, cash: 0, other: 0 };
+          portfolio.taxDeferred = { btc: 0, stocks: 0, bonds: 0, cash: 0, other: 0 };
+          portfolio.taxFree = { btc: 0, stocks: 0, bonds: 0, cash: 0, other: 0 };
+          portfolio.realEstate = 0;
         }
 
         if (getTotalPortfolio() <= 0) {
