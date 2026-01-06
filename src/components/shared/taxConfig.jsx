@@ -390,6 +390,61 @@ export function getRothIRALimit(year, age) {
 }
 
 /**
+ * Get Traditional IRA contribution limit for a specific year and age.
+ * 
+ * 2025/2026 limits: $7,000 base + $1,000 catch-up (50+) = $8,000 max
+ * Note: Deductibility subject to income limits if covered by workplace plan
+ * 
+ * @param {number} year - Tax year
+ * @param {number} age - Contributor's age
+ * @returns {number} - Maximum Traditional IRA contribution
+ */
+export function getTraditionalIRALimit(year, age) {
+  const baseLimit = 7000;
+  const catchUp = age >= 50 ? 1000 : 0;
+  return baseLimit + catchUp;
+}
+
+/**
+ * Get Roth IRA income limits for eligibility/phase-out.
+ * 
+ * Above phaseOutEnd: Cannot contribute to Roth IRA directly
+ * Between phaseOutStart and phaseOutEnd: Reduced contribution allowed
+ * 
+ * @param {number} year - Tax year
+ * @param {string} filingStatus - 'single' or 'married'
+ * @returns {Object} - { phaseOutStart, phaseOutEnd }
+ */
+export function getRothIRAIncomeLimit(year, filingStatus) {
+  // 2024/2025/2026 limits (adjust for inflation in future)
+  if (filingStatus === 'married' || filingStatus === 'married_filing_jointly') {
+    return { phaseOutStart: 230000, phaseOutEnd: 240000 };
+  } else {
+    return { phaseOutStart: 146000, phaseOutEnd: 161000 };
+  }
+}
+
+/**
+ * Get Traditional IRA deductibility income limits (if covered by workplace plan).
+ * 
+ * If you have a 401k at work:
+ * - Above phaseOutEnd: Contribution NOT deductible (but can still contribute)
+ * - Between phaseOutStart and phaseOutEnd: Partially deductible
+ * - Below phaseOutStart: Fully deductible
+ * 
+ * @param {number} year - Tax year
+ * @param {string} filingStatus - 'single' or 'married'
+ * @returns {Object} - { phaseOutStart, phaseOutEnd }
+ */
+export function getTraditionalIRADeductibilityLimit(year, filingStatus) {
+  if (filingStatus === 'married' || filingStatus === 'married_filing_jointly') {
+    return { phaseOutStart: 123000, phaseOutEnd: 143000 };
+  } else {
+    return { phaseOutStart: 77000, phaseOutEnd: 87000 };
+  }
+}
+
+/**
  * Get HSA contribution limit for a specific year, age, and coverage type.
  * 
  * 2025 limits: 

@@ -16,7 +16,7 @@ import {
 } from '@/components/tax/taxCalculations';
 import { runUnifiedProjection } from '@/components/shared/runProjection';
 import { getRMDFactor } from '@/components/shared/taxData';
-import { get401kLimit, getRothIRALimit, getHSALimit, getTaxConfigForYear } from '@/components/shared/taxConfig';
+import { get401kLimit, getRothIRALimit, getTraditionalIRALimit, getHSALimit, getTaxConfigForYear } from '@/components/shared/taxConfig';
 import { getStateOptions, getStateTaxSummary, STATE_TAX_CONFIG, calculateStateTaxOnRetirement, calculateStateCapitalGainsTax, calculateStateIncomeTax } from '@/components/shared/stateTaxConfig';
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -278,6 +278,7 @@ export default function FinancialPlan() {
   const [contribution401k, setContribution401k] = useState(0);
   const [employer401kMatch, setEmployer401kMatch] = useState(0);
   const [contributionRothIRA, setContributionRothIRA] = useState(0);
+  const [contributionTraditionalIRA, setContributionTraditionalIRA] = useState(0);
   const [contributionHSA, setContributionHSA] = useState(0);
   const [hsaFamilyCoverage, setHsaFamilyCoverage] = useState(false);
 
@@ -490,6 +491,7 @@ export default function FinancialPlan() {
                   if (settings.contribution_401k !== undefined) setContribution401k(settings.contribution_401k);
                   if (settings.employer_401k_match !== undefined) setEmployer401kMatch(settings.employer_401k_match);
                   if (settings.contribution_roth_ira !== undefined) setContributionRothIRA(settings.contribution_roth_ira);
+                  if (settings.contribution_traditional_ira !== undefined) setContributionTraditionalIRA(settings.contribution_traditional_ira);
                   if (settings.contribution_hsa !== undefined) setContributionHSA(settings.contribution_hsa);
                   if (settings.hsa_family_coverage !== undefined) setHsaFamilyCoverage(settings.hsa_family_coverage);
                   if (settings.filing_status !== undefined) setFilingStatus(settings.filing_status);
@@ -548,6 +550,7 @@ export default function FinancialPlan() {
                       contribution_401k: contribution401k || 0,
                       employer_401k_match: employer401kMatch || 0,
                       contribution_roth_ira: contributionRothIRA || 0,
+                      contribution_traditional_ira: contributionTraditionalIRA || 0,
                       contribution_hsa: contributionHSA || 0,
                       hsa_family_coverage: hsaFamilyCoverage || false,
                       filing_status: filingStatus || 'single',
@@ -560,7 +563,7 @@ export default function FinancialPlan() {
                     });
     }, 1000); // Debounce 1 second
     return () => clearTimeout(timeoutId);
-  }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, otherCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, useCustomSocialSecurity, grossAnnualIncome, contribution401k, employer401kMatch, contributionRothIRA, contributionHSA, hsaFamilyCoverage, filingStatus, stateOfResidence, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv, btcReleaseTriggerLtv, btcReleaseTargetLtv, savingsAllocationBtc, savingsAllocationStocks, savingsAllocationBonds, savingsAllocationCash, savingsAllocationOther]);
+  }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, otherCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, useCustomSocialSecurity, grossAnnualIncome, contribution401k, employer401kMatch, contributionRothIRA, contributionTraditionalIRA, contributionHSA, hsaFamilyCoverage, filingStatus, stateOfResidence, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv, btcReleaseTriggerLtv, btcReleaseTargetLtv, savingsAllocationBtc, savingsAllocationStocks, savingsAllocationBonds, savingsAllocationCash, savingsAllocationOther]);
 
   // Calculate accurate debt payments for current month
   const currentMonthForDebt = new Date().getMonth();
@@ -598,15 +601,17 @@ export default function FinancialPlan() {
   // Get current contribution limits for validation
   const currentLimit401k = get401kLimit(currentYear, currentAge);
   const currentLimitRoth = getRothIRALimit(currentYear, currentAge);
+  const currentLimitTraditionalIRA = getTraditionalIRALimit(currentYear, currentAge);
   const currentLimitHSA = getHSALimit(currentYear, currentAge, hsaFamilyCoverage);
   
   // Cap contributions to limits
   const actual401k = Math.min(contribution401k || 0, currentLimit401k);
   const actualRoth = Math.min(contributionRothIRA || 0, currentLimitRoth);
+  const actualTraditionalIRA = Math.min(contributionTraditionalIRA || 0, currentLimitTraditionalIRA);
   const actualHSA = Math.min(contributionHSA || 0, currentLimitHSA);
   
-  // Pre-tax contributions (401k, HSA) reduce taxable income
-  const taxableGrossIncome = Math.max(0, grossAnnualIncome - actual401k - actualHSA - currentStandardDeduction);
+  // Pre-tax contributions (401k, Traditional IRA, HSA) reduce taxable income
+  const taxableGrossIncome = Math.max(0, grossAnnualIncome - actual401k - actualTraditionalIRA - actualHSA - currentStandardDeduction);
   const estimatedIncomeTax = calculateProgressiveIncomeTax(taxableGrossIncome, filingStatus, currentYear);
   
   // Net income after taxes
@@ -3429,6 +3434,22 @@ export default function FinancialPlan() {
                     )}>
                       {currentYear} limit: ${currentLimitRoth.toLocaleString()} {currentAge >= 50 ? "(with catch-up)" : `(${(currentLimitRoth + 1000).toLocaleString()} if 50+)`}
                       {contributionRothIRA > currentLimitRoth && " ⚠️ Exceeds limit"}
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-zinc-400">Traditional IRA Contribution</Label>
+                    <Input 
+                      type="number" 
+                      value={contributionTraditionalIRA} 
+                      onChange={(e) => setContributionTraditionalIRA(parseFloat(e.target.value) || 0)} 
+                      className="bg-zinc-900 border-zinc-800" 
+                    />
+                    <p className={cn(
+                      "text-xs",
+                      contributionTraditionalIRA > currentLimitTraditionalIRA ? "text-amber-400" : "text-zinc-500"
+                    )}>
+                      {currentYear} limit: ${currentLimitTraditionalIRA.toLocaleString()} {currentAge >= 50 ? "(with catch-up)" : `(${(currentLimitTraditionalIRA + 1000).toLocaleString()} if 50+)`}
+                      {contributionTraditionalIRA > currentLimitTraditionalIRA && " ⚠️ Exceeds limit"}
                     </p>
                   </div>
                   <div className="space-y-2">
