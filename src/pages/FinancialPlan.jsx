@@ -2160,23 +2160,23 @@ export default function FinancialPlan() {
                                             <p className="text-zinc-400 mb-2 font-medium text-xs">Annual Cash Flow:</p>
                                             <div className="text-xs space-y-1.5 text-zinc-500 mb-2">
                                               <div className="flex justify-between gap-6">
-                                                <span>• Gross Income:</span>
+                                                <span>Gross Income:</span>
                                                 <span className="text-emerald-400 text-right">${(p.yearGrossIncome || 0).toLocaleString()}</span>
                                               </div>
                                               {p.federalTaxPaid > 0 && (
                                                 <div className="flex justify-between gap-6">
-                                                  <span>• Federal Tax:</span>
+                                                  <span>Federal Tax:</span>
                                                   <span className="text-rose-300 text-right">-${p.federalTaxPaid.toLocaleString()}</span>
                                                 </div>
                                               )}
                                               {p.stateTaxPaid > 0 && (
                                                 <div className="flex justify-between gap-6">
-                                                  <span>• {stateOfResidence} State Tax:</span>
+                                                  <span>{stateOfResidence} State Tax:</span>
                                                   <span className="text-rose-300 text-right">-${p.stateTaxPaid.toLocaleString()}</span>
                                                 </div>
                                               )}
                                               <div className="flex justify-between gap-6">
-                                                <span>• Spending:</span>
+                                                <span>Spending:</span>
                                                 <span className="text-zinc-300 text-right">-${(p.yearSpending || 0).toLocaleString()}</span>
                                               </div>
                                             </div>
@@ -2192,7 +2192,7 @@ export default function FinancialPlan() {
                                             </div>
                                           </div>
                                         )}
-                                {p.debtPayoffs && p.debtPayoffs.length > 0 && (
+                                        {p.debtPayoffs && p.debtPayoffs.length > 0 && (
                                   <div className="pt-3 mt-3 border-t border-zinc-700/70">
                                     <p className="text-xs font-semibold text-emerald-400 mb-2">🎉 Debt Paid Off This Year:</p>
                                     <div className="space-y-1">
