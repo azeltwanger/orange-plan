@@ -795,22 +795,38 @@ export function runUnifiedProjection({
       const yearLimitTraditionalIRA = getTraditionalIRALimit(year, age);
       const yearLimitHSA = getHSALimit(year, age, hsaFamilyCoverage);
       
-      // Can't contribute more than earned income
-      const availableForContributions = Math.max(0, yearGrossIncome);
-      let remainingIncome = availableForContributions;
+      // IRS Rule: Can't contribute more than earned income
+      const maxContributionAllowed = Math.max(0, yearGrossIncome);
+      let remainingIncomeForContributions = maxContributionAllowed;
       
-      // 401k (pre-tax, reduces taxable income)
+      // 401k - capped at IRS limit AND earned income
       year401k = Math.min(
         (contribution401k || 0) * Math.pow(1 + incomeGrowth / 100, i),
         yearLimit401k,
-        remainingIncome
+        remainingIncomeForContributions
       );
-      remainingIncome -= year401k;
+      remainingIncomeForContributions -= year401k;
       
-      // Roth IRA - apply income phase-out
+      // Traditional IRA - capped at IRS limit AND remaining earned income
+      yearTraditionalIRA = Math.min(
+        (contributionTraditionalIRA || 0) * Math.pow(1 + incomeGrowth / 100, i),
+        yearLimitTraditionalIRA,
+        remainingIncomeForContributions
+      );
+      remainingIncomeForContributions -= yearTraditionalIRA;
+      
+      // HSA - capped at IRS limit AND remaining earned income
+      yearHSA = Math.min(
+        (contributionHSA || 0) * Math.pow(1 + incomeGrowth / 100, i),
+        yearLimitHSA,
+        remainingIncomeForContributions
+      );
+      remainingIncomeForContributions -= yearHSA;
+      
+      // Roth IRA - capped at IRS limit, remaining earned income, AND apply income phase-out
       const rothIncomeLimit = getRothIRAIncomeLimit(year, filingStatus);
       let rothPhaseOutMultiplier = 1;
-      const adjustedGrossIncome = yearGrossIncome - year401k; // AGI for Roth limit
+      const adjustedGrossIncome = yearGrossIncome - year401k - yearTraditionalIRA - yearHSA;
       if (adjustedGrossIncome >= rothIncomeLimit.phaseOutEnd) {
         rothPhaseOutMultiplier = 0;
       } else if (adjustedGrossIncome > rothIncomeLimit.phaseOutStart) {
@@ -820,23 +836,7 @@ export function runUnifiedProjection({
       yearRoth = Math.min(
         (contributionRothIRA || 0) * Math.pow(1 + incomeGrowth / 100, i) * rothPhaseOutMultiplier,
         yearLimitRoth,
-        remainingIncome
-      );
-      remainingIncome -= yearRoth;
-      
-      // Traditional IRA (pre-tax, reduces taxable income)
-      yearTraditionalIRA = Math.min(
-        (contributionTraditionalIRA || 0) * Math.pow(1 + incomeGrowth / 100, i),
-        yearLimitTraditionalIRA,
-        remainingIncome
-      );
-      remainingIncome -= yearTraditionalIRA;
-      
-      // HSA (pre-tax)
-      yearHSA = Math.min(
-        (contributionHSA || 0) * Math.pow(1 + incomeGrowth / 100, i),
-        yearLimitHSA,
-        remainingIncome
+        remainingIncomeForContributions
       );
       
       yearEmployerMatch = (employer401kMatch || 0) * Math.pow(1 + incomeGrowth / 100, i);
