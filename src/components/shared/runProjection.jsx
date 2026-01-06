@@ -68,6 +68,7 @@ export function runUnifiedProjection({
   goals = [],
   lifeEvents = [],
   getTaxTreatmentFromHolding,
+  yearlyReturnOverrides = null, // { btc: number[], stocks: number[], bonds: number[], realEstate: number[], cash: number[], other: number[] }
   DEBUG = false,
 }) {
   const results = [];
@@ -347,8 +348,10 @@ export function runUnifiedProjection({
     let yearHSA = 0;
     let yearEmployerMatch = 0;
 
-    // BTC growth and price tracking
-    const yearBtcGrowth = getBtcGrowthRate(yearsFromNow, effectiveInflation);
+    // BTC growth and price tracking - use overrides if provided (for Monte Carlo)
+    const yearBtcGrowth = yearlyReturnOverrides?.btc?.[i] !== undefined 
+      ? yearlyReturnOverrides.btc[i] 
+      : getBtcGrowthRate(yearsFromNow, effectiveInflation);
     if (i > 0) {
       cumulativeBtcPrice = cumulativeBtcPrice * (1 + yearBtcGrowth / 100);
     }
@@ -765,16 +768,27 @@ export function runUnifiedProjection({
       }
     });
 
-    // Apply growth AFTER collateral management
+    // Apply growth AFTER collateral management - use overrides if provided (for Monte Carlo)
     if (i > 0) {
+      const yearStocksGrowth = yearlyReturnOverrides?.stocks?.[i] !== undefined 
+        ? yearlyReturnOverrides.stocks[i] : effectiveStocksCagr;
+      const yearBondsGrowth = yearlyReturnOverrides?.bonds?.[i] !== undefined 
+        ? yearlyReturnOverrides.bonds[i] : bondsCagr;
+      const yearCashGrowth = yearlyReturnOverrides?.cash?.[i] !== undefined 
+        ? yearlyReturnOverrides.cash[i] : cashCagr;
+      const yearOtherGrowth = yearlyReturnOverrides?.other?.[i] !== undefined 
+        ? yearlyReturnOverrides.other[i] : otherCagr;
+      const yearRealEstateGrowth = yearlyReturnOverrides?.realEstate?.[i] !== undefined 
+        ? yearlyReturnOverrides.realEstate[i] : realEstateCagr;
+
       ['taxable', 'taxDeferred', 'taxFree'].forEach(accountKey => {
         portfolio[accountKey].btc *= (1 + yearBtcGrowth / 100);
-        portfolio[accountKey].stocks *= (1 + effectiveStocksCagr / 100);
-        portfolio[accountKey].bonds *= (1 + bondsCagr / 100);
-        portfolio[accountKey].cash *= (1 + cashCagr / 100);
-        portfolio[accountKey].other *= (1 + otherCagr / 100);
+        portfolio[accountKey].stocks *= (1 + yearStocksGrowth / 100);
+        portfolio[accountKey].bonds *= (1 + yearBondsGrowth / 100);
+        portfolio[accountKey].cash *= (1 + yearCashGrowth / 100);
+        portfolio[accountKey].other *= (1 + yearOtherGrowth / 100);
       });
-      portfolio.realEstate *= (1 + realEstateCagr / 100);
+      portfolio.realEstate *= (1 + yearRealEstateGrowth / 100);
     }
 
     // Roth contributions for accessible funds
