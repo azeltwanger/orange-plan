@@ -769,6 +769,14 @@ export function runUnifiedProjection({
         withdrawFromTaxDeferred = withdrawFromAccount('taxDeferred', taxEstimate.fromTaxDeferred || 0);
         withdrawFromTaxFree = withdrawFromAccount('taxFree', taxEstimate.fromTaxFree || 0);
 
+        // Calculate total actually withdrawn
+        const totalActuallyWithdrawn = (withdrawFromTaxable || 0) + (withdrawFromTaxDeferred || 0) + (withdrawFromTaxFree || 0);
+
+        // If we couldn't withdraw enough to cover the deficit, we've run out of money
+        if (totalActuallyWithdrawn < deficit) {
+          ranOutOfMoneyThisYear = true;
+        }
+
         if (getTotalPortfolio() <= 0) ranOutOfMoneyThisYear = true;
       } else if (yearSavings > 0) {
         const totalAllocation = savingsAllocationBtc + savingsAllocationStocks + savingsAllocationBonds + savingsAllocationCash + savingsAllocationOther;
