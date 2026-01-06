@@ -6,7 +6,7 @@ import {
   getLTCGRate
 } from '@/components/tax/taxCalculations';
 import { calculateStateTaxOnRetirement, calculateStateIncomeTax } from '@/components/shared/stateTaxConfig';
-import { getTaxConfigForYear, get401kLimit, getRothIRALimit, getHSALimit } from '@/components/shared/taxConfig';
+import { getTaxConfigForYear, get401kLimit, getRothIRALimit, getTraditionalIRALimit, getHSALimit, getRothIRAIncomeLimit } from '@/components/shared/taxConfig';
 
 /**
  * UNIFIED PROJECTION ENGINE
@@ -44,6 +44,7 @@ export function runUnifiedProjection({
   contribution401k,
   employer401kMatch,
   contributionRothIRA,
+  contributionTraditionalIRA,
   contributionHSA,
   hsaFamilyCoverage,
   getBtcGrowthRate,
@@ -351,6 +352,7 @@ export function runUnifiedProjection({
     let desiredWithdrawal = 0;
     let year401k = 0;
     let yearRoth = 0;
+    let yearTraditionalIRA = 0;
     let yearHSA = 0;
     let yearEmployerMatch = 0;
 
@@ -787,24 +789,67 @@ export function runUnifiedProjection({
       const baseGrossIncome = grossAnnualIncome * Math.pow(1 + incomeGrowth / 100, i);
       yearGrossIncome = baseGrossIncome + activeIncomeAdjustment;
       
+      // Calculate contribution limits
       const yearLimit401k = get401kLimit(year, age);
       const yearLimitRoth = getRothIRALimit(year, age);
+      const yearLimitTraditionalIRA = getTraditionalIRALimit(year, age);
       const yearLimitHSA = getHSALimit(year, age, hsaFamilyCoverage);
       
-      year401k = Math.min((contribution401k || 0) * Math.pow(1 + incomeGrowth / 100, i), yearLimit401k);
-      yearRoth = Math.min((contributionRothIRA || 0) * Math.pow(1 + incomeGrowth / 100, i), yearLimitRoth);
-      yearHSA = Math.min((contributionHSA || 0) * Math.pow(1 + incomeGrowth / 100, i), yearLimitHSA);
+      // Can't contribute more than earned income
+      const availableForContributions = Math.max(0, yearGrossIncome);
+      let remainingIncome = availableForContributions;
+      
+      // 401k (pre-tax, reduces taxable income)
+      year401k = Math.min(
+        (contribution401k || 0) * Math.pow(1 + incomeGrowth / 100, i),
+        yearLimit401k,
+        remainingIncome
+      );
+      remainingIncome -= year401k;
+      
+      // Roth IRA - apply income phase-out
+      const rothIncomeLimit = getRothIRAIncomeLimit(year, filingStatus);
+      let rothPhaseOutMultiplier = 1;
+      const adjustedGrossIncome = yearGrossIncome - year401k; // AGI for Roth limit
+      if (adjustedGrossIncome >= rothIncomeLimit.phaseOutEnd) {
+        rothPhaseOutMultiplier = 0;
+      } else if (adjustedGrossIncome > rothIncomeLimit.phaseOutStart) {
+        rothPhaseOutMultiplier = (rothIncomeLimit.phaseOutEnd - adjustedGrossIncome) / 
+          (rothIncomeLimit.phaseOutEnd - rothIncomeLimit.phaseOutStart);
+      }
+      yearRoth = Math.min(
+        (contributionRothIRA || 0) * Math.pow(1 + incomeGrowth / 100, i) * rothPhaseOutMultiplier,
+        yearLimitRoth,
+        remainingIncome
+      );
+      remainingIncome -= yearRoth;
+      
+      // Traditional IRA (pre-tax, reduces taxable income)
+      yearTraditionalIRA = Math.min(
+        (contributionTraditionalIRA || 0) * Math.pow(1 + incomeGrowth / 100, i),
+        yearLimitTraditionalIRA,
+        remainingIncome
+      );
+      remainingIncome -= yearTraditionalIRA;
+      
+      // HSA (pre-tax)
+      yearHSA = Math.min(
+        (contributionHSA || 0) * Math.pow(1 + incomeGrowth / 100, i),
+        yearLimitHSA,
+        remainingIncome
+      );
+      
       yearEmployerMatch = (employer401kMatch || 0) * Math.pow(1 + incomeGrowth / 100, i);
       
-      const yearTaxableIncome = Math.max(0, yearGrossIncome - year401k - yearHSA - currentStandardDeduction);
+      const yearTaxableIncome = Math.max(0, yearGrossIncome - year401k - yearTraditionalIRA - yearHSA - currentStandardDeduction);
       const yearFederalTax = calculateProgressiveIncomeTax(yearTaxableIncome, filingStatus, year);
-      const yearStateTax = calculateStateIncomeTax({ income: yearGrossIncome - year401k - yearHSA, filingStatus, state: stateOfResidence, year });
+      const yearStateTax = calculateStateIncomeTax({ income: yearGrossIncome - year401k - yearTraditionalIRA - yearHSA, filingStatus, state: stateOfResidence, year });
       
       federalTaxPaid = yearFederalTax;
       stateTaxPaid = yearStateTax;
       taxesPaid = yearFederalTax + yearStateTax;
-      // Net income = gross - taxes - pre-tax contributions (401k, HSA come from paycheck)
-      const yearNetIncome = yearGrossIncome - taxesPaid - year401k - yearHSA;
+      // Net income = gross - taxes - pre-tax contributions (401k, Traditional IRA, HSA come from paycheck)
+      const yearNetIncome = yearGrossIncome - taxesPaid - year401k - yearTraditionalIRA - yearHSA;
 
       const baseYearSpending = (currentAnnualSpending * Math.pow(1 + effectiveInflation / 100, i)) + activeExpenseAdjustment;
       yearSpending = i === 0 ? baseYearSpending * currentYearProRataFactor : baseYearSpending;
@@ -814,7 +859,7 @@ export function runUnifiedProjection({
       yearSavings = proRatedNetIncome - yearSpending - proRatedYearRoth;
       cumulativeSavings += yearSavings;
       
-      addToAccount('taxDeferred', year401k + yearEmployerMatch);
+      addToAccount('taxDeferred', year401k + yearTraditionalIRA + yearEmployerMatch);
       addToAccount('taxFree', yearRoth + yearHSA);
 
       if (yearSavings < 0) {
@@ -1253,6 +1298,7 @@ export function runUnifiedProjection({
       // Retirement contributions (pre-retirement only)
       year401kContribution: !isRetired ? Math.round(year401k || 0) : 0,
       yearRothContribution: !isRetired ? Math.round(yearRoth || 0) : 0,
+      yearTraditionalIRAContribution: !isRetired ? Math.round(yearTraditionalIRA || 0) : 0,
       yearHSAContribution: !isRetired ? Math.round(yearHSA || 0) : 0,
       yearEmployer401kMatch: !isRetired ? Math.round(yearEmployerMatch || 0) : 0,
     });
