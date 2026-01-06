@@ -235,9 +235,6 @@ export default function FinancialPlan() {
   const [maxSustainableSpending, setMaxSustainableSpending] = useState(0);
   const queryClient = useQueryClient();
 
-  // Check if critical data is loading
-  const isLoadingData = !holdings || !accounts || !userSettings || !liabilities || !collateralizedLoans;
-
   // Assumption states - will be loaded from UserSettings
   const [btcCagr, setBtcCagr] = useState(25);
   const [stocksCagr, setStocksCagr] = useState(7);
@@ -396,6 +393,9 @@ export default function FinancialPlan() {
     queryKey: ['userSettings'],
     queryFn: () => base44.entities.UserSettings.list(),
   });
+
+  // Check if critical data is loading
+  const isLoadingData = !holdings || !accounts || !userSettings || !liabilities || !collateralizedLoans;
 
   // Calculate portfolio values by tax treatment
   const getHoldingValue = (h) => h.ticker === 'BTC' ? h.quantity * currentPrice : h.quantity * (h.current_price || 0);

@@ -102,9 +102,6 @@ export default function TaxCenter() {
   const [itemToDelete, setItemToDelete] = useState(null);
   const queryClient = useQueryClient();
 
-  // Check if critical data is loading
-  const isLoadingData = !allTransactions || !holdings || !userSettings || !accounts;
-
   // Tax planning settings
   const [annualIncome, setAnnualIncome] = useState(0);
   const [targetTaxableIncome, setTargetTaxableIncome] = useState(48350);
@@ -227,6 +224,9 @@ export default function TaxCenter() {
     queryKey: ['userSettings'],
     queryFn: () => base44.entities.UserSettings.list(),
   });
+
+  // Check if critical data is loading
+  const isLoadingData = !allTransactions || !holdings || !userSettings || !accounts;
 
   // Settings loaded flag
   const [settingsLoaded, setSettingsLoaded] = useState(false);
