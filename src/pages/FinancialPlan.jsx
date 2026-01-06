@@ -604,6 +604,13 @@ export default function FinancialPlan() {
   const currentLimitTraditionalIRA = getTraditionalIRALimit(currentYear, currentAge);
   const currentLimitHSA = getHSALimit(currentYear, currentAge, hsaFamilyCoverage);
   
+  // Check Roth IRA income eligibility
+  const { getRothIRAIncomeLimit } = require('@/components/shared/taxConfig');
+  const rothIncomeLimit = getRothIRAIncomeLimit(currentYear, filingStatus);
+  const adjustedGrossIncome = grossAnnualIncome - actual401k - actualTraditionalIRA - actualHSA;
+  const rothIncomeEligible = adjustedGrossIncome < rothIncomeLimit.phaseOutEnd;
+  const rothInPhaseOut = adjustedGrossIncome >= rothIncomeLimit.phaseOutStart && adjustedGrossIncome < rothIncomeLimit.phaseOutEnd;
+  
   // Cap contributions to limits
   const actual401k = Math.min(contribution401k || 0, currentLimit401k);
   const actualRoth = Math.min(contributionRothIRA || 0, currentLimitRoth);
@@ -775,7 +782,7 @@ export default function FinancialPlan() {
   }, [holdings, accounts, liabilities, collateralizedLoans, currentPrice, currentAge, lifeExpectancy, 
       retirementAnnualSpending, effectiveSocialSecurity, socialSecurityStartAge, otherRetirementIncome,
       annualSavings, incomeGrowth, grossAnnualIncome, currentAnnualSpending, filingStatus, stateOfResidence,
-      contribution401k, employer401kMatch, contributionRothIRA, contributionHSA, hsaFamilyCoverage,
+      contribution401k, employer401kMatch, contributionRothIRA, contributionTraditionalIRA, contributionHSA, hsaFamilyCoverage,
       getBtcGrowthRate, effectiveInflation, effectiveStocksCagr, bondsCagr, 
       realEstateCagr, cashCagr, otherCagr, savingsAllocationBtc, savingsAllocationStocks, savingsAllocationBonds,
       savingsAllocationCash, savingsAllocationOther, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv,
@@ -1064,7 +1071,7 @@ export default function FinancialPlan() {
   }, [holdings, accounts, liabilities, collateralizedLoans, currentPrice, currentAge, retirementAge, lifeExpectancy, 
       retirementAnnualSpending, effectiveSocialSecurity, socialSecurityStartAge, otherRetirementIncome,
       annualSavings, incomeGrowth, grossAnnualIncome, currentAnnualSpending, filingStatus, stateOfResidence,
-      contribution401k, employer401kMatch, contributionRothIRA, contributionHSA, hsaFamilyCoverage,
+      contribution401k, employer401kMatch, contributionRothIRA, contributionTraditionalIRA, contributionHSA, hsaFamilyCoverage,
       getBtcGrowthRate, effectiveInflation, effectiveStocksCagr, bondsCagr, 
       realEstateCagr, cashCagr, otherCagr, savingsAllocationBtc, savingsAllocationStocks, savingsAllocationBonds,
       savingsAllocationCash, savingsAllocationOther, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv,
@@ -3409,6 +3416,11 @@ export default function FinancialPlan() {
                       {currentYear} limit: ${currentLimit401k.toLocaleString()} {currentAge >= 50 ? "(with catch-up)" : `(${(currentLimit401k + 7500).toLocaleString()} if 50+)`}
                       {contribution401k > currentLimit401k && " ⚠️ Exceeds limit"}
                     </p>
+                    {grossAnnualIncome === 0 && contribution401k > 0 && (
+                      <p className="text-xs text-rose-400">
+                        ⚠️ Cannot contribute without earned income
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label className="text-zinc-400">Employer 401k Match</Label>
@@ -3435,6 +3447,21 @@ export default function FinancialPlan() {
                       {currentYear} limit: ${currentLimitRoth.toLocaleString()} {currentAge >= 50 ? "(with catch-up)" : `(${(currentLimitRoth + 1000).toLocaleString()} if 50+)`}
                       {contributionRothIRA > currentLimitRoth && " ⚠️ Exceeds limit"}
                     </p>
+                    {!rothIncomeEligible && contributionRothIRA > 0 && (
+                      <p className="text-xs text-rose-400">
+                        ⚠️ Income too high for Roth IRA (MAGI ${adjustedGrossIncome.toLocaleString()} ≥ ${rothIncomeLimit.phaseOutEnd.toLocaleString()})
+                      </p>
+                    )}
+                    {rothInPhaseOut && contributionRothIRA > 0 && (
+                      <p className="text-xs text-amber-400">
+                        ⚠️ Roth contribution will be reduced (MAGI in phase-out range)
+                      </p>
+                    )}
+                    {grossAnnualIncome === 0 && contributionRothIRA > 0 && (
+                      <p className="text-xs text-rose-400">
+                        ⚠️ Cannot contribute without earned income
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label className="text-zinc-400">Traditional IRA Contribution</Label>
@@ -3451,6 +3478,11 @@ export default function FinancialPlan() {
                       {currentYear} limit: ${currentLimitTraditionalIRA.toLocaleString()} {currentAge >= 50 ? "(with catch-up)" : `(${(currentLimitTraditionalIRA + 1000).toLocaleString()} if 50+)`}
                       {contributionTraditionalIRA > currentLimitTraditionalIRA && " ⚠️ Exceeds limit"}
                     </p>
+                    {grossAnnualIncome === 0 && contributionTraditionalIRA > 0 && (
+                      <p className="text-xs text-rose-400">
+                        ⚠️ Cannot contribute without earned income
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label className="text-zinc-400">HSA Contribution</Label>
@@ -3467,6 +3499,11 @@ export default function FinancialPlan() {
                       {currentYear} limit: ${currentLimitHSA.toLocaleString()} ({hsaFamilyCoverage ? "family" : "individual"}{currentAge >= 55 ? ", with catch-up" : ""})
                       {contributionHSA > currentLimitHSA && " ⚠️ Exceeds limit"}
                     </p>
+                    {grossAnnualIncome === 0 && contributionHSA > 0 && (
+                      <p className="text-xs text-rose-400">
+                        ⚠️ Cannot contribute without earned income
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label className="text-zinc-400">HSA Coverage Type</Label>
@@ -3785,7 +3822,7 @@ export default function FinancialPlan() {
 
               <div className="mt-4 space-y-2">
               <p className="text-xs text-zinc-500">
-                  💡 Pre-tax contributions (401k: {formatNumber(actual401k)}, HSA: {formatNumber(actualHSA)}) reduce your taxable income. 
+                  💡 Pre-tax contributions (401k: {formatNumber(actual401k)}, Traditional IRA: {formatNumber(actualTraditionalIRA)}, HSA: {formatNumber(actualHSA)}) reduce your taxable income. 
                   Roth IRA comes from after-tax income. Employer match ({formatNumber(employer401kMatch || 0)}) goes to tax-deferred.
                   Debt payments ({formatNumber(monthlyDebtPayments * 12)}/yr) are tracked separately.
                 </p>
