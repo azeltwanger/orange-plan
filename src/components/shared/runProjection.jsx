@@ -349,6 +349,10 @@ export function runUnifiedProjection({
     let yearGrossIncome = 0;
     let yearSpending = 0;
     let desiredWithdrawal = 0;
+    let year401k = 0;
+    let yearRoth = 0;
+    let yearHSA = 0;
+    let yearEmployerMatch = 0;
 
     // BTC growth and price tracking
     const yearBtcGrowth = getBtcGrowthRate(yearsFromNow, effectiveInflation);
@@ -787,10 +791,10 @@ export function runUnifiedProjection({
       const yearLimitRoth = getRothIRALimit(year, age);
       const yearLimitHSA = getHSALimit(year, age, hsaFamilyCoverage);
       
-      const year401k = Math.min((contribution401k || 0) * Math.pow(1 + incomeGrowth / 100, i), yearLimit401k);
-      const yearRoth = Math.min((contributionRothIRA || 0) * Math.pow(1 + incomeGrowth / 100, i), yearLimitRoth);
-      const yearHSA = Math.min((contributionHSA || 0) * Math.pow(1 + incomeGrowth / 100, i), yearLimitHSA);
-      const yearEmployerMatch = (employer401kMatch || 0) * Math.pow(1 + incomeGrowth / 100, i);
+      year401k = Math.min((contribution401k || 0) * Math.pow(1 + incomeGrowth / 100, i), yearLimit401k);
+      yearRoth = Math.min((contributionRothIRA || 0) * Math.pow(1 + incomeGrowth / 100, i), yearLimitRoth);
+      yearHSA = Math.min((contributionHSA || 0) * Math.pow(1 + incomeGrowth / 100, i), yearLimitHSA);
+      yearEmployerMatch = (employer401kMatch || 0) * Math.pow(1 + incomeGrowth / 100, i);
       
       const yearTaxableIncome = Math.max(0, yearGrossIncome - year401k - yearHSA - currentStandardDeduction);
       const yearFederalTax = calculateProgressiveIncomeTax(yearTaxableIncome, filingStatus, year);
@@ -1244,6 +1248,12 @@ export function runUnifiedProjection({
         goals.some(g => (g.withdraw_from_portfolio || g.will_be_spent) && g.target_date && new Date(g.target_date).getFullYear() === year),
       hasGoalWithdrawal: yearGoalWithdrawal > 0,
       goalNames: [],
+      
+      // Retirement contributions (pre-retirement only)
+      year401kContribution: !isRetired ? Math.round(year401k || 0) : 0,
+      yearRothContribution: !isRetired ? Math.round(yearRoth || 0) : 0,
+      yearHSAContribution: !isRetired ? Math.round(yearHSA || 0) : 0,
+      yearEmployer401kMatch: !isRetired ? Math.round(yearEmployerMatch || 0) : 0,
     });
   }
   

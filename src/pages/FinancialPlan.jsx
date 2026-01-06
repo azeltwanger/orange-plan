@@ -1990,9 +1990,33 @@ export default function FinancialPlan() {
                                           <span className="text-rose-300 text-right">-${p.stateTaxPaid.toLocaleString()}</span>
                                         </div>
                                       )}
+                                      {p.year401kContribution > 0 && (
+                                        <div className="flex justify-between gap-6">
+                                          <span>401k/403b Contribution:</span>
+                                          <span className="text-rose-300 text-right">-${p.year401kContribution.toLocaleString()}</span>
+                                        </div>
+                                      )}
+                                      {p.yearEmployer401kMatch > 0 && (
+                                        <div className="flex justify-between gap-6">
+                                          <span>Employer 401k Match:</span>
+                                          <span className="text-emerald-400 text-right">+${p.yearEmployer401kMatch.toLocaleString()}</span>
+                                        </div>
+                                      )}
+                                      {p.yearRothContribution > 0 && (
+                                        <div className="flex justify-between gap-6">
+                                          <span>Roth IRA Contribution:</span>
+                                          <span className="text-rose-300 text-right">-${p.yearRothContribution.toLocaleString()}</span>
+                                        </div>
+                                      )}
+                                      {p.yearHSAContribution > 0 && (
+                                        <div className="flex justify-between gap-6">
+                                          <span>HSA Contribution:</span>
+                                          <span className="text-rose-300 text-right">-${p.yearHSAContribution.toLocaleString()}</span>
+                                        </div>
+                                      )}
                                       <div className="flex justify-between gap-6">
                                         <span>Spending:</span>
-                                        <span className="text-zinc-300 text-right">-${(p.yearSpending || 0).toLocaleString()}</span>
+                                        <span className="text-rose-300 text-right">-${(p.yearSpending || 0).toLocaleString()}</span>
                                       </div>
                                     </div>
                                     {p.debtPayments > 0 && (
@@ -2044,14 +2068,14 @@ export default function FinancialPlan() {
                                     <div className="text-xs space-y-1.5 text-zinc-500 mb-2">
                                       {p.socialSecurityIncome > 0 && (
                                         <div className="flex justify-between gap-6">
-                                          <span className="text-emerald-400">Social Security Income:</span>
+                                          <span>Social Security Income:</span>
                                           <span className="text-emerald-400 text-right">+${p.socialSecurityIncome.toLocaleString()}</span>
                                         </div>
                                       )}
                                       {p.rmdWithdrawn > 0 && (
                                         <div className="flex justify-between gap-6">
-                                          <span className="text-amber-400">RMD (Required):</span>
-                                          <span className="text-amber-400 text-right">${p.rmdWithdrawn.toLocaleString()}</span>
+                                          <span>RMD (Required):</span>
+                                          <span className="text-emerald-400 text-right">+${p.rmdWithdrawn.toLocaleString()}</span>
                                         </div>
                                       )}
                                       {p.excessRmdReinvested > 0 && (
@@ -2061,37 +2085,37 @@ export default function FinancialPlan() {
                                         </div>
                                       )}
                                       <div className="flex justify-between gap-6">
-                                        <span>• Spending:</span>
-                                        <span className="text-zinc-300 text-right">${(p.retirementSpendingOnly || 0).toLocaleString()}</span>
+                                        <span>Spending:</span>
+                                        <span className="text-rose-300 text-right">-${(p.retirementSpendingOnly || 0).toLocaleString()}</span>
                                       </div>
                                       {p.yearGoalWithdrawal > 0 && (
                                         <div className="flex justify-between gap-6">
-                                          <span>• Goal Funding:</span>
-                                          <span className="text-zinc-300 text-right">${p.yearGoalWithdrawal.toLocaleString()}</span>
+                                          <span>Goal Funding:</span>
+                                          <span className="text-rose-300 text-right">-${p.yearGoalWithdrawal.toLocaleString()}</span>
                                         </div>
                                       )}
                                       {p.federalTaxPaid > 0 && (
                                         <div className="flex justify-between gap-6">
-                                          <span>• Federal Tax:</span>
-                                          <span className="text-rose-300 text-right">${p.federalTaxPaid.toLocaleString()}</span>
+                                          <span>Federal Tax:</span>
+                                          <span className="text-rose-300 text-right">-${p.federalTaxPaid.toLocaleString()}</span>
                                         </div>
                                       )}
                                       {p.stateTaxPaid > 0 && (
                                         <div className="flex justify-between gap-6">
-                                          <span>• {stateOfResidence} State Tax:</span>
-                                          <span className="text-rose-300 text-right">${p.stateTaxPaid.toLocaleString()}</span>
+                                          <span>{stateOfResidence} State Tax:</span>
+                                          <span className="text-rose-300 text-right">-${p.stateTaxPaid.toLocaleString()}</span>
                                         </div>
                                       )}
                                       {p.penaltyPaid > 0 && (
                                         <div className="flex justify-between gap-6">
-                                          <span>• Penalty Paid:</span>
-                                          <span className="text-rose-300 text-right">${p.penaltyPaid.toLocaleString()}</span>
+                                          <span>Penalty Paid:</span>
+                                          <span className="text-rose-300 text-right">-${p.penaltyPaid.toLocaleString()}</span>
                                         </div>
                                       )}
                                       </div>
                                       <div className="pt-2 border-t border-zinc-700/40">
-                                      <p className="font-semibold text-rose-300 text-sm">
-                                        Net Withdrawal: ${(p.totalWithdrawalAmount || 0).toLocaleString()}
+                                      <p className="font-semibold text-rose-400 text-sm">
+                                        Net Withdrawal: -${(p.totalWithdrawalAmount || 0).toLocaleString()}
                                       </p>
                                       </div>
                                       {(p.withdrawFromTaxable > 0 || p.withdrawFromTaxDeferred > 0 || p.withdrawFromTaxFree > 0) && (
@@ -2175,9 +2199,33 @@ export default function FinancialPlan() {
                                                   <span className="text-rose-300 text-right">-${p.stateTaxPaid.toLocaleString()}</span>
                                                 </div>
                                               )}
+                                              {p.year401kContribution > 0 && (
+                                                <div className="flex justify-between gap-6">
+                                                  <span>401k/403b Contribution:</span>
+                                                  <span className="text-rose-300 text-right">-${p.year401kContribution.toLocaleString()}</span>
+                                                </div>
+                                              )}
+                                              {p.yearEmployer401kMatch > 0 && (
+                                                <div className="flex justify-between gap-6">
+                                                  <span>Employer 401k Match:</span>
+                                                  <span className="text-emerald-400 text-right">+${p.yearEmployer401kMatch.toLocaleString()}</span>
+                                                </div>
+                                              )}
+                                              {p.yearRothContribution > 0 && (
+                                                <div className="flex justify-between gap-6">
+                                                  <span>Roth IRA Contribution:</span>
+                                                  <span className="text-rose-300 text-right">-${p.yearRothContribution.toLocaleString()}</span>
+                                                </div>
+                                              )}
+                                              {p.yearHSAContribution > 0 && (
+                                                <div className="flex justify-between gap-6">
+                                                  <span>HSA Contribution:</span>
+                                                  <span className="text-rose-300 text-right">-${p.yearHSAContribution.toLocaleString()}</span>
+                                                </div>
+                                              )}
                                               <div className="flex justify-between gap-6">
                                                 <span>Spending:</span>
-                                                <span className="text-zinc-300 text-right">-${(p.yearSpending || 0).toLocaleString()}</span>
+                                                <span className="text-rose-300 text-right">-${(p.yearSpending || 0).toLocaleString()}</span>
                                               </div>
                                             </div>
                                             {p.debtPayments > 0 && (
@@ -2187,7 +2235,7 @@ export default function FinancialPlan() {
                                             )}
                                             <div className="pt-2 border-t border-zinc-700/40">
                                               <p className={`font-semibold text-sm ${p.netCashFlow >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                                {p.netCashFlow >= 0 ? 'Investing into Taxable:' : 'Net Cash Flow:'} {p.netCashFlow >= 0 ? '+' : ''}${p.netCashFlow.toLocaleString()}
+                                                Net Cash Flow: {p.netCashFlow >= 0 ? '+' : ''}${p.netCashFlow.toLocaleString()}
                                               </p>
                                             </div>
                                           </div>
@@ -2388,7 +2436,7 @@ export default function FinancialPlan() {
                                   )}
                                   <div className="pt-2 border-t border-zinc-700/40">
                                     <p className={`font-semibold text-sm ${p.netCashFlow >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                      Net Cash Flow: {p.netCashFlow >= 0 ? '+' : ''}${(p.netCashFlow || 0).toLocaleString()}
+                                      Net Cash Flow: {p.netCashFlow >= 0 ? '+' : ''}${p.netCashFlow.toLocaleString()}
                                     </p>
                                   </div>
                                   {/* Withdrawal sources for pre-retirement deficit */}
@@ -2431,14 +2479,14 @@ export default function FinancialPlan() {
                                     {/* Income sources */}
                                     {p.socialSecurityIncome > 0 && (
                                       <div className="flex justify-between gap-6">
-                                        <span>Social Security:</span>
+                                        <span>Social Security Income:</span>
                                         <span className="text-emerald-400 text-right">+${p.socialSecurityIncome.toLocaleString()}</span>
                                       </div>
                                     )}
                                     {p.rmdWithdrawn > 0 && (
                                       <div className="flex justify-between gap-6">
                                         <span>RMD (Required):</span>
-                                        <span className="text-amber-400 text-right">+${p.rmdWithdrawn.toLocaleString()}</span>
+                                        <span className="text-emerald-400 text-right">+${p.rmdWithdrawn.toLocaleString()}</span>
                                       </div>
                                     )}
                                     {p.excessRmdReinvested > 0 && (
@@ -2563,9 +2611,33 @@ export default function FinancialPlan() {
                                        <span className="text-rose-300 text-right">-${p.stateTaxPaid.toLocaleString()}</span>
                                      </div>
                                     )}
+                                    {p.year401kContribution > 0 && (
+                                      <div className="flex justify-between gap-6">
+                                        <span>• 401k/403b Contribution:</span>
+                                        <span className="text-rose-300 text-right">-${p.year401kContribution.toLocaleString()}</span>
+                                      </div>
+                                    )}
+                                    {p.yearEmployer401kMatch > 0 && (
+                                      <div className="flex justify-between gap-6">
+                                        <span>• Employer 401k Match:</span>
+                                        <span className="text-emerald-400 text-right">+${p.yearEmployer401kMatch.toLocaleString()}</span>
+                                      </div>
+                                    )}
+                                    {p.yearRothContribution > 0 && (
+                                      <div className="flex justify-between gap-6">
+                                        <span>• Roth IRA Contribution:</span>
+                                        <span className="text-rose-300 text-right">-${p.yearRothContribution.toLocaleString()}</span>
+                                      </div>
+                                    )}
+                                    {p.yearHSAContribution > 0 && (
+                                      <div className="flex justify-between gap-6">
+                                        <span>• HSA Contribution:</span>
+                                        <span className="text-rose-300 text-right">-${p.yearHSAContribution.toLocaleString()}</span>
+                                      </div>
+                                    )}
                                     <div className="flex justify-between gap-6">
                                       <span>• Spending:</span>
-                                      <span className="text-zinc-300 text-right">-${(p.yearSpending || 0).toLocaleString()}</span>
+                                      <span className="text-rose-300 text-right">-${(p.yearSpending || 0).toLocaleString()}</span>
                                     </div>
                                   </div>
                                   {(p.debtPayments > 0) && (
