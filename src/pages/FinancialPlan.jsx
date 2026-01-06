@@ -30,6 +30,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { LoadingSkeleton } from '@/components/ui/LoadingSkeleton';
 
 // Bitcoin volatility model - starts high and decays over time based on historical trends
 // Historical: ~80% in 2011-2013, ~60% in 2017-2018, ~40-50% in 2021-2024
@@ -1459,21 +1460,7 @@ export default function FinancialPlan() {
 
   // Show loading skeleton while data is being fetched
   if (isLoadingData) {
-    return (
-      <div className="min-h-screen bg-[#0a0a0b] p-6">
-        <div className="animate-pulse space-y-6">
-          <div className="h-8 bg-zinc-800 rounded w-1/3"></div>
-          <div className="h-64 bg-zinc-800 rounded"></div>
-          <div className="grid grid-cols-4 gap-4">
-            <div className="h-32 bg-zinc-800 rounded"></div>
-            <div className="h-32 bg-zinc-800 rounded"></div>
-            <div className="h-32 bg-zinc-800 rounded"></div>
-            <div className="h-32 bg-zinc-800 rounded"></div>
-          </div>
-          <div className="h-96 bg-zinc-800 rounded"></div>
-        </div>
-      </div>
-    );
+    return <LoadingSkeleton />;
   }
 
   return (

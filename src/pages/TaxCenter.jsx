@@ -25,6 +25,7 @@ import CreateAccountDialog from '@/components/accounts/CreateAccountDialog';
 import { cn } from "@/lib/utils";
 import EmptyState from '@/components/ui/EmptyState';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import { LoadingSkeleton } from '@/components/ui/LoadingSkeleton';
 
 // 2025 Tax Brackets and Standard Deductions
 // LTCG brackets are based on TAXABLE income (after standard deduction)
@@ -1272,20 +1273,7 @@ export default function TaxCenter() {
 
   // Show loading skeleton while data is being fetched
   if (isLoadingData) {
-    return (
-      <div className="min-h-screen bg-[#0a0a0b] p-6">
-        <div className="animate-pulse space-y-6">
-          <div className="h-8 bg-zinc-800 rounded w-1/3"></div>
-          <div className="grid grid-cols-4 gap-4">
-            <div className="h-32 bg-zinc-800 rounded"></div>
-            <div className="h-32 bg-zinc-800 rounded"></div>
-            <div className="h-32 bg-zinc-800 rounded"></div>
-            <div className="h-32 bg-zinc-800 rounded"></div>
-          </div>
-          <div className="h-96 bg-zinc-800 rounded"></div>
-        </div>
-      </div>
-    );
+    return <LoadingSkeleton />;
   }
 
   return (
