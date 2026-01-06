@@ -775,9 +775,18 @@ export function runUnifiedProjection({
         // If we couldn't withdraw enough to cover the deficit, we've run out of money
         if (totalActuallyWithdrawn < deficit) {
           ranOutOfMoneyThisYear = true;
+          // Mark this as the depletion year - can't cover required spending
+          if (firstDepletionAge === null) {
+            firstDepletionAge = age;
+          }
         }
 
-        if (getTotalPortfolio() <= 0) ranOutOfMoneyThisYear = true;
+        if (getTotalPortfolio() <= 0) {
+          ranOutOfMoneyThisYear = true;
+          if (firstDepletionAge === null) {
+            firstDepletionAge = age;
+          }
+        }
       } else if (yearSavings > 0) {
         const totalAllocation = savingsAllocationBtc + savingsAllocationStocks + savingsAllocationBonds + savingsAllocationCash + savingsAllocationOther;
         if (totalAllocation > 0) {
