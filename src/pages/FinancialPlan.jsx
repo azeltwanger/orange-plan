@@ -1323,10 +1323,15 @@ export default function FinancialPlan() {
         DEBUG: false,
       });
       
+      // DEBUG: Log each test to see what's happening
+      const finalYear = result.yearByYear?.[result.yearByYear.length - 1];
+      console.log(`💰 Test +$${additionalAmount.toLocaleString()}/yr savings: survives=${result.survives}, depleteAge=${result.depleteAge || 'N/A'}, finalPortfolio=$${Math.round(result.finalPortfolio).toLocaleString()}, finalNetWorth=$${Math.round((finalYear?.total || 0) - (finalYear?.totalDebt || 0)).toLocaleString()}`);
+      
       return result.survives;
     };
     
     // Binary search to find minimum additional investment (within $100 precision)
+    console.log(`🔍 Starting binary search for additional investment (range: $0 - $${high.toLocaleString()})`);
     for (let iteration = 0; iteration < 20; iteration++) {
       const mid = Math.round((low + high) / 2);
       
@@ -1341,6 +1346,7 @@ export default function FinancialPlan() {
     }
     
     // Return the higher bound (guaranteed to work)
+    console.log(`✅ Additional investment needed result: $${high.toLocaleString()}/yr (converged after search)`);
     return high;
   }, [holdings, accounts, liabilities, collateralizedLoans, currentPrice, currentAge, retirementAge, 
       lifeExpectancy, retirementAnnualSpending, effectiveSocialSecurity, socialSecurityStartAge, 
