@@ -1231,7 +1231,15 @@ export default function FinancialPlan() {
     }
     
     return earliest;
-  }, [currentAge, lifeExpectancy, btcValue, stocksValue, realEstateValue, bondsValue, cashValue, otherValue, runProjectionForRetirementAge]);
+  }, [holdings, accounts, liabilities, collateralizedLoans, currentPrice, currentAge, lifeExpectancy, 
+      retirementAnnualSpending, effectiveSocialSecurity, socialSecurityStartAge, otherRetirementIncome,
+      annualSavings, incomeGrowth, grossAnnualIncome, currentAnnualSpending, filingStatus, stateOfResidence,
+      contribution401k, employer401kMatch, contributionRothIRA, contributionTraditionalIRA, contributionHSA, 
+      hsaFamilyCoverage, getBtcGrowthRate, effectiveInflation, effectiveStocksCagr, bondsCagr, 
+      realEstateCagr, cashCagr, otherCagr, savingsAllocationBtc, savingsAllocationStocks, 
+      savingsAllocationBonds, savingsAllocationCash, savingsAllocationOther, autoTopUpBtcCollateral, 
+      btcTopUpTriggerLtv, btcTopUpTargetLtv, btcReleaseTriggerLtv, btcReleaseTargetLtv, 
+      goals, lifeEvents, getTaxTreatmentFromHolding, runProjectionForRetirementAge]);
 
   // Update state when derived value changes
   useEffect(() => {
@@ -1261,7 +1269,15 @@ export default function FinancialPlan() {
     }
     
     return Math.round(low);
-  }, [btcValue, stocksValue, realEstateValue, bondsValue, cashValue, otherValue, retirementAge, runProjectionForRetirementAge]);
+  }, [holdings, accounts, liabilities, collateralizedLoans, currentPrice, currentAge, lifeExpectancy, 
+      retirementAnnualSpending, effectiveSocialSecurity, socialSecurityStartAge, otherRetirementIncome,
+      annualSavings, incomeGrowth, grossAnnualIncome, currentAnnualSpending, filingStatus, stateOfResidence,
+      contribution401k, employer401kMatch, contributionRothIRA, contributionTraditionalIRA, contributionHSA, 
+      hsaFamilyCoverage, getBtcGrowthRate, effectiveInflation, effectiveStocksCagr, bondsCagr, 
+      realEstateCagr, cashCagr, otherCagr, savingsAllocationBtc, savingsAllocationStocks, 
+      savingsAllocationBonds, savingsAllocationCash, savingsAllocationOther, autoTopUpBtcCollateral, 
+      btcTopUpTriggerLtv, btcTopUpTargetLtv, btcReleaseTriggerLtv, btcReleaseTargetLtv, 
+      goals, lifeEvents, getTaxTreatmentFromHolding, retirementAge, runProjectionForRetirementAge]);
 
   // Update state when derived value changes
   useEffect(() => {
