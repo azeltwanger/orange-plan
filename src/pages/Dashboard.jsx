@@ -17,6 +17,7 @@ import CreateAccountDialog from '@/components/accounts/CreateAccountDialog';
 import EditAccountDialog from '@/components/accounts/EditAccountDialog';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import EmptyState from '@/components/ui/EmptyState';
+import { LoadingSkeleton } from '@/components/ui/LoadingSkeleton';
 
 export default function Dashboard() {
   const [btcPrice, setBtcPrice] = useState(null);
