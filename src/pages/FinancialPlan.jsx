@@ -285,7 +285,7 @@ export default function FinancialPlan() {
   // BTC Collateral Management Settings (Ledn defaults)
   const [autoTopUpBtcCollateral, setAutoTopUpBtcCollateral] = useState(true);
   const [btcTopUpTriggerLtv, setBtcTopUpTriggerLtv] = useState(70);
-  const [btcTopUpTargetLtv, setBtcTopUpTargetLtv] = useState(65);
+  const [btcTopUpTargetLtv, setBtcTopUpTargetLtv] = useState(50); // Ledn resets to 50% LTV after top-up
   const [btcReleaseTriggerLtv, setBtcReleaseTriggerLtv] = useState(30);
   const [btcReleaseTargetLtv, setBtcReleaseTargetLtv] = useState(40);
 

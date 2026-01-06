@@ -32,7 +32,7 @@ export default function Liabilities() {
   // BTC Collateral Management Settings (Ledn defaults)
   const [autoTopUp, setAutoTopUp] = useState(true);
   const [topUpTriggerLtv, setTopUpTriggerLtv] = useState(70);
-  const [topUpTargetLtv, setTopUpTargetLtv] = useState(65);
+  const [topUpTargetLtv, setTopUpTargetLtv] = useState(50); // Ledn resets to 50% LTV after top-up
   const [releaseTriggerLtv, setReleaseTriggerLtv] = useState(30);
   const [releaseTargetLtv, setReleaseTargetLtv] = useState(40);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
