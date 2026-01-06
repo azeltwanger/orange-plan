@@ -36,6 +36,7 @@ export function runUnifiedProjection({
   socialSecurityStartAge,
   otherRetirementIncome,
   annualSavings,
+  additionalAnnualSavings = 0,
   incomeGrowth,
   grossAnnualIncome,
   currentAnnualSpending,
@@ -44,7 +45,7 @@ export function runUnifiedProjection({
   contribution401k,
   employer401kMatch,
   contributionRothIRA,
-  contributionTraditionalIRA,
+  contributionalIRA,
   contributionHSA,
   hsaFamilyCoverage,
   getBtcGrowthRate,
@@ -856,6 +857,14 @@ export function runUnifiedProjection({
       const proRatedNetIncome = i === 0 ? yearNetIncome * currentYearProRataFactor : yearNetIncome;
       const proRatedYearRoth = i === 0 ? yearRoth * currentYearProRataFactor : yearRoth;
       yearSavings = proRatedNetIncome - yearSpending - proRatedYearRoth;
+
+      // Add additional savings being tested (for "Save More" card binary search)
+      if (additionalAnnualSavings > 0) {
+        const inflatedAdditionalSavings = additionalAnnualSavings * Math.pow(1 + incomeGrowth / 100, i);
+        const proRatedAdditional = i === 0 ? inflatedAdditionalSavings * currentYearProRataFactor : inflatedAdditionalSavings;
+        yearSavings += proRatedAdditional;
+      }
+
       cumulativeSavings += yearSavings;
       
       addToAccount('taxDeferred', year401k + yearTraditionalIRA + yearEmployerMatch);

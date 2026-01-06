@@ -1225,13 +1225,9 @@ export default function FinancialPlan() {
     let high = lifeExpectancy - 1;
     let earliest = null;
     
-    console.log(`🔍 Earliest Retirement Age Search: testing ages ${low} to ${high}`);
-    
     while (low <= high) {
       const mid = Math.floor((low + high) / 2);
       const result = runProjectionForRetirementAge(mid);
-      
-      console.log(`  Age ${mid}: survives=${result.survives}, depleteAge=${result.depleteAge || 'N/A'}`);
       
       if (result.survives) {
         earliest = mid;
@@ -1241,7 +1237,6 @@ export default function FinancialPlan() {
       }
     }
     
-    console.log(`✅ Earliest sustainable retirement age: ${earliest !== null ? earliest : 'NONE FOUND'}`);
     return earliest;
   }, [currentAge, lifeExpectancy, btcValue, stocksValue, realEstateValue, bondsValue, cashValue, otherValue, runProjectionForRetirementAge]);
 
@@ -1272,7 +1267,7 @@ export default function FinancialPlan() {
     }
     
     return Math.round(low);
-  }, [projections, retirementAge, runProjectionForRetirementAge]);
+  }, [btcValue, stocksValue, realEstateValue, bondsValue, cashValue, otherValue, retirementAge, runProjectionForRetirementAge]);
 
   // Update state when derived value changes
   useEffect(() => {
@@ -1284,21 +1279,15 @@ export default function FinancialPlan() {
     // If already sustainable at current savings, no additional needed
     const baseResult = runProjectionForRetirementAge(retirementAge);
     if (baseResult.survives) {
-      console.log(`✅ Additional investment: $0 (plan already sustainable)`);
       return 0;
     }
-    
-    const total = btcValue + stocksValue + realEstateValue + bondsValue + cashValue + otherValue;
     
     // Binary search for minimum additional annual investment needed
     let low = 0;
     let high = 500000; // $500k/year upper bound
-    let foundSustainable = false;
     
-    // Helper to run projection with modified annual savings
+    // Helper to run projection with additional savings
     const testWithAdditionalSavings = (additionalAmount) => {
-      const testAnnualSavings = annualSavings + additionalAmount;
-      
       const result = runUnifiedProjection({
         holdings,
         accounts,
@@ -1312,7 +1301,8 @@ export default function FinancialPlan() {
         effectiveSocialSecurity,
         socialSecurityStartAge,
         otherRetirementIncome,
-        annualSavings: testAnnualSavings,
+        annualSavings,
+        additionalAnnualSavings: additionalAmount,
         incomeGrowth,
         grossAnnualIncome,
         currentAnnualSpending,
@@ -1350,11 +1340,8 @@ export default function FinancialPlan() {
       return result.survives;
     };
     
-    console.log(`🔍 Additional Savings Search: testing $0 - $${high.toLocaleString()}/yr`);
-    
     // First check if even max amount works
     if (!testWithAdditionalSavings(high)) {
-      console.log(`❌ Even $${high.toLocaleString()}/yr not enough - hiding card`);
       return high + 1; // Return value above cap to signal "not achievable"
     }
     
@@ -1363,7 +1350,6 @@ export default function FinancialPlan() {
       const mid = Math.round((low + high) / 2);
       
       if (testWithAdditionalSavings(mid)) {
-        foundSustainable = true;
         high = mid; // Can succeed with this amount, try lower
       } else {
         low = mid; // Need more investment
@@ -1373,7 +1359,6 @@ export default function FinancialPlan() {
       if (high - low <= 500) break;
     }
     
-    console.log(`✅ Additional investment needed: $${high.toLocaleString()}/yr ($${Math.round(high/12).toLocaleString()}/mo)`);
     return high;
   }, [holdings, accounts, liabilities, collateralizedLoans, currentPrice, currentAge, retirementAge, 
       lifeExpectancy, retirementAnnualSpending, effectiveSocialSecurity, socialSecurityStartAge, 
