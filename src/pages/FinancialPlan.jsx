@@ -2012,25 +2012,25 @@ export default function FinancialPlan() {
                                         {p.withdrawFromTaxable > 0 && (
                                           <div className="flex justify-between gap-6">
                                             <span>From Taxable:</span>
-                                            <span className="text-emerald-400 text-right">${p.withdrawFromTaxable.toLocaleString()}</span>
+                                            <span className="text-rose-400 text-right">-${p.withdrawFromTaxable.toLocaleString()}</span>
                                           </div>
                                         )}
                                         {p.withdrawFromTaxDeferred > 0 && (
                                           <div className="flex justify-between gap-6">
                                             <span>From Tax-Deferred:</span>
-                                            <span className="text-amber-400 text-right">${p.withdrawFromTaxDeferred.toLocaleString()}</span>
+                                            <span className="text-rose-400 text-right">-${p.withdrawFromTaxDeferred.toLocaleString()}</span>
                                           </div>
                                         )}
                                         {p.withdrawFromTaxFree > 0 && (
                                           <div className="flex justify-between gap-6">
                                             <span>From Tax-Free:</span>
-                                            <span className="text-purple-400 text-right">${p.withdrawFromTaxFree.toLocaleString()}</span>
+                                            <span className="text-rose-400 text-right">-${p.withdrawFromTaxFree.toLocaleString()}</span>
                                           </div>
                                         )}
                                         {p.penaltyPaid > 0 && (
                                           <div className="flex justify-between gap-6">
                                             <span>Early Withdrawal Penalty:</span>
-                                            <span className="text-rose-300 text-right">${p.penaltyPaid.toLocaleString()}</span>
+                                            <span className="text-rose-300 text-right">-${p.penaltyPaid.toLocaleString()}</span>
                                           </div>
                                         )}
                                       </div>
@@ -2155,43 +2155,43 @@ export default function FinancialPlan() {
                                         )}
                                         </div>
                                         )}
-                                        {!p.isWithdrawing && p.netCashFlow > 0 && (
-                                  <div className="pt-3 mt-3 border-t border-zinc-700/70">
-                                    <p className="text-zinc-400 mb-2 font-medium text-xs">Annual Cash Flow:</p>
-                                    <div className="text-xs space-y-1.5 text-zinc-500 mb-2">
-                                      <div className="flex justify-between gap-6">
-                                        <span>• Gross Income:</span>
-                                        <span className="text-emerald-400 text-right">${(p.yearGrossIncome || 0).toLocaleString()}</span>
-                                      </div>
-                                      {p.federalTaxPaid > 0 && (
-                                        <div className="flex justify-between gap-6">
-                                          <span>• Federal Tax:</span>
-                                          <span className="text-rose-300 text-right">-${p.federalTaxPaid.toLocaleString()}</span>
-                                        </div>
-                                      )}
-                                      {p.stateTaxPaid > 0 && (
-                                        <div className="flex justify-between gap-6">
-                                          <span>• {stateOfResidence} State Tax:</span>
-                                          <span className="text-rose-300 text-right">-${p.stateTaxPaid.toLocaleString()}</span>
-                                        </div>
-                                      )}
-                                      <div className="flex justify-between gap-6">
-                                        <span>• Spending:</span>
-                                        <span className="text-zinc-300 text-right">-${(p.yearSpending || 0).toLocaleString()}</span>
-                                      </div>
-                                    </div>
-                                    {p.debtPayments > 0 && (
-                                      <div className="text-xs text-zinc-500 mb-2">
-                                        (Debt Payments: ${p.debtPayments.toLocaleString()} - tracked separately)
-                                      </div>
-                                    )}
-                                    <div className="pt-2 border-t border-zinc-700/40">
-                                      <p className="font-semibold text-emerald-400 text-sm">
-                                        Net Savings: ${p.netCashFlow.toLocaleString()}
-                                      </p>
-                                    </div>
-                                  </div>
-                                )}
+                                        {!p.isWithdrawing && (
+                                          <div className="pt-3 mt-3 border-t border-zinc-700/70">
+                                            <p className="text-zinc-400 mb-2 font-medium text-xs">Annual Cash Flow:</p>
+                                            <div className="text-xs space-y-1.5 text-zinc-500 mb-2">
+                                              <div className="flex justify-between gap-6">
+                                                <span>• Gross Income:</span>
+                                                <span className="text-emerald-400 text-right">${(p.yearGrossIncome || 0).toLocaleString()}</span>
+                                              </div>
+                                              {p.federalTaxPaid > 0 && (
+                                                <div className="flex justify-between gap-6">
+                                                  <span>• Federal Tax:</span>
+                                                  <span className="text-rose-300 text-right">-${p.federalTaxPaid.toLocaleString()}</span>
+                                                </div>
+                                              )}
+                                              {p.stateTaxPaid > 0 && (
+                                                <div className="flex justify-between gap-6">
+                                                  <span>• {stateOfResidence} State Tax:</span>
+                                                  <span className="text-rose-300 text-right">-${p.stateTaxPaid.toLocaleString()}</span>
+                                                </div>
+                                              )}
+                                              <div className="flex justify-between gap-6">
+                                                <span>• Spending:</span>
+                                                <span className="text-zinc-300 text-right">-${(p.yearSpending || 0).toLocaleString()}</span>
+                                              </div>
+                                            </div>
+                                            {p.debtPayments > 0 && (
+                                              <div className="text-xs text-zinc-500 mb-2">
+                                                (Debt Payments: ${p.debtPayments.toLocaleString()} - tracked separately)
+                                              </div>
+                                            )}
+                                            <div className="pt-2 border-t border-zinc-700/40">
+                                              <p className={`font-semibold text-sm ${p.netCashFlow >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                {p.netCashFlow >= 0 ? 'Investing into Taxable:' : 'Net Cash Flow:'} {p.netCashFlow >= 0 ? '+' : ''}${p.netCashFlow.toLocaleString()}
+                                              </p>
+                                            </div>
+                                          </div>
+                                        )}
                                 {p.debtPayoffs && p.debtPayoffs.length > 0 && (
                                   <div className="pt-3 mt-3 border-t border-zinc-700/70">
                                     <p className="text-xs font-semibold text-emerald-400 mb-2">🎉 Debt Paid Off This Year:</p>
