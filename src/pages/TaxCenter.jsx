@@ -105,12 +105,8 @@ export default function TaxCenter() {
   // Tax planning settings
   const [annualIncome, setAnnualIncome] = useState(0);
   const [targetTaxableIncome, setTargetTaxableIncome] = useState(48350);
-  const [filingStatus, setFilingStatus] = useState(() => {
-    return localStorage.getItem('userFilingStatus') || 'single';
-  });
-  const [stateOfResidence, setStateOfResidence] = useState(() => {
-    return localStorage.getItem('userStateOfResidence') || 'TX';
-  });
+  const [filingStatus, setFilingStatus] = useState('single');
+  const [stateOfResidence, setStateOfResidence] = useState('TX');
 
   // Sale form state
   const [saleForm, setSaleForm] = useState({
@@ -203,15 +199,6 @@ export default function TaxCenter() {
     return () => clearInterval(interval);
   }, []);
 
-  // Sync state to localStorage
-  useEffect(() => {
-    localStorage.setItem('userStateOfResidence', stateOfResidence);
-  }, [stateOfResidence]);
-
-  useEffect(() => {
-    localStorage.setItem('userFilingStatus', filingStatus);
-  }, [filingStatus]);
-
   const { data: allTransactions = [] } = useQuery({
     queryKey: ['transactions'],
     queryFn: () => base44.entities.Transaction.list('-date'),
@@ -232,6 +219,48 @@ export default function TaxCenter() {
     queryKey: ['holdings'],
     queryFn: () => base44.entities.Holding.list(),
   });
+
+  const { data: userSettings = [] } = useQuery({
+    queryKey: ['userSettings'],
+    queryFn: () => base44.entities.UserSettings.list(),
+  });
+
+  // Settings loaded flag
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+
+  // Load settings from UserSettings entity
+  useEffect(() => {
+    if (userSettings.length > 0 && !settingsLoaded) {
+      const settings = userSettings[0];
+      if (settings.filing_status !== undefined) setFilingStatus(settings.filing_status);
+      if (settings.state_of_residence !== undefined) setStateOfResidence(settings.state_of_residence);
+      setSettingsLoaded(true);
+    }
+  }, [userSettings, settingsLoaded]);
+
+  // Save settings mutation
+  const saveSettings = useMutation({
+    mutationFn: async (data) => {
+      if (userSettings.length > 0) {
+        return base44.entities.UserSettings.update(userSettings[0].id, data);
+      } else {
+        return base44.entities.UserSettings.create(data);
+      }
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['userSettings'] }),
+  });
+
+  // Auto-save settings when they change
+  useEffect(() => {
+    if (!settingsLoaded) return;
+    const timeoutId = setTimeout(() => {
+      saveSettings.mutate({
+        filing_status: filingStatus || 'single',
+        state_of_residence: stateOfResidence || '',
+      });
+    }, 1000); // Debounce 1 second
+    return () => clearTimeout(timeoutId);
+  }, [settingsLoaded, filingStatus, stateOfResidence]);
 
   // Map account_type to tax_treatment
   const getTaxTreatment = (accountType) => {
