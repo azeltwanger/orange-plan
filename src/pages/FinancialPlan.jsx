@@ -552,6 +552,148 @@ export default function FinancialPlan() {
     return `$${num.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
   };
 
+  // Bitcoin volatility model - starts high and decays over time
+  const getBtcVolatilityForMonteCarlo = useCallback((yearsFromNow) => {
+    const initialVolatility = 55;
+    const minimumVolatility = 20;
+    const decayRate = 0.05;
+    return minimumVolatility + (initialVolatility - minimumVolatility) * Math.exp(-decayRate * yearsFromNow);
+  }, []);
+
+  // Monte Carlo simulation - now uses runUnifiedProjection for consistency
+  const runMonteCarloSimulation = useCallback((numSimulations = 1000) => {
+    const projectionYears = lifeExpectancy - currentAge + 1;
+    const paths = [];
+    const successResults = [];
+    const withdrawalPaths = [];
+
+    // Helper: Generate random normal using Box-Muller
+    const randomNormal = () => {
+      const u1 = Math.max(0.0001, Math.random());
+      const u2 = Math.random();
+      return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+    };
+
+    for (let sim = 0; sim < numSimulations; sim++) {
+      // Generate random yearly returns for this simulation
+      const yearlyReturnOverrides = {
+        btc: [],
+        stocks: [],
+        bonds: [],
+        realEstate: [],
+        cash: [],
+        other: []
+      };
+
+      for (let year = 0; year <= projectionYears; year++) {
+        const z1 = randomNormal();
+        const z2 = randomNormal();
+
+        // BTC: Use getBtcGrowthRate as expected return, add volatility
+        const expectedBtcReturn = getBtcGrowthRate(year, effectiveInflation);
+        const btcVolatility = getBtcVolatilityForMonteCarlo(year);
+        const btcReturn = Math.max(-60, Math.min(200, expectedBtcReturn + btcVolatility * z1));
+
+        // Stocks: Use effectiveStocksCagr as expected, add volatility
+        const stocksVolatilityVal = 18;
+        const stocksReturn = Math.max(-40, Math.min(50, effectiveStocksCagr + stocksVolatilityVal * z2));
+
+        // Real Estate: Add +/- 5% randomness
+        const realEstateReturn = realEstateCagr + (Math.random() * 10 - 5);
+
+        // Bonds: Add +/- 2% randomness
+        const bondsReturn = bondsCagr + (Math.random() * 4 - 2);
+
+        // Cash: Add +/- 1% randomness
+        const cashReturn = cashCagr + (Math.random() * 2 - 1);
+
+        // Other: Add +/- 3% randomness
+        const otherReturn = otherCagr + (Math.random() * 6 - 3);
+
+        yearlyReturnOverrides.btc.push(btcReturn);
+        yearlyReturnOverrides.stocks.push(stocksReturn);
+        yearlyReturnOverrides.bonds.push(bondsReturn);
+        yearlyReturnOverrides.realEstate.push(realEstateReturn);
+        yearlyReturnOverrides.cash.push(cashReturn);
+        yearlyReturnOverrides.other.push(otherReturn);
+      }
+
+      // Run unified projection with randomized returns
+      const result = runUnifiedProjection({
+        holdings,
+        accounts,
+        liabilities,
+        collateralizedLoans,
+        currentPrice,
+        currentAge,
+        retirementAge,
+        lifeExpectancy,
+        retirementAnnualSpending,
+        effectiveSocialSecurity,
+        socialSecurityStartAge,
+        otherRetirementIncome,
+        annualSavings,
+        incomeGrowth,
+        grossAnnualIncome,
+        currentAnnualSpending,
+        filingStatus,
+        stateOfResidence,
+        contribution401k,
+        employer401kMatch,
+        contributionRothIRA,
+        contributionTraditionalIRA,
+        contributionHSA,
+        hsaFamilyCoverage,
+        getBtcGrowthRate,
+        effectiveInflation,
+        effectiveStocksCagr,
+        bondsCagr,
+        realEstateCagr,
+        cashCagr,
+        otherCagr,
+        savingsAllocationBtc,
+        savingsAllocationStocks,
+        savingsAllocationBonds,
+        savingsAllocationCash,
+        savingsAllocationOther,
+        autoTopUpBtcCollateral,
+        btcTopUpTriggerLtv,
+        btcTopUpTargetLtv,
+        btcReleaseTriggerLtv,
+        btcReleaseTargetLtv,
+        goals,
+        lifeEvents,
+        getTaxTreatmentFromHolding,
+        yearlyReturnOverrides,
+        DEBUG: false,
+      });
+
+      // Extract path data from result
+      const path = result.yearByYear.map(yearData => yearData.total || 0);
+      const withdrawalPath = result.yearByYear.map(yearData => 
+        (yearData.withdrawFromTaxable || 0) + 
+        (yearData.withdrawFromTaxDeferred || 0) + 
+        (yearData.withdrawFromTaxFree || 0)
+      );
+
+      paths.push(path);
+      withdrawalPaths.push(withdrawalPath);
+      successResults.push(result.survives);
+    }
+
+    return { paths, successResults, withdrawalPaths };
+  }, [
+    holdings, accounts, liabilities, collateralizedLoans, currentPrice, currentAge, retirementAge,
+    lifeExpectancy, retirementAnnualSpending, effectiveSocialSecurity, socialSecurityStartAge,
+    otherRetirementIncome, annualSavings, incomeGrowth, grossAnnualIncome, currentAnnualSpending,
+    filingStatus, stateOfResidence, contribution401k, employer401kMatch, contributionRothIRA,
+    contributionTraditionalIRA, contributionHSA, hsaFamilyCoverage, getBtcGrowthRate, effectiveInflation,
+    effectiveStocksCagr, bondsCagr, realEstateCagr, cashCagr, otherCagr, savingsAllocationBtc,
+    savingsAllocationStocks, savingsAllocationBonds, savingsAllocationCash, savingsAllocationOther,
+    autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv, btcReleaseTriggerLtv,
+    btcReleaseTargetLtv, goals, lifeEvents, getTaxTreatmentFromHolding, getBtcVolatilityForMonteCarlo
+  ]);
+
   // Reusable projection function using unified projection engine
   const runProjectionForRetirementAge = useCallback((testRetirementAge, testSpending = null) => {
     const spendingToUse = testSpending !== null ? testSpending : retirementAnnualSpending;
