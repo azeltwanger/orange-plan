@@ -69,13 +69,9 @@ export function runUnifiedProjection({
   getTaxTreatmentFromHolding,
   DEBUG = false,
 }) {
-  // DEBUG: Log holdings passed to projection
-  console.log("=== HOLDINGS PASSED TO PROJECTION ===");
-  console.log("Holdings count:", holdings.length);
-  holdings.forEach(h => {
-    const value = h.ticker === 'BTC' ? h.quantity * currentPrice : h.quantity * (h.current_price || 0);
-    console.log(`- ${h.asset_name || h.name}: ${h.ticker} qty=${h.quantity} price=${h.current_price || currentPrice} value=${value} account_id=${h.account_id}`);
-  });
+  // Essential debug: projection start
+  console.log('=== PROJECTION START ===');
+  console.log('Holdings received:', holdings?.length || 0);
 
   const results = [];
   const currentYear = new Date().getFullYear();
@@ -123,13 +119,6 @@ export function runUnifiedProjection({
   };
 
   let portfolio = initializePortfolio();
-
-  // DEBUG: Log portfolio after initialization
-  console.log("=== PORTFOLIO AFTER INIT (before encumbered subtraction) ===");
-  console.log("Taxable:", JSON.stringify(portfolio.taxable));
-  console.log("TaxDeferred:", JSON.stringify(portfolio.taxDeferred));
-  console.log("TaxFree:", JSON.stringify(portfolio.taxFree));
-  console.log("RealEstate:", portfolio.realEstate);
 
   // Helper functions
   const getAccountTotal = (accountKey) => {
@@ -252,32 +241,13 @@ export function runUnifiedProjection({
     runningTaxableBasis = Math.max(0, runningTaxableBasis - encumberedBtcBasis);
   }
 
-  // DEBUG: Log after encumbered subtraction with basis adjustment
-  console.log("=== AFTER ENCUMBERED SUBTRACTION ===");
-  console.log("Encumbered BTC:", totalInitialEncumberedBtc);
-  console.log("Encumbered Value:", initialEncumberedBtcValue);
-  console.log("Encumbered Basis:", encumberedBtcBasis);
-  console.log("Taxable BTC now:", portfolio.taxable.btc);
-  console.log("Running Taxable Basis (after encumbered removed):", runningTaxableBasis);
-
-  // DEBUG: Cost basis tracking
-  console.log('=== TAX BASIS DEBUG ===');
-  taxableHoldings.forEach(h => {
-    const value = h.ticker === 'BTC' ? h.quantity * currentPrice : h.quantity * (h.current_price || 0);
-    console.log('Holding:', h.asset_name || h.ticker, {
-      ticker: h.ticker,
-      quantity: h.quantity,
-      current_price: h.ticker === 'BTC' ? currentPrice : h.current_price,
-      current_value: value,
-      cost_basis_total: h.cost_basis_total,
-      cost_basis_per_unit: h.cost_basis_total ? h.cost_basis_total / h.quantity : 'N/A'
-    });
-  });
+  // Essential debug: portfolio initialized
   const totalTaxableValue = portfolio.taxable.btc + portfolio.taxable.stocks + portfolio.taxable.bonds + portfolio.taxable.cash + portfolio.taxable.other;
-  console.log('Total Cost Basis (liquid only):', runningTaxableBasis);
-  console.log('Total Taxable Value (liquid only):', totalTaxableValue);
-  console.log('Initial Gain Ratio:', totalTaxableValue > 0 ? ((totalTaxableValue - runningTaxableBasis) / totalTaxableValue).toFixed(4) : 'N/A');
-  console.log('=== END TAX BASIS DEBUG ===');
+  console.log('=== PORTFOLIO INITIALIZED ===');
+  console.log('Taxable BTC:', portfolio.taxable.btc);
+  console.log('Tax-Free BTC:', portfolio.taxFree.btc);
+  console.log('Cost Basis:', runningTaxableBasis);
+  console.log('Encumbered Basis:', encumberedBtcBasis);
 
   // Get standard deduction
   const taxConfigForYear = getTaxConfigForYear(currentYear);
@@ -417,13 +387,6 @@ export function runUnifiedProjection({
         const releaseRatio = Math.min(1, releasedBtcAtOriginalPrice / initialEncumberedBtcValue);
         const basisToRestore = encumberedBtcBasis * releaseRatio;
         runningTaxableBasis += basisToRestore;
-
-        console.log('=== RELEASED COLLATERAL BASIS RESTORED ===');
-        console.log('Year:', year, 'Age:', age);
-        console.log('Released BTC:', totalReleasedBtcThisYear);
-        console.log('Released Value:', totalReleasedBtcValueThisYear);
-        console.log('Basis Restored:', basisToRestore);
-        console.log('New Running Basis:', runningTaxableBasis);
       }
     }
     releasedBtc = {};
@@ -933,16 +896,12 @@ export function runUnifiedProjection({
           inflationRate: effectiveInflation / 100,
         });
 
-        if (age <= currentAge + 2) {  // Only log first few years
-          console.log('=== PRE-RETIREMENT WITHDRAWAL DEBUG ===');
-          console.log('Age:', age, '| Year:', year, '| isRetired:', isRetired);
-          console.log('Deficit:', deficit);
-          console.log('Taxable Balance:', taxableBalance);
-          console.log('Tax Deferred Balance:', taxDeferredBalance);
-          console.log('Tax Free Balance:', taxFreeBalance);
-          console.log('Running Basis:', runningTaxableBasis);
+        // Essential debug: Year 1 withdrawal
+        if (year === currentYear) {
+          console.log('=== YEAR 1 WITHDRAWAL ===');
           console.log('Gain Ratio:', estimatedCurrentGainRatio);
-          console.log('Tax Estimate:', JSON.stringify(taxEstimate, null, 2));
+          console.log('Withdrawal:', taxEstimate?.fromTaxable || 0);
+          console.log('Tax:', taxEstimate?.totalTax || 0);
         }
 
         const preRetireStateTax = calculateStateTaxOnRetirement({
@@ -1068,18 +1027,12 @@ export function runUnifiedProjection({
         inflationRate: effectiveInflation / 100,
       });
 
-      if (age <= retirementAge + 2) {  // Only log first few years of retirement
-        console.log('=== RETIREMENT WITHDRAWAL DEBUG ===');
-        console.log('Age:', age, '| Year:', year, '| isRetired:', isRetired);
-        console.log('Desired Withdrawal:', desiredWithdrawal);
-        console.log('Capped Withdrawal:', cappedWithdrawal);
-        console.log('Taxable Balance:', taxableBalance);
-        console.log('Tax Deferred Balance:', taxDeferredBalance);
-        console.log('Tax Free Balance:', taxFreeBalance);
-        console.log('Running Basis:', runningTaxableBasis);
+      // Essential debug: Year 1 retirement withdrawal
+      if (year === currentYear) {
+        console.log('=== YEAR 1 WITHDRAWAL ===');
         console.log('Gain Ratio:', estimatedCurrentGainRatio);
-        console.log('Other Income for Tax:', totalOtherIncomeForTax);
-        console.log('Tax Estimate:', JSON.stringify(taxEstimate, null, 2));
+        console.log('Withdrawal:', taxEstimate?.fromTaxable || 0);
+        console.log('Tax:', taxEstimate?.totalTax || 0);
       }
 
       const stateTax = calculateStateTaxOnRetirement({
