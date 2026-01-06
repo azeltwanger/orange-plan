@@ -225,9 +225,6 @@ export default function TaxCenter() {
     queryFn: () => base44.entities.UserSettings.list(),
   });
 
-  // Check if critical data is loading
-  const isLoadingData = !allTransactions || !holdings || !userSettings || !accounts;
-
   // Settings loaded flag
   const [settingsLoaded, setSettingsLoaded] = useState(false);
 
@@ -895,6 +892,9 @@ export default function TaxCenter() {
     queryKey: ['accounts'],
     queryFn: () => base44.entities.Account.list(),
   });
+
+  // Check if critical data is loading (after all queries defined)
+  const isLoadingData = !allTransactions || !holdings || !userSettings || !accounts;
 
   // Calculate outcomes for all methods
   const saleOutcomes = useMemo(() => {

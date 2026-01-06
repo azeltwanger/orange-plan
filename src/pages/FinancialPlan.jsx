@@ -394,7 +394,7 @@ export default function FinancialPlan() {
     queryFn: () => base44.entities.UserSettings.list(),
   });
 
-  // Check if critical data is loading
+  // Check if critical data is loading (after all queries defined)
   const isLoadingData = !holdings || !accounts || !userSettings || !liabilities || !collateralizedLoans;
 
   // Calculate portfolio values by tax treatment
