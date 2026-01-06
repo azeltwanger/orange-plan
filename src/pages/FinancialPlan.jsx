@@ -142,7 +142,6 @@ export default function FinancialPlan() {
   // Tooltip locking state
   const [lockedTooltipData, setLockedTooltipData] = useState(null);
   const chartContainerRef = useRef(null);
-  const [lockedTooltipPosition, setLockedTooltipPosition] = useState({ x: 0, y: 0 });
 
 
   const [goalForm, setGoalForm] = useState({
@@ -1833,15 +1832,12 @@ export default function FinancialPlan() {
                         if (lockedTooltipData && lockedTooltipData.label === e.activeLabel) {
                           setLockedTooltipData(null);
                         } else {
-                          // Lock to this data point
+                          // Lock to this data point with position
                           setLockedTooltipData({ 
                             payload: e.activePayload, 
-                            label: e.activeLabel
-                          });
-                          // Store position separately for the portal
-                          setLockedTooltipPosition({
+                            label: e.activeLabel,
                             x: e.activeCoordinate.x,
-                            y: e.activeCoordinate.y
+                            y: 50 // Fixed y position near top
                           });
                         }
                       } else {
@@ -1860,14 +1856,17 @@ export default function FinancialPlan() {
                         border: '1px solid #27272a', 
                         borderRadius: '12px',
                         maxHeight: '60vh',
-                        overflowY: 'auto'
+                        overflowY: 'auto',
+                        pointerEvents: 'auto'
                       }}
                       wrapperStyle={{ 
-                        zIndex: 1000
+                        zIndex: 1000,
+                        pointerEvents: 'auto',
+                        position: lockedTooltipData ? 'fixed' : 'absolute'
                       }}
-                      position={{ y: 0 }}
-                      active={lockedTooltipData ? false : undefined}
-                      cursor={true}
+                      position={lockedTooltipData ? { x: Math.min(lockedTooltipData.x + 15, window.innerWidth - 300), y: 100 } : { y: 0 }}
+                      active={lockedTooltipData ? true : undefined}
+                      cursor={lockedTooltipData ? false : true}
                       content={({ active, payload, label, coordinate }) => {
                         // If tooltip is locked, ONLY show locked data (ignore hover)
                         if (lockedTooltipData) {
