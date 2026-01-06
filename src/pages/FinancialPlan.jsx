@@ -228,6 +228,11 @@ const calculatePercentiles = (simulations, percentiles = [10, 25, 50, 75, 90]) =
 
 
 export default function FinancialPlan() {
+  // Debug: Log when component mounts
+  useEffect(() => {
+    console.log("FinancialPlan MOUNTED", new Date().toISOString());
+  }, []);
+
   const [btcPrice, setBtcPrice] = useState(null);
   const [priceLoading, setPriceLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('projections');
@@ -397,6 +402,19 @@ export default function FinancialPlan() {
 
   // Check if critical data is loading (after all queries defined)
   const isLoadingData = !holdings || !accounts || !userSettings || !liabilities || !collateralizedLoans;
+
+  // Debug: Log when data arrives
+  useEffect(() => {
+    if (holdings) console.log("Holdings loaded:", holdings.length, "items");
+  }, [holdings]);
+
+  useEffect(() => {
+    if (userSettings) console.log("UserSettings loaded");
+  }, [userSettings]);
+
+  useEffect(() => {
+    if (accounts) console.log("Accounts loaded:", accounts.length, "items");
+  }, [accounts]);
 
   // Calculate portfolio values by tax treatment
   const getHoldingValue = (h) => h.ticker === 'BTC' ? h.quantity * currentPrice : h.quantity * (h.current_price || 0);
@@ -1000,6 +1018,7 @@ export default function FinancialPlan() {
 
   // Generate projection data using unified projection engine
   const projections = useMemo(() => {
+    console.time("projections calculation");
     const result = runUnifiedProjection({
       holdings,
       accounts,
@@ -1047,6 +1066,7 @@ export default function FinancialPlan() {
       DEBUG: false,
     });
     
+    console.timeEnd("projections calculation");
     return result.yearByYear;
   }, [holdings, accounts, liabilities, collateralizedLoans, currentPrice, currentAge, retirementAge, lifeExpectancy, 
       retirementAnnualSpending, effectiveSocialSecurity, socialSecurityStartAge, otherRetirementIncome,
@@ -1195,8 +1215,12 @@ export default function FinancialPlan() {
 
   // UNIFIED: Derive earliestRetirementAge using binary search with accurate projection
   const derivedEarliestRetirementAge = useMemo(() => {
+    console.time("earliest retirement age calculation");
     const total = btcValue + stocksValue + realEstateValue + bondsValue + cashValue + otherValue;
-    if (total <= 0) return null;
+    if (total <= 0) {
+      console.timeEnd("earliest retirement age calculation");
+      return null;
+    }
     
     // Binary search for earliest sustainable retirement age
     let low = currentAge;  // Include current age (can I retire NOW?)
@@ -1215,6 +1239,7 @@ export default function FinancialPlan() {
       }
     }
     
+    console.timeEnd("earliest retirement age calculation");
     return earliest;
   }, [currentAge, lifeExpectancy, projections, runProjectionForRetirementAge]);
 
@@ -1225,8 +1250,12 @@ export default function FinancialPlan() {
 
   // UNIFIED: Derive maxSustainableSpending using binary search with accurate projection
   const derivedMaxSustainableSpending = useMemo(() => {
+    console.time("max sustainable spending calculation");
     const total = btcValue + stocksValue + realEstateValue + bondsValue + cashValue + otherValue;
-    if (total <= 0) return 0;
+    if (total <= 0) {
+      console.timeEnd("max sustainable spending calculation");
+      return 0;
+    }
     
     // Binary search for max sustainable spending (in today's dollars)
     let low = 0;
@@ -1244,6 +1273,7 @@ export default function FinancialPlan() {
       }
     }
     
+    console.timeEnd("max sustainable spending calculation");
     return Math.round(low);
   }, [projections, retirementAge, runProjectionForRetirementAge]);
 
