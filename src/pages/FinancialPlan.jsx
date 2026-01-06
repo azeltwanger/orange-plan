@@ -358,41 +358,49 @@ export default function FinancialPlan() {
   const { data: holdings = [] } = useQuery({
     queryKey: ['holdings'],
     queryFn: () => base44.entities.Holding.list(),
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: goals = [] } = useQuery({
     queryKey: ['goals'],
     queryFn: () => base44.entities.FinancialGoal.list(),
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: lifeEvents = [] } = useQuery({
     queryKey: ['lifeEvents'],
     queryFn: () => base44.entities.LifeEvent.list(),
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: budgetItems = [] } = useQuery({
     queryKey: ['budgetItems'],
     queryFn: () => base44.entities.BudgetItem.list(),
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: liabilities = [] } = useQuery({
     queryKey: ['liabilities'],
     queryFn: () => base44.entities.Liability.list(),
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: collateralizedLoans = [] } = useQuery({
     queryKey: ['collateralizedLoans'],
     queryFn: () => base44.entities.CollateralizedLoan.list(),
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: accounts = [] } = useQuery({
     queryKey: ['accounts'],
     queryFn: () => base44.entities.Account.list(),
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: userSettings = [] } = useQuery({
     queryKey: ['userSettings'],
     queryFn: () => base44.entities.UserSettings.list(),
+    staleTime: 5 * 60 * 1000,
   });
 
   // Check if critical data is loading (after all queries defined)
