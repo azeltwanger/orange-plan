@@ -546,7 +546,7 @@ export default function FinancialPlan() {
                       savings_allocation_bonds: savingsAllocationBonds,
                       savings_allocation_cash: savingsAllocationCash,
                       savings_allocation_other: savingsAllocationOther,
-                      gross_annual_income: grossAnnualIncome || 100000,
+                      gross_annual_income: grossAnnualIncome,
                       contribution_401k: contribution401k || 0,
                       employer_401k_match: employer401kMatch || 0,
                       contribution_roth_ira: contributionRothIRA || 0,
