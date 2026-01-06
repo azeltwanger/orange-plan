@@ -286,6 +286,7 @@ export default function FinancialPlan() {
   const [autoTopUpBtcCollateral, setAutoTopUpBtcCollateral] = useState(true);
   const [btcTopUpTriggerLtv, setBtcTopUpTriggerLtv] = useState(70);
   const [btcTopUpTargetLtv, setBtcTopUpTargetLtv] = useState(65);
+  const [btcReleaseTriggerLtv, setBtcReleaseTriggerLtv] = useState(30);
   const [btcReleaseTargetLtv, setBtcReleaseTargetLtv] = useState(40);
 
   // State tax settings
@@ -494,6 +495,7 @@ export default function FinancialPlan() {
                   if (settings.auto_top_up_btc_collateral !== undefined) setAutoTopUpBtcCollateral(settings.auto_top_up_btc_collateral);
                   if (settings.btc_top_up_trigger_ltv !== undefined) setBtcTopUpTriggerLtv(settings.btc_top_up_trigger_ltv);
                   if (settings.btc_top_up_target_ltv !== undefined) setBtcTopUpTargetLtv(settings.btc_top_up_target_ltv);
+                  if (settings.btc_release_trigger_ltv !== undefined) setBtcReleaseTriggerLtv(settings.btc_release_trigger_ltv);
                   if (settings.btc_release_target_ltv !== undefined) setBtcReleaseTargetLtv(settings.btc_release_target_ltv);
                   setSettingsLoaded(true);
     }
@@ -550,11 +552,12 @@ export default function FinancialPlan() {
                       auto_top_up_btc_collateral: autoTopUpBtcCollateral,
                       btc_top_up_trigger_ltv: btcTopUpTriggerLtv || 70,
                       btc_top_up_target_ltv: btcTopUpTargetLtv || 65,
+                      btc_release_trigger_ltv: btcReleaseTriggerLtv || 30,
                       btc_release_target_ltv: btcReleaseTargetLtv || 40,
                     });
     }, 1000); // Debounce 1 second
     return () => clearTimeout(timeoutId);
-  }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, otherCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, useCustomSocialSecurity, grossAnnualIncome, contribution401k, employer401kMatch, contributionRothIRA, contributionHSA, hsaFamilyCoverage, filingStatus, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv, btcReleaseTargetLtv, savingsAllocationBtc, savingsAllocationStocks, savingsAllocationBonds, savingsAllocationCash, savingsAllocationOther]);
+  }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, otherCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, useCustomSocialSecurity, grossAnnualIncome, contribution401k, employer401kMatch, contributionRothIRA, contributionHSA, hsaFamilyCoverage, filingStatus, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv, btcReleaseTriggerLtv, btcReleaseTargetLtv, savingsAllocationBtc, savingsAllocationStocks, savingsAllocationBonds, savingsAllocationCash, savingsAllocationOther]);
 
   // Calculate accurate debt payments for current month
   const currentMonthForDebt = new Date().getMonth();
@@ -745,6 +748,7 @@ export default function FinancialPlan() {
       autoTopUpBtcCollateral,
       btcTopUpTriggerLtv,
       btcTopUpTargetLtv,
+      btcReleaseTriggerLtv,
       btcReleaseTargetLtv,
       goals,
       lifeEvents,
@@ -767,7 +771,7 @@ export default function FinancialPlan() {
       getBtcGrowthRate, effectiveInflation, effectiveStocksCagr, bondsCagr, 
       realEstateCagr, cashCagr, otherCagr, savingsAllocationBtc, savingsAllocationStocks, savingsAllocationBonds,
       savingsAllocationCash, savingsAllocationOther, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv,
-      btcReleaseTargetLtv, goals, lifeEvents, getTaxTreatmentFromHolding]);
+      btcReleaseTriggerLtv, btcReleaseTargetLtv, goals, lifeEvents, getTaxTreatmentFromHolding]);
 
   // OLD IMPLEMENTATION REMOVED - now uses runUnifiedProjection
   const OLD_runProjectionForRetirementAge_REMOVED = useCallback((testRetirementAge, testSpending = null) => {
@@ -1040,6 +1044,7 @@ export default function FinancialPlan() {
       autoTopUpBtcCollateral,
       btcTopUpTriggerLtv,
       btcTopUpTargetLtv,
+      btcReleaseTriggerLtv,
       btcReleaseTargetLtv,
       goals,
       lifeEvents,
@@ -1055,7 +1060,7 @@ export default function FinancialPlan() {
       getBtcGrowthRate, effectiveInflation, effectiveStocksCagr, bondsCagr, 
       realEstateCagr, cashCagr, otherCagr, savingsAllocationBtc, savingsAllocationStocks, savingsAllocationBonds,
       savingsAllocationCash, savingsAllocationOther, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv,
-      btcReleaseTargetLtv, goals, lifeEvents, getTaxTreatmentFromHolding]);
+      btcReleaseTriggerLtv, btcReleaseTargetLtv, goals, lifeEvents, getTaxTreatmentFromHolding]);
 
   // Run Monte Carlo when button clicked
   const handleRunSimulation = () => {
@@ -2855,11 +2860,11 @@ export default function FinancialPlan() {
                 <div className="space-y-2 text-sm">
                   <div className="flex items-start gap-2">
                     <span className="text-cyan-400">●</span>
-                    <p><span className="text-cyan-400">LTV ≤ 30%:</span> <span className="text-zinc-400">Excess collateral released back to liquid (LTV brought up to {btcReleaseTargetLtv || 40}%)</span></p>
+                    <p><span className="text-cyan-400">LTV ≤ {btcReleaseTriggerLtv}%:</span> <span className="text-zinc-400">Excess collateral released (LTV → {btcReleaseTargetLtv}%)</span></p>
                   </div>
                   <div className="flex items-start gap-2">
                     <span className="text-amber-400">●</span>
-                    <p><span className="text-amber-400">LTV ≥ {btcTopUpTriggerLtv || 70}%:</span> <span className="text-zinc-400">Auto top-up from liquid BTC (targets {btcTopUpTargetLtv || 65}% LTV)</span></p>
+                    <p><span className="text-amber-400">LTV ≥ {btcTopUpTriggerLtv}%:</span> <span className="text-zinc-400">Auto top-up from liquid BTC (→ {btcTopUpTargetLtv}%)</span></p>
                   </div>
                   <div className="flex items-start gap-2">
                     <span className="text-rose-400">●</span>

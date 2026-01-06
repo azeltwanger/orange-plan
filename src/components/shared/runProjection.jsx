@@ -61,6 +61,7 @@ export function runUnifiedProjection({
   autoTopUpBtcCollateral,
   btcTopUpTriggerLtv,
   btcTopUpTargetLtv,
+  btcReleaseTriggerLtv,
   btcReleaseTargetLtv,
   goals = [],
   lifeEvents = [],
@@ -426,7 +427,7 @@ export function runUnifiedProjection({
         let currentLTV = (liability.current_balance / collateralValue) * 100;
         
         const liquidationLTV = liability.liquidation_ltv || 80;
-        const releaseLTV = liability.collateral_release_ltv || 30;
+        const releaseLTV = btcReleaseTriggerLtv || 30;
         const triggerLTV = btcTopUpTriggerLtv || 70;
         const targetLTV = btcTopUpTargetLtv || 65;
         const releaseTargetLTV = btcReleaseTargetLtv || 40;
@@ -561,7 +562,7 @@ export function runUnifiedProjection({
         let currentLTV = (loan.current_balance / collateralValue) * 100;
 
         const liquidationLTV = loan.liquidation_ltv || 80;
-        const releaseLTV = loan.collateral_release_ltv || 30;
+        const releaseLTV = btcReleaseTriggerLtv || 30;
         const triggerLTV = btcTopUpTriggerLtv || 70;
         const targetLTV = btcTopUpTargetLtv || 65;
         const releaseTargetLTV = btcReleaseTargetLtv || 40;

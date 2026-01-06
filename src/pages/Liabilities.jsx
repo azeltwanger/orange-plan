@@ -33,6 +33,7 @@ export default function Liabilities() {
   const [autoTopUp, setAutoTopUp] = useState(true);
   const [topUpTriggerLtv, setTopUpTriggerLtv] = useState(70);
   const [topUpTargetLtv, setTopUpTargetLtv] = useState(65);
+  const [releaseTriggerLtv, setReleaseTriggerLtv] = useState(30);
   const [releaseTargetLtv, setReleaseTargetLtv] = useState(40);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
 
@@ -99,6 +100,7 @@ export default function Liabilities() {
       if (settings.auto_top_up_btc_collateral !== undefined) setAutoTopUp(settings.auto_top_up_btc_collateral);
       if (settings.btc_top_up_trigger_ltv !== undefined) setTopUpTriggerLtv(settings.btc_top_up_trigger_ltv);
       if (settings.btc_top_up_target_ltv !== undefined) setTopUpTargetLtv(settings.btc_top_up_target_ltv);
+      if (settings.btc_release_trigger_ltv !== undefined) setReleaseTriggerLtv(settings.btc_release_trigger_ltv);
       if (settings.btc_release_target_ltv !== undefined) setReleaseTargetLtv(settings.btc_release_target_ltv);
       setSettingsLoaded(true);
     }
@@ -124,11 +126,12 @@ export default function Liabilities() {
         auto_top_up_btc_collateral: autoTopUp,
         btc_top_up_trigger_ltv: topUpTriggerLtv,
         btc_top_up_target_ltv: topUpTargetLtv,
+        btc_release_trigger_ltv: releaseTriggerLtv,
         btc_release_target_ltv: releaseTargetLtv,
       });
     }, 1000);
     return () => clearTimeout(timeoutId);
-  }, [settingsLoaded, autoTopUp, topUpTriggerLtv, topUpTargetLtv, releaseTargetLtv]);
+  }, [settingsLoaded, autoTopUp, topUpTriggerLtv, topUpTargetLtv, releaseTriggerLtv, releaseTargetLtv]);
 
   const createLiability = useMutation({
     mutationFn: (data) => base44.entities.Liability.create(data),
@@ -342,9 +345,9 @@ export default function Liabilities() {
               </div>
 
               {autoTopUp && (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 rounded-xl bg-zinc-800/30">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-4 rounded-xl bg-zinc-800/30">
                   <div className="space-y-2">
-                    <Label className="text-zinc-400 text-xs uppercase tracking-wider">Trigger LTV (%)</Label>
+                    <Label className="text-zinc-400 text-xs uppercase tracking-wider">Top-Up Trigger LTV (%)</Label>
                     <Input
                       type="number"
                       value={topUpTriggerLtv}
@@ -353,10 +356,10 @@ export default function Liabilities() {
                       max={79}
                       className="bg-zinc-900 border-zinc-700"
                     />
-                    <p className="text-[10px] text-zinc-500">When LTV reaches this level, attempt top-up (default: 70%)</p>
+                    <p className="text-[10px] text-zinc-500">When LTV reaches this level, attempt top-up</p>
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-zinc-400 text-xs uppercase tracking-wider">Target LTV (%)</Label>
+                    <Label className="text-zinc-400 text-xs uppercase tracking-wider">Top-Up Target LTV (%)</Label>
                     <Input
                       type="number"
                       value={topUpTargetLtv}
@@ -365,7 +368,19 @@ export default function Liabilities() {
                       max={70}
                       className="bg-zinc-900 border-zinc-700"
                     />
-                    <p className="text-[10px] text-zinc-500">Top-up brings LTV back to this level (default: 65%)</p>
+                    <p className="text-[10px] text-zinc-500">Top-up brings LTV back to this level</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-zinc-400 text-xs uppercase tracking-wider">Release Trigger LTV (%)</Label>
+                    <Input
+                      type="number"
+                      value={releaseTriggerLtv}
+                      onChange={(e) => setReleaseTriggerLtv(parseInt(e.target.value) || 30)}
+                      min={10}
+                      max={40}
+                      className="bg-zinc-900 border-zinc-700"
+                    />
+                    <p className="text-[10px] text-zinc-500">When LTV falls below this, release excess collateral</p>
                   </div>
                   <div className="space-y-2">
                     <Label className="text-zinc-400 text-xs uppercase tracking-wider">Release Target LTV (%)</Label>
@@ -377,7 +392,7 @@ export default function Liabilities() {
                       max={50}
                       className="bg-zinc-900 border-zinc-700"
                     />
-                    <p className="text-[10px] text-zinc-500">After release is triggered (below 30% LTV), loan is brought back up to this level (default: 40%)</p>
+                    <p className="text-[10px] text-zinc-500">After release, LTV is brought back to this level</p>
                   </div>
                 </div>
               )}
@@ -397,7 +412,7 @@ export default function Liabilities() {
                       <li>• At <span className="text-rose-400">80% LTV</span>, lender sells collateral to pay off loan entirely</li>
                     </>
                   )}
-                  <li>• When LTV drops below <span className="text-purple-400">30%</span>, excess collateral is released back to liquid (bringing LTV up to <span className="text-emerald-400">{releaseTargetLtv}%</span>)</li>
+                  <li>• When LTV drops below <span className="text-purple-400">{releaseTriggerLtv}%</span>, excess collateral is released back to liquid (bringing LTV up to <span className="text-emerald-400">{releaseTargetLtv}%</span>)</li>
                 </ul>
               </div>
             </div>
