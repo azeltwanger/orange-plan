@@ -604,17 +604,17 @@ export default function FinancialPlan() {
   const currentLimitTraditionalIRA = getTraditionalIRALimit(currentYear, currentAge);
   const currentLimitHSA = getHSALimit(currentYear, currentAge, hsaFamilyCoverage);
   
-  // Check Roth IRA income eligibility
-  const rothIncomeLimit = getRothIRAIncomeLimit(currentYear, filingStatus);
-  const adjustedGrossIncome = grossAnnualIncome - actual401k - actualTraditionalIRA - actualHSA;
-  const rothIncomeEligible = adjustedGrossIncome < rothIncomeLimit.phaseOutEnd;
-  const rothInPhaseOut = adjustedGrossIncome >= rothIncomeLimit.phaseOutStart && adjustedGrossIncome < rothIncomeLimit.phaseOutEnd;
-  
   // Cap contributions to limits
   const actual401k = Math.min(contribution401k || 0, currentLimit401k);
   const actualRoth = Math.min(contributionRothIRA || 0, currentLimitRoth);
   const actualTraditionalIRA = Math.min(contributionTraditionalIRA || 0, currentLimitTraditionalIRA);
   const actualHSA = Math.min(contributionHSA || 0, currentLimitHSA);
+  
+  // Check Roth IRA income eligibility
+  const rothIncomeLimit = getRothIRAIncomeLimit(currentYear, filingStatus);
+  const adjustedGrossIncome = grossAnnualIncome - actual401k - actualTraditionalIRA - actualHSA;
+  const rothIncomeEligible = adjustedGrossIncome < rothIncomeLimit.phaseOutEnd;
+  const rothInPhaseOut = adjustedGrossIncome >= rothIncomeLimit.phaseOutStart && adjustedGrossIncome < rothIncomeLimit.phaseOutEnd;
   
   // Pre-tax contributions (401k, Traditional IRA, HSA) reduce taxable income
   const taxableGrossIncome = Math.max(0, grossAnnualIncome - actual401k - actualTraditionalIRA - actualHSA - currentStandardDeduction);
