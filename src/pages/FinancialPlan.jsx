@@ -1860,17 +1860,14 @@ export default function FinancialPlan() {
                         border: '1px solid #27272a', 
                         borderRadius: '12px',
                         maxHeight: '60vh',
-                        overflowY: 'auto',
-                        pointerEvents: 'auto'
+                        overflowY: 'auto'
                       }}
                       wrapperStyle={{ 
-                        zIndex: 1000,
-                        pointerEvents: 'auto',
-                        position: lockedTooltipData ? 'fixed' : 'absolute'
+                        zIndex: 1000
                       }}
-                      position={lockedTooltipData ? { x: Math.min(lockedTooltipData.x + 15, window.innerWidth - 300), y: 100 } : { y: 0 }}
-                      active={lockedTooltipData ? true : undefined}
-                      cursor={lockedTooltipData ? false : true}
+                      position={{ y: 0 }}
+                      active={lockedTooltipData ? false : undefined}
+                      cursor={true}
                       content={({ active, payload, label, coordinate }) => {
                         // If tooltip is locked, ONLY show locked data (ignore hover)
                         if (lockedTooltipData) {
