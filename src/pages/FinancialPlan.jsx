@@ -2372,11 +2372,17 @@ export default function FinancialPlan() {
                                       <span>• Gross Income:</span>
                                       <span className="text-emerald-400 text-right">${(p.yearGrossIncome || 0).toLocaleString()}</span>
                                     </div>
-                                    {p.taxesPaid > 0 && (
-                                      <div className="flex justify-between gap-6">
-                                        <span>• Taxes Paid:</span>
-                                        <span className="text-rose-300 text-right">-${p.taxesPaid.toLocaleString()}</span>
-                                      </div>
+                                    {p.federalTaxPaid > 0 && (
+                                     <div className="flex justify-between gap-6">
+                                       <span>• Federal Tax:</span>
+                                       <span className="text-rose-300 text-right">-${p.federalTaxPaid.toLocaleString()}</span>
+                                     </div>
+                                    )}
+                                    {p.stateTaxPaid > 0 && (
+                                     <div className="flex justify-between gap-6">
+                                       <span>• {stateOfResidence} State Tax:</span>
+                                       <span className="text-rose-300 text-right">-${p.stateTaxPaid.toLocaleString()}</span>
+                                     </div>
                                     )}
                                     <div className="flex justify-between gap-6">
                                       <span>• Spending:</span>
