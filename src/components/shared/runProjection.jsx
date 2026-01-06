@@ -904,6 +904,18 @@ export function runUnifiedProjection({
           inflationRate: effectiveInflation / 100,
         });
 
+        if (age <= currentAge + 2) {  // Only log first few years
+          console.log('=== PRE-RETIREMENT WITHDRAWAL DEBUG ===');
+          console.log('Age:', age, '| Year:', year, '| isRetired:', isRetired);
+          console.log('Deficit:', deficit);
+          console.log('Taxable Balance:', taxableBalance);
+          console.log('Tax Deferred Balance:', taxDeferredBalance);
+          console.log('Tax Free Balance:', taxFreeBalance);
+          console.log('Running Basis:', runningTaxableBasis);
+          console.log('Gain Ratio:', estimatedCurrentGainRatio);
+          console.log('Tax Estimate:', JSON.stringify(taxEstimate, null, 2));
+        }
+
         const preRetireStateTax = calculateStateTaxOnRetirement({
           state: stateOfResidence,
           age: age,
@@ -1026,6 +1038,20 @@ export function runUnifiedProjection({
         year: year,
         inflationRate: effectiveInflation / 100,
       });
+
+      if (age <= retirementAge + 2) {  // Only log first few years of retirement
+        console.log('=== RETIREMENT WITHDRAWAL DEBUG ===');
+        console.log('Age:', age, '| Year:', year, '| isRetired:', isRetired);
+        console.log('Desired Withdrawal:', desiredWithdrawal);
+        console.log('Capped Withdrawal:', cappedWithdrawal);
+        console.log('Taxable Balance:', taxableBalance);
+        console.log('Tax Deferred Balance:', taxDeferredBalance);
+        console.log('Tax Free Balance:', taxFreeBalance);
+        console.log('Running Basis:', runningTaxableBasis);
+        console.log('Gain Ratio:', estimatedCurrentGainRatio);
+        console.log('Other Income for Tax:', totalOtherIncomeForTax);
+        console.log('Tax Estimate:', JSON.stringify(taxEstimate, null, 2));
+      }
 
       const stateTax = calculateStateTaxOnRetirement({
         state: stateOfResidence,
