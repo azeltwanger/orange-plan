@@ -69,10 +69,6 @@ export function runUnifiedProjection({
   getTaxTreatmentFromHolding,
   DEBUG = false,
 }) {
-  // Essential debug: projection start
-  console.log('=== PROJECTION START ===');
-  console.log('Holdings received:', holdings?.length || 0);
-
   const results = [];
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth();
@@ -240,14 +236,6 @@ export function runUnifiedProjection({
     encumberedBtcBasis = runningTaxableBasis * (initialEncumberedBtcValue / initialTaxableValueBeforeEncumbered);
     runningTaxableBasis = Math.max(0, runningTaxableBasis - encumberedBtcBasis);
   }
-
-  // Essential debug: portfolio initialized
-  const totalTaxableValue = portfolio.taxable.btc + portfolio.taxable.stocks + portfolio.taxable.bonds + portfolio.taxable.cash + portfolio.taxable.other;
-  console.log('=== PORTFOLIO INITIALIZED ===');
-  console.log('Taxable BTC:', portfolio.taxable.btc);
-  console.log('Tax-Free BTC:', portfolio.taxFree.btc);
-  console.log('Cost Basis:', runningTaxableBasis);
-  console.log('Encumbered Basis:', encumberedBtcBasis);
 
   // Get standard deduction
   const taxConfigForYear = getTaxConfigForYear(currentYear);
@@ -896,14 +884,6 @@ export function runUnifiedProjection({
           inflationRate: effectiveInflation / 100,
         });
 
-        // Essential debug: Year 1 withdrawal
-        if (year === currentYear) {
-          console.log('=== YEAR 1 WITHDRAWAL ===');
-          console.log('Gain Ratio:', estimatedCurrentGainRatio);
-          console.log('Withdrawal:', taxEstimate?.fromTaxable || 0);
-          console.log('Tax:', taxEstimate?.totalTax || 0);
-        }
-
         const preRetireStateTax = calculateStateTaxOnRetirement({
           state: stateOfResidence,
           age: age,
@@ -1107,14 +1087,6 @@ export function runUnifiedProjection({
         year: year,
         inflationRate: effectiveInflation / 100,
       });
-
-      // Essential debug: Year 1 retirement withdrawal
-      if (year === currentYear) {
-        console.log('=== YEAR 1 WITHDRAWAL ===');
-        console.log('Gain Ratio:', estimatedCurrentGainRatio);
-        console.log('Withdrawal:', taxEstimate?.fromTaxable || 0);
-        console.log('Tax:', taxEstimate?.totalTax || 0);
-      }
 
       const stateTax = calculateStateTaxOnRetirement({
         state: stateOfResidence,
