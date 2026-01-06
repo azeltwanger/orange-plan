@@ -1260,6 +1260,98 @@ export default function FinancialPlan() {
     setMaxSustainableSpending(derivedMaxSustainableSpending);
   }, [derivedMaxSustainableSpending]);
 
+  // UNIFIED: Derive additional annual investment needed using binary search with projection
+  const derivedAdditionalInvestmentNeeded = useMemo(() => {
+    // If already sustainable, no additional investment needed
+    if (derivedMaxSustainableSpending >= retirementAnnualSpending) return 0;
+    
+    const total = btcValue + stocksValue + realEstateValue + bondsValue + cashValue + otherValue;
+    if (total <= 0 && annualSavings <= 0) return 0;
+    
+    // Binary search for minimum additional annual investment needed
+    let low = 0;
+    let high = 500000; // $500k/year upper bound
+    
+    // Helper to run projection with modified annual savings
+    const testWithAdditionalSavings = (additionalAmount) => {
+      const testAnnualSavings = annualSavings + additionalAmount;
+      
+      const result = runUnifiedProjection({
+        holdings,
+        accounts,
+        liabilities,
+        collateralizedLoans,
+        currentPrice,
+        currentAge,
+        retirementAge,
+        lifeExpectancy,
+        retirementAnnualSpending,
+        effectiveSocialSecurity,
+        socialSecurityStartAge,
+        otherRetirementIncome,
+        annualSavings: testAnnualSavings,
+        incomeGrowth,
+        grossAnnualIncome,
+        currentAnnualSpending,
+        filingStatus,
+        stateOfResidence,
+        contribution401k,
+        employer401kMatch,
+        contributionRothIRA,
+        contributionHSA,
+        hsaFamilyCoverage,
+        getBtcGrowthRate,
+        effectiveInflation,
+        effectiveStocksCagr,
+        bondsCagr,
+        realEstateCagr,
+        cashCagr,
+        otherCagr,
+        savingsAllocationBtc,
+        savingsAllocationStocks,
+        savingsAllocationBonds,
+        savingsAllocationCash,
+        savingsAllocationOther,
+        autoTopUpBtcCollateral,
+        btcTopUpTriggerLtv,
+        btcTopUpTargetLtv,
+        btcReleaseTriggerLtv,
+        btcReleaseTargetLtv,
+        goals,
+        lifeEvents,
+        getTaxTreatmentFromHolding,
+        DEBUG: false,
+      });
+      
+      return result.survives;
+    };
+    
+    // Binary search to find minimum additional investment (within $100 precision)
+    for (let iteration = 0; iteration < 20; iteration++) {
+      const mid = Math.round((low + high) / 2);
+      
+      if (testWithAdditionalSavings(mid)) {
+        high = mid; // Can succeed with this amount, try lower
+      } else {
+        low = mid; // Need more investment
+      }
+      
+      // Stop when precision is within $100
+      if (high - low <= 100) break;
+    }
+    
+    // Return the higher bound (guaranteed to work)
+    return high;
+  }, [holdings, accounts, liabilities, collateralizedLoans, currentPrice, currentAge, retirementAge, 
+      lifeExpectancy, retirementAnnualSpending, effectiveSocialSecurity, socialSecurityStartAge, 
+      otherRetirementIncome, annualSavings, incomeGrowth, grossAnnualIncome, currentAnnualSpending, 
+      filingStatus, stateOfResidence, contribution401k, employer401kMatch, contributionRothIRA, 
+      contributionHSA, hsaFamilyCoverage, getBtcGrowthRate, effectiveInflation, effectiveStocksCagr, 
+      bondsCagr, realEstateCagr, cashCagr, otherCagr, savingsAllocationBtc, savingsAllocationStocks, 
+      savingsAllocationBonds, savingsAllocationCash, savingsAllocationOther, autoTopUpBtcCollateral, 
+      btcTopUpTriggerLtv, btcTopUpTargetLtv, btcReleaseTriggerLtv, btcReleaseTargetLtv, goals, 
+      lifeEvents, getTaxTreatmentFromHolding, derivedMaxSustainableSpending]);
+
   // Calculate lifetime tax burden in retirement
   const lifetimeTaxesPaid = projections.filter(p => p.isRetired).reduce((sum, p) => sum + (p.taxesPaid || 0), 0);
   const lifetimePenaltiesPaid = projections.filter(p => p.isRetired).reduce((sum, p) => sum + (p.penaltyPaid || 0), 0);
@@ -1669,55 +1761,7 @@ export default function FinancialPlan() {
                     <h5 className="text-xs font-semibold text-zinc-300 uppercase tracking-wide">Increase Annual Investment By</h5>
                   </div>
                   <p className="text-2xl font-bold text-emerald-400">
-                    +{formatNumber((() => {
-                      const yearsToWork = retirementAge - currentAge;
-                      if (yearsToWork <= 0) return 0;
-
-                      // Calculate shortfall based on sustainable vs desired spending (both in today's dollars)
-                      const spendingShortfall = Math.max(0, retirementAnnualSpending - maxSustainableSpending);
-                      if (spendingShortfall <= 0) return 0;
-
-                      // Required additional nest egg in today's dollars to support the shortfall
-                      const effectiveWithdrawalRate = Math.max(0.03, 1 / (lifeExpectancy - retirementAge));
-                      const additionalNestEggNeeded = spendingShortfall / effectiveWithdrawalRate;
-
-                      // Calculate blended growth rate for new savings
-                      const totalAssets = btcValue + stocksValue + realEstateValue + bondsValue + cashValue + otherValue;
-                      const btcPct = totalAssets > 0 ? btcValue / totalAssets : 0.5;
-                      const stocksPct = totalAssets > 0 ? stocksValue / totalAssets : 0.3;
-                      const realEstatePct = totalAssets > 0 ? realEstateValue / totalAssets : 0.1;
-                      const bondsPct = totalAssets > 0 ? bondsValue / totalAssets : 0.05;
-                      const cashPct = totalAssets > 0 ? cashValue / totalAssets : 0.0;
-                      const otherPct = totalAssets > 0 ? otherValue / totalAssets : 0.05;
-
-                      // Weighted average of expected returns
-                      const avgBtcReturn = (() => {
-                        let total = 0;
-                        for (let y = 1; y <= yearsToWork; y++) {
-                          total += getBtcGrowthRate(y, effectiveInflation);
-                        }
-                        return total / yearsToWork;
-                      })();
-
-                      const blendedGrowthRate = (
-                        btcPct * (avgBtcReturn / 100) +
-                        stocksPct * (effectiveStocksCagr / 100) +
-                        realEstatePct * (realEstateCagr / 100) +
-                        bondsPct * (bondsCagr / 100) +
-                        cashPct * (cashCagr / 100) +
-                        otherPct * (otherCagr / 100)
-                      );
-
-                      // Annual savings needed using future value of annuity formula
-                      // FV = PMT * [(1+r)^n - 1] / r
-                      // So: PMT = FV / {[(1+r)^n - 1] / r}
-                      if (Math.abs(blendedGrowthRate) < 0.001) {
-                        return additionalNestEggNeeded / yearsToWork;
-                      }
-
-                      const fvFactor = (Math.pow(1 + blendedGrowthRate, yearsToWork) - 1) / blendedGrowthRate;
-                      return additionalNestEggNeeded / fvFactor;
-                    })())}<span className="text-sm text-zinc-500">/yr</span>
+                    +{formatNumber(derivedAdditionalInvestmentNeeded)}<span className="text-sm text-zinc-500">/yr</span>
                   </p>
                   <p className="text-[10px] text-zinc-500 mt-1">invested into your portfolio to retire at age {retirementAge}</p>
                 </div>
