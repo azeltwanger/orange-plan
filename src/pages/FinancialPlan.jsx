@@ -282,7 +282,7 @@ export default function FinancialPlan() {
   const [contributionHSA, setContributionHSA] = useState(0);
   const [hsaFamilyCoverage, setHsaFamilyCoverage] = useState(false);
 
-  // BTC Collateral Management Settings
+  // BTC Collateral Management Settings (Ledn defaults)
   const [autoTopUpBtcCollateral, setAutoTopUpBtcCollateral] = useState(true);
   const [btcTopUpTriggerLtv, setBtcTopUpTriggerLtv] = useState(70);
   const [btcTopUpTargetLtv, setBtcTopUpTargetLtv] = useState(65);
