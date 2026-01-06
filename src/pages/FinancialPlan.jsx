@@ -1906,12 +1906,13 @@ export default function FinancialPlan() {
                         backgroundColor: '#18181b', 
                         border: '1px solid #27272a', 
                         borderRadius: '12px',
-                        maxHeight: '400px',
-                        overflowY: 'auto'
+                        maxHeight: '70vh',
+                        overflowY: 'auto',
+                        pointerEvents: 'auto'
                       }}
                       wrapperStyle={{ 
                         zIndex: 1000,
-                        pointerEvents: lockedTooltipData ? 'auto' : 'none'
+                        pointerEvents: 'auto'
                       }}
                       position={lockedTooltipData ? { x: lockedTooltipData.x + 15, y: lockedTooltipData.y } : { y: 0 }}
                       active={lockedTooltipData ? true : undefined}
