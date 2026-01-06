@@ -3252,12 +3252,20 @@ export default function FinancialPlan() {
                       <Input
                         type="number"
                         value={socialSecurityStartAge}
-                        onChange={(e) => setSocialSecurityStartAge(parseInt(e.target.value) || 67)}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value) || 67;
+                          setSocialSecurityStartAge(Math.min(70, Math.max(62, val)));
+                        }}
                         className="bg-zinc-900 border-zinc-800"
                         min={62}
                         max={70}
                       />
-                      <p className="text-xs text-zinc-500">62 (reduced) to 70 (max)</p>
+                      <p className="text-xs text-zinc-500">
+                        62 (earliest) to 70 (max). Full benefit at {(() => {
+                          const birthYear = new Date().getFullYear() - currentAge;
+                          return birthYear >= 1960 ? 67 : 66;
+                        })()}.
+                      </p>
                     </div>
                     <div className="flex items-end pb-2">
                       <p className="text-xs text-zinc-500">Based on current income. Get exact amount at ssa.gov</p>
