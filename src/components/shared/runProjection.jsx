@@ -803,7 +803,8 @@ export function runUnifiedProjection({
       federalTaxPaid = yearFederalTax;
       stateTaxPaid = yearStateTax;
       taxesPaid = yearFederalTax + yearStateTax;
-      const yearNetIncome = yearGrossIncome - taxesPaid;
+      // Net income = gross - taxes - pre-tax contributions (401k, HSA come from paycheck)
+      const yearNetIncome = yearGrossIncome - taxesPaid - year401k - yearHSA;
 
       const baseYearSpending = (currentAnnualSpending * Math.pow(1 + effectiveInflation / 100, i)) + activeExpenseAdjustment;
       yearSpending = i === 0 ? baseYearSpending * currentYearProRataFactor : baseYearSpending;
