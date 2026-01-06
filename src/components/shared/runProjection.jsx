@@ -247,6 +247,25 @@ export function runUnifiedProjection({
   const initialTaxableCostBasis = taxableHoldings.reduce((sum, h) => sum + (h.cost_basis_total || 0), 0);
   let runningTaxableBasis = initialTaxableCostBasis;
 
+  // DEBUG: Cost basis tracking
+  console.log('=== TAX BASIS DEBUG ===');
+  taxableHoldings.forEach(h => {
+    const value = h.ticker === 'BTC' ? h.quantity * currentPrice : h.quantity * (h.current_price || 0);
+    console.log('Holding:', h.asset_name || h.ticker, {
+      ticker: h.ticker,
+      quantity: h.quantity,
+      current_price: h.ticker === 'BTC' ? currentPrice : h.current_price,
+      current_value: value,
+      cost_basis_total: h.cost_basis_total,
+      cost_basis_per_unit: h.cost_basis_total ? h.cost_basis_total / h.quantity : 'N/A'
+    });
+  });
+  const totalTaxableValue = portfolio.taxable.btc + portfolio.taxable.stocks + portfolio.taxable.bonds + portfolio.taxable.cash + portfolio.taxable.other;
+  console.log('Total Cost Basis:', initialTaxableCostBasis);
+  console.log('Total Taxable Value:', totalTaxableValue);
+  console.log('Initial Gain Ratio:', totalTaxableValue > 0 ? ((totalTaxableValue - initialTaxableCostBasis) / totalTaxableValue).toFixed(4) : 'N/A');
+  console.log('=== END TAX BASIS DEBUG ===');
+
   // Get standard deduction
   const taxConfigForYear = getTaxConfigForYear(currentYear);
   const standardDeductions = taxConfigForYear?.standardDeduction || { single: 15000, married: 30000 };
