@@ -235,6 +235,9 @@ export default function FinancialPlan() {
   const [maxSustainableSpending, setMaxSustainableSpending] = useState(0);
   const queryClient = useQueryClient();
 
+  // Check if critical data is loading
+  const isLoadingData = !holdings || !accounts || !userSettings || !liabilities || !collateralizedLoans;
+
   // Assumption states - will be loaded from UserSettings
   const [btcCagr, setBtcCagr] = useState(25);
   const [stocksCagr, setStocksCagr] = useState(7);
@@ -1453,6 +1456,25 @@ export default function FinancialPlan() {
   const resetGoalForm = () => setGoalForm({ name: '', target_amount: '', current_amount: '', target_date: '', goal_type: 'other', priority: 'medium', notes: '' });
   const resetEventForm = () => setEventForm({ name: '', event_type: 'expense_change', year: new Date().getFullYear() + 1, amount: '', is_recurring: false, recurring_years: '', affects: 'expenses', notes: '', monthly_expense_impact: '', liability_amount: '', down_payment: '', interest_rate: '', loan_term_years: '', allocation_method: 'proportionate', btc_allocation: 0, stocks_allocation: 0, real_estate_allocation: 0, bonds_allocation: 0, cash_allocation: 0, other_allocation: 0 });
 
+
+  // Show loading skeleton while data is being fetched
+  if (isLoadingData) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0b] p-6">
+        <div className="animate-pulse space-y-6">
+          <div className="h-8 bg-zinc-800 rounded w-1/3"></div>
+          <div className="h-64 bg-zinc-800 rounded"></div>
+          <div className="grid grid-cols-4 gap-4">
+            <div className="h-32 bg-zinc-800 rounded"></div>
+            <div className="h-32 bg-zinc-800 rounded"></div>
+            <div className="h-32 bg-zinc-800 rounded"></div>
+            <div className="h-32 bg-zinc-800 rounded"></div>
+          </div>
+          <div className="h-96 bg-zinc-800 rounded"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

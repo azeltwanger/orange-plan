@@ -102,6 +102,9 @@ export default function TaxCenter() {
   const [itemToDelete, setItemToDelete] = useState(null);
   const queryClient = useQueryClient();
 
+  // Check if critical data is loading
+  const isLoadingData = !allTransactions || !holdings || !userSettings || !accounts;
+
   // Tax planning settings
   const [annualIncome, setAnnualIncome] = useState(0);
   const [targetTaxableIncome, setTargetTaxableIncome] = useState(48350);
@@ -1266,6 +1269,24 @@ export default function TaxCenter() {
     a.click();
     URL.revokeObjectURL(url);
   };
+
+  // Show loading skeleton while data is being fetched
+  if (isLoadingData) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0b] p-6">
+        <div className="animate-pulse space-y-6">
+          <div className="h-8 bg-zinc-800 rounded w-1/3"></div>
+          <div className="grid grid-cols-4 gap-4">
+            <div className="h-32 bg-zinc-800 rounded"></div>
+            <div className="h-32 bg-zinc-800 rounded"></div>
+            <div className="h-32 bg-zinc-800 rounded"></div>
+            <div className="h-32 bg-zinc-800 rounded"></div>
+          </div>
+          <div className="h-96 bg-zinc-800 rounded"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
