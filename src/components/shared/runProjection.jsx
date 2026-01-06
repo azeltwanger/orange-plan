@@ -241,6 +241,8 @@ export function runUnifiedProjection({
     let rmdWithdrawn = 0;
     let excessRmd = 0;
     let taxesPaid = 0;
+    let federalTaxPaid = 0;
+    let stateTaxPaid = 0;
     let penaltyPaid = 0;
     let withdrawFromTaxable = 0;
     let withdrawFromTaxDeferred = 0;
@@ -691,6 +693,8 @@ export function runUnifiedProjection({
       const yearFederalTax = calculateProgressiveIncomeTax(yearTaxableIncome, filingStatus, year);
       const yearStateTax = calculateStateIncomeTax({ income: yearGrossIncome - year401k - yearHSA, filingStatus, state: stateOfResidence, year });
       
+      federalTaxPaid = yearFederalTax;
+      stateTaxPaid = yearStateTax;
       taxesPaid = yearFederalTax + yearStateTax;
       const yearNetIncome = yearGrossIncome - taxesPaid;
 
@@ -741,6 +745,8 @@ export function runUnifiedProjection({
           year: year,
         });
         
+        federalTaxPaid += (taxEstimate.totalTax || 0);
+        stateTaxPaid += preRetireStateTax;
         taxesPaid += (taxEstimate.totalTax || 0) + preRetireStateTax;
         penaltyPaid = taxEstimate.totalPenalty || 0;
 
@@ -848,6 +854,8 @@ export function runUnifiedProjection({
         year: year,
       });
 
+      federalTaxPaid = federalTaxOnOtherIncome + (taxEstimate.totalTax || 0);
+      stateTaxPaid = stateTax;
       taxesPaid = federalTaxOnOtherIncome + (taxEstimate.totalTax || 0) + stateTax;
       penaltyPaid = taxEstimate.totalPenalty || 0;
 
@@ -1076,6 +1084,8 @@ export function runUnifiedProjection({
       
       // Taxes & Penalties
       taxesPaid: Math.round(taxesPaid),
+      federalTaxPaid: Math.round(federalTaxPaid),
+      stateTaxPaid: Math.round(stateTaxPaid),
       penaltyPaid: Math.round(penaltyPaid),
       canAccessPenaltyFree: age >= PENALTY_FREE_AGE,
       

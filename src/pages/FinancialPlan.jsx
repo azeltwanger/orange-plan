@@ -2037,10 +2037,16 @@ export default function FinancialPlan() {
                                         <span>• Gross Income:</span>
                                         <span className="text-emerald-400 text-right">${(p.yearGrossIncome || 0).toLocaleString()}</span>
                                       </div>
-                                      {p.taxesPaid > 0 && (
+                                      {p.federalTaxPaid > 0 && (
                                         <div className="flex justify-between gap-6">
-                                          <span>• Taxes Paid:</span>
-                                          <span className="text-rose-300 text-right">-${p.taxesPaid.toLocaleString()}</span>
+                                          <span>• Federal Tax:</span>
+                                          <span className="text-rose-300 text-right">-${p.federalTaxPaid.toLocaleString()}</span>
+                                        </div>
+                                      )}
+                                      {p.stateTaxPaid > 0 && (
+                                        <div className="flex justify-between gap-6">
+                                          <span>• {stateOfResidence} State Tax:</span>
+                                          <span className="text-rose-300 text-right">-${p.stateTaxPaid.toLocaleString()}</span>
                                         </div>
                                       )}
                                       <div className="flex justify-between gap-6">
@@ -2262,10 +2268,16 @@ export default function FinancialPlan() {
                                         <span className="text-zinc-300 text-right">${p.yearGoalWithdrawal.toLocaleString()}</span>
                                       </div>
                                     )}
-                                    {p.taxesPaid > 0 && (
+                                    {p.federalTaxPaid > 0 && (
                                       <div className="flex justify-between gap-6">
-                                        <span>• Taxes (Fed + {stateOfResidence}):</span>
-                                        <span className="text-rose-300 text-right">${p.taxesPaid.toLocaleString()}</span>
+                                        <span>• Federal Tax:</span>
+                                        <span className="text-rose-300 text-right">${p.federalTaxPaid.toLocaleString()}</span>
+                                      </div>
+                                    )}
+                                    {p.stateTaxPaid > 0 && (
+                                      <div className="flex justify-between gap-6">
+                                        <span>• {stateOfResidence} State Tax:</span>
+                                        <span className="text-rose-300 text-right">${p.stateTaxPaid.toLocaleString()}</span>
                                       </div>
                                     )}
                                     {p.penaltyPaid > 0 && (
@@ -3314,10 +3326,16 @@ export default function FinancialPlan() {
                             <span className="text-zinc-400">Gross Income:</span>
                             <span className="text-emerald-400">{formatNumber(projGrossIncome)}</span>
                           </div>
-                          {projTaxes > 0 && (
+                          {currentYearProjection.federalTaxPaid > 0 && (
                             <div className="flex justify-between">
-                              <span className="text-zinc-400">Taxes Paid:</span>
-                              <span className="text-rose-300">-{formatNumber(projTaxes)}</span>
+                              <span className="text-zinc-400">Federal Tax:</span>
+                              <span className="text-rose-300">-{formatNumber(currentYearProjection.federalTaxPaid)}</span>
+                            </div>
+                          )}
+                          {currentYearProjection.stateTaxPaid > 0 && (
+                            <div className="flex justify-between">
+                              <span className="text-zinc-400">{stateOfResidence} State Tax:</span>
+                              <span className="text-rose-300">-{formatNumber(currentYearProjection.stateTaxPaid)}</span>
                             </div>
                           )}
                           <div className="flex justify-between">
