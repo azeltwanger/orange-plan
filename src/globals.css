@@ -3,10 +3,27 @@ css
 @tailwind components;
 @tailwind utilities;
 
-/* Prevent white flash on page transitions */
-html, body, #root {
-  background-color: #18181b;
-  color: #fafafa;
+/* Prevent white flash on page transitions - CRITICAL: loads before React */
+html, body, #root, #__next, #app {
+  background-color: #0a0a0b !important;
+  color: #fafafa !important;
+  min-height: 100vh;
+}
+
+/* Force dark color scheme at browser level */
+html {
+  color-scheme: dark !important;
+}
+
+/* Ensure no white background anywhere during initial load */
+:root {
+  background-color: #0a0a0b !important;
+}
+
+/* Prevent any flash from unstyled content */
+body:not(.loaded) {
+  visibility: visible;
+  background-color: #0a0a0b !important;
 }
 
 @layer base {

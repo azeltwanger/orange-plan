@@ -45,6 +45,13 @@ export default function Layout({ children, currentPageName }) {
   const [blockHeight, setBlockHeight] = useState(null);
   const darkMode = true;
 
+  // Set dark background on html/body immediately to prevent white flash
+  useEffect(() => {
+    document.documentElement.style.backgroundColor = '#0a0a0b';
+    document.body.style.backgroundColor = '#0a0a0b';
+    document.documentElement.style.colorScheme = 'dark';
+  }, []);
+
 
 
   useEffect(() => {
