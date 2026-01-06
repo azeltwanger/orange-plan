@@ -1048,30 +1048,7 @@ export default function FinancialPlan() {
 
   // Run Monte Carlo when button clicked
   const handleRunSimulation = () => {
-    const { paths: simulations, successResults, withdrawalPaths } = runMonteCarloSimulation({
-      btcValue,
-      stocksValue,
-      realEstateValue,
-      bondsValue,
-      otherValue,
-      taxableValue,
-      taxDeferredValue,
-      taxFreeValue,
-      currentAge,
-      retirementAge,
-      lifeExpectancy,
-      getBtcGrowthRate: (year) => getBtcGrowthRate(year, effectiveInflation),
-      stocksCagr: effectiveStocksCagr,
-      realEstateCagr,
-      bondsCagr,
-      inflationRate: effectiveInflation,
-      annualSavings,
-      incomeGrowth,
-      retirementAnnualSpending,
-      lifeEvents,
-      btcVolatility: 60,
-      stocksVolatility,
-    }, 1000);
+    const { paths: simulations, successResults, withdrawalPaths } = runMonteCarloSimulation(1000);
 
     const percentiles = calculatePercentiles(simulations);
 
