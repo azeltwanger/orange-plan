@@ -1220,13 +1220,18 @@ export default function FinancialPlan() {
     if (total <= 0) return null;
     
     // Binary search for earliest sustainable retirement age
-    let low = currentAge;  // Include current age (can I retire NOW?)
-    let high = lifeExpectancy - 5;
+    // Search from current age to life expectancy - 1
+    let low = currentAge;
+    let high = lifeExpectancy - 1;
     let earliest = null;
+    
+    console.log(`🔍 Earliest Retirement Age Search: testing ages ${low} to ${high}`);
     
     while (low <= high) {
       const mid = Math.floor((low + high) / 2);
       const result = runProjectionForRetirementAge(mid);
+      
+      console.log(`  Age ${mid}: survives=${result.survives}, depleteAge=${result.depleteAge || 'N/A'}`);
       
       if (result.survives) {
         earliest = mid;
@@ -1236,8 +1241,9 @@ export default function FinancialPlan() {
       }
     }
     
+    console.log(`✅ Earliest sustainable retirement age: ${earliest !== null ? earliest : 'NONE FOUND'}`);
     return earliest;
-  }, [currentAge, lifeExpectancy, projections, runProjectionForRetirementAge]);
+  }, [currentAge, lifeExpectancy, btcValue, stocksValue, realEstateValue, bondsValue, cashValue, otherValue, runProjectionForRetirementAge]);
 
   // Update state when derived value changes
   useEffect(() => {
@@ -1275,15 +1281,19 @@ export default function FinancialPlan() {
 
   // UNIFIED: Derive additional annual investment needed using binary search with projection
   const derivedAdditionalInvestmentNeeded = useMemo(() => {
-    // If already sustainable, no additional investment needed
-    if (derivedMaxSustainableSpending >= retirementAnnualSpending) return 0;
+    // If already sustainable at current savings, no additional needed
+    const baseResult = runProjectionForRetirementAge(retirementAge);
+    if (baseResult.survives) {
+      console.log(`✅ Additional investment: $0 (plan already sustainable)`);
+      return 0;
+    }
     
     const total = btcValue + stocksValue + realEstateValue + bondsValue + cashValue + otherValue;
-    if (total <= 0 && annualSavings <= 0) return 0;
     
     // Binary search for minimum additional annual investment needed
     let low = 0;
     let high = 500000; // $500k/year upper bound
+    let foundSustainable = false;
     
     // Helper to run projection with modified annual savings
     const testWithAdditionalSavings = (additionalAmount) => {
@@ -1311,6 +1321,7 @@ export default function FinancialPlan() {
         contribution401k,
         employer401kMatch,
         contributionRothIRA,
+        contributionTraditionalIRA,
         contributionHSA,
         hsaFamilyCoverage,
         getBtcGrowthRate,
@@ -1336,40 +1347,43 @@ export default function FinancialPlan() {
         DEBUG: false,
       });
       
-      // DEBUG: Log each test to see what's happening
-      const finalYear = result.yearByYear?.[result.yearByYear.length - 1];
-      console.log(`💰 Test +$${additionalAmount.toLocaleString()}/yr savings: survives=${result.survives}, depleteAge=${result.depleteAge || 'N/A'}, finalPortfolio=$${Math.round(result.finalPortfolio).toLocaleString()}, finalNetWorth=$${Math.round((finalYear?.total || 0) - (finalYear?.totalDebt || 0)).toLocaleString()}`);
-      
       return result.survives;
     };
     
-    // Binary search to find minimum additional investment (within $100 precision)
-    console.log(`🔍 Starting binary search for additional investment (range: $0 - $${high.toLocaleString()})`);
+    console.log(`🔍 Additional Savings Search: testing $0 - $${high.toLocaleString()}/yr`);
+    
+    // First check if even max amount works
+    if (!testWithAdditionalSavings(high)) {
+      console.log(`❌ Even $${high.toLocaleString()}/yr not enough - hiding card`);
+      return high + 1; // Return value above cap to signal "not achievable"
+    }
+    
+    // Binary search to find minimum additional investment (within $500 precision)
     for (let iteration = 0; iteration < 20; iteration++) {
       const mid = Math.round((low + high) / 2);
       
       if (testWithAdditionalSavings(mid)) {
+        foundSustainable = true;
         high = mid; // Can succeed with this amount, try lower
       } else {
         low = mid; // Need more investment
       }
       
-      // Stop when precision is within $100
-      if (high - low <= 100) break;
+      // Stop when precision is within $500
+      if (high - low <= 500) break;
     }
     
-    // Return the higher bound (guaranteed to work)
-    console.log(`✅ Additional investment needed result: $${high.toLocaleString()}/yr (converged after search)`);
+    console.log(`✅ Additional investment needed: $${high.toLocaleString()}/yr ($${Math.round(high/12).toLocaleString()}/mo)`);
     return high;
   }, [holdings, accounts, liabilities, collateralizedLoans, currentPrice, currentAge, retirementAge, 
       lifeExpectancy, retirementAnnualSpending, effectiveSocialSecurity, socialSecurityStartAge, 
       otherRetirementIncome, annualSavings, incomeGrowth, grossAnnualIncome, currentAnnualSpending, 
       filingStatus, stateOfResidence, contribution401k, employer401kMatch, contributionRothIRA, 
-      contributionHSA, hsaFamilyCoverage, getBtcGrowthRate, effectiveInflation, effectiveStocksCagr, 
-      bondsCagr, realEstateCagr, cashCagr, otherCagr, savingsAllocationBtc, savingsAllocationStocks, 
-      savingsAllocationBonds, savingsAllocationCash, savingsAllocationOther, autoTopUpBtcCollateral, 
-      btcTopUpTriggerLtv, btcTopUpTargetLtv, btcReleaseTriggerLtv, btcReleaseTargetLtv, goals, 
-      lifeEvents, getTaxTreatmentFromHolding, derivedMaxSustainableSpending]);
+      contributionTraditionalIRA, contributionHSA, hsaFamilyCoverage, getBtcGrowthRate, effectiveInflation, 
+      effectiveStocksCagr, bondsCagr, realEstateCagr, cashCagr, otherCagr, savingsAllocationBtc, 
+      savingsAllocationStocks, savingsAllocationBonds, savingsAllocationCash, savingsAllocationOther, 
+      autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv, btcReleaseTriggerLtv, 
+      btcReleaseTargetLtv, goals, lifeEvents, getTaxTreatmentFromHolding, runProjectionForRetirementAge]);
 
   // Calculate lifetime tax burden in retirement
   const lifetimeTaxesPaid = projections.filter(p => p.isRetired).reduce((sum, p) => sum + (p.taxesPaid || 0), 0);
@@ -1795,10 +1809,13 @@ export default function FinancialPlan() {
             }
             
             // Plan not sustainable - show recommendations
+            // Hide "Save More" if amount exceeds $500k/yr cap (not realistic)
+            const savingsCapExceeded = derivedAdditionalInvestmentNeeded > 500000;
+            
             return (
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                {/* Save More Per Month - Only show if NOT retired */}
-                {!isAlreadyRetired && derivedAdditionalInvestmentNeeded > 0 && (
+                {/* Save More Per Month - Only show if NOT retired AND under cap */}
+                {!isAlreadyRetired && derivedAdditionalInvestmentNeeded > 0 && !savingsCapExceeded && (
                   <div className="card-premium rounded-xl p-4 border border-blue-500/30 bg-blue-500/5">
                     <div className="flex items-center gap-2 mb-2">
                       <div className="w-1.5 h-1.5 rounded-full bg-blue-400" />
@@ -1811,8 +1828,8 @@ export default function FinancialPlan() {
                   </div>
                 )}
 
-                {/* Wait Until Age - Only show if NOT retired AND earliest age exists */}
-                {!isAlreadyRetired && earliestRetirementAge && earliestRetirementAge > retirementAge && (
+                {/* Wait Until Age - Only show if NOT retired AND earliest age exists AND is different from target */}
+                {!isAlreadyRetired && earliestRetirementAge !== null && earliestRetirementAge > retirementAge && (
                   <div className="card-premium rounded-xl p-4 border border-amber-500/30 bg-amber-500/5">
                     <div className="flex items-center gap-2 mb-2">
                       <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
