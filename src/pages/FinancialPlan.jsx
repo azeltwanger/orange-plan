@@ -142,6 +142,7 @@ export default function FinancialPlan() {
   // Tooltip locking state
   const [lockedTooltipData, setLockedTooltipData] = useState(null);
   const chartContainerRef = useRef(null);
+  const [lockedTooltipPosition, setLockedTooltipPosition] = useState({ x: 0, y: 0 });
 
 
   const [goalForm, setGoalForm] = useState({
