@@ -858,14 +858,33 @@ export function runUnifiedProjection({
       const proRatedYearRoth = i === 0 ? yearRoth * currentYearProRataFactor : yearRoth;
       yearSavings = proRatedNetIncome - yearSpending - proRatedYearRoth;
 
+      cumulativeSavings += yearSavings;
+
       // Add additional savings being tested (for "Save More" card binary search)
       if (additionalAnnualSavings > 0) {
         const inflatedAdditionalSavings = additionalAnnualSavings * Math.pow(1 + incomeGrowth / 100, i);
         const proRatedAdditional = i === 0 ? inflatedAdditionalSavings * currentYearProRataFactor : inflatedAdditionalSavings;
-        yearSavings += proRatedAdditional;
-      }
 
-      cumulativeSavings += yearSavings;
+        // Add to yearSavings first
+        yearSavings += proRatedAdditional;
+        cumulativeSavings += proRatedAdditional;
+
+        // Only invest per allocation if we end up with a SURPLUS
+        // If still in deficit, the savings just reduce withdrawal (don't double-count)
+        if (yearSavings > 0) {
+          const totalAllocation = savingsAllocationBtc + savingsAllocationStocks + savingsAllocationBonds + savingsAllocationCash + savingsAllocationOther;
+          if (totalAllocation > 0) {
+            portfolio.taxable.btc += proRatedAdditional * (savingsAllocationBtc / totalAllocation);
+            portfolio.taxable.stocks += proRatedAdditional * (savingsAllocationStocks / totalAllocation);
+            portfolio.taxable.bonds += proRatedAdditional * (savingsAllocationBonds / totalAllocation);
+            portfolio.taxable.cash += proRatedAdditional * (savingsAllocationCash / totalAllocation);
+            portfolio.taxable.other += proRatedAdditional * (savingsAllocationOther / totalAllocation);
+          } else {
+            portfolio.taxable.btc += proRatedAdditional;
+          }
+          runningTaxableBasis += proRatedAdditional;
+        }
+      }
       
       addToAccount('taxDeferred', year401k + yearTraditionalIRA + yearEmployerMatch);
       addToAccount('taxFree', yearRoth + yearHSA);

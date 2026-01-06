@@ -1796,7 +1796,7 @@ export default function FinancialPlan() {
             return (
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 {/* Save More Per Month - Only show if NOT retired AND under cap */}
-                {!isAlreadyRetired && derivedAdditionalInvestmentNeeded > 0 && !savingsCapExceeded && (
+                {!isAlreadyRetired && derivedAdditionalInvestmentNeeded > 0 && !savingsCapExceeded && grossAnnualIncome > 0 && (
                   <div className="card-premium rounded-xl p-4 border border-blue-500/30 bg-blue-500/5">
                     <div className="flex items-center gap-2 mb-2">
                       <div className="w-1.5 h-1.5 rounded-full bg-blue-400" />
