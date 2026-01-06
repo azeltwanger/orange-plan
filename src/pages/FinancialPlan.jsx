@@ -3005,7 +3005,7 @@ export default function FinancialPlan() {
                     <SelectTrigger className="bg-zinc-900 border-zinc-800">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-zinc-900 border-zinc-700">
                       <SelectItem value="single">Single</SelectItem>
                       <SelectItem value="married">Married Filing Jointly</SelectItem>
                     </SelectContent>
@@ -3197,7 +3197,7 @@ export default function FinancialPlan() {
                       <SelectTrigger className="bg-zinc-900 border-zinc-800">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="bg-zinc-900 border-zinc-700">
                         <SelectItem value="individual">Individual</SelectItem>
                         <SelectItem value="family">Family</SelectItem>
                       </SelectContent>
