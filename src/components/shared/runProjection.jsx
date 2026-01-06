@@ -263,6 +263,15 @@ export function runUnifiedProjection({
       cumulativeBtcPrice = cumulativeBtcPrice * (1 + yearBtcGrowth / 100);
     }
 
+    // Social Security - calculate REGARDLESS of retirement status
+    if (age >= socialSecurityStartAge && effectiveSocialSecurity > 0) {
+      const yearsToSSStart = Math.max(0, socialSecurityStartAge - currentAge);
+      const yearsReceivingSS = age - socialSecurityStartAge;
+      socialSecurityIncome = effectiveSocialSecurity * 
+        Math.pow(1 + effectiveInflation / 100, yearsToSSStart) * 
+        Math.pow(1 + effectiveInflation / 100, yearsReceivingSS);
+    }
+
     // Process released collateral from PREVIOUS year
     const totalReleasedBtcValueThisYear = Object.values(releasedBtc).reduce((sum, btcAmount) => {
       return sum + (btcAmount * cumulativeBtcPrice);
@@ -794,15 +803,7 @@ export function runUnifiedProjection({
         withdrawFromTaxDeferred = rmdWithdrawn;
       }
 
-      // Social Security
-      if (age >= socialSecurityStartAge && effectiveSocialSecurity > 0) {
-        const yearsToSSStart = Math.max(0, socialSecurityStartAge - currentAge);
-        const yearsReceivingSS = age - socialSecurityStartAge;
-        socialSecurityIncome = effectiveSocialSecurity * 
-          Math.pow(1 + effectiveInflation / 100, yearsToSSStart) * 
-          Math.pow(1 + effectiveInflation / 100, yearsReceivingSS);
-      }
-
+      // Social Security is now calculated earlier (before retirement/pre-retirement split)
       const totalRetirementIncome = otherRetirementIncome + socialSecurityIncome;
       const taxableSocialSecurity = calculateTaxableSocialSecurity(socialSecurityIncome, otherRetirementIncome + desiredWithdrawal, filingStatus);
       const totalOtherIncomeForTax = otherRetirementIncome + taxableSocialSecurity + rmdWithdrawn;
