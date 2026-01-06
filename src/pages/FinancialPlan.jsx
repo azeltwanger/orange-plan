@@ -771,13 +771,6 @@ export default function FinancialPlan() {
       DEBUG: false,
     });
     
-    console.log("RETIRE_UNIFIED", { 
-      testAge: testRetirementAge, 
-      survives: result.survives, 
-      depletionAge: result.depleteAge,
-      finalPortfolio: Math.round(result.finalPortfolio)
-    });
-    
     return result;
   }, [holdings, accounts, liabilities, collateralizedLoans, currentPrice, currentAge, lifeExpectancy, 
       retirementAnnualSpending, effectiveSocialSecurity, socialSecurityStartAge, otherRetirementIncome,
@@ -1242,6 +1235,7 @@ export default function FinancialPlan() {
 
   // Update state when derived value changes
   useEffect(() => {
+    console.log('🟡 Earliest Age Result:', derivedEarliestRetirementAge);
     setEarliestRetirementAge(derivedEarliestRetirementAge);
   }, [derivedEarliestRetirementAge]);
 
@@ -1271,6 +1265,7 @@ export default function FinancialPlan() {
 
   // Update state when derived value changes
   useEffect(() => {
+    console.log('🔴 Reduce Spending Result:', derivedMaxSustainableSpending);
     setMaxSustainableSpending(derivedMaxSustainableSpending);
   }, [derivedMaxSustainableSpending]);
 
@@ -1359,6 +1354,7 @@ export default function FinancialPlan() {
       if (high - low <= 500) break;
     }
     
+    console.log('🔵 Save More Result:', high);
     return high;
   }, [holdings, accounts, liabilities, collateralizedLoans, currentPrice, currentAge, retirementAge, 
       lifeExpectancy, retirementAnnualSpending, effectiveSocialSecurity, socialSecurityStartAge, 
