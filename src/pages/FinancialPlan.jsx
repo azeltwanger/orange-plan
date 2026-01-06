@@ -3387,6 +3387,7 @@ export default function FinancialPlan() {
 
                 {/* Retirement Savings Allocation */}
                 <h4 className="font-semibold mb-4">Retirement Account Contributions</h4>
+                <p className="text-xs text-zinc-500 mb-4">These contributions continue annually until retirement age {retirementAge}</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label className="text-zinc-400">401k/403b Contribution</Label>
