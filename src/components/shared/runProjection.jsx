@@ -376,6 +376,7 @@ export function runUnifiedProjection({
 
     // Debt amortization with month-by-month simulation
     let actualAnnualDebtPayments = 0;
+    const thisYearDebtPayoffs = [];
 
     Object.values(tempRunningDebt).forEach(liability => {
       if (!liabilitiesWithPayoffGoals.has(liability.id) && !liability.paid_off) {
@@ -389,7 +390,10 @@ export function runUnifiedProjection({
 
           for (let month = startMonth; month < 12; month++) {
             if (remainingBalance <= 0) {
-              liability.paid_off = true;
+              if (!liability.paid_off) {
+                thisYearDebtPayoffs.push({ name: liability.name, liability_name: liability.name, month: month + 1 });
+                liability.paid_off = true;
+              }
               break;
             }
 
@@ -401,7 +405,10 @@ export function runUnifiedProjection({
             actualAnnualDebtPayments += paymentThisMonth;
           }
           liability.current_balance = remainingBalance;
-          if (remainingBalance <= 0.01) liability.paid_off = true;
+          if (remainingBalance <= 0.01 && !liability.paid_off) {
+            thisYearDebtPayoffs.push({ name: liability.name, liability_name: liability.name });
+            liability.paid_off = true;
+          }
         } else if (hasInterest && !isBtcLoan) {
           const annualInterest = liability.current_balance * (liability.interest_rate / 100);
           liability.current_balance += annualInterest;
@@ -431,6 +438,12 @@ export function runUnifiedProjection({
           if (additionalBtcNeeded > 0 && liquidBtcAvailable >= additionalBtcNeeded) {
             encumberedBtc[liability.id] += additionalBtcNeeded;
             portfolio.taxable.btc -= additionalBtcNeeded * cumulativeBtcPrice;
+            liquidationEvents.push({
+              year,
+              type: 'top_up',
+              liabilityName: liability.name || liability.lender || 'BTC Loan',
+              message: `Added ${additionalBtcNeeded.toFixed(4)} BTC to bring LTV from ${currentLTV.toFixed(1)}% to ${targetLTV}%`
+            });
           }
         }
 
@@ -451,6 +464,19 @@ export function runUnifiedProjection({
           liability.current_balance = newDebtBalance;
           encumberedBtc[liability.id] = remainingCollateralBtc;
           
+          liquidationEvents.push({
+            year,
+            type: newDebtBalance <= 0 ? 'full_liquidation' : 'partial_liquidation',
+            liabilityName: liability.name || liability.lender || 'BTC Loan',
+            btcAmount: btcToSell,
+            proceeds: proceedsFromSale,
+            remainingDebt: newDebtBalance,
+            remainingCollateral: remainingCollateralBtc,
+            message: newDebtBalance <= 0 
+              ? `Fully liquidated: ${btcToSell.toFixed(4)} BTC ($${Math.round(proceedsFromSale).toLocaleString()}) to pay off $${Math.round(debtBalance).toLocaleString()} debt`
+              : `Partially liquidated: ${btcToSell.toFixed(4)} BTC at ${postTopUpLTV.toFixed(1)}% LTV`
+          });
+          
           if (newDebtBalance <= 0.01) {
             liability.paid_off = true;
             if (remainingCollateralBtc > 0) {
@@ -465,6 +491,12 @@ export function runUnifiedProjection({
             if (!releasedBtc[liability.id]) {
               releasedBtc[liability.id] = encumberedBtc[liability.id];
               encumberedBtc[liability.id] = 0;
+              liquidationEvents.push({
+                year,
+                type: 'release',
+                liabilityName: liability.name || liability.lender || 'BTC Loan',
+                message: `Released ${releasedBtc[liability.id].toFixed(4)} BTC (debt fully paid)`
+              });
             }
           } else {
             const currentCollateral = encumberedBtc[liability.id];
@@ -473,6 +505,12 @@ export function runUnifiedProjection({
             if (excessCollateral > 0) {
               releasedBtc[liability.id] = excessCollateral;
               encumberedBtc[liability.id] = targetCollateralForLoan;
+              liquidationEvents.push({
+                year,
+                type: 'release',
+                liabilityName: liability.name || liability.lender || 'BTC Loan',
+                message: `Released ${excessCollateral.toFixed(4)} BTC (LTV ${postTopUpLTV.toFixed(1)}% → ${releaseTargetLTV}%)`
+              });
             }
           }
         }
@@ -491,7 +529,10 @@ export function runUnifiedProjection({
 
           for (let month = startMonth; month < 12; month++) {
             if (remainingBalance <= 0) {
-              loan.paid_off = true;
+              if (!loan.paid_off) {
+                thisYearDebtPayoffs.push({ name: loan.name, liability_name: loan.name, month: month + 1 });
+                loan.paid_off = true;
+              }
               break;
             }
             const monthlyInterest = hasInterest ? remainingBalance * (loan.interest_rate / 100 / 12) : 0;
@@ -501,7 +542,10 @@ export function runUnifiedProjection({
             actualAnnualDebtPayments += paymentThisMonth;
           }
           loan.current_balance = remainingBalance;
-          if (remainingBalance <= 0.01) loan.paid_off = true;
+          if (remainingBalance <= 0.01 && !loan.paid_off) {
+            thisYearDebtPayoffs.push({ name: loan.name, liability_name: loan.name });
+            loan.paid_off = true;
+          }
         } else if (hasInterest && i > 0) {
           const dailyRate = loan.interest_rate / 100 / 365;
           loan.current_balance = loan.current_balance * Math.pow(1 + dailyRate, 365);
@@ -529,6 +573,12 @@ export function runUnifiedProjection({
           if (additionalBtcNeeded > 0 && liquidBtcAvailable >= additionalBtcNeeded) {
             encumberedBtc[loanKey] += additionalBtcNeeded;
             portfolio.taxable.btc -= additionalBtcNeeded * cumulativeBtcPrice;
+            liquidationEvents.push({
+              year,
+              type: 'top_up',
+              liabilityName: loan.name || loan.lender || 'BTC Loan',
+              message: `Added ${additionalBtcNeeded.toFixed(4)} BTC to bring LTV from ${currentLTV.toFixed(1)}% to ${targetLTV}%`
+            });
           }
         }
 
@@ -550,6 +600,19 @@ export function runUnifiedProjection({
           encumberedBtc[loanKey] = remainingCollateralBtc;
           if (tempRunningDebt[loan.id]) tempRunningDebt[loan.id].current_balance = newDebtBalance;
           
+          liquidationEvents.push({
+            year,
+            type: newDebtBalance <= 0 ? 'full_liquidation' : 'partial_liquidation',
+            liabilityName: loan.name || loan.lender || 'BTC Loan',
+            btcAmount: btcToSell,
+            proceeds: proceedsFromSale,
+            remainingDebt: newDebtBalance,
+            remainingCollateral: remainingCollateralBtc,
+            message: newDebtBalance <= 0 
+              ? `Fully liquidated: ${btcToSell.toFixed(4)} BTC ($${Math.round(proceedsFromSale).toLocaleString()}) to pay off $${Math.round(debtBalance).toLocaleString()} debt`
+              : `Partially liquidated: ${btcToSell.toFixed(4)} BTC at ${postTopUpLTV.toFixed(1)}% LTV`
+          });
+          
           if (newDebtBalance <= 0.01) {
             loan.paid_off = true;
             if (tempRunningDebt[loan.id]) tempRunningDebt[loan.id].paid_off = true;
@@ -565,6 +628,12 @@ export function runUnifiedProjection({
             if (!releasedBtc[loanKey]) {
               releasedBtc[loanKey] = encumberedBtc[loanKey];
               encumberedBtc[loanKey] = 0;
+              liquidationEvents.push({
+                year,
+                type: 'release',
+                liabilityName: loan.name || loan.lender || 'BTC Loan',
+                message: `Released ${releasedBtc[loanKey].toFixed(4)} BTC (debt fully paid)`
+              });
             }
           } else {
             const currentCollateral = encumberedBtc[loanKey];
@@ -573,6 +642,12 @@ export function runUnifiedProjection({
             if (excessCollateral > 0) {
               releasedBtc[loanKey] = excessCollateral;
               encumberedBtc[loanKey] = targetCollateralForLoan;
+              liquidationEvents.push({
+                year,
+                type: 'release',
+                liabilityName: loan.name || loan.lender || 'BTC Loan',
+                message: `Released ${excessCollateral.toFixed(4)} BTC (LTV ${postTopUpLTV.toFixed(1)}% → ${releaseTargetLTV}%)`
+              });
             }
           }
         }
@@ -809,22 +884,8 @@ export function runUnifiedProjection({
 
       let totalWithdrawnFromAccounts = withdrawFromTaxable + withdrawFromTaxDeferred + withdrawFromTaxFree;
       
-      // CRITICAL: Calculate shortfall against FULL need (spending + taxes), not capped amount
-      // This ensures we tap real estate when liquid assets aren't enough
       const fullWithdrawalNeed = totalWithdrawalForTaxCalculation + (taxEstimate.totalTax || 0) + stateTax + penaltyPaid;
       let remainingShortfall = fullWithdrawalNeed - totalWithdrawnFromAccounts;
-      
-      if (DEBUG || remainingShortfall > 1000) {
-        console.log("SHORTFALL_CALC", {
-          age,
-          fullNeed: fullWithdrawalNeed,
-          totalWithdrawn: totalWithdrawnFromAccounts,
-          remainingShortfall,
-          liquidAvailable: getTotalLiquid(),
-          realEstate: portfolio.realEstate,
-          willTriggerRE: remainingShortfall > 0 && portfolio.realEstate > 0
-        });
-      }
       
       // Force additional withdrawals if shortfall
       if (remainingShortfall > 0) {
@@ -1027,7 +1088,7 @@ export function runUnifiedProjection({
       // Debt tracking
       debtPayments: Math.round(actualAnnualDebtPayments),
       loanPayoffs: yearLoanPayoffs,
-      debtPayoffs: [],
+      debtPayoffs: thisYearDebtPayoffs,
       liquidations: yearLiquidations,
       
       // BTC info
@@ -1061,8 +1122,6 @@ export function runUnifiedProjection({
   
   const survives = firstDepletionAge === null;
   const finalYear = results[results.length - 1];
-  
-  console.log("UNIFIED_V2", { age: retirementAge, survives, depletionAge: firstDepletionAge });
   
   return {
     survives,
