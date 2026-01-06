@@ -1067,7 +1067,7 @@ export function runUnifiedProjection({
       netCashFlow: Math.round(yearSavings),
       yearGrossIncome: !isRetired ? Math.round(yearGrossIncome) : 0,
       yearSpending: !isRetired ? Math.round(yearSpending) : 0,
-      socialSecurityIncome: isRetired ? Math.round(socialSecurityIncome) : 0,
+      socialSecurityIncome: Math.round(socialSecurityIncome),
       
       // Withdrawals
       isWithdrawing: isRetired || yearSavings < 0,
