@@ -3252,7 +3252,8 @@ export default function FinancialPlan() {
                       <Input
                         type="number"
                         value={socialSecurityStartAge}
-                        onChange={(e) => {
+                        onChange={(e) => setSocialSecurityStartAge(parseInt(e.target.value) || 67)}
+                        onBlur={(e) => {
                           const val = parseInt(e.target.value) || 67;
                           setSocialSecurityStartAge(Math.min(70, Math.max(62, val)));
                         }}
