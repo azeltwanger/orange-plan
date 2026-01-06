@@ -16,7 +16,7 @@ import {
 } from '@/components/tax/taxCalculations';
 import { runUnifiedProjection } from '@/components/shared/runProjection';
 import { getRMDFactor } from '@/components/shared/taxData';
-import { get401kLimit, getRothIRALimit, getTraditionalIRALimit, getHSALimit, getTaxConfigForYear } from '@/components/shared/taxConfig';
+import { get401kLimit, getRothIRALimit, getTraditionalIRALimit, getHSALimit, getTaxConfigForYear, getRothIRAIncomeLimit } from '@/components/shared/taxConfig';
 import { getStateOptions, getStateTaxSummary, STATE_TAX_CONFIG, calculateStateTaxOnRetirement, calculateStateCapitalGainsTax, calculateStateIncomeTax } from '@/components/shared/stateTaxConfig';
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -605,7 +605,6 @@ export default function FinancialPlan() {
   const currentLimitHSA = getHSALimit(currentYear, currentAge, hsaFamilyCoverage);
   
   // Check Roth IRA income eligibility
-  const { getRothIRAIncomeLimit } = require('@/components/shared/taxConfig');
   const rothIncomeLimit = getRothIRAIncomeLimit(currentYear, filingStatus);
   const adjustedGrossIncome = grossAnnualIncome - actual401k - actualTraditionalIRA - actualHSA;
   const rothIncomeEligible = adjustedGrossIncome < rothIncomeLimit.phaseOutEnd;
