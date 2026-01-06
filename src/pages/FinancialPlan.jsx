@@ -1769,27 +1769,69 @@ export default function FinancialPlan() {
                   </div>
                   </div>
 
-                  {/* Actionable Insights - Show when behind schedule or plan not sustainable */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {(!earliestRetirementAge || earliestRetirementAge > retirementAge || willRunOutOfMoney || retirementStatus.type === 'critical' || retirementStatus.type === 'at_risk') && (
-              <>
-                {/* Savings Insight */}
-                <div className="card-premium rounded-xl p-4 border border-zinc-700/50">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                    <h5 className="text-xs font-semibold text-zinc-300 uppercase tracking-wide">Increase Annual Investment By</h5>
+                  {/* Actionable Insights - Show recommendations or success message */}
+          {(() => {
+            const isAlreadyRetired = currentAge >= retirementAge;
+            const isPlanSustainable = derivedMaxSustainableSpending >= retirementAnnualSpending && !willRunOutOfMoney;
+            const monthlySavingsNeeded = Math.round(derivedAdditionalInvestmentNeeded / 12);
+            
+            // If plan is sustainable, show success message
+            if (isPlanSustainable) {
+              return (
+                <div className="card-premium rounded-xl p-4 border border-emerald-500/30 bg-emerald-500/5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                      <TrendingUp className="w-5 h-5 text-emerald-400" />
+                    </div>
+                    <div>
+                      <h5 className="text-sm font-semibold text-emerald-400">Your plan is on track!</h5>
+                      <p className="text-xs text-zinc-400">
+                        Current trajectory supports {formatNumber(retirementAnnualSpending)}/yr spending through age {lifeExpectancy}
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-2xl font-bold text-emerald-400">
-                    +{formatNumber(derivedAdditionalInvestmentNeeded)}<span className="text-sm text-zinc-500">/yr</span>
-                  </p>
-                  <p className="text-[10px] text-zinc-500 mt-1">invested into your portfolio to retire at age {retirementAge}</p>
                 </div>
+              );
+            }
+            
+            // Plan not sustainable - show recommendations
+            return (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                {/* Save More Per Month - Only show if NOT retired */}
+                {!isAlreadyRetired && derivedAdditionalInvestmentNeeded > 0 && (
+                  <div className="card-premium rounded-xl p-4 border border-blue-500/30 bg-blue-500/5">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+                      <h5 className="text-xs font-semibold text-zinc-300 uppercase tracking-wide">Save More</h5>
+                    </div>
+                    <p className="text-2xl font-bold text-blue-400">
+                      +${monthlySavingsNeeded.toLocaleString()}<span className="text-sm text-zinc-500">/mo</span>
+                    </p>
+                    <p className="text-[10px] text-zinc-500 mt-1">to retire at age {retirementAge}</p>
+                  </div>
+                )}
 
-                {/* Spending Reduction Insight */}
-                <div className="card-premium rounded-xl p-4 border border-zinc-700/50">
+                {/* Wait Until Age - Only show if NOT retired AND earliest age exists */}
+                {!isAlreadyRetired && earliestRetirementAge && earliestRetirementAge > retirementAge && (
+                  <div className="card-premium rounded-xl p-4 border border-amber-500/30 bg-amber-500/5">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                      <h5 className="text-xs font-semibold text-zinc-300 uppercase tracking-wide">Or Wait Until</h5>
+                    </div>
+                    <p className="text-2xl font-bold text-amber-400">
+                      Age {earliestRetirementAge}
+                    </p>
+                    <p className="text-[10px] text-zinc-500 mt-1">+{earliestRetirementAge - retirementAge} years with current plan</p>
+                  </div>
+                )}
+
+                {/* Reduce Spending - Always show when not sustainable */}
+                <div className="card-premium rounded-xl p-4 border border-rose-500/30 bg-rose-500/5">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-rose-400" />
-                    <h5 className="text-xs font-semibold text-zinc-300 uppercase tracking-wide">Or Reduce Retirement Spending To</h5>
+                    <h5 className="text-xs font-semibold text-zinc-300 uppercase tracking-wide">
+                      {isAlreadyRetired ? 'Reduce Spending To' : 'Or Reduce Spending To'}
+                    </h5>
                   </div>
                   <p className="text-2xl font-bold text-rose-400">
                     {formatNumber(maxSustainableSpending)}<span className="text-sm text-zinc-500">/yr</span>
@@ -1801,23 +1843,9 @@ export default function FinancialPlan() {
                     })()}
                   </p>
                 </div>
-
-                {/* Alternative: Delay Retirement */}
-                {earliestRetirementAge && (
-                  <div className="card-premium rounded-xl p-4 border border-zinc-700/50">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                      <h5 className="text-xs font-semibold text-zinc-300 uppercase tracking-wide">Or Wait Until</h5>
-                    </div>
-                    <p className="text-2xl font-bold text-amber-400">
-                      Age {earliestRetirementAge}
-                    </p>
-                    <p className="text-[10px] text-zinc-500 mt-1">+{earliestRetirementAge - retirementAge} years with current plan</p>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
+              </div>
+            );
+          })()}
 
           {/* Projection Chart */}
           <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
