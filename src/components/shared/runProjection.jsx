@@ -231,21 +231,34 @@ export function runUnifiedProjection({
     }
   });
 
+  // Track cost basis for taxable accounts BEFORE subtracting encumbered BTC
+  const taxableHoldings = holdings.filter(h => getTaxTreatmentFromHolding(h) === 'taxable');
+  const initialTaxableCostBasis = taxableHoldings.reduce((sum, h) => sum + (h.cost_basis_total || 0), 0);
+  let runningTaxableBasis = initialTaxableCostBasis;
+
+  // Calculate initial taxable value BEFORE subtracting encumbered
+  const initialTaxableValueBeforeEncumbered = portfolio.taxable.btc + portfolio.taxable.stocks + portfolio.taxable.bonds + portfolio.taxable.cash + portfolio.taxable.other;
+
   // Subtract encumbered BTC from taxable
   const totalInitialEncumberedBtc = Object.values(encumberedBtc).reduce((sum, amount) => sum + amount, 0);
   const initialEncumberedBtcValue = totalInitialEncumberedBtc * currentPrice;
   portfolio.taxable.btc = Math.max(0, portfolio.taxable.btc - initialEncumberedBtcValue);
 
-  // DEBUG: Log after encumbered subtraction
+  // Calculate and subtract proportional basis for encumbered BTC
+  // This tracks the cost basis "locked" in collateral separately
+  let encumberedBtcBasis = 0;
+  if (initialTaxableValueBeforeEncumbered > 0 && initialEncumberedBtcValue > 0) {
+    encumberedBtcBasis = runningTaxableBasis * (initialEncumberedBtcValue / initialTaxableValueBeforeEncumbered);
+    runningTaxableBasis = Math.max(0, runningTaxableBasis - encumberedBtcBasis);
+  }
+
+  // DEBUG: Log after encumbered subtraction with basis adjustment
   console.log("=== AFTER ENCUMBERED SUBTRACTION ===");
   console.log("Encumbered BTC:", totalInitialEncumberedBtc);
   console.log("Encumbered Value:", initialEncumberedBtcValue);
+  console.log("Encumbered Basis:", encumberedBtcBasis);
   console.log("Taxable BTC now:", portfolio.taxable.btc);
-
-  // Track cost basis for taxable accounts
-  const taxableHoldings = holdings.filter(h => getTaxTreatmentFromHolding(h) === 'taxable');
-  const initialTaxableCostBasis = taxableHoldings.reduce((sum, h) => sum + (h.cost_basis_total || 0), 0);
-  let runningTaxableBasis = initialTaxableCostBasis;
+  console.log("Running Taxable Basis (after encumbered removed):", runningTaxableBasis);
 
   // DEBUG: Cost basis tracking
   console.log('=== TAX BASIS DEBUG ===');
@@ -261,9 +274,9 @@ export function runUnifiedProjection({
     });
   });
   const totalTaxableValue = portfolio.taxable.btc + portfolio.taxable.stocks + portfolio.taxable.bonds + portfolio.taxable.cash + portfolio.taxable.other;
-  console.log('Total Cost Basis:', initialTaxableCostBasis);
-  console.log('Total Taxable Value:', totalTaxableValue);
-  console.log('Initial Gain Ratio:', totalTaxableValue > 0 ? ((totalTaxableValue - initialTaxableCostBasis) / totalTaxableValue).toFixed(4) : 'N/A');
+  console.log('Total Cost Basis (liquid only):', runningTaxableBasis);
+  console.log('Total Taxable Value (liquid only):', totalTaxableValue);
+  console.log('Initial Gain Ratio:', totalTaxableValue > 0 ? ((totalTaxableValue - runningTaxableBasis) / totalTaxableValue).toFixed(4) : 'N/A');
   console.log('=== END TAX BASIS DEBUG ===');
 
   // Get standard deduction
@@ -391,11 +404,27 @@ export function runUnifiedProjection({
     }
 
     // Process released collateral from PREVIOUS year
-    const totalReleasedBtcValueThisYear = Object.values(releasedBtc).reduce((sum, btcAmount) => {
-      return sum + (btcAmount * cumulativeBtcPrice);
-    }, 0);
+    const totalReleasedBtcThisYear = Object.values(releasedBtc).reduce((sum, btcAmount) => sum + btcAmount, 0);
+    const totalReleasedBtcValueThisYear = totalReleasedBtcThisYear * cumulativeBtcPrice;
     if (totalReleasedBtcValueThisYear > 0) {
       portfolio.taxable.btc += totalReleasedBtcValueThisYear;
+
+      // Restore proportional basis for released collateral
+      // Use ratio of released value to initial encumbered value
+      if (initialEncumberedBtcValue > 0 && encumberedBtcBasis > 0) {
+        // Calculate what portion of original encumbered BTC is being released
+        const releasedBtcAtOriginalPrice = totalReleasedBtcThisYear * currentPrice; // Value at original price for ratio
+        const releaseRatio = Math.min(1, releasedBtcAtOriginalPrice / initialEncumberedBtcValue);
+        const basisToRestore = encumberedBtcBasis * releaseRatio;
+        runningTaxableBasis += basisToRestore;
+
+        console.log('=== RELEASED COLLATERAL BASIS RESTORED ===');
+        console.log('Year:', year, 'Age:', age);
+        console.log('Released BTC:', totalReleasedBtcThisYear);
+        console.log('Released Value:', totalReleasedBtcValueThisYear);
+        console.log('Basis Restored:', basisToRestore);
+        console.log('New Running Basis:', runningTaxableBasis);
+      }
     }
     releasedBtc = {};
 
