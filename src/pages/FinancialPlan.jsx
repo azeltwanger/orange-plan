@@ -547,6 +547,7 @@ export default function FinancialPlan() {
                       savings_allocation_cash: savingsAllocationCash,
                       savings_allocation_other: savingsAllocationOther,
                       gross_annual_income: grossAnnualIncome || 100000,
+                      gross_annual_income: grossAnnualIncome || 100000,
                       contribution_401k: contribution401k || 0,
                       employer_401k_match: employer401kMatch || 0,
                       contribution_roth_ira: contributionRothIRA || 0,
@@ -563,7 +564,7 @@ export default function FinancialPlan() {
                     });
     }, 1000); // Debounce 1 second
     return () => clearTimeout(timeoutId);
-  }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, otherCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, useCustomSocialSecurity, grossAnnualIncome, contribution401k, employer401kMatch, contributionRothIRA, contributionTraditionalIRA, contributionHSA, hsaFamilyCoverage, filingStatus, stateOfResidence, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv, btcReleaseTriggerLtv, btcReleaseTargetLtv, savingsAllocationBtc, savingsAllocationStocks, savingsAllocationBonds, savingsAllocationCash, savingsAllocationOther]);
+  }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, otherCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, useCustomSocialSecurity, grossAnnualIncome, contribution401k, employer401kMatch, contributionRothIRA, contributionTraditionalIRA, contributionHSA, hsaFamilyCoverage, filingStatus, stateOfResidence, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv, btcReleaseTriggerLtv, btcReleaseTargetLtv, savingsAllocationBtc, savingsAllocationStocks, savingsAllocationBonds, savingsAllocationCash, savingsAllocationOther, saveSettings]);
 
   // Calculate accurate debt payments for current month
   const currentMonthForDebt = new Date().getMonth();
