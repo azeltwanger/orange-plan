@@ -72,13 +72,20 @@ export async function syncHoldingFromLots(ticker, accountId, assetType = null) {
       // Calculate new total cost basis from lots
       const newTotalCostBasis = lotsForAccount.reduce((sum, lot) => sum + (lot.cost_basis || 0), 0);
       
+      // If no transactions exist and holding is manual_entry, PRESERVE it
+      if (lotsForAccount.length === 0 && matchingHolding.manual_entry === true) {
+        console.log(`⏭️ Skipping sync for manual holding ${ticker} (no transactions)`);
+        return currentQty;
+      }
+      
       const diffQty = Math.abs(totalFromLots - currentQty);
       const diffCostBasis = Math.abs(newTotalCostBasis - currentCostBasis);
 
       if (diffQty > 0.00000001 || diffCostBasis > 0.01) {
         await base44.entities.Holding.update(matchingHolding.id, {
           quantity: totalFromLots,
-          cost_basis_total: newTotalCostBasis
+          cost_basis_total: newTotalCostBasis,
+          manual_entry: false
         });
         console.log(`✅ Updated holding ${ticker}: qty=${totalFromLots}, basis=$${newTotalCostBasis}`);
       }

@@ -134,16 +134,23 @@ export default function Dashboard() {
 
   const createHolding = useMutation({
     mutationFn: async ({ holding, transactions }) => {
-      const newHolding = await base44.entities.Holding.create(holding);
-      if (transactions && transactions.length > 0) {
+      // Set manual_entry based on whether transactions are included
+      const hasTransactions = transactions && transactions.length > 0;
+      const newHolding = await base44.entities.Holding.create({
+        ...holding,
+        manual_entry: !hasTransactions
+      });
+      
+      if (hasTransactions) {
         for (const tx of transactions) {
           await base44.entities.Transaction.create({
             ...tx,
             holding_id: newHolding.id,
+            account_id: newHolding.account_id,
           });
         }
         
-        // Sync holdings from lots after creating transactions
+        // Only sync from lots if transactions were created
         const ticker = transactions[0].asset_ticker;
         const accountId = newHolding.account_id;
         if (ticker && accountId) {
