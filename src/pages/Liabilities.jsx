@@ -14,6 +14,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import EmptyState from '@/components/ui/EmptyState';
+import { LoadingSkeleton } from '@/components/ui/LoadingSkeleton';
 
 // BTC Collateral Loan Constants
 const INITIAL_LTV = 0.50; // 50% LTV at loan origination
@@ -92,6 +93,9 @@ export default function Liabilities() {
     queryKey: ['userSettings'],
     queryFn: () => base44.entities.UserSettings.list(),
   });
+
+  // Check if critical data is loading
+  const isLoadingData = !liabilities || !holdings || !collateralizedLoans || !userSettings;
 
   // Load settings from UserSettings
   useEffect(() => {
@@ -283,6 +287,11 @@ export default function Liabilities() {
     unsecured: 'bg-purple-400/10 text-purple-400 border-purple-400/20',
     btc_collateralized: 'bg-orange-400/10 text-orange-400 border-orange-400/20',
   };
+
+  // Show loading skeleton while data is being fetched
+  if (isLoadingData) {
+    return <LoadingSkeleton />;
+  }
 
   return (
     <div className="space-y-8">

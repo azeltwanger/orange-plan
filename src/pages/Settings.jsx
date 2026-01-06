@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CreditCard, User, Lock, Sparkles, ExternalLink, CheckCircle2 } from 'lucide-react';
 import { cn } from "@/lib/utils";
+import { LoadingSkeleton } from '@/components/ui/LoadingSkeleton';
 
 export default function Settings() {
   const [loading, setLoading] = useState(false);
