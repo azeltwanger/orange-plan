@@ -415,6 +415,31 @@ export default function Layout({ children, currentPageName }) {
                   </Link>
                 );
                 })}
+
+                {/* Community Link - Only for paid users */}
+                {(user?.hasAccess === true || user?.subscriptionStatus === 'active') && (
+                  <button
+                    onClick={() => {
+                      window.open('https://discord.gg/PLACEHOLDER', '_blank');
+                      setSidebarOpen(false);
+                    }}
+                    className={cn(
+                      "flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-all duration-200 group w-full text-left",
+                      darkMode 
+                        ? "text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/30"
+                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                    )}
+                  >
+                    <Users className={cn(
+                      "w-5 h-5 transition-colors",
+                      darkMode ? "text-zinc-600 group-hover:text-zinc-400" : "text-gray-500 group-hover:text-gray-700"
+                    )} />
+                    <div className="flex-1 flex items-center gap-2">
+                      <span className="font-medium">Community</span>
+                      <ExternalLink className="w-3 h-3 text-zinc-600" />
+                    </div>
+                  </button>
+                )}
                 </div>
                 </nav>
 
