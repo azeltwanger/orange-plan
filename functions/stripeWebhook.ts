@@ -1,10 +1,12 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 import Stripe from 'npm:stripe@17.5.0';
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY'));
-const webhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET');
 
 Deno.serve(async (req) => {
+  // Initialize base44 client first (before any async operations)
+  const base44 = createClientFromRequest(req);
+
   const signature = req.headers.get('stripe-signature');
   
   if (!signature) {
@@ -14,31 +16,26 @@ Deno.serve(async (req) => {
   let event;
   try {
     const body = await req.text();
-    event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+    // Use constructEventAsync for Deno's async crypto
+    event = await stripe.webhooks.constructEventAsync(
+      body, 
+      signature, 
+      Deno.env.get('STRIPE_WEBHOOK_SECRET')
+    );
   } catch (err) {
-    console.error('Webhook signature verification failed:', err.message);
     return Response.json({ error: 'Webhook signature verification failed' }, { status: 400 });
   }
 
-  const base44 = createClientFromRequest(req);
-
   try {
     switch (event.type) {
-      case 'customer.subscription.created':
-      case 'customer.subscription.updated': {
-        const subscription = event.data.object;
-        const customerId = subscription.customer;
+      case 'checkout.session.completed': {
+        const session = event.data.object;
+        const userId = session.metadata?.base44_user_id;
         
-        // Find user by stripe_customer_id
-        const users = await base44.asServiceRole.entities.User.filter({ 
-          stripe_customer_id: customerId 
-        });
-        
-        if (users.length > 0) {
-          const user = users[0];
-          await base44.asServiceRole.entities.User.update(user.id, {
-            subscription_status: subscription.status,
-            subscription_id: subscription.id,
+        if (userId) {
+          await base44.asServiceRole.entities.User.update(userId, {
+            hasAccess: true,
+            subscriptionStatus: 'active',
           });
         }
         break;
@@ -48,6 +45,7 @@ Deno.serve(async (req) => {
         const subscription = event.data.object;
         const customerId = subscription.customer;
         
+        // Find user by looking up checkout sessions or stored customer ID
         const users = await base44.asServiceRole.entities.User.filter({ 
           stripe_customer_id: customerId 
         });
@@ -55,7 +53,8 @@ Deno.serve(async (req) => {
         if (users.length > 0) {
           const user = users[0];
           await base44.asServiceRole.entities.User.update(user.id, {
-            subscription_status: 'canceled',
+            subscriptionStatus: 'cancelled',
+            hasAccess: false,
           });
         }
         break;
@@ -72,7 +71,8 @@ Deno.serve(async (req) => {
         if (users.length > 0) {
           const user = users[0];
           await base44.asServiceRole.entities.User.update(user.id, {
-            subscription_status: 'past_due',
+            subscriptionStatus: 'cancelled',
+            hasAccess: false,
           });
         }
         break;
@@ -81,7 +81,6 @@ Deno.serve(async (req) => {
 
     return Response.json({ received: true });
   } catch (error) {
-    console.error('Webhook processing error:', error);
     return Response.json({ error: error.message }, { status: 500 });
   }
 });

@@ -324,18 +324,43 @@ export default function Dashboard() {
   }
 
   // Check access
-  const hasAccess = user?.hasAccess === true || user?.subscriptionStatus === 'active';
+  const userHasAccess = user?.hasAccess === true || user?.subscriptionStatus === 'active';
 
-  if (!hasAccess) {
+  const handleSubscribe = async (priceId) => {
+    try {
+      const response = await base44.functions.invoke('createCheckoutSession', { priceId });
+      if (response.data?.url) {
+        window.location.href = response.data.url;
+      }
+    } catch (error) {
+      console.error('Checkout error:', error);
+    }
+  };
+
+  if (!userHasAccess) {
     return (
       <div style={{ padding: '40px', textAlign: 'center' }}>
         <h2>Access required. Subscribe to continue.</h2>
-        <button 
-          onClick={() => console.log('subscribe clicked')}
-          style={{ marginTop: '20px', padding: '10px 20px', cursor: 'pointer' }}
-        >
-          Subscribe
-        </button>
+        <div style={{ marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+          <button 
+            onClick={() => handleSubscribe('price_1Sn2PpC0uFkeocVNC4oyJcxw')}
+            style={{ padding: '10px 20px', cursor: 'pointer' }}
+          >
+            Monthly - $49/mo
+          </button>
+          <button 
+            onClick={() => handleSubscribe('price_1Sn2Q7C0uFkeocVNSv9ctSeh')}
+            style={{ padding: '10px 20px', cursor: 'pointer' }}
+          >
+            Yearly - $399/yr
+          </button>
+          <button 
+            onClick={() => handleSubscribe('price_1Sn2QpC0uFkeocVNM294BaeJ')}
+            style={{ padding: '10px 20px', cursor: 'pointer' }}
+          >
+            Lifetime - $499
+          </button>
+        </div>
       </div>
     );
   }

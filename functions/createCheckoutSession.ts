@@ -1,7 +1,10 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 import Stripe from 'npm:stripe@17.5.0';
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY'));
+
+// Price IDs that are one-time payments (not subscriptions)
+const ONE_TIME_PRICE_IDS = ['price_1Sn2QpC0uFkeocVNM294BaeJ'];
 
 Deno.serve(async (req) => {
   try {
@@ -13,51 +16,37 @@ Deno.serve(async (req) => {
     }
 
     const { priceId } = await req.json();
-    const finalPriceId = priceId || Deno.env.get('STRIPE_PRICE_ID');
 
-    if (!finalPriceId) {
-      return Response.json({ error: 'Price ID not configured' }, { status: 400 });
+    if (!priceId) {
+      return Response.json({ error: 'Price ID is required' }, { status: 400 });
     }
 
-    // Get or create Stripe customer
-    let customerId = user.stripe_customer_id;
-    
-    if (!customerId) {
-      const customer = await stripe.customers.create({
-        email: user.email,
-        metadata: {
-          user_id: user.id,
-        },
-      });
-      customerId = customer.id;
-      
-      // Update user with Stripe customer ID
-      await base44.asServiceRole.entities.User.update(user.id, {
-        stripe_customer_id: customerId,
-      });
-    }
+    // Determine if this is a one-time payment or subscription
+    const isOneTime = ONE_TIME_PRICE_IDS.includes(priceId);
 
-    // Create checkout session with trial
-    const session = await stripe.checkout.sessions.create({
-      customer: customerId,
-      mode: 'subscription',
-      payment_method_collection: 'always',
+    // Create checkout session with user ID in metadata
+    const sessionConfig = {
+      mode: isOneTime ? 'payment' : 'subscription',
       line_items: [
         {
-          price: finalPriceId,
+          price: priceId,
           quantity: 1,
         },
       ],
-      subscription_data: {
-        trial_period_days: 7,
+      metadata: {
+        base44_user_id: user.id,
       },
-      success_url: `${req.headers.get('origin')}/settings?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${req.headers.get('origin')}/settings`,
-    });
+      success_url: `${req.headers.get('origin')}/Dashboard?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${req.headers.get('origin')}/Dashboard`,
+    };
+
+    // Add customer email for better UX
+    sessionConfig.customer_email = user.email;
+
+    const session = await stripe.checkout.sessions.create(sessionConfig);
 
     return Response.json({ url: session.url });
   } catch (error) {
-    console.error('Checkout session error:', error);
     return Response.json({ error: error.message }, { status: 500 });
   }
 });
