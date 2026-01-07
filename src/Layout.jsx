@@ -15,9 +15,12 @@ import {
         Zap,
         RefreshCw,
         DollarSign,
-        Settings
+        Settings,
+        Users,
+        ExternalLink
       } from 'lucide-react';
 import { cn } from "@/lib/utils";
+import { base44 } from '@/api/base44Client';
 
 const navItems = [
   { name: 'Summary', icon: LayoutDashboard, page: 'Dashboard', description: 'Your wealth at a glance' },
