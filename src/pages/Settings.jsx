@@ -5,12 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CreditCard, User, Lock, Sparkles, ExternalLink, CheckCircle2 } from 'lucide-react';
+import { CreditCard, User, Lock, Sparkles, ExternalLink, CheckCircle2, MessageCircle } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { LoadingSkeleton } from '@/components/ui/LoadingSkeleton';
 
 export default function Settings() {
   const [loading, setLoading] = useState(false);
+  const [discordLoading, setDiscordLoading] = useState(false);
   const [profileForm, setProfileForm] = useState({ full_name: '' });
   const queryClient = useQueryClient();
 
@@ -65,6 +66,20 @@ export default function Settings() {
   const handleUpdateProfile = (e) => {
     e.preventDefault();
     updateProfile.mutate(profileForm);
+  };
+
+  const handleLinkDiscord = async () => {
+    try {
+      setDiscordLoading(true);
+      const { data } = await base44.functions.invoke('discordAuth', {});
+      if (data.url) {
+        window.top.location.href = data.url;
+      }
+    } catch (error) {
+      console.error('Discord link error:', error);
+    } finally {
+      setDiscordLoading(false);
+    }
   };
 
   const subscriptionStatus = user?.subscription_status || 'none';
@@ -139,6 +154,38 @@ export default function Settings() {
                 {updateProfile.isPending ? 'Saving...' : 'Save Changes'}
               </Button>
             </form>
+          </div>
+
+          {/* Discord Section */}
+          <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
+            <h3 className="font-semibold mb-4 flex items-center gap-2">
+              <MessageCircle className="w-5 h-5 text-orange-400" />
+              Discord Community
+            </h3>
+            
+            {user?.discordUserId ? (
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
+                <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                <div>
+                  <p className="text-sm font-medium text-zinc-200">Discord Linked</p>
+                  <p className="text-xs text-zinc-400">@{user.discordUsername}</p>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-sm text-zinc-400">
+                  Link your Discord account to join our exclusive community and get access to member-only channels.
+                </p>
+                <Button 
+                  onClick={handleLinkDiscord}
+                  disabled={discordLoading}
+                  variant="outline"
+                  className="bg-transparent border-zinc-700 transition-all duration-200 active:scale-95"
+                >
+                  {discordLoading ? 'Connecting...' : 'Link Discord'}
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Password Section */}
