@@ -36,8 +36,8 @@ Deno.serve(async (req) => {
       metadata: {
         base44_user_id: user.id,
       },
-      success_url: `${req.headers.get('origin')}/Dashboard?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${req.headers.get('origin')}/Dashboard`,
+      success_url: 'https://bit-planner-6c9e9213.base44.app/Dashboard',
+      cancel_url: 'https://bit-planner-6c9e9213.base44.app/Dashboard',
     };
 
     // Add customer email for better UX
