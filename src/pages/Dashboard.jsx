@@ -20,10 +20,27 @@ import EmptyState from '@/components/ui/EmptyState';
 import { LoadingSkeleton } from '@/components/ui/LoadingSkeleton';
 
 export default function Dashboard() {
+  const [user, setUser] = useState(null);
+  const [checkingAccess, setCheckingAccess] = useState(true);
   const [btcPrice, setBtcPrice] = useState(null);
   const [priceLoading, setPriceLoading] = useState(true);
   const [priceChange, setPriceChange] = useState(null);
   const [exchangeRates, setExchangeRates] = useState({ USD: 1 });
+
+  // Check user access
+  useEffect(() => {
+    const checkUserAccess = async () => {
+      try {
+        const currentUser = await base44.auth.me();
+        setUser(currentUser);
+      } catch (error) {
+        console.error('Error fetching user:', error);
+      } finally {
+        setCheckingAccess(false);
+      }
+    };
+    checkUserAccess();
+  }, []);
 
   // Fetch live BTC price
   useEffect(() => {
@@ -302,8 +319,25 @@ export default function Dashboard() {
   };
 
   // Show loading skeleton while data is being fetched
-  if (isLoadingData) {
+  if (isLoadingData || checkingAccess) {
     return <LoadingSkeleton />;
+  }
+
+  // Check access
+  const hasAccess = user?.hasAccess === true || user?.subscriptionStatus === 'active';
+
+  if (!hasAccess) {
+    return (
+      <div style={{ padding: '40px', textAlign: 'center' }}>
+        <h2>Access required. Subscribe to continue.</h2>
+        <button 
+          onClick={() => console.log('subscribe clicked')}
+          style={{ marginTop: '20px', padding: '10px 20px', cursor: 'pointer' }}
+        >
+          Subscribe
+        </button>
+      </div>
+    );
   }
 
   return (
