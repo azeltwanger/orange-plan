@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Area, AreaChart, Legend } from 'recharts';
-import { Target, Plus, Pencil, Trash2, TrendingUp, Calendar, Settings, Play, AlertTriangle, ChevronDown, ChevronUp, Sparkles, Home, Car, Baby, Briefcase, Heart, DollarSign, RefreshCw, Receipt } from 'lucide-react';
+import { Target, Plus, Pencil, Trash2, TrendingUp, Calendar, Settings, Play, AlertTriangle, ChevronDown, ChevronUp, Sparkles, Home, Car, Baby, Briefcase, Heart, DollarSign, RefreshCw, Receipt, Info } from 'lucide-react';
 import {
   STANDARD_DEDUCTION_2024,
   TAX_BRACKETS_2024,
@@ -3664,7 +3664,17 @@ export default function FinancialPlan() {
               <div>
                 <h3 className="font-semibold flex items-center gap-2">
                   <Sparkles className="w-5 h-5 text-orange-400" />
-                  Monte Carlo Simulation
+                  Plan Confidence Score
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button className="text-zinc-500 hover:text-zinc-300">
+                        <Info className="w-4 h-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs bg-zinc-800 border-zinc-700 text-zinc-200">
+                      <p>We simulate 1,000 different market futures, some with strong returns, some with crashes, to see how often your plan succeeds.</p>
+                    </TooltipContent>
+                  </Tooltip>
                 </h3>
                 <p className="text-sm text-zinc-500 mt-1">1,000 randomized scenarios based on historical volatility</p>
               </div>
@@ -3679,8 +3689,11 @@ export default function FinancialPlan() {
                   successProbability >= 50 ? "bg-amber-500/10 border border-amber-500/30" :
                   "bg-rose-500/10 border border-rose-500/30"
                 )}>
-                  <p className="text-sm text-zinc-300 mb-2">
-                    Probability of Not Running Out of Money Through Age {lifeExpectancy}
+                  <p className="text-sm text-zinc-300 mb-1">
+                    Plan Success Rate
+                  </p>
+                  <p className="text-xs text-zinc-500 mb-2">
+                    Through Age {lifeExpectancy}
                   </p>
                   <p className={cn(
                     "text-5xl font-bold",
