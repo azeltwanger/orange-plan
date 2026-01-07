@@ -330,7 +330,7 @@ export default function Dashboard() {
     try {
       const response = await base44.functions.invoke('createCheckoutSession', { priceId });
       if (response.data?.url) {
-        window.location.href = response.data.url;
+        window.top.location.href = response.data.url;
       }
     } catch (error) {
       console.error('Checkout error:', error);
