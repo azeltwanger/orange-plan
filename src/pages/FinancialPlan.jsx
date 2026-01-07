@@ -1851,7 +1851,7 @@ export default function FinancialPlan() {
                     <XAxis dataKey="age" stroke="#71717a" fontSize={12} />
                     <YAxis yAxisId="left" stroke="#71717a" fontSize={12} tickFormatter={(v) => `$${(v/1000000).toFixed(1)}M`} />
                     <YAxis yAxisId="right" orientation="right" stroke="#71717a" fontSize={12} tickFormatter={(v) => `$${(v/1000).toFixed(0)}k`} />
-                    <Tooltip
+                    <RechartsTooltip
                       contentStyle={{ 
                         backgroundColor: '#18181b', 
                         border: '1px solid #27272a', 
@@ -2287,7 +2287,7 @@ export default function FinancialPlan() {
                         );
                       }}
                       labelFormatter={(age) => `Age ${age}`}
-                    />
+                    />  {/* End RechartsTooltip */}
                     <Legend
                       content={(props) => {
                         const { payload } = props;
@@ -3723,7 +3723,7 @@ export default function FinancialPlan() {
                         <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
                         <XAxis dataKey="age" stroke="#71717a" fontSize={12} />
                         <YAxis stroke="#71717a" fontSize={12} tickFormatter={(v) => `$${(v/1000000).toFixed(1)}M`} />
-                        <Tooltip
+                        <RechartsTooltip
                           contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '12px' }}
                           wrapperStyle={{ zIndex: 1000 }}
                           allowEscapeViewBox={{ x: false, y: true }}
