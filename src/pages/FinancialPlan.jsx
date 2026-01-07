@@ -3666,14 +3666,14 @@ export default function FinancialPlan() {
                 <h3 className="font-semibold flex items-center gap-2">
                   <Sparkles className="w-5 h-5 text-orange-400" />
                   Plan Confidence Score
-                  <TooltipProvider>
+                  <TooltipProvider delayDuration={100}>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <button className="text-zinc-500 hover:text-zinc-300">
+                        <span className="cursor-help text-zinc-500 hover:text-zinc-300 inline-flex">
                           <Info className="w-4 h-4" />
-                        </button>
+                        </span>
                       </TooltipTrigger>
-                      <TooltipContent className="max-w-xs bg-zinc-800 border-zinc-700 text-zinc-200">
+                      <TooltipContent side="bottom" className="max-w-[300px] bg-zinc-800 border-zinc-700 text-zinc-200 text-sm p-3">
                         <p>We simulate 1,000 different market futures, some with strong returns, some with crashes, to see how often your plan succeeds.</p>
                       </TooltipContent>
                     </Tooltip>
