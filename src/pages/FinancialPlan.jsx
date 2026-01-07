@@ -1821,7 +1821,7 @@ export default function FinancialPlan() {
               {goals.filter(g => g.will_be_spent).length > 0 && `${goals.filter(g => g.will_be_spent).length} planned expense${goals.filter(g => g.will_be_spent).length !== 1 ? 's' : ''} • `}
               {goals.length > 0 && `${goals.length} goal${goals.length !== 1 ? 's' : ''} tracked`}
             </p>
-            <div className="h-[500px]" ref={chartContainerRef}>
+            <div className="h-[500px] relative" ref={chartContainerRef}>
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart 
                     data={projections} 
@@ -2491,18 +2491,30 @@ export default function FinancialPlan() {
               💡 Click on a year to lock the tooltip. Click ✕ or outside to dismiss.
             </p>
             
-            {/* Locked Tooltip Portal - renders outside chart for independent scrolling */}
+            {/* Locked Tooltip Portal - renders at click position with smart boundary detection */}
             {lockedTooltipData && (() => {
               const p = lockedTooltipData.payload[0]?.payload;
               if (!p) return null;
               const hasLiquidation = p.liquidations && p.liquidations.length > 0;
               
+              // Smart positioning with boundary detection
+              const tooltipWidth = 350;
+              const containerWidth = chartContainerRef.current?.offsetWidth || 1200;
+              const clickX = lockedTooltipData.x || 0;
+              const offset = 15;
+              
+              // If tooltip would overflow right edge, position to left of click point
+              const wouldOverflow = clickX + offset + tooltipWidth > containerWidth;
+              const leftPosition = wouldOverflow 
+                ? Math.max(0, clickX - tooltipWidth - offset) 
+                : clickX + offset;
+              
               return (
                 <div 
-                  className="fixed z-[9999] bg-zinc-900 border border-zinc-700 rounded-xl p-4 text-sm min-w-[280px] max-w-[350px] max-h-[70vh] overflow-y-auto shadow-2xl"
+                  className="absolute z-[9999] bg-zinc-900 border border-zinc-700 rounded-xl p-4 text-sm min-w-[280px] max-w-[350px] max-h-[70vh] overflow-y-auto shadow-2xl"
                   style={{ 
-                    top: '120px',
-                    right: '20px'
+                    top: '60px',
+                    left: `${leftPosition}px`
                   }}
                 >
                   <div className="mb-4">
