@@ -757,235 +757,7 @@ export default function FinancialPlan() {
       savingsAllocationCash, savingsAllocationOther, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv,
       btcReleaseTriggerLtv, btcReleaseTargetLtv, goals, lifeEvents, getTaxTreatmentFromHolding]);
 
-  // OLD IMPLEMENTATION REMOVED - now uses runUnifiedProjection
-  const OLD_runProjectionForRetirementAge_REMOVED = useCallback((testRetirementAge, testSpending = null) => {
-    const spendingToUse = testSpending !== null ? testSpending : retirementAnnualSpending;
-    const DEBUG = true; // Set to true to enable console logging
-    
-    if (DEBUG) {
-      console.log('=== runProjectionForRetirementAge ===');
-      console.log('Testing retirement age:', testRetirementAge);
-      console.log('Spending to use:', spendingToUse);
-      console.log('Life expectancy:', lifeExpectancy);
-      console.log('Current age:', currentAge);
-      console.log('SS amount:', effectiveSocialSecurity, 'starts at age:', socialSecurityStartAge);
-      console.log('Other retirement income:', otherRetirementIncome);
-      console.log('Inflation:', effectiveInflation);
-    }
-    
-    // Initialize portfolio structure from current holdings (same as main projection)
-    const portfolio = {
-      taxable: { btc: 0, stocks: 0, bonds: 0, cash: 0, other: 0 },
-      taxDeferred: { btc: 0, stocks: 0, bonds: 0, cash: 0, other: 0 },
-      taxFree: { btc: 0, stocks: 0, bonds: 0, cash: 0, other: 0 },
-      realEstate: 0,
-    };
-    
-    // Helper to categorize asset type
-    const getAssetCategory = (assetType, ticker) => {
-      const tickerUpper = ticker?.toUpperCase() || '';
-      const assetTypeLower = assetType?.toLowerCase() || '';
-      
-      if (tickerUpper === 'BTC' || assetTypeLower === 'btc' || assetTypeLower === 'crypto') return 'btc';
-      if (assetTypeLower === 'stocks') return 'stocks';
-      if (assetTypeLower === 'bonds') return 'bonds';
-      if (assetTypeLower === 'cash') return 'cash';
-      return 'other';
-    };
-    
-    // Initialize from holdings
-    holdings.forEach(h => {
-      const value = h.ticker === 'BTC' ? h.quantity * currentPrice : h.quantity * (h.current_price || 0);
-      const taxTreatment = getTaxTreatmentFromHolding(h);
-      const assetCategory = getAssetCategory(h.asset_type, h.ticker);
-      
-      if (taxTreatment === 'real_estate') {
-        portfolio.realEstate += value;
-      } else {
-        const accountKey = taxTreatment === 'tax_deferred' ? 'taxDeferred' : 
-                          taxTreatment === 'tax_free' ? 'taxFree' : 'taxable';
-        portfolio[accountKey][assetCategory] += value;
-      }
-    });
-    
-    // Subtract encumbered BTC from taxable (same as main projection)
-    const totalEncumberedBtcValue = [...liabilities, ...collateralizedLoans]
-      .filter(l => l.type === 'btc_collateralized' || l.collateral_btc_amount)
-      .reduce((sum, l) => sum + ((l.collateral_btc_amount || 0) * currentPrice), 0);
-    portfolio.taxable.btc = Math.max(0, portfolio.taxable.btc - totalEncumberedBtcValue);
-    
-    const getAccountTotal = (accountKey) => {
-      const acct = portfolio[accountKey];
-      return acct.btc + acct.stocks + acct.bonds + acct.cash + acct.other;
-    };
-    
-    const getTotalLiquid = () => {
-      return getAccountTotal('taxable') + getAccountTotal('taxDeferred') + getAccountTotal('taxFree');
-    };
-    
-    const getTotalPortfolio = () => {
-      return getTotalLiquid() + portfolio.realEstate;
-    };
-    
-    if (DEBUG) {
-      console.log('Starting Portfolio:', Math.round(getTotalPortfolio()));
-      console.log('Portfolio breakdown:', JSON.stringify({
-        taxable: Math.round(getAccountTotal('taxable')),
-        taxDeferred: Math.round(getAccountTotal('taxDeferred')),
-        taxFree: Math.round(getAccountTotal('taxFree')),
-        realEstate: Math.round(portfolio.realEstate)
-      }));
-    }
-    
-    // Withdraw from account proportionally (same as main projection)
-    const withdrawFromAccount = (accountKey, amount) => {
-      const acct = portfolio[accountKey];
-      const total = getAccountTotal(accountKey);
-      if (total <= 0 || amount <= 0) return 0;
-      
-      const actualWithdrawal = Math.min(amount, total);
-      const ratio = actualWithdrawal / total;
-      
-      acct.btc = Math.max(0, acct.btc * (1 - ratio));
-      acct.stocks = Math.max(0, acct.stocks * (1 - ratio));
-      acct.bonds = Math.max(0, acct.bonds * (1 - ratio));
-      acct.cash = Math.max(0, acct.cash * (1 - ratio));
-      acct.other = Math.max(0, acct.other * (1 - ratio));
-      
-      return actualWithdrawal;
-    };
-    
-    let cumulativeBtcPrice = currentPrice;
-    const birthYear = new Date().getFullYear() - currentAge;
-    const rmdStartAge = birthYear <= 1950 ? 72 : birthYear <= 1959 ? 73 : 75;
-    
-    // Run year-by-year projection
-    for (let i = 0; i <= lifeExpectancy - currentAge; i++) {
-      const age = currentAge + i;
-      const isRetired = age >= testRetirementAge;
-      const yearsFromNow = i;
-      
-      // Apply growth (same rates as main projection)
-      if (i > 0) {
-        const yearBtcGrowth = getBtcGrowthRate(yearsFromNow, effectiveInflation);
-        cumulativeBtcPrice = cumulativeBtcPrice * (1 + yearBtcGrowth / 100);
-        
-        ['taxable', 'taxDeferred', 'taxFree'].forEach(accountKey => {
-          portfolio[accountKey].btc *= (1 + yearBtcGrowth / 100);
-          portfolio[accountKey].stocks *= (1 + effectiveStocksCagr / 100);
-          portfolio[accountKey].bonds *= (1 + bondsCagr / 100);
-          portfolio[accountKey].cash *= (1 + cashCagr / 100);
-          portfolio[accountKey].other *= (1 + otherCagr / 100);
-        });
-        portfolio.realEstate *= (1 + realEstateCagr / 100);
-      }
-      
-      if (isRetired) {
-        // Calculate spending need (inflation-adjusted from retirement age)
-        const yearsIntoRetirement = age - testRetirementAge;
-        const nominalSpendingAtRetirement = spendingToUse * Math.pow(1 + effectiveInflation / 100, Math.max(0, testRetirementAge - currentAge));
-        const inflatedSpending = nominalSpendingAtRetirement * Math.pow(1 + effectiveInflation / 100, yearsIntoRetirement);
-        
-        // Calculate Social Security income (same logic as main projection)
-        // SS benefit is specified in TODAY's dollars, so:
-        // 1. Inflate from today to SS start age (pre-claiming growth)
-        // 2. Then apply COLA each year AFTER SS start age
-        let ssIncome = 0;
-        if (age >= socialSecurityStartAge && effectiveSocialSecurity > 0) {
-          const yearsToSSStart = Math.max(0, socialSecurityStartAge - currentAge);
-          const yearsReceivingSS = age - socialSecurityStartAge;
-          ssIncome = effectiveSocialSecurity * 
-            Math.pow(1 + effectiveInflation / 100, yearsToSSStart) * 
-            Math.pow(1 + effectiveInflation / 100, yearsReceivingSS);
-        }
-        
-        // Inflate other retirement income from today
-        const inflatedOtherIncome = (otherRetirementIncome || 0) * Math.pow(1 + effectiveInflation / 100, yearsFromNow);
-        
-        // Calculate RMD if applicable
-        let rmdAmount = 0;
-        const taxDeferredBalance = getAccountTotal('taxDeferred');
-        if (age >= rmdStartAge && taxDeferredBalance > 0) {
-          const rmdFactor = getRMDFactor(age);
-          if (rmdFactor > 0) {
-            rmdAmount = taxDeferredBalance / rmdFactor;
-          }
-        }
-        
-        // Withdraw RMD from tax-deferred first (required)
-        let rmdWithdrawn = 0;
-        if (rmdAmount > 0) {
-          rmdWithdrawn = withdrawFromAccount('taxDeferred', rmdAmount);
-        }
-        
-        // Net spending need after SS, other income, and RMD (RMD counts toward spending)
-        const netSpendingNeed = Math.max(0, inflatedSpending - ssIncome - rmdWithdrawn - inflatedOtherIncome);
-        
-        // Estimate tax on withdrawal (simplified but reasonable)
-        const estimatedTaxRate = 0.20; // Combined federal + state estimate
-        const grossWithdrawalNeeded = netSpendingNeed > 0 ? netSpendingNeed / (1 - estimatedTaxRate) : 0;
-        
-        if (DEBUG && (age % 5 === 0 || age === testRetirementAge || getTotalPortfolio() < 1000000)) {
-          console.log(`Age ${age}: Portfolio=$${Math.round(getTotalPortfolio())}, Taxable=$${Math.round(getAccountTotal('taxable'))}, TaxDeferred=$${Math.round(getAccountTotal('taxDeferred'))}, TaxFree=$${Math.round(getAccountTotal('taxFree'))}, RE=$${Math.round(portfolio.realEstate)}`);
-          console.log(`  Spending=$${Math.round(inflatedSpending)}, SS=$${Math.round(ssIncome)}, OtherInc=$${Math.round(inflatedOtherIncome)}, RMD=$${Math.round(rmdWithdrawn)}, NetNeed=$${Math.round(netSpendingNeed)}, GrossWithdraw=$${Math.round(grossWithdrawalNeeded)}`);
-        }
-        
-        if (grossWithdrawalNeeded > 0) {
-          let remaining = grossWithdrawalNeeded;
-          
-          // Withdrawal priority: Taxable -> Tax-Deferred -> Tax-Free -> Real Estate
-          remaining -= withdrawFromAccount('taxable', remaining);
-          if (remaining > 0) remaining -= withdrawFromAccount('taxDeferred', remaining);
-          if (remaining > 0) remaining -= withdrawFromAccount('taxFree', remaining);
-          
-          // Real Estate (last resort)
-          if (remaining > 0 && portfolio.realEstate > 0) {
-            const fromRE = Math.min(remaining, portfolio.realEstate);
-            portfolio.realEstate -= fromRE;
-            remaining -= fromRE;
-          }
-          
-          // Check if we couldn't meet spending need (>5% shortfall = failure)
-          if (remaining > grossWithdrawalNeeded * 0.05) {
-            console.log("RETIRE_DEBUG", { testAge: testRetirementAge, survives: false, depletionAge: age, shortfall: Math.round(remaining) });
-            return { survives: false, finalPortfolio: getTotalPortfolio(), depleteAge: age };
-          }
-        }
-      } else {
-        // Pre-retirement: add savings
-        const inflatedSavings = annualSavings * Math.pow(1 + incomeGrowth / 100, yearsFromNow);
-        if (inflatedSavings > 0) {
-          // Allocate savings based on user's allocation percentages
-          const totalAlloc = savingsAllocationBtc + savingsAllocationStocks + savingsAllocationBonds + savingsAllocationCash + savingsAllocationOther;
-          if (totalAlloc > 0) {
-            portfolio.taxable.btc += inflatedSavings * (savingsAllocationBtc / totalAlloc);
-            portfolio.taxable.stocks += inflatedSavings * (savingsAllocationStocks / totalAlloc);
-            portfolio.taxable.bonds += inflatedSavings * (savingsAllocationBonds / totalAlloc);
-            portfolio.taxable.cash += inflatedSavings * (savingsAllocationCash / totalAlloc);
-            portfolio.taxable.other += inflatedSavings * (savingsAllocationOther / totalAlloc);
-          } else {
-            portfolio.taxable.btc += inflatedSavings;
-          }
-        } else if (inflatedSavings < 0) {
-          // Negative savings = withdrawing pre-retirement
-          let deficit = Math.abs(inflatedSavings);
-          deficit -= withdrawFromAccount('taxable', deficit);
-          if (deficit > 0) deficit -= withdrawFromAccount('taxDeferred', deficit);
-          if (deficit > 0) deficit -= withdrawFromAccount('taxFree', deficit);
-        }
-      }
-      
-      // Check for depletion at end of each year
-      const portfolioAfterYear = getTotalPortfolio();
-      if (portfolioAfterYear <= 0) {
-        console.log("RETIRE_DEBUG", { testAge: testRetirementAge, survives: false, depletionAge: age, reason: 'portfolio<=0' });
-        return { survives: false, finalPortfolio: 0, depleteAge: age };
-      }
-    }
-    
-    // OLD CODE - keeping structure to avoid breaking dependencies
-    return { survives: true, finalPortfolio: 0, depleteAge: null };
-  }, []);
+
 
   // Generate projection data using unified projection engine
   const projections = useMemo(() => {
@@ -1196,7 +968,6 @@ export default function FinancialPlan() {
 
   // Update state when derived value changes
   useEffect(() => {
-    console.log('🟡 Earliest Age Result:', derivedEarliestRetirementAge);
     setEarliestRetirementAge(derivedEarliestRetirementAge);
   }, [derivedEarliestRetirementAge]);
 
@@ -1234,7 +1005,6 @@ export default function FinancialPlan() {
 
   // Update state when derived value changes
   useEffect(() => {
-    console.log('🔴 Reduce Spending Result:', derivedMaxSustainableSpending);
     setMaxSustainableSpending(derivedMaxSustainableSpending);
   }, [derivedMaxSustainableSpending]);
 
@@ -1323,7 +1093,6 @@ export default function FinancialPlan() {
       if (high - low <= 500) break;
     }
     
-    console.log('🔵 Save More Result:', high);
     return high;
   }, [holdings, accounts, liabilities, collateralizedLoans, currentPrice, currentAge, retirementAge, 
       lifeExpectancy, retirementAnnualSpending, effectiveSocialSecurity, socialSecurityStartAge, 
