@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, ReferenceLine, Area, AreaChart, Legend } from 'recharts';
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { Target, Plus, Pencil, Trash2, TrendingUp, Calendar, Settings, Play, AlertTriangle, ChevronDown, ChevronUp, Sparkles, Home, Car, Baby, Briefcase, Heart, DollarSign, RefreshCw, Receipt, Info } from 'lucide-react';
 import {
   STANDARD_DEDUCTION_2024,
@@ -3666,16 +3666,18 @@ export default function FinancialPlan() {
                 <h3 className="font-semibold flex items-center gap-2">
                   <Sparkles className="w-5 h-5 text-orange-400" />
                   Plan Confidence Score
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button className="text-zinc-500 hover:text-zinc-300">
-                        <Info className="w-4 h-4" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-xs bg-zinc-800 border-zinc-700 text-zinc-200">
-                      <p>We simulate 1,000 different market futures, some with strong returns, some with crashes, to see how often your plan succeeds.</p>
-                    </TooltipContent>
-                  </Tooltip>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button className="text-zinc-500 hover:text-zinc-300">
+                          <Info className="w-4 h-4" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs bg-zinc-800 border-zinc-700 text-zinc-200">
+                        <p>We simulate 1,000 different market futures, some with strong returns, some with crashes, to see how often your plan succeeds.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </h3>
                 <p className="text-sm text-zinc-500 mt-1">1,000 randomized scenarios based on historical volatility</p>
               </div>
