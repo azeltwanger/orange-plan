@@ -46,7 +46,21 @@ export default function Layout({ children, currentPageName }) {
   const [priceChange, setPriceChange] = useState(null);
   const [priceLoading, setPriceLoading] = useState(true);
   const [blockHeight, setBlockHeight] = useState(null);
+  const [user, setUser] = useState(null);
   const darkMode = true;
+
+  // Fetch user for access check
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const currentUser = await base44.auth.me();
+        setUser(currentUser);
+      } catch (error) {
+        // User not logged in
+      }
+    };
+    fetchUser();
+  }, []);
 
   // Set dark background on html/body immediately to prevent white flash
   useEffect(() => {
