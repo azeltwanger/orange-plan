@@ -245,7 +245,8 @@ export default function AccountGroup({ account, holdings, getPrice, onEditHoldin
                     <button
                       onClick={(e) => { e.stopPropagation(); onManageLots?.(holding); }}
                       className="p-1.5 rounded-lg bg-zinc-800/90 hover:bg-orange-600/50 transition-all duration-200 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/50"
-                      aria-label={`Manage tax lots for ${holding.asset_name}`}
+                      title="Manage purchase lots"
+                      aria-label={`Manage purchase lots for ${holding.asset_name}`}
                     >
                       <Package className="w-3.5 h-3.5 text-zinc-400" />
                     </button>
