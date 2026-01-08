@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ChevronDown, ChevronRight, Building2, Bitcoin, TrendingUp, TrendingDown, Pencil, Trash2, Package, ArrowRightLeft } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -27,7 +27,24 @@ const TAX_COLORS = {
 export default function AccountGroup({ account, holdings, getPrice, onEditHolding, onDeleteHolding, onManageLots, onEditAccount }) {
   const [expanded, setExpanded] = useState(false);
   const [reassigningHoldingId, setReassigningHoldingId] = useState(null);
+  const selectRef = useRef(null);
   const queryClient = useQueryClient();
+
+  // Click outside to close the reassign dropdown
+  useEffect(() => {
+    if (!reassigningHoldingId) return;
+    
+    const handleClickOutside = (event) => {
+      // Check if click is outside the select component
+      if (selectRef.current && !selectRef.current.contains(event.target)) {
+        setReassigningHoldingId(null);
+      }
+    };
+    
+    // Use mousedown for immediate response
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [reassigningHoldingId]);
 
   const { data: allAccounts = [] } = useQuery({
     queryKey: ['accounts'],
@@ -194,22 +211,28 @@ export default function AccountGroup({ account, holdings, getPrice, onEditHoldin
                 <div className="flex items-center gap-3">
                 {/* Reassign dropdown */}
                 {reassigningHoldingId === holding.id ? (
-                  <Select
-                    value={holding.account_id || '_none_'}
-                    onValueChange={(newAccountId) => {
-                      reassignHolding.mutate({ holdingId: holding.id, newAccountId });
-                    }}
-                  >
-                    <SelectTrigger className="w-40 h-8 text-xs bg-zinc-900 border-zinc-700">
-                      <SelectValue placeholder="Move to..." />
-                    </SelectTrigger>
-                    <SelectContent className="bg-zinc-900 border-zinc-700">
-                      <SelectItem value="_none_">Unassigned</SelectItem>
-                      {allAccounts.filter(a => a.id !== account?.id).map(acc => (
-                        <SelectItem key={acc.id} value={acc.id}>{acc.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div ref={selectRef}>
+                    <Select
+                      value={holding.account_id || '_none_'}
+                      onValueChange={(newAccountId) => {
+                        reassignHolding.mutate({ holdingId: holding.id, newAccountId });
+                      }}
+                      onOpenChange={(open) => {
+                        // Close reassign mode when dropdown closes
+                        if (!open) setReassigningHoldingId(null);
+                      }}
+                    >
+                      <SelectTrigger className="w-40 h-8 text-xs bg-zinc-900 border-zinc-700">
+                        <SelectValue placeholder="Move to..." />
+                      </SelectTrigger>
+                      <SelectContent className="bg-zinc-900 border-zinc-700">
+                        <SelectItem value="_none_">Unassigned</SelectItem>
+                        {allAccounts.filter(a => a.id !== account?.id).map(acc => (
+                          <SelectItem key={acc.id} value={acc.id}>{acc.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 ) : (
                   <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
                     <button
