@@ -285,56 +285,42 @@ export default function FeeAnalyzer({ transactions = [], btcPrice = 97000 }) {
         </div>
       </div>
 
-      {/* Your Trading Costs */}
-      <div className="card-premium rounded-xl p-5 border border-zinc-800/50">
-        <div className="flex items-start gap-4">
-          <div className="p-2 rounded-lg bg-blue-500/10">
-            <Info className="w-5 h-5 text-blue-400" />
+      {/* Savings Opportunity Alert */}
+      {analysis.potentialSavingsVsBest > 100 && (
+        <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-start gap-4">
+          <div className="p-2 rounded-lg bg-emerald-500/20">
+            <AlertTriangle className="w-5 h-5 text-emerald-400" />
           </div>
-          <div className="flex-1">
-            <h4 className="font-semibold text-zinc-200 mb-3">Your Trading Costs</h4>
-            
-            <div className="space-y-2 mb-4">
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-zinc-400">Your all-in cost:</span>
-                <span className={cn("font-semibold", 
-                  analysis.effectiveFeeRate < 1.5 ? "text-emerald-400" : 
-                  analysis.effectiveFeeRate < 2.0 ? "text-amber-400" : "text-rose-400"
-                )}>
-                  {analysis.effectiveFeeRate.toFixed(2)}%
-                </span>
-                <span className="text-zinc-600 text-xs">({analysis.explicitFeeRate.toFixed(2)}% fee + {analysis.spreadFeeRate.toFixed(2)}% spread)</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-zinc-400">Industry average:</span>
-                <span className="text-zinc-300">1.5-2.0%</span>
-              </div>
-            </div>
+          <div>
+            <h4 className="font-semibold text-emerald-400 mb-1">Optimize Your Costs</h4>
+            <p className="text-sm text-zinc-400">
+              Using a low-cost exchange like Kraken Pro (~0.36% all-in) could save you 
+              <span className="text-emerald-400 font-semibold"> ${analysis.potentialSavingsVsBest.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span> on 
+              similar future purchases. Note: "Zero fee" exchanges often recoup costs through wider spreads.
+            </p>
+          </div>
+        </div>
+      )}
 
-            {/* Conditional message based on cost */}
-            <div className="mb-4">
-              {analysis.effectiveFeeRate < 1.5 ? (
-                <div className="flex items-center gap-2 text-emerald-400 text-sm font-medium">
-                  <span>✓</span>
-                  <span>You're below industry average</span>
-                </div>
-              ) : analysis.effectiveFeeRate < 2.0 ? (
-                <div className="flex items-center gap-2 text-amber-400 text-sm font-medium">
-                  <span>→</span>
-                  <span>You're at industry average</span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 text-rose-400 text-sm font-medium">
-                  <span>⚠</span>
-                  <span>You're above industry average - consider comparing exchanges</span>
-                </div>
-              )}
-            </div>
-
-            {/* Tip */}
-            <div className="p-3 rounded-lg bg-zinc-800/50 text-sm text-zinc-400">
-              <span className="text-amber-400">💡 Tip:</span> "Zero fee" exchanges often have wider spreads (1-2%). Always compare total cost (fee + spread), not just the stated fee.
-            </div>
+      {/* Cost Benchmark */}
+      <div className="card-premium rounded-xl p-4 border border-zinc-800/50">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+          <div>
+            <span className="text-zinc-500">Your all-in cost:</span>
+            <span className={cn("ml-2 font-semibold", analysis.effectiveFeeRate <= BEST_TOTAL_COST_PERCENT ? "text-emerald-400" : analysis.effectiveFeeRate <= INDUSTRY_AVG_TOTAL_COST_PERCENT ? "text-amber-400" : "text-rose-400")}>
+              {analysis.effectiveFeeRate.toFixed(2)}%
+            </span>
+            <span className="text-zinc-600 text-xs ml-1">({analysis.explicitFeeRate.toFixed(2)}% fee + {analysis.spreadFeeRate.toFixed(2)}% spread)</span>
+          </div>
+          <div className="text-zinc-700">|</div>
+          <div>
+            <span className="text-zinc-500">Industry avg (all-in):</span>
+            <span className="ml-2 text-zinc-400">{INDUSTRY_AVG_TOTAL_COST_PERCENT}%</span>
+          </div>
+          <div className="text-zinc-700">|</div>
+          <div>
+            <span className="text-zinc-500">Best-in-class:</span>
+            <span className="ml-2 text-emerald-400">{BEST_TOTAL_COST_PERCENT}%</span>
           </div>
         </div>
       </div>

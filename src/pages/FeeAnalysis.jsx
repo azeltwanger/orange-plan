@@ -27,16 +27,10 @@ export default function FeeAnalysis() {
 
   const currentPrice = btcPrice || 97000;
 
-  const { data: feeData, isLoading } = useQuery({
-    queryKey: ['feeAnalysisData'],
-    queryFn: async () => {
-      const response = await base44.functions.invoke('getFeeAnalysisData');
-      return response.data;
-    },
+  const { data: transactions = [] } = useQuery({
+    queryKey: ['transactions'],
+    queryFn: () => base44.entities.Transaction.list(),
   });
-
-  const transactions = feeData?.transactions || [];
-  const holdings = feeData?.holdings || [];
 
   return (
     <div className="space-y-6">
