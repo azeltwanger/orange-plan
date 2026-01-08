@@ -5,6 +5,7 @@ import { Plus, RefreshCw, Pencil, Trash2, Bitcoin, Package, Building2, Upload } 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import CsvImportDialog from '@/components/transactions/CsvImportDialog';
 import useAssetPrices from '@/components/shared/useAssetPrices';
+import { useBtcPrice } from '@/components/shared/useBtcPrice';
 import { syncHoldingFromLots } from '@/components/shared/syncHoldings';
 import { Button } from "@/components/ui/button";
 import NetWorthCard from '@/components/dashboard/NetWorthCard';
@@ -22,10 +23,10 @@ import { LoadingSkeleton } from '@/components/ui/LoadingSkeleton';
 export default function Dashboard() {
   const [user, setUser] = useState(null);
   const [checkingAccess, setCheckingAccess] = useState(true);
-  const [btcPrice, setBtcPrice] = useState(null);
-  const [priceLoading, setPriceLoading] = useState(true);
-  const [priceChange, setPriceChange] = useState(null);
   const [exchangeRates, setExchangeRates] = useState({ USD: 1 });
+
+  // Use shared BTC price hook
+  const { btcPrice, priceChange, loading: priceLoading } = useBtcPrice();
 
   // Check user access
   useEffect(() => {
@@ -40,26 +41,6 @@ export default function Dashboard() {
       }
     };
     checkUserAccess();
-  }, []);
-
-  // Fetch live BTC price
-  useEffect(() => {
-    const fetchPrice = async () => {
-      try {
-        const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd&include_24hr_change=true');
-        const data = await response.json();
-        setBtcPrice(data.bitcoin.usd);
-        setPriceChange(data.bitcoin.usd_24h_change);
-        setPriceLoading(false);
-      } catch (err) {
-        setBtcPrice(97000);
-        setPriceChange(0);
-        setPriceLoading(false);
-      }
-    };
-    fetchPrice();
-    const interval = setInterval(fetchPrice, 60000);
-    return () => clearInterval(interval);
   }, []);
 
   // Fetch exchange rates
@@ -79,7 +60,8 @@ export default function Dashboard() {
 
 
 
-  const currentPrice = btcPrice || 97000;
+  // Use live price, show loading state if not available yet
+  const currentPrice = btcPrice;
   const [formOpen, setFormOpen] = useState(false);
   const [editingHolding, setEditingHolding] = useState(null);
   const [lotsDialogHolding, setLotsDialogHolding] = useState(null);
@@ -128,8 +110,8 @@ export default function Dashboard() {
     queryFn: () => base44.entities.Transaction.list(),
   });
 
-  // Check if critical data is loading
-  const isLoadingData = holdingsLoading || !accounts || !budgetItems || !liabilities;
+  // Check if critical data is loading (include BTC price)
+  const isLoadingData = holdingsLoading || !accounts || !budgetItems || !liabilities || priceLoading || !btcPrice;
 
   // Get lot counts per ticker AND account type (key = "ticker|account_type")
   // FILTER OUT soft-deleted transactions (check both root and data.is_deleted)
@@ -377,7 +359,7 @@ export default function Dashboard() {
           <div className="flex items-center gap-2 px-3 lg:px-4 py-2 rounded-xl bg-zinc-800/50 border border-zinc-700/50">
             <Bitcoin className="w-4 h-4 text-amber-400" />
             <span className="text-sm text-zinc-400">BTC:</span>
-            {priceLoading ? (
+            {priceLoading || !btcPrice ? (
               <RefreshCw className="w-4 h-4 text-zinc-500 animate-spin" />
             ) : (
               <>

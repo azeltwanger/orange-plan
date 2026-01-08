@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 
 export function useBtcPrice() {
   const [btcPrice, setBtcPrice] = useState(null);
+  const [priceChange, setPriceChange] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -10,16 +11,17 @@ export function useBtcPrice() {
       try {
         const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd&include_24hr_change=true');
         const data = await response.json();
-        setBtcPrice({
-          price: data.bitcoin.usd,
-          change24h: data.bitcoin.usd_24h_change
-        });
+        if (data.bitcoin?.usd) {
+          setBtcPrice(data.bitcoin.usd);
+          setPriceChange(data.bitcoin.usd_24h_change);
+          setError(null);
+        }
         setLoading(false);
       } catch (err) {
+        console.error('Failed to fetch BTC price:', err);
         setError(err);
         setLoading(false);
-        // Fallback price
-        setBtcPrice({ price: 97000, change24h: 0 });
+        // No fallback - keep btcPrice as null so UI can show "unavailable"
       }
     };
 
@@ -29,5 +31,5 @@ export function useBtcPrice() {
     return () => clearInterval(interval);
   }, []);
 
-  return { btcPrice: btcPrice?.price || 97000, change24h: btcPrice?.change24h || 0, loading, error };
+  return { btcPrice, priceChange, loading, error };
 }

@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, ReferenceLine, Area, AreaChart, Legend } from 'recharts';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { Target, Plus, Pencil, Trash2, TrendingUp, Calendar, Settings, Play, AlertTriangle, ChevronDown, ChevronUp, Sparkles, Home, Car, Baby, Briefcase, Heart, DollarSign, RefreshCw, Receipt, Info } from 'lucide-react';
+import { useBtcPrice } from '@/components/shared/useBtcPrice';
 import {
   STANDARD_DEDUCTION_2024,
   TAX_BRACKETS_2024,
@@ -62,8 +63,8 @@ const calculatePercentiles = (simulations, percentiles = [10, 25, 50, 75, 90]) =
 
 
 export default function FinancialPlan() {
-  const [btcPrice, setBtcPrice] = useState(null);
-  const [priceLoading, setPriceLoading] = useState(true);
+  // Use shared BTC price hook for consistency across pages
+  const { btcPrice, priceChange, loading: priceLoading } = useBtcPrice();
   const [activeTab, setActiveTab] = useState('projections');
   const [showMonteCarloSettings, setShowMonteCarloSettings] = useState(false);
   const [earliestRetirementAge, setEarliestRetirementAge] = useState(null);
@@ -157,22 +158,6 @@ export default function FinancialPlan() {
 
 
 
-  // Fetch BTC price
-  useEffect(() => {
-    const fetchPrice = async () => {
-      try {
-        const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd');
-        const data = await response.json();
-        setBtcPrice(data.bitcoin.usd);
-        setPriceLoading(false);
-      } catch (err) {
-        setBtcPrice(97000);
-        setPriceLoading(false);
-      }
-    };
-    fetchPrice();
-  }, []);
-
   // Click outside to dismiss locked tooltip
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -187,7 +172,8 @@ export default function FinancialPlan() {
 
 
 
-  const currentPrice = btcPrice || 97000;
+  // Use live price - no fallback to ensure consistency
+  const currentPrice = btcPrice;
   
   // Queries
   const { data: holdings = [] } = useQuery({
@@ -238,8 +224,8 @@ export default function FinancialPlan() {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Check if critical data is loading (after all queries defined)
-  const isLoadingData = !holdings || !accounts || !userSettings || !liabilities || !collateralizedLoans;
+  // Check if critical data is loading (after all queries defined) - include BTC price
+  const isLoadingData = !holdings || !accounts || !userSettings || !liabilities || !collateralizedLoans || priceLoading || !btcPrice;
 
   // Calculate portfolio values by tax treatment
   const getHoldingValue = (h) => h.ticker === 'BTC' ? h.quantity * currentPrice : h.quantity * (h.current_price || 0);
