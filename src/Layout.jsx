@@ -21,6 +21,7 @@ import {
       } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { base44 } from '@/api/base44Client';
+import { useBtcPrice } from '@/components/shared/useBtcPrice';
 
 const navItems = [
   { name: 'Summary', icon: LayoutDashboard, page: 'Dashboard', description: 'Your wealth at a glance' },
@@ -42,12 +43,12 @@ const settingsItems = [
 
 export default function Layout({ children, currentPageName }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [btcPrice, setBtcPrice] = useState(null);
-  const [priceChange, setPriceChange] = useState(null);
-  const [priceLoading, setPriceLoading] = useState(true);
   const [blockHeight, setBlockHeight] = useState(null);
   const [user, setUser] = useState(null);
   const darkMode = true;
+
+  // Use shared BTC price hook - single source of truth
+  const { btcPrice, priceChange, loading: priceLoading } = useBtcPrice();
 
   // Fetch user for access check
   useEffect(() => {
@@ -69,23 +70,8 @@ export default function Layout({ children, currentPageName }) {
     document.documentElement.style.colorScheme = 'dark';
   }, []);
 
-
-
+  // Fetch block height only (BTC price comes from shared hook)
   useEffect(() => {
-    const fetchPrice = async () => {
-      try {
-        const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd&include_24hr_change=true');
-        const data = await response.json();
-        setBtcPrice(data.bitcoin.usd);
-        setPriceChange(data.bitcoin.usd_24h_change);
-        setPriceLoading(false);
-      } catch (err) {
-        setBtcPrice(97000);
-        setPriceChange(0);
-        setPriceLoading(false);
-      }
-    };
-
     const fetchBlockHeight = async () => {
       try {
         const response = await fetch('https://mempool.space/api/blocks/tip/height');
@@ -96,14 +82,9 @@ export default function Layout({ children, currentPageName }) {
       }
     };
 
-    fetchPrice();
     fetchBlockHeight();
-    const priceInterval = setInterval(fetchPrice, 60000);
     const blockInterval = setInterval(fetchBlockHeight, 60000);
-    return () => {
-      clearInterval(priceInterval);
-      clearInterval(blockInterval);
-    };
+    return () => clearInterval(blockInterval);
   }, []);
 
   return (
