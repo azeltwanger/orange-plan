@@ -49,17 +49,19 @@ export function projectPowerLawByAge(currentAge, targetAge, currentDate = new Da
   return projections;
 }
 
-// Get Power Law implied CAGR based on fair value trajectory
-export function getPowerLawCAGR(currentDate = new Date()) {
-  const today = new Date(currentDate);
-  const nextYear = new Date(currentDate);
-  nextYear.setFullYear(nextYear.getFullYear() + 1);
+// Get Power Law implied CAGR for a specific year from now
+export function getPowerLawCAGR(yearFromNow = 0, currentDate = new Date()) {
+  const startDate = new Date(currentDate);
+  startDate.setFullYear(startDate.getFullYear() + yearFromNow);
   
-  const todayPrice = bitcoinPowerLaw(today).fair_value_usd;
-  const nextYearPrice = bitcoinPowerLaw(nextYear).fair_value_usd;
+  const endDate = new Date(startDate);
+  endDate.setFullYear(endDate.getFullYear() + 1);
   
-  // Calculate implied annual growth rate
-  const impliedCAGR = ((nextYearPrice / todayPrice) - 1) * 100;
+  const startPrice = bitcoinPowerLaw(startDate).fair_value_usd;
+  const endPrice = bitcoinPowerLaw(endDate).fair_value_usd;
+  
+  // Calculate implied annual growth rate for this specific year
+  const impliedCAGR = ((endPrice / startPrice) - 1) * 100;
   
   return impliedCAGR;
 }

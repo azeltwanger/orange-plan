@@ -488,18 +488,22 @@ export default function FinancialPlan() {
   const effectiveStocksCagr = stocksCagr;
   const effectiveInflation = inflationRate;
 
-  // Power Law implied CAGR
-  const powerLawCAGR = useMemo(() => {
-    if (btcReturnModel !== 'powerlaw') return null;
-    return getPowerLawCAGR();
-  }, [btcReturnModel]);
+  // Power Law Year 1 CAGR (for display purposes)
+  const powerLawYear1CAGR = useMemo(() => {
+    return getPowerLawCAGR(0); // Year 1 rate
+  }, []);
+  
+  // Power Law Year 10 CAGR (for display)
+  const powerLawYear10CAGR = useMemo(() => {
+    return getPowerLawCAGR(10);
+  }, []);
 
   // BTC growth models - now based on btcReturnModel, not withdrawalStrategy
   const getBtcGrowthRate = useCallback((yearFromNow, inflationRate) => {
     switch (btcReturnModel) {
       case 'powerlaw':
-        // Power Law model - use calculated CAGR
-        return powerLawCAGR || 18;
+        // Power Law model - use year-specific declining CAGR
+        return getPowerLawCAGR(yearFromNow);
       case 'saylor24':
         // Saylor's Bitcoin 24 Model with extended phases:
         // Phase 1 (2025-2037): 50% declining to 20%
@@ -530,7 +534,7 @@ export default function FinancialPlan() {
       default:
         return effectiveBtcCagr;
     }
-  }, [btcReturnModel, powerLawCAGR, effectiveBtcCagr]);
+  }, [btcReturnModel, effectiveBtcCagr]);
 
   // Number formatting helper
   const formatNumber = (num, decimals = 0) => {
@@ -1336,7 +1340,7 @@ export default function FinancialPlan() {
               {[
                 { value: 'custom', label: 'Custom %', desc: `${btcCagr}% CAGR` },
                 { value: 'saylor24', label: 'Saylor Model', desc: '50%→20% declining' },
-                { value: 'powerlaw', label: 'Power Law', desc: `~${powerLawCAGR ? powerLawCAGR.toFixed(0) : 18}% CAGR`, hasTooltip: true },
+                { value: 'powerlaw', label: 'Power Law', desc: `${powerLawYear1CAGR.toFixed(0)}%→${powerLawYear10CAGR.toFixed(0)}%`, hasTooltip: true },
               ].map(model => (
                 <div key={model.value} className="relative">
                   <button
@@ -1359,7 +1363,7 @@ export default function FinancialPlan() {
                               </span>
                             </TooltipTrigger>
                             <TooltipContent side="top" className="max-w-[280px] bg-zinc-800 border-zinc-700 text-zinc-200 text-sm p-3">
-                              <p>Based on Bitcoin's Power Law model which has tracked BTC price for 15+ years. The model implies approximately {powerLawCAGR ? powerLawCAGR.toFixed(0) : 18}% annual growth. Use Custom % if you want to stress test with different rates.</p>
+                              <p>Based on Bitcoin's Power Law model which has tracked BTC price for 15+ years. Growth rate declines over time: ~{powerLawYear1CAGR.toFixed(0)}% Year 1, ~{powerLawYear10CAGR.toFixed(0)}% Year 10. Use Custom % to stress test with different rates.</p>
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
@@ -1372,9 +1376,9 @@ export default function FinancialPlan() {
             </div>
             
             {/* Power Law info text */}
-            {btcReturnModel === 'powerlaw' && powerLawCAGR && (
+            {btcReturnModel === 'powerlaw' && (
               <p className="text-xs text-zinc-500 mt-3">
-                Power Law implied growth: {powerLawCAGR.toFixed(1)}% annually
+                Power Law growth: {powerLawYear1CAGR.toFixed(1)}% Year 1 → {powerLawYear10CAGR.toFixed(1)}% Year 10 (declining)
               </p>
             )}
           </div>
@@ -3436,7 +3440,7 @@ export default function FinancialPlan() {
                 BTC Model: <span className="text-orange-400 font-semibold">
                   {btcReturnModel === 'custom' ? `${btcCagr || 25}%` :
                    btcReturnModel === 'saylor24' ? 'Saylor Bitcoin24' :
-                   btcReturnModel === 'powerlaw' ? `Power Law (~${powerLawCAGR ? powerLawCAGR.toFixed(0) : 18}%)` : 'Custom'}
+                   btcReturnModel === 'powerlaw' ? `Power Law (${powerLawYear1CAGR.toFixed(0)}%→${powerLawYear10CAGR.toFixed(0)}%)` : 'Custom'}
                 </span>
               </p>
               </div>
@@ -3494,7 +3498,7 @@ export default function FinancialPlan() {
                     {successProbability?.toFixed(0)}%
                   </p>
                   <p className="text-xs text-zinc-400 mt-1">
-                    Income-Based: ${Math.round(inflationAdjustedRetirementSpending || 0).toLocaleString()}/yr • {btcReturnModel === 'custom' ? `${btcCagr || 25}%` : btcReturnModel === 'powerlaw' ? `Power Law (~${powerLawCAGR ? powerLawCAGR.toFixed(0) : 18}%)` : btcReturnModel} BTC • BTC Vol: {getBtcVolatilityForMonteCarlo(0).toFixed(0)}%→{getBtcVolatilityForMonteCarlo(30).toFixed(0)}%
+                    Income-Based: ${Math.round(inflationAdjustedRetirementSpending || 0).toLocaleString()}/yr • {btcReturnModel === 'custom' ? `${btcCagr || 25}%` : btcReturnModel === 'powerlaw' ? `Power Law (${powerLawYear1CAGR.toFixed(0)}%→${powerLawYear10CAGR.toFixed(0)}%)` : btcReturnModel} BTC • BTC Vol: {getBtcVolatilityForMonteCarlo(0).toFixed(0)}%→{getBtcVolatilityForMonteCarlo(30).toFixed(0)}%
                   </p>
                   <p className="text-sm text-zinc-300 mt-2">
                     {successProbability >= 80 ? "Excellent! You're on track for your desired retirement lifestyle." :
