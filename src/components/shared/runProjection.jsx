@@ -1170,130 +1170,133 @@ export function runUnifiedProjection({
       // Only withdraw from portfolio if there's an actual deficit (not for taxes that income covers)
       const totalNeededFromAccounts = Math.max(0, -retirementNetCashFlow);
       
-      const totalTaxEstimate = estimateRetirementWithdrawalTaxes({
-        withdrawalNeeded: totalNeededFromAccounts,
-        taxableBalance: getAccountTotal('taxable'),
-        taxDeferredBalance: getAccountTotal('taxDeferred'),
-        taxFreeBalance: getAccountTotal('taxFree'),
-        rothContributions: totalRothContributions,
-        taxableGainPercent: estimatedCurrentGainRatio,
-        isLongTermGain: true,
-        filingStatus,
-        age: age,
-        otherIncome: totalOtherIncomeForTax,
-        year: year,
-        inflationRate: effectiveInflation / 100,
-      });
+      // Only process withdrawals if there's actually a deficit
+      if (totalNeededFromAccounts > 0) {
+        const totalTaxEstimate = estimateRetirementWithdrawalTaxes({
+          withdrawalNeeded: totalNeededFromAccounts,
+          taxableBalance: getAccountTotal('taxable'),
+          taxDeferredBalance: getAccountTotal('taxDeferred'),
+          taxFreeBalance: getAccountTotal('taxFree'),
+          rothContributions: totalRothContributions,
+          taxableGainPercent: estimatedCurrentGainRatio,
+          isLongTermGain: true,
+          filingStatus,
+          age: age,
+          otherIncome: totalOtherIncomeForTax,
+          year: year,
+          inflationRate: effectiveInflation / 100,
+        });
 
-      const requestedFromTaxable = totalTaxEstimate.fromTaxable || 0;
-      const requestedFromTaxDeferred = totalTaxEstimate.fromTaxDeferred || 0;
-      const requestedFromTaxFree = totalTaxEstimate.fromTaxFree || 0;
+        const requestedFromTaxable = totalTaxEstimate.fromTaxable || 0;
+        const requestedFromTaxDeferred = totalTaxEstimate.fromTaxDeferred || 0;
+        const requestedFromTaxFree = totalTaxEstimate.fromTaxFree || 0;
 
-      if (requestedFromTaxable > 0 && getAccountTotal('taxable') > 0) {
-        const basisRatio = runningTaxableBasis / getAccountTotal('taxable');
-        runningTaxableBasis = Math.max(0, runningTaxableBasis - (requestedFromTaxable * basisRatio));
-      }
-
-      withdrawFromTaxable = withdrawFromAccount('taxable', requestedFromTaxable);
-      const actualFromTaxDeferred = withdrawFromAccount('taxDeferred', requestedFromTaxDeferred);
-      withdrawFromTaxFree = withdrawFromAccount('taxFree', requestedFromTaxFree);
-      withdrawFromTaxDeferred = rmdWithdrawn + actualFromTaxDeferred;
-
-      let totalWithdrawnFromAccounts = withdrawFromTaxable + withdrawFromTaxDeferred + withdrawFromTaxFree;
-      
-      const fullWithdrawalNeed = totalWithdrawalForTaxCalculation + (taxEstimate.totalTax || 0) + stateTax + penaltyPaid;
-      let remainingShortfall = fullWithdrawalNeed - totalWithdrawnFromAccounts;
-      
-      // Force additional withdrawals if shortfall
-      if (remainingShortfall > 0) {
-        const taxableRemaining = getAccountTotal('taxable');
-        if (taxableRemaining > 0) {
-          const forceFromTaxable = Math.min(remainingShortfall, taxableRemaining);
-          withdrawFromAccount('taxable', forceFromTaxable);
-          withdrawFromTaxable += forceFromTaxable;
-          totalWithdrawnFromAccounts += forceFromTaxable;
-          remainingShortfall -= forceFromTaxable;
+        if (requestedFromTaxable > 0 && getAccountTotal('taxable') > 0) {
+          const basisRatio = runningTaxableBasis / getAccountTotal('taxable');
+          runningTaxableBasis = Math.max(0, runningTaxableBasis - (requestedFromTaxable * basisRatio));
         }
+
+        withdrawFromTaxable = withdrawFromAccount('taxable', requestedFromTaxable);
+        const actualFromTaxDeferred = withdrawFromAccount('taxDeferred', requestedFromTaxDeferred);
+        withdrawFromTaxFree = withdrawFromAccount('taxFree', requestedFromTaxFree);
+        withdrawFromTaxDeferred = rmdWithdrawn + actualFromTaxDeferred;
+
+        let totalWithdrawnFromAccounts = withdrawFromTaxable + withdrawFromTaxDeferred + withdrawFromTaxFree;
         
-        const taxDeferredRemaining = getAccountTotal('taxDeferred');
-        if (remainingShortfall > 0 && taxDeferredRemaining > 0) {
-          const forceFromTaxDeferred = Math.min(remainingShortfall, taxDeferredRemaining);
-          withdrawFromAccount('taxDeferred', forceFromTaxDeferred);
-          withdrawFromTaxDeferred += forceFromTaxDeferred;
-          totalWithdrawnFromAccounts += forceFromTaxDeferred;
-          remainingShortfall -= forceFromTaxDeferred;
-        }
+        const fullWithdrawalNeed = totalNeededFromAccounts;
+        let remainingShortfall = fullWithdrawalNeed - totalWithdrawnFromAccounts;
         
-        const taxFreeRemaining = getAccountTotal('taxFree');
-        if (remainingShortfall > 0 && taxFreeRemaining > 0) {
-          const forceFromTaxFree = Math.min(remainingShortfall, taxFreeRemaining);
-          withdrawFromAccount('taxFree', forceFromTaxFree);
-          withdrawFromTaxFree += forceFromTaxFree;
-          totalWithdrawnFromAccounts += forceFromTaxFree;
-          remainingShortfall -= forceFromTaxFree;
-        }
-        
-        // Emergency: Unlock loan equity
+        // Force additional withdrawals if shortfall
         if (remainingShortfall > 0) {
-          const activeLoansWithEquity = [
-            ...Object.values(tempRunningDebt).filter(l => l.type === 'btc_collateralized' && !l.paid_off && l.current_balance > 0),
-            ...Object.values(tempRunningCollateralizedLoans).filter(l => !l.paid_off && l.current_balance > 0)
-          ].map(loan => {
-            const loanKey = loan.entity_type === 'CollateralizedLoan' ? `loan_${loan.id}` : loan.id;
-            const lockedBtc = encumberedBtc[loanKey] || loan.collateral_btc_amount || 0;
-            const collateralValue = lockedBtc * cumulativeBtcPrice;
-            const equity = collateralValue - loan.current_balance;
-            return { ...loan, loanKey, lockedBtc, collateralValue, equity, ltv: collateralValue > 0 ? (loan.current_balance / collateralValue) * 100 : 100 };
-          }).filter(loan => loan.equity > 0).sort((a, b) => a.ltv - b.ltv);
-
-          for (const loan of activeLoansWithEquity) {
-            if (remainingShortfall <= 0) break;
-            
-            const debtToPay = loan.current_balance;
-            const btcToSellForDebt = debtToPay / cumulativeBtcPrice;
-            const btcReleased = loan.lockedBtc - btcToSellForDebt;
-            const equityReleasedGross = btcReleased * cumulativeBtcPrice;
-            
-            const costBasisPercent = 0.5;
-            const gainOnSale = debtToPay * (1 - costBasisPercent);
-            const taxableIncomeBase = (totalOtherIncomeForTax || 0) + withdrawFromTaxable + withdrawFromTaxDeferred;
-            const taxOnSale = gainOnSale * getLTCGRate(taxableIncomeBase, filingStatus, year);
-            
-            const netEquityAvailable = equityReleasedGross - taxOnSale;
-            const appliedToDeficit = Math.min(netEquityAvailable, remainingShortfall);
-            
-            remainingShortfall -= appliedToDeficit;
-            fromLoanPayoff += appliedToDeficit;
-            totalWithdrawnFromAccounts += appliedToDeficit;
-            
-            if (tempRunningDebt[loan.id]) {
-              tempRunningDebt[loan.id].current_balance = 0;
-              tempRunningDebt[loan.id].paid_off = true;
-            }
-            if (tempRunningCollateralizedLoans[loan.id]) {
-              tempRunningCollateralizedLoans[loan.id].current_balance = 0;
-              tempRunningCollateralizedLoans[loan.id].paid_off = true;
-            }
-            
-            portfolio.taxable.btc += btcReleased * cumulativeBtcPrice;
-            encumberedBtc[loan.loanKey] = 0;
-            taxesPaid += taxOnSale;
-            
-            yearLoanPayoffs.push({ loanName: loan.name || loan.lender || 'BTC Loan', debtPaid: debtToPay, btcSold: btcToSellForDebt, btcReleased: btcReleased, equityReleased: equityReleasedGross, taxOnSale: taxOnSale, netEquity: netEquityAvailable, appliedToDeficit: appliedToDeficit });
+          const taxableRemaining = getAccountTotal('taxable');
+          if (taxableRemaining > 0) {
+            const forceFromTaxable = Math.min(remainingShortfall, taxableRemaining);
+            withdrawFromAccount('taxable', forceFromTaxable);
+            withdrawFromTaxable += forceFromTaxable;
+            totalWithdrawnFromAccounts += forceFromTaxable;
+            remainingShortfall -= forceFromTaxable;
           }
+          
+          const taxDeferredRemaining = getAccountTotal('taxDeferred');
+          if (remainingShortfall > 0 && taxDeferredRemaining > 0) {
+            const forceFromTaxDeferred = Math.min(remainingShortfall, taxDeferredRemaining);
+            withdrawFromAccount('taxDeferred', forceFromTaxDeferred);
+            withdrawFromTaxDeferred += forceFromTaxDeferred;
+            totalWithdrawnFromAccounts += forceFromTaxDeferred;
+            remainingShortfall -= forceFromTaxDeferred;
+          }
+          
+          const taxFreeRemaining = getAccountTotal('taxFree');
+          if (remainingShortfall > 0 && taxFreeRemaining > 0) {
+            const forceFromTaxFree = Math.min(remainingShortfall, taxFreeRemaining);
+            withdrawFromAccount('taxFree', forceFromTaxFree);
+            withdrawFromTaxFree += forceFromTaxFree;
+            totalWithdrawnFromAccounts += forceFromTaxFree;
+            remainingShortfall -= forceFromTaxFree;
+          }
+          
+          // Emergency: Unlock loan equity
+          if (remainingShortfall > 0) {
+            const activeLoansWithEquity = [
+              ...Object.values(tempRunningDebt).filter(l => l.type === 'btc_collateralized' && !l.paid_off && l.current_balance > 0),
+              ...Object.values(tempRunningCollateralizedLoans).filter(l => !l.paid_off && l.current_balance > 0)
+            ].map(loan => {
+              const loanKey = loan.entity_type === 'CollateralizedLoan' ? `loan_${loan.id}` : loan.id;
+              const lockedBtc = encumberedBtc[loanKey] || loan.collateral_btc_amount || 0;
+              const collateralValue = lockedBtc * cumulativeBtcPrice;
+              const equity = collateralValue - loan.current_balance;
+              return { ...loan, loanKey, lockedBtc, collateralValue, equity, ltv: collateralValue > 0 ? (loan.current_balance / collateralValue) * 100 : 100 };
+            }).filter(loan => loan.equity > 0).sort((a, b) => a.ltv - b.ltv);
+
+            for (const loan of activeLoansWithEquity) {
+              if (remainingShortfall <= 0) break;
+              
+              const debtToPay = loan.current_balance;
+              const btcToSellForDebt = debtToPay / cumulativeBtcPrice;
+              const btcReleased = loan.lockedBtc - btcToSellForDebt;
+              const equityReleasedGross = btcReleased * cumulativeBtcPrice;
+              
+              const costBasisPercent = 0.5;
+              const gainOnSale = debtToPay * (1 - costBasisPercent);
+              const taxableIncomeBase = (totalOtherIncomeForTax || 0) + withdrawFromTaxable + withdrawFromTaxDeferred;
+              const taxOnSale = gainOnSale * getLTCGRate(taxableIncomeBase, filingStatus, year);
+              
+              const netEquityAvailable = equityReleasedGross - taxOnSale;
+              const appliedToDeficit = Math.min(netEquityAvailable, remainingShortfall);
+              
+              remainingShortfall -= appliedToDeficit;
+              fromLoanPayoff += appliedToDeficit;
+              totalWithdrawnFromAccounts += appliedToDeficit;
+              
+              if (tempRunningDebt[loan.id]) {
+                tempRunningDebt[loan.id].current_balance = 0;
+                tempRunningDebt[loan.id].paid_off = true;
+              }
+              if (tempRunningCollateralizedLoans[loan.id]) {
+                tempRunningCollateralizedLoans[loan.id].current_balance = 0;
+                tempRunningCollateralizedLoans[loan.id].paid_off = true;
+              }
+              
+              portfolio.taxable.btc += btcReleased * cumulativeBtcPrice;
+              encumberedBtc[loan.loanKey] = 0;
+              taxesPaid += taxOnSale;
+              
+              yearLoanPayoffs.push({ loanName: loan.name || loan.lender || 'BTC Loan', debtPaid: debtToPay, btcSold: btcToSellForDebt, btcReleased: btcReleased, equityReleased: equityReleasedGross, taxOnSale: taxOnSale, netEquity: netEquityAvailable, appliedToDeficit: appliedToDeficit });
+            }
+          }
+          
+          // Last resort: Real Estate
+          if (remainingShortfall > 0 && portfolio.realEstate > 0) {
+            realEstateSaleProceeds = portfolio.realEstate;
+            portfolio.realEstate = 0;
+            withdrawFromRealEstate = Math.min(remainingShortfall, realEstateSaleProceeds);
+            const excessProceeds = realEstateSaleProceeds - withdrawFromRealEstate;
+            if (excessProceeds > 0) portfolio.taxable.cash += excessProceeds;
+            remainingShortfall -= withdrawFromRealEstate;
+          }
+          
+          if (remainingShortfall > desiredWithdrawal * 0.05) ranOutOfMoneyThisYear = true;
         }
-        
-        // Last resort: Real Estate
-        if (remainingShortfall > 0 && portfolio.realEstate > 0) {
-          realEstateSaleProceeds = portfolio.realEstate;
-          portfolio.realEstate = 0;
-          withdrawFromRealEstate = Math.min(remainingShortfall, realEstateSaleProceeds);
-          const excessProceeds = realEstateSaleProceeds - withdrawFromRealEstate;
-          if (excessProceeds > 0) portfolio.taxable.cash += excessProceeds;
-          remainingShortfall -= withdrawFromRealEstate;
-        }
-        
-        if (remainingShortfall > desiredWithdrawal * 0.05) ranOutOfMoneyThisYear = true;
       }
 
       if (getTotalPortfolio() <= 0) ranOutOfMoneyThisYear = true;
