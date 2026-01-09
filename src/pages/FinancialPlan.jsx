@@ -500,10 +500,12 @@ export default function FinancialPlan() {
 
   // BTC growth models - now based on btcReturnModel, not withdrawalStrategy
   const getBtcGrowthRate = useCallback((yearFromNow, inflationRate) => {
+    let rate;
     switch (btcReturnModel) {
       case 'powerlaw':
         // Power Law model - use year-specific declining CAGR
-        return getPowerLawCAGR(yearFromNow);
+        rate = getPowerLawCAGR(yearFromNow);
+        break;
       case 'saylor24':
         // Saylor's Bitcoin 24 Model with extended phases:
         // Phase 1 (2025-2037): 50% declining to 20%
@@ -516,24 +518,31 @@ export default function FinancialPlan() {
         if (absoluteYear <= 2037) {
           // Phase 1: Linear decline from 50% to 20%
           const yearsFromStart = absoluteYear - 2025;
-          return Math.max(20, 50 - (yearsFromStart * 2.5));
+          rate = Math.max(20, 50 - (yearsFromStart * 2.5));
         } else if (absoluteYear <= 2045) {
           // Phase 2: Plateau at 20%
-          return 20;
+          rate = 20;
         } else if (absoluteYear <= 2075) {
           // Phase 3: Decline from 20% to inflation + 3%
           const yearsIntoDecline = absoluteYear - 2045;
           const totalDeclineYears = 2075 - 2045; // 30 years
           const targetRate = inflationRate + 3; // Mid-point of 2-4% above inflation
           const declineAmount = 20 - targetRate;
-          return 20 - (declineAmount * (yearsIntoDecline / totalDeclineYears));
+          rate = 20 - (declineAmount * (yearsIntoDecline / totalDeclineYears));
         } else {
           // Phase 4: Terminal rate (2% above inflation for long-term real returns)
-          return inflationRate + 2;
+          rate = inflationRate + 2;
         }
+        break;
       default:
-        return effectiveBtcCagr;
+        rate = effectiveBtcCagr;
     }
+    
+    if (yearFromNow < 3) {
+      console.log(`getBtcGrowthRate year ${yearFromNow}: ${rate?.toFixed(1)}% (model: ${btcReturnModel})`);
+    }
+    
+    return rate;
   }, [btcReturnModel, effectiveBtcCagr]);
 
   // Number formatting helper
@@ -970,6 +979,7 @@ export default function FinancialPlan() {
 
   // UNIFIED: Derive maxSustainableSpending using binary search with accurate projection
   const derivedMaxSustainableSpending = useMemo(() => {
+    console.log('derivedMaxSustainableSpending recalculating with btcReturnModel:', btcReturnModel);
     const total = btcValue + stocksValue + realEstateValue + bondsValue + cashValue + otherValue;
     if (total <= 0) return 0;
     
