@@ -1158,15 +1158,17 @@ export function runUnifiedProjection({
       penaltyPaid = taxEstimate.totalPenalty || 0;
 
       // Calculate retirement net cash flow: income - spending - taxes
-      const retirementNetCashFlow = (totalRetirementIncome + rmdWithdrawn) - desiredWithdrawal - taxesPaid;
+      // Positive = surplus, Negative = deficit
+      retirementNetCashFlow = (totalRetirementIncome + rmdWithdrawn) - (desiredWithdrawal + taxesPaid + penaltyPaid);
 
       // Handle retirement income surplus - reinvest excess into taxable cash
-      if (retirementNetCashFlow > 0 && netSpendingNeed === 0) {
+      if (retirementNetCashFlow > 0) {
         portfolio.taxable.cash += retirementNetCashFlow;
         runningTaxableBasis += retirementNetCashFlow;
       }
 
-      const totalNeededFromAccounts = cappedWithdrawal + (taxEstimate.totalTax || 0) + stateTax + penaltyPaid;
+      // Only withdraw from portfolio if there's an actual deficit (not for taxes that income covers)
+      const totalNeededFromAccounts = Math.max(0, -retirementNetCashFlow);
       
       const totalTaxEstimate = estimateRetirementWithdrawalTaxes({
         withdrawalNeeded: totalNeededFromAccounts,
