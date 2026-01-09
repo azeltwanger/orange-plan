@@ -1975,7 +1975,7 @@ export default function FinancialPlan() {
                                   )}
                                   {p.loanPayoffs && p.loanPayoffs.length > 0 && (
                                     <div className="mt-2 p-2 rounded bg-orange-500/10 border border-orange-500/20">
-                                      <p className="text-xs text-orange-400 font-medium">🎉 Loan Paid Off to Unlock Equity</p>
+                                      <p className="text-xs text-orange-400 font-medium">🎉 BTC Loan Paid Off (Collateral Unlocked)</p>
                                       {p.loanPayoffs.map((lp, lpIdx) => (
                                         <div key={lpIdx} className="text-[10px] text-zinc-400 mt-1">
                                           <div className="font-medium text-orange-300">{lp.loanName}</div>
@@ -2278,6 +2278,22 @@ export default function FinancialPlan() {
                         );
                       })
                     )}
+                    {/* Loan Payoff (Equity Unlock) markers */}
+                    {projections.filter(p => p.loanPayoffs && p.loanPayoffs.length > 0).map((p, idx) => {
+                      if (p.age >= currentAge && p.age <= lifeExpectancy) {
+                        return (
+                          <ReferenceLine
+                            key={`loan-payoff-${p.age}-${idx}`}
+                            x={p.age}
+                            stroke="#fb923c"
+                            strokeDasharray="4 4"
+                            strokeOpacity={0.8}
+                            yAxisId="left"
+                          />
+                        );
+                      }
+                      return null;
+                    })}
                     {/* Goal target lines - only show for accumulation goals (not one-time spending) - NO LABELS */}
                     {goalsWithProjections.filter(g => g.target_amount > 0 && !g.will_be_spent).slice(0, 3).map((goal, i) => (
                       <ReferenceLine
