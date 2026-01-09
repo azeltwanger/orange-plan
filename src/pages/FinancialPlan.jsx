@@ -493,8 +493,9 @@ export default function FinancialPlan() {
 
   // Power Law growth rates cache
   const powerLawRates = useMemo(() => {
-    if (btcReturnModel !== 'powerlaw' || !currentPrice) return null;
-    return getPowerLawGrowthRates(currentAge, lifeExpectancy, currentPrice, powerLawBand);
+    if (btcReturnModel !== 'powerlaw') return null;
+    const priceToUse = currentPrice || 90000; // Use current price or reasonable default
+    return getPowerLawGrowthRates(currentAge, lifeExpectancy, priceToUse, powerLawBand);
   }, [btcReturnModel, currentAge, lifeExpectancy, currentPrice, powerLawBand]);
 
   // BTC growth models - now based on btcReturnModel, not withdrawalStrategy
@@ -502,11 +503,15 @@ export default function FinancialPlan() {
     switch (btcReturnModel) {
       case 'powerlaw':
         // Power Law model - use pre-calculated rates
-        if (powerLawRates && powerLawRates[yearFromNow]) {
+        if (powerLawRates && yearFromNow < powerLawRates.length) {
           return powerLawRates[yearFromNow].growthRate;
         }
-        // Fallback if rate not available
-        return effectiveBtcCagr;
+        // If we're beyond the calculated range, use the last available rate
+        if (powerLawRates && powerLawRates.length > 0) {
+          return powerLawRates[powerLawRates.length - 1].growthRate;
+        }
+        // This should never happen if Power Law is properly initialized
+        return 0;
       case 'saylor24':
         // Saylor's Bitcoin 24 Model with extended phases:
         // Phase 1 (2025-2037): 50% declining to 20%
