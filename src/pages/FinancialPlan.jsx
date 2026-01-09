@@ -2314,10 +2314,14 @@ export default function FinancialPlan() {
               
               return (
                 <div 
-                  className="absolute z-[9999] bg-zinc-900 border border-zinc-700 rounded-xl p-4 text-sm min-w-[280px] max-w-[350px] max-h-[70vh] overflow-y-auto shadow-2xl"
+                  className="absolute bg-zinc-900 border border-zinc-700 rounded-xl p-4 text-sm shadow-2xl"
                   style={{ 
-                    top: '60px',
-                    left: `${leftPosition}px`
+                    zIndex: 9999,
+                    top: '20px',
+                    left: `${leftPosition}px`,
+                    width: '350px',
+                    maxHeight: '500px',
+                    overflowY: 'scroll'
                   }}
                 >
                   <div className="mb-4">
