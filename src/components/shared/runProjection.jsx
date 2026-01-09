@@ -348,6 +348,7 @@ export function runUnifiedProjection({
     let yearHSA = 0;
     let yearEmployerMatch = 0;
     let retirementNetCashFlow = 0;
+    let preRetireNetCashFlow = 0;
 
     // BTC growth and price tracking - use overrides if provided (for Monte Carlo)
     const yearBtcGrowth = yearlyReturnOverrides?.btc?.[i] !== undefined 
@@ -967,6 +968,11 @@ export function runUnifiedProjection({
         // Include taxes and penalties in the total amount needed from portfolio
         const totalDeficitPlusTaxes = deficit + (taxEstimate.totalTax || 0) + preRetireStateTax + (taxEstimate.totalPenalty || 0);
         let remainingShortfall = totalDeficitPlusTaxes - totalActuallyWithdrawn;
+        
+        // For pre-retirement deficit, the true net cash flow includes withdrawal taxes
+        preRetireNetCashFlow = -totalDeficitPlusTaxes;
+        
+        console.log('PRE-RETIRE DEFICIT:', { year, age, deficit, taxEstimateTotalTax: taxEstimate.totalTax, preRetireStateTax, penalty: taxEstimate.totalPenalty, totalDeficitPlusTaxes, totalActuallyWithdrawn, remainingShortfall });
 
         // Force additional withdrawals if shortfall (same as retirement)
         if (remainingShortfall > 0) {
@@ -1069,6 +1075,9 @@ export function runUnifiedProjection({
           }
         }
       } else if (yearSavings > 0) {
+        // Surplus - set preRetireNetCashFlow to positive yearSavings
+        preRetireNetCashFlow = yearSavings;
+        
         const totalAllocation = savingsAllocationBtc + savingsAllocationStocks + savingsAllocationBonds + savingsAllocationCash + savingsAllocationOther;
         if (totalAllocation > 0) {
           portfolio.taxable.btc += yearSavings * (savingsAllocationBtc / totalAllocation);
@@ -1080,6 +1089,9 @@ export function runUnifiedProjection({
           portfolio.taxable.btc += yearSavings;
         }
         runningTaxableBasis += yearSavings;
+      } else {
+        // yearSavings === 0, no deficit or surplus
+        preRetireNetCashFlow = 0;
       }
     } else {
       // RETIREMENT
@@ -1377,7 +1389,7 @@ export function runUnifiedProjection({
       
       // Income/Spending
       savings: Math.round(cumulativeSavings),
-      netCashFlow: isRetired ? Math.round(retirementNetCashFlow || 0) : Math.round(yearSavings),
+      netCashFlow: isRetired ? Math.round(retirementNetCashFlow || 0) : Math.round(preRetireNetCashFlow),
       yearGrossIncome: !isRetired ? Math.round(yearGrossIncome) : 0,
       yearSpending: !isRetired ? Math.round(yearSpending) : 0,
       otherRetirementIncome: isRetired ? Math.round(otherRetirementIncome) : 0,
