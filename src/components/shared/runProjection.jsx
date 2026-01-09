@@ -1401,6 +1401,10 @@ export function runUnifiedProjection({
       // BTC info
       btcPrice: Math.round(cumulativeBtcPrice),
       btcGrowthRate: yearBtcGrowth,
+      stocksGrowthRate: i > 0 ? (yearlyReturnOverrides?.stocks?.[i] !== undefined ? yearlyReturnOverrides.stocks[i] : effectiveStocksCagr) : effectiveStocksCagr,
+      realEstateGrowthRate: i > 0 ? (yearlyReturnOverrides?.realEstate?.[i] !== undefined ? yearlyReturnOverrides.realEstate[i] : realEstateCagr) : realEstateCagr,
+      bondsGrowthRate: i > 0 ? (yearlyReturnOverrides?.bonds?.[i] !== undefined ? yearlyReturnOverrides.bonds[i] : bondsCagr) : bondsCagr,
+      cashGrowthRate: i > 0 ? (yearlyReturnOverrides?.cash?.[i] !== undefined ? yearlyReturnOverrides.cash[i] : cashCagr) : cashCagr,
       encumberedBtc: currentTotalEncumberedBtc,
       liquidBtc: Math.max(0, getAssetTotal('btc') / cumulativeBtcPrice),
       
