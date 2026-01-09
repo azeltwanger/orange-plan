@@ -1329,9 +1329,9 @@ export function runUnifiedProjection({
     const realTotal = getTotalPortfolio(encumberedBtcValueThisYear) / Math.pow(1 + effectiveInflation / 100, i);
     
     const totalWithdrawalAmount = isRetired 
-      ? Math.round((desiredWithdrawal || 0) + (taxesPaid || 0) + (penaltyPaid || 0))
+      ? Math.round((withdrawFromTaxable || 0) + (withdrawFromTaxDeferred || 0) + (withdrawFromTaxFree || 0) + (withdrawFromRealEstate || 0) + (fromLoanPayoff || 0))
       : yearSavings < 0 
-        ? Math.round(Math.abs(yearSavings) + (taxesPaid || 0) + (penaltyPaid || 0))
+        ? Math.round((withdrawFromTaxable || 0) + (withdrawFromTaxDeferred || 0) + (withdrawFromTaxFree || 0) + (withdrawFromRealEstate || 0) + (fromLoanPayoff || 0))
         : 0;
 
     results.push({
