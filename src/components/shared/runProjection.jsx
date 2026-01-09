@@ -347,6 +347,7 @@ export function runUnifiedProjection({
     let yearTraditionalIRA = 0;
     let yearHSA = 0;
     let yearEmployerMatch = 0;
+    let retirementNetCashFlow = 0;
 
     // BTC growth and price tracking - use overrides if provided (for Monte Carlo)
     const yearBtcGrowth = yearlyReturnOverrides?.btc?.[i] !== undefined 
