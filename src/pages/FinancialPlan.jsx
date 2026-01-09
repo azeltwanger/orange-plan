@@ -1928,11 +1928,17 @@ export default function FinancialPlan() {
                                     )}
                                   </div>
                                   <div className="pt-2 border-t border-zinc-700/40">
-                                    <p className="font-semibold text-rose-400 text-sm">
-                                      Net Withdrawal from Portfolio: -${(p.totalWithdrawalAmount || 0).toLocaleString()}
-                                    </p>
+                                    {p.netCashFlow > 0 ? (
+                                      <p className="font-semibold text-emerald-400 text-sm">
+                                        Net Surplus (Reinvested): +${Math.abs(p.netCashFlow).toLocaleString()}
+                                      </p>
+                                    ) : (
+                                      <p className="font-semibold text-rose-400 text-sm">
+                                        Net Withdrawal from Portfolio: -${(p.totalWithdrawalAmount || 0).toLocaleString()}
+                                      </p>
+                                    )}
                                   </div>
-                                  {(p.withdrawFromTaxable > 0 || p.withdrawFromTaxDeferred > 0 || p.withdrawFromTaxFree > 0) && (
+                                  {p.netCashFlow <= 0 && (p.withdrawFromTaxable > 0 || p.withdrawFromTaxDeferred > 0 || p.withdrawFromTaxFree > 0) && (
                                     <div className="text-xs space-y-1.5 text-zinc-500 mt-3 pt-3 border-t border-zinc-700/40">
                                       <p className="text-zinc-400 font-medium mb-1">Withdrawal Sources:</p>
                                       {p.withdrawFromTaxable > 0 && (
@@ -2586,11 +2592,17 @@ export default function FinancialPlan() {
                           )}
                         </div>
                         <div className="pt-2 border-t border-zinc-700/40">
-                          <p className="font-semibold text-rose-400 text-sm">
-                            Net Withdrawal from Portfolio: -${(p.totalWithdrawalAmount || 0).toLocaleString()}
-                          </p>
+                          {p.netCashFlow > 0 ? (
+                            <p className="font-semibold text-emerald-400 text-sm">
+                              Net Surplus (Reinvested): +${Math.abs(p.netCashFlow).toLocaleString()}
+                            </p>
+                          ) : (
+                            <p className="font-semibold text-rose-400 text-sm">
+                              Net Withdrawal from Portfolio: -${(p.totalWithdrawalAmount || 0).toLocaleString()}
+                            </p>
+                          )}
                         </div>
-                        {(p.withdrawFromTaxable > 0 || p.withdrawFromTaxDeferred > 0 || p.withdrawFromTaxFree > 0) && (
+                        {p.netCashFlow <= 0 && (p.withdrawFromTaxable > 0 || p.withdrawFromTaxDeferred > 0 || p.withdrawFromTaxFree > 0) && (
                           <div className="text-xs space-y-1.5 text-zinc-500 mt-3 pt-3 border-t border-zinc-700/40">
                             <p className="text-zinc-400 font-medium mb-1">Withdrawal Sources:</p>
                             {p.withdrawFromTaxable > 0 && (
@@ -2651,7 +2663,7 @@ export default function FinancialPlan() {
                         )}
                       </div>
                     )}
-                    {!p.isWithdrawing && (
+                    {!p.isWithdrawing && !p.isRetired && (
                       <div className="pt-3 mt-3 border-t border-zinc-700/70">
                         <p className="text-zinc-400 mb-2 font-medium text-xs">Annual Cash Flow:</p>
                         <div className="text-xs space-y-1.5 text-zinc-500 mb-2">
