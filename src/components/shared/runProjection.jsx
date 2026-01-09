@@ -554,6 +554,7 @@ export function runUnifiedProjection({
             portfolio.taxable.btc -= additionalBtcNeeded * cumulativeBtcPrice;
             liquidationEvents.push({
               year,
+              age,
               type: 'top_up',
               liabilityName: liability.name || liability.lender || 'BTC Loan',
               message: `Added ${additionalBtcNeeded.toFixed(4)} BTC to bring LTV from ${currentLTV.toFixed(1)}% to ${targetLTV}%`
@@ -580,6 +581,7 @@ export function runUnifiedProjection({
           
           liquidationEvents.push({
             year,
+            age,
             type: newDebtBalance <= 0 ? 'full_liquidation' : 'partial_liquidation',
             liabilityName: liability.name || liability.lender || 'BTC Loan',
             btcAmount: btcToSell,
@@ -607,6 +609,7 @@ export function runUnifiedProjection({
               encumberedBtc[liability.id] = 0;
               liquidationEvents.push({
                 year,
+                age,
                 type: 'release',
                 liabilityName: liability.name || liability.lender || 'BTC Loan',
                 message: `Released ${releasedBtc[liability.id].toFixed(4)} BTC (debt fully paid)`
@@ -621,6 +624,7 @@ export function runUnifiedProjection({
               encumberedBtc[liability.id] = targetCollateralForLoan;
               liquidationEvents.push({
                 year,
+                age,
                 type: 'release',
                 liabilityName: liability.name || liability.lender || 'BTC Loan',
                 message: `Released ${excessCollateral.toFixed(4)} BTC (LTV ${postTopUpLTV.toFixed(1)}% → ${releaseTargetLTV}%)`
@@ -689,6 +693,7 @@ export function runUnifiedProjection({
             portfolio.taxable.btc -= additionalBtcNeeded * cumulativeBtcPrice;
             liquidationEvents.push({
               year,
+              age,
               type: 'top_up',
               liabilityName: loan.name || loan.lender || 'BTC Loan',
               message: `Added ${additionalBtcNeeded.toFixed(4)} BTC to bring LTV from ${currentLTV.toFixed(1)}% to ${targetLTV}%`
@@ -716,6 +721,7 @@ export function runUnifiedProjection({
           
           liquidationEvents.push({
             year,
+            age,
             type: newDebtBalance <= 0 ? 'full_liquidation' : 'partial_liquidation',
             liabilityName: loan.name || loan.lender || 'BTC Loan',
             btcAmount: btcToSell,
@@ -744,6 +750,7 @@ export function runUnifiedProjection({
               encumberedBtc[loanKey] = 0;
               liquidationEvents.push({
                 year,
+                age,
                 type: 'release',
                 liabilityName: loan.name || loan.lender || 'BTC Loan',
                 message: `Released ${releasedBtc[loanKey].toFixed(4)} BTC (debt fully paid)`
@@ -758,6 +765,7 @@ export function runUnifiedProjection({
               encumberedBtc[loanKey] = targetCollateralForLoan;
               liquidationEvents.push({
                 year,
+                age,
                 type: 'release',
                 liabilityName: loan.name || loan.lender || 'BTC Loan',
                 message: `Released ${excessCollateral.toFixed(4)} BTC (LTV ${postTopUpLTV.toFixed(1)}% → ${releaseTargetLTV}%)`
