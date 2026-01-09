@@ -815,9 +815,18 @@ export default function FinancialPlan() {
     });
     
     console.log('🔍 DEBUG - runOutOfMoneyAge (depleteAge):', result.depleteAge);
-    console.log('🔍 DEBUG - Sample projection liquidations (age', currentAge + 10 + '):', result.yearByYear[10]?.liquidations);
-    console.log('🔍 DEBUG - Sample projection realEstateSold (age', currentAge + 10 + '):', result.yearByYear[10]?.realEstateSold);
-    console.log('🔍 DEBUG - Sample projection loanPayoffs (age', currentAge + 10 + '):', result.yearByYear[10]?.loanPayoffs);
+    
+    // Find years with liquidation events
+    const yearsWithLiquidations = result.yearByYear.filter(p => p.liquidations && p.liquidations.length > 0);
+    console.log('🔍 DEBUG - Years with liquidations:', yearsWithLiquidations.map(p => ({ age: p.age, events: p.liquidations })));
+    
+    // Find years with real estate sales
+    const yearsWithRealEstateSales = result.yearByYear.filter(p => p.realEstateSold);
+    console.log('🔍 DEBUG - Years with real estate sales:', yearsWithRealEstateSales.map(p => ({ age: p.age, proceeds: p.realEstateSaleProceeds })));
+    
+    // Find years with loan payoffs
+    const yearsWithLoanPayoffs = result.yearByYear.filter(p => p.loanPayoffs && p.loanPayoffs.length > 0);
+    console.log('🔍 DEBUG - Years with loan payoffs:', yearsWithLoanPayoffs.map(p => ({ age: p.age, payoffs: p.loanPayoffs })));
     
     return result.yearByYear;
   }, [holdings, accounts, liabilities, collateralizedLoans, currentPrice, currentAge, retirementAge, lifeExpectancy, 
