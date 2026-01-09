@@ -1624,7 +1624,7 @@ export default function FinancialPlan() {
               {goals.filter(g => g.will_be_spent).length > 0 && `${goals.filter(g => g.will_be_spent).length} planned expense${goals.filter(g => g.will_be_spent).length !== 1 ? 's' : ''} • `}
               {goals.length > 0 && `${goals.length} goal${goals.length !== 1 ? 's' : ''} tracked`}
             </p>
-            <div className="h-[500px] relative" ref={chartContainerRef}>
+            <div className="h-[500px] relative overflow-visible" ref={chartContainerRef}>
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart 
                     data={projections} 
@@ -1658,16 +1658,16 @@ export default function FinancialPlan() {
                         backgroundColor: '#18181b', 
                         border: '1px solid #27272a', 
                         borderRadius: '12px',
-                        maxHeight: '60vh',
+                        maxHeight: '50vh',
                         overflowY: 'auto',
                         pointerEvents: 'auto'
                       }}
                       wrapperStyle={{ 
-                        zIndex: 1000,
+                        zIndex: 9999,
                         pointerEvents: 'auto',
-                        position: lockedTooltipData ? 'fixed' : 'absolute'
+                        overflow: 'visible'
                       }}
-                      position={lockedTooltipData ? { x: Math.min(lockedTooltipData.x + 15, window.innerWidth - 300), y: 100 } : { y: 0 }}
+                      position={{ y: 10 }}
                       active={lockedTooltipData ? true : undefined}
                       cursor={lockedTooltipData ? false : true}
                       content={({ active, payload, label, coordinate }) => {
