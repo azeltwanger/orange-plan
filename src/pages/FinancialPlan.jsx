@@ -867,7 +867,6 @@ export default function FinancialPlan() {
   const depletionIndex = projections.findIndex(p => p.total <= 0);
   const willRunOutOfMoney = depletionIndex !== -1;
   const runOutOfMoneyAge = willRunOutOfMoney ? projections[depletionIndex]?.age : null;
-  
   const yearsInRetirement = lifeExpectancy - retirementAge;
 
   // Calculate inflation-adjusted retirement spending need at retirement
