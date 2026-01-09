@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CreditCard, User, Lock, Sparkles, ExternalLink, CheckCircle2, MessageCircle } from 'lucide-react';
+import { CreditCard, User, Lock, Sparkles, ExternalLink, CheckCircle2, MessageCircle, Trash2, Database, AlertTriangle } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { LoadingSkeleton } from '@/components/ui/LoadingSkeleton';
 
@@ -13,6 +14,9 @@ export default function Settings() {
   const [loading, setLoading] = useState(false);
   const [discordLoading, setDiscordLoading] = useState(false);
   const [profileForm, setProfileForm] = useState({ full_name: '' });
+  const [cleanupDialogOpen, setCleanupDialogOpen] = useState(false);
+  const [cleanupLoading, setCleanupLoading] = useState(false);
+  const [cleanupResult, setCleanupResult] = useState(null);
   const queryClient = useQueryClient();
 
   const { data: user } = useQuery({
@@ -84,6 +88,43 @@ export default function Settings() {
 
   const subscriptionStatus = user?.subscriptionStatus || 'none';
   const hasAccess = user?.hasAccess === true;
+
+  const handleCleanupData = async () => {
+    try {
+      setCleanupLoading(true);
+      setCleanupResult(null);
+      
+      // Fetch all transactions
+      const allTransactions = await base44.entities.Transaction.list();
+      
+      // Find soft-deleted transactions
+      const softDeleted = allTransactions.filter(t => 
+        t.is_deleted === true || t.data?.is_deleted === true
+      );
+      
+      if (softDeleted.length === 0) {
+        setCleanupResult({ count: 0, success: true });
+        return;
+      }
+      
+      // Delete in batches
+      const batchSize = 10;
+      for (let i = 0; i < softDeleted.length; i += batchSize) {
+        const batch = softDeleted.slice(i, i + batchSize);
+        await Promise.all(batch.map(t => base44.entities.Transaction.delete(t.id)));
+        if (i + batchSize < softDeleted.length) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
+      
+      setCleanupResult({ count: softDeleted.length, success: true });
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+    } catch (error) {
+      setCleanupResult({ error: error.message, success: false });
+    } finally {
+      setCleanupLoading(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -204,6 +245,26 @@ export default function Settings() {
               onClick={() => base44.auth.logout()}
             >
               Sign Out
+            </Button>
+          </div>
+
+          {/* Data Management Section */}
+          <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
+            <h3 className="font-semibold mb-4 flex items-center gap-2">
+              <Database className="w-5 h-5 text-orange-400" />
+              Data Management
+            </h3>
+            <p className="text-sm text-zinc-400 mb-4">
+              Clean up orphaned data and optimize your database. This removes any soft-deleted 
+              transactions that may be affecting calculations.
+            </p>
+            <Button 
+              variant="outline" 
+              className="bg-transparent border-zinc-700 transition-all duration-200 active:scale-95"
+              onClick={() => setCleanupDialogOpen(true)}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Clean Up Deleted Data
             </Button>
           </div>
         </TabsContent>
@@ -329,6 +390,83 @@ export default function Settings() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Cleanup Confirmation Dialog */}
+      <Dialog open={cleanupDialogOpen} onOpenChange={setCleanupDialogOpen}>
+        <DialogContent className="bg-[#0f0f10] border-zinc-800 text-zinc-100 max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Trash2 className="w-5 h-5 text-orange-400" />
+              Clean Up Deleted Data
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 mt-4">
+            {cleanupResult ? (
+              cleanupResult.success ? (
+                <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
+                  <div className="flex items-center gap-2 mb-2">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                    <p className="font-medium text-emerald-400">Cleanup Complete</p>
+                  </div>
+                  <p className="text-sm text-zinc-400">
+                    {cleanupResult.count === 0 
+                      ? "No soft-deleted transactions found. Your data is already clean!"
+                      : `Successfully removed ${cleanupResult.count} soft-deleted transaction${cleanupResult.count === 1 ? '' : 's'}.`
+                    }
+                  </p>
+                </div>
+              ) : (
+                <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30">
+                  <div className="flex items-center gap-2 mb-2">
+                    <AlertTriangle className="w-5 h-5 text-rose-400" />
+                    <p className="font-medium text-rose-400">Cleanup Failed</p>
+                  </div>
+                  <p className="text-sm text-zinc-400">{cleanupResult.error}</p>
+                </div>
+              )
+            ) : (
+              <>
+                <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30">
+                  <div className="flex items-center gap-2 mb-2">
+                    <AlertTriangle className="w-5 h-5 text-amber-400" />
+                    <p className="font-medium text-amber-400">Permanent Action</p>
+                  </div>
+                  <p className="text-sm text-zinc-400">
+                    This will permanently delete all soft-deleted transactions from your database. 
+                    These are transactions that were previously marked as deleted but not fully removed.
+                  </p>
+                </div>
+                <p className="text-sm text-zinc-500">
+                  This action cannot be undone. The deleted data will be permanently removed.
+                </p>
+              </>
+            )}
+            
+            <div className="flex gap-3 pt-2">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setCleanupDialogOpen(false);
+                  setCleanupResult(null);
+                }}
+                className="flex-1 bg-transparent border-zinc-700"
+              >
+                {cleanupResult ? 'Close' : 'Cancel'}
+              </Button>
+              {!cleanupResult && (
+                <Button 
+                  onClick={handleCleanupData}
+                  disabled={cleanupLoading}
+                  className="flex-1 bg-rose-600 hover:bg-rose-700 text-white"
+                >
+                  {cleanupLoading ? 'Cleaning...' : 'Clean Up Data'}
+                </Button>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
