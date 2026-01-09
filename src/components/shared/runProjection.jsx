@@ -374,13 +374,13 @@ export function runUnifiedProjection({
       portfolio.taxable.btc += totalReleasedBtcValueThisYear;
 
       // Restore proportional basis for released collateral
-      // Use ratio of released value to initial encumbered value
-      if (initialEncumberedBtcValue > 0 && encumberedBtcBasis > 0) {
-        // Calculate what portion of original encumbered BTC is being released
-        const releasedBtcAtOriginalPrice = totalReleasedBtcThisYear * currentPrice; // Value at original price for ratio
-        const releaseRatio = Math.min(1, releasedBtcAtOriginalPrice / initialEncumberedBtcValue);
+      // Calculate based on current encumbered BTC amount (more accurate than initial)
+      const currentTotalEncumberedBtcBeforeRelease = Object.values(encumberedBtc).reduce((sum, btc) => sum + btc, 0) + totalReleasedBtcThisYear;
+      if (currentTotalEncumberedBtcBeforeRelease > 0 && encumberedBtcBasis > 0) {
+        const releaseRatio = Math.min(1, totalReleasedBtcThisYear / currentTotalEncumberedBtcBeforeRelease);
         const basisToRestore = encumberedBtcBasis * releaseRatio;
         runningTaxableBasis += basisToRestore;
+        encumberedBtcBasis = Math.max(0, encumberedBtcBasis - basisToRestore);
       }
     }
     releasedBtc = {};
@@ -552,8 +552,18 @@ export function runUnifiedProjection({
           const liquidBtcAvailable = portfolio.taxable.btc / cumulativeBtcPrice;
           
           if (additionalBtcNeeded > 0 && liquidBtcAvailable >= additionalBtcNeeded) {
+            // Transfer proportional basis from taxable to encumbered
+            const additionalBtcValue = additionalBtcNeeded * cumulativeBtcPrice;
+            const taxableBtcValueBeforeTopUp = portfolio.taxable.btc;
+            if (taxableBtcValueBeforeTopUp > 0 && runningTaxableBasis > 0) {
+              const taxableTotal = getAccountTotal('taxable');
+              const basisToTransfer = runningTaxableBasis * (additionalBtcValue / taxableTotal);
+              encumberedBtcBasis += basisToTransfer;
+              runningTaxableBasis = Math.max(0, runningTaxableBasis - basisToTransfer);
+            }
+            
             encumberedBtc[liability.id] += additionalBtcNeeded;
-            portfolio.taxable.btc -= additionalBtcNeeded * cumulativeBtcPrice;
+            portfolio.taxable.btc -= additionalBtcValue;
             liquidationEvents.push({
               year,
               age,
@@ -577,6 +587,13 @@ export function runUnifiedProjection({
           const proceedsFromSale = btcToSell * cumulativeBtcPrice;
           const newDebtBalance = Math.max(0, debtBalance - proceedsFromSale);
           const remainingCollateralBtc = totalCollateralBtc - btcToSell;
+          
+          // Reduce encumberedBtcBasis proportionally for liquidated BTC
+          const totalEncumberedBtcAmount = Object.values(encumberedBtc).reduce((sum, btc) => sum + btc, 0);
+          if (totalEncumberedBtcAmount > 0 && encumberedBtcBasis > 0) {
+            const basisReduction = encumberedBtcBasis * (btcToSell / totalEncumberedBtcAmount);
+            encumberedBtcBasis = Math.max(0, encumberedBtcBasis - basisReduction);
+          }
           
           liability.current_balance = newDebtBalance;
           encumberedBtc[liability.id] = remainingCollateralBtc;
@@ -691,8 +708,18 @@ export function runUnifiedProjection({
           const liquidBtcAvailable = portfolio.taxable.btc / cumulativeBtcPrice;
           
           if (additionalBtcNeeded > 0 && liquidBtcAvailable >= additionalBtcNeeded) {
+            // Transfer proportional basis from taxable to encumbered
+            const additionalBtcValue = additionalBtcNeeded * cumulativeBtcPrice;
+            const taxableBtcValueBeforeTopUp = portfolio.taxable.btc;
+            if (taxableBtcValueBeforeTopUp > 0 && runningTaxableBasis > 0) {
+              const taxableTotal = getAccountTotal('taxable');
+              const basisToTransfer = runningTaxableBasis * (additionalBtcValue / taxableTotal);
+              encumberedBtcBasis += basisToTransfer;
+              runningTaxableBasis = Math.max(0, runningTaxableBasis - basisToTransfer);
+            }
+            
             encumberedBtc[loanKey] += additionalBtcNeeded;
-            portfolio.taxable.btc -= additionalBtcNeeded * cumulativeBtcPrice;
+            portfolio.taxable.btc -= additionalBtcValue;
             liquidationEvents.push({
               year,
               age,
@@ -716,6 +743,13 @@ export function runUnifiedProjection({
           const proceedsFromSale = btcToSell * cumulativeBtcPrice;
           const newDebtBalance = Math.max(0, debtBalance - proceedsFromSale);
           const remainingCollateralBtc = totalCollateralBtc - btcToSell;
+          
+          // Reduce encumberedBtcBasis proportionally for liquidated BTC
+          const totalEncumberedBtcAmount = Object.values(encumberedBtc).reduce((sum, btc) => sum + btc, 0);
+          if (totalEncumberedBtcAmount > 0 && encumberedBtcBasis > 0) {
+            const basisReduction = encumberedBtcBasis * (btcToSell / totalEncumberedBtcAmount);
+            encumberedBtcBasis = Math.max(0, encumberedBtcBasis - basisReduction);
+          }
           
           loan.current_balance = newDebtBalance;
           encumberedBtc[loanKey] = remainingCollateralBtc;
@@ -1032,16 +1066,12 @@ export function runUnifiedProjection({
               const costBasisForSale = saleProceeds * actualCostBasisPercent;
               const gainOnSale = Math.max(0, saleProceeds - costBasisForSale);
               
-              console.log('LOAN EQUITY UNLOCK DEBUG (PRE-RETIRE):', {
-                totalEncumberedBtcValue,
-                encumberedBtcBasis,
-                actualCostBasisPercent: (actualCostBasisPercent * 100).toFixed(1) + '%',
-                btcToSell: btcToSellForDebt,
-                saleProceeds,
-                costBasisForSale,
-                gainOnSale,
-                taxOnSale: 0 // calculated next
-              });
+              // Reduce encumberedBtcBasis proportionally for sold BTC
+              const totalEncumberedBtcAmount = Object.values(encumberedBtc).reduce((sum, btc) => sum + btc, 0);
+              if (totalEncumberedBtcAmount > 0 && encumberedBtcBasis > 0) {
+                const basisReduction = encumberedBtcBasis * (btcToSellForDebt / totalEncumberedBtcAmount);
+                encumberedBtcBasis = Math.max(0, encumberedBtcBasis - basisReduction);
+              }
               
               const taxableIncomeBase = withdrawFromTaxable + withdrawFromTaxDeferred;
               const taxOnSale = gainOnSale * getLTCGRate(taxableIncomeBase, filingStatus, year);
@@ -1301,16 +1331,12 @@ export function runUnifiedProjection({
               const costBasisForSale = saleProceeds * actualCostBasisPercent;
               const gainOnSale = Math.max(0, saleProceeds - costBasisForSale);
               
-              console.log('LOAN EQUITY UNLOCK DEBUG (RETIRE):', {
-                totalEncumberedBtcValue,
-                encumberedBtcBasis,
-                actualCostBasisPercent: (actualCostBasisPercent * 100).toFixed(1) + '%',
-                btcToSell: btcToSellForDebt,
-                saleProceeds,
-                costBasisForSale,
-                gainOnSale,
-                taxOnSale: 0 // calculated next
-              });
+              // Reduce encumberedBtcBasis proportionally for sold BTC
+              const totalEncumberedBtcAmount = Object.values(encumberedBtc).reduce((sum, btc) => sum + btc, 0);
+              if (totalEncumberedBtcAmount > 0 && encumberedBtcBasis > 0) {
+                const basisReduction = encumberedBtcBasis * (btcToSellForDebt / totalEncumberedBtcAmount);
+                encumberedBtcBasis = Math.max(0, encumberedBtcBasis - basisReduction);
+              }
               
               const taxableIncomeBase = (totalOtherIncomeForTax || 0) + withdrawFromTaxable + withdrawFromTaxDeferred;
               const taxOnSale = gainOnSale * getLTCGRate(taxableIncomeBase, filingStatus, year);
