@@ -12,14 +12,17 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (!user.stripe_customer_id) {
-      return Response.json({ error: 'No subscription found' }, { status: 400 });
+    // Check both possible field names for Stripe customer ID
+    const stripeCustomerId = user.stripe_customer_id || user.stripeCustomerId;
+
+    if (!stripeCustomerId) {
+      return Response.json({ error: 'No subscription found. Please subscribe first.' }, { status: 400 });
     }
 
     // Create billing portal session
     const session = await stripe.billingPortal.sessions.create({
-      customer: user.stripe_customer_id,
-      return_url: `${req.headers.get('origin')}/settings`,
+      customer: stripeCustomerId,
+      return_url: `${req.headers.get('origin')}/Settings`,
     });
 
     return Response.json({ url: session.url });
