@@ -814,6 +814,11 @@ export default function FinancialPlan() {
       DEBUG: false,
     });
     
+    console.log('🔍 DEBUG - runOutOfMoneyAge (depleteAge):', result.depleteAge);
+    console.log('🔍 DEBUG - Sample projection liquidations (age', currentAge + 10 + '):', result.yearByYear[10]?.liquidations);
+    console.log('🔍 DEBUG - Sample projection realEstateSold (age', currentAge + 10 + '):', result.yearByYear[10]?.realEstateSold);
+    console.log('🔍 DEBUG - Sample projection loanPayoffs (age', currentAge + 10 + '):', result.yearByYear[10]?.loanPayoffs);
+    
     return result.yearByYear;
   }, [holdings, accounts, liabilities, collateralizedLoans, currentPrice, currentAge, retirementAge, lifeExpectancy, 
       retirementAnnualSpending, effectiveSocialSecurity, socialSecurityStartAge, otherRetirementIncome,
@@ -867,6 +872,10 @@ export default function FinancialPlan() {
   const depletionIndex = projections.findIndex(p => p.total <= 0);
   const willRunOutOfMoney = depletionIndex !== -1;
   const runOutOfMoneyAge = willRunOutOfMoney ? projections[depletionIndex]?.age : null;
+  
+  console.log('🔍 DEBUG - runOutOfMoneyAge (from projections):', runOutOfMoneyAge);
+  console.log('🔍 DEBUG - depletionIndex:', depletionIndex);
+  console.log('🔍 DEBUG - willRunOutOfMoney:', willRunOutOfMoney);
   
   const yearsInRetirement = lifeExpectancy - retirementAge;
 
