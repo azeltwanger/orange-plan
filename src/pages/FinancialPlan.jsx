@@ -95,6 +95,7 @@ export default function FinancialPlan() {
 
   // BTC return model (separate from withdrawal)
   const [btcReturnModel, setBtcReturnModel] = useState('custom');
+  const userBtcModelSelectionMade = useRef(false);
 
   // Tax settings
   const [filingStatus, setFilingStatus] = useState('single');
@@ -293,7 +294,9 @@ export default function FinancialPlan() {
       if (settings.life_expectancy !== undefined) setLifeExpectancy(settings.life_expectancy);
       if (settings.current_annual_spending !== undefined) setCurrentAnnualSpending(settings.current_annual_spending);
       if (settings.annual_retirement_spending !== undefined) setRetirementAnnualSpending(settings.annual_retirement_spending);
-      if (settings.btc_return_model !== undefined) setBtcReturnModel(settings.btc_return_model);
+      if (settings.btc_return_model !== undefined && !userBtcModelSelectionMade.current) {
+        setBtcReturnModel(settings.btc_return_model);
+      }
       if (settings.other_retirement_income !== undefined) setOtherRetirementIncome(settings.other_retirement_income);
                   if (settings.social_security_start_age !== undefined) setSocialSecurityStartAge(settings.social_security_start_age);
                   if (settings.social_security_amount !== undefined) setSocialSecurityAmount(settings.social_security_amount);
@@ -980,7 +983,7 @@ export default function FinancialPlan() {
     
     // Binary search for max sustainable spending (in today's dollars)
     let low = 0;
-    let high = total * 0.15; // Start with 15% of portfolio as upper bound
+    let high = total * 0.30; // Start with 30% of portfolio as upper bound
     
     for (let iteration = 0; iteration < 30; iteration++) {
       const testSpending = (low + high) / 2;
@@ -994,9 +997,7 @@ export default function FinancialPlan() {
       }
     }
     
-    const maxSustainable = Math.round(low);
-    console.log('MAX SPEND RESULT:', maxSustainable, '| Model:', btcReturnModel);
-    return maxSustainable;
+    return Math.round(low);
   }, [holdings, accounts, liabilities, collateralizedLoans, currentPrice, currentAge, lifeExpectancy, 
       retirementAnnualSpending, effectiveSocialSecurity, socialSecurityStartAge, otherRetirementIncome,
       annualSavings, incomeGrowth, grossAnnualIncome, currentAnnualSpending, filingStatus, stateOfResidence,
@@ -1351,7 +1352,10 @@ export default function FinancialPlan() {
               ].map(model => (
                 <div key={model.value} className="relative">
                   <button
-                    onClick={() => setBtcReturnModel(model.value)}
+                    onClick={() => {
+                      setBtcReturnModel(model.value);
+                      userBtcModelSelectionMade.current = true;
+                    }}
                     className={cn(
                       "p-3 rounded-lg border text-left transition-all w-full",
                       btcReturnModel === model.value
