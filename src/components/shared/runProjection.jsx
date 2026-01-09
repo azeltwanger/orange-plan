@@ -964,7 +964,9 @@ export function runUnifiedProjection({
 
         // Calculate total actually withdrawn
         const totalActuallyWithdrawn = (withdrawFromTaxable || 0) + (withdrawFromTaxDeferred || 0) + (withdrawFromTaxFree || 0);
-        let remainingShortfall = deficit - totalActuallyWithdrawn;
+        // Include taxes and penalties in the total amount needed from portfolio
+        const totalDeficitPlusTaxes = deficit + (taxEstimate.totalTax || 0) + preRetireStateTax + (taxEstimate.totalPenalty || 0);
+        let remainingShortfall = totalDeficitPlusTaxes - totalActuallyWithdrawn;
 
         // Force additional withdrawals if shortfall (same as retirement)
         if (remainingShortfall > 0) {
