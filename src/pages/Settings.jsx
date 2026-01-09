@@ -223,17 +223,74 @@ export default function Settings() {
               </div>
               <div className={cn(
                 "px-3 py-1 rounded-full text-xs font-medium",
-                isActive ? "bg-emerald-500/20 text-emerald-400" : "bg-zinc-700 text-zinc-300"
+                subscriptionStatus === 'active' ? "bg-emerald-500/20 text-emerald-400" :
+                subscriptionStatus === 'cancelling' ? "bg-amber-500/20 text-amber-400" :
+                "bg-zinc-700 text-zinc-300"
               )}>
-                {subscriptionStatus === 'trialing' && 'Free Trial'}
                 {subscriptionStatus === 'active' && 'Active'}
-                {subscriptionStatus === 'canceled' && 'Canceled'}
-                {subscriptionStatus === 'past_due' && 'Past Due'}
-                {subscriptionStatus === 'none' && 'No Subscription'}
+                {subscriptionStatus === 'cancelling' && 'Cancelling'}
+                {(subscriptionStatus === 'cancelled' || subscriptionStatus === 'none' || !hasAccess) && 'No Subscription'}
               </div>
             </div>
 
-            {!isActive && subscriptionStatus !== 'past_due' && (
+            {/* Active Subscription */}
+            {subscriptionStatus === 'active' && (
+              <div className="space-y-4">
+                <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
+                  <p className="font-medium text-zinc-200">Orange Plan Monthly</p>
+                  <p className="text-sm text-zinc-400 mt-1">
+                    Your subscription is active and all features are available.
+                  </p>
+                </div>
+                <Button 
+                  onClick={handleManageBilling}
+                  disabled={loading}
+                  variant="outline"
+                  className="bg-transparent border-zinc-700 w-full"
+                >
+                  {loading ? 'Loading...' : (
+                    <>
+                      Manage Subscription
+                      <ExternalLink className="w-4 h-4 ml-2" />
+                    </>
+                  )}
+                </Button>
+                <p className="text-xs text-zinc-500 text-center">
+                  Update payment method, view invoices, or cancel subscription
+                </p>
+              </div>
+            )}
+
+            {/* Cancelling Subscription */}
+            {subscriptionStatus === 'cancelling' && (
+              <div className="space-y-4">
+                <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30">
+                  <p className="font-medium text-zinc-200">Orange Plan Monthly</p>
+                  <p className="text-sm text-amber-400 mt-1">
+                    Your subscription is cancelled but you have access until the end of your billing period.
+                  </p>
+                </div>
+                <Button 
+                  onClick={handleManageBilling}
+                  disabled={loading}
+                  variant="outline"
+                  className="bg-transparent border-zinc-700 w-full"
+                >
+                  {loading ? 'Loading...' : (
+                    <>
+                      Manage Subscription
+                      <ExternalLink className="w-4 h-4 ml-2" />
+                    </>
+                  )}
+                </Button>
+                <p className="text-xs text-zinc-500 text-center">
+                  Resubscribe or update payment method
+                </p>
+              </div>
+            )}
+
+            {/* No Subscription */}
+            {(subscriptionStatus === 'cancelled' || subscriptionStatus === 'none' || (!hasAccess && subscriptionStatus !== 'active' && subscriptionStatus !== 'cancelling')) && (
               <div className="space-y-4">
                 <div className="p-4 rounded-xl bg-gradient-to-br from-orange-500/10 to-transparent border border-orange-500/30">
                   <div className="flex items-start gap-3 mb-4">
@@ -266,52 +323,6 @@ export default function Settings() {
                   className="brand-gradient text-white w-full transition-transform active:scale-[0.98] hover:shadow-lg"
                 >
                   {loading ? 'Loading...' : 'Start Free Trial'}
-                </Button>
-              </div>
-            )}
-
-            {isActive && (
-              <div className="space-y-4">
-                <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
-                  <p className="text-sm text-zinc-300">
-                    {subscriptionStatus === 'trialing' 
-                      ? 'You are currently on a free trial. You will not be charged until the trial period ends.'
-                      : 'Your subscription is active and all features are available.'
-                    }
-                  </p>
-                </div>
-                <Button 
-                  onClick={handleManageBilling}
-                  disabled={loading}
-                  variant="outline"
-                  className="bg-transparent border-zinc-700 w-full"
-                >
-                  {loading ? 'Loading...' : (
-                    <>
-                      Manage Subscription
-                      <ExternalLink className="w-4 h-4 ml-2" />
-                    </>
-                  )}
-                </Button>
-                <p className="text-xs text-zinc-500 text-center">
-                  Update payment method, view invoices, or cancel subscription
-                </p>
-              </div>
-            )}
-
-            {subscriptionStatus === 'past_due' && (
-              <div className="space-y-4">
-                <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30">
-                  <p className="text-sm text-rose-400 font-medium">
-                    Your payment has failed. Please update your payment method to continue using Orange Plan.
-                  </p>
-                </div>
-                <Button 
-                  onClick={handleManageBilling}
-                  disabled={loading}
-                  className="bg-rose-600 hover:bg-rose-700 text-white w-full"
-                >
-                  {loading ? 'Loading...' : 'Update Payment Method'}
                 </Button>
               </div>
             )}
