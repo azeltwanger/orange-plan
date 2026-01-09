@@ -56,7 +56,9 @@ const INDUSTRY_AVG_FEE_ONLY_PERCENT = 1.0;
 
 export default function FeeAnalyzer({ transactions = [], btcPrice = 97000 }) {
   const analysis = useMemo(() => {
-    const btcTransactions = transactions.filter(t => t.asset_ticker === 'BTC' && t.type === 'buy');
+    // Filter out soft-deleted transactions first
+    const activeTransactions = transactions.filter(t => !t.is_deleted && !t.data?.is_deleted);
+    const btcTransactions = activeTransactions.filter(t => t.asset_ticker === 'BTC' && t.type === 'buy');
     
     if (btcTransactions.length === 0) {
       return null;
