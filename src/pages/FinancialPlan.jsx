@@ -20,6 +20,7 @@ import { runUnifiedProjection } from '@/components/shared/runProjection';
 import { getRMDFactor } from '@/components/shared/taxData';
 import { get401kLimit, getRothIRALimit, getTraditionalIRALimit, getHSALimit, getTaxConfigForYear, getRothIRAIncomeLimit } from '@/components/shared/taxConfig';
 import { getStateOptions, getStateTaxSummary, STATE_TAX_CONFIG, calculateStateTaxOnRetirement, calculateStateCapitalGainsTax, calculateStateIncomeTax } from '@/components/shared/stateTaxConfig';
+import { getPowerLawGrowthRates } from '@/components/shared/bitcoinPowerLaw';
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
@@ -94,6 +95,7 @@ export default function FinancialPlan() {
 
   // BTC return model (separate from withdrawal)
   const [btcReturnModel, setBtcReturnModel] = useState('custom');
+  const [powerLawBand, setPowerLawBand] = useState('lower');
 
   // Tax settings
   const [filingStatus, setFilingStatus] = useState('single');
@@ -293,6 +295,7 @@ export default function FinancialPlan() {
       if (settings.current_annual_spending !== undefined) setCurrentAnnualSpending(settings.current_annual_spending);
       if (settings.annual_retirement_spending !== undefined) setRetirementAnnualSpending(settings.annual_retirement_spending);
       if (settings.btc_return_model !== undefined) setBtcReturnModel(settings.btc_return_model);
+      if (settings.power_law_band !== undefined) setPowerLawBand(settings.power_law_band);
       if (settings.other_retirement_income !== undefined) setOtherRetirementIncome(settings.other_retirement_income);
                   if (settings.social_security_start_age !== undefined) setSocialSecurityStartAge(settings.social_security_start_age);
                   if (settings.social_security_amount !== undefined) setSocialSecurityAmount(settings.social_security_amount);
@@ -357,6 +360,7 @@ export default function FinancialPlan() {
         current_annual_spending: currentAnnualSpending || 80000,
         annual_retirement_spending: retirementAnnualSpending || 100000,
         btc_return_model: btcReturnModel || 'custom',
+        power_law_band: powerLawBand || 'lower',
                       other_retirement_income: otherRetirementIncome || 0,
                       social_security_start_age: socialSecurityStartAge || 67,
                       social_security_amount: socialSecurityAmount || 0,
@@ -383,7 +387,7 @@ export default function FinancialPlan() {
                     });
     }, 1000); // Debounce 1 second
     return () => clearTimeout(timeoutId);
-  }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, otherCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, useCustomSocialSecurity, grossAnnualIncome, contribution401k, employer401kMatch, contributionRothIRA, contributionTraditionalIRA, contributionHSA, hsaFamilyCoverage, filingStatus, stateOfResidence, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv, btcReleaseTriggerLtv, btcReleaseTargetLtv, savingsAllocationBtc, savingsAllocationStocks, savingsAllocationBonds, savingsAllocationCash, savingsAllocationOther, saveSettings]);
+  }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, otherCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, btcReturnModel, powerLawBand, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, useCustomSocialSecurity, grossAnnualIncome, contribution401k, employer401kMatch, contributionRothIRA, contributionTraditionalIRA, contributionHSA, hsaFamilyCoverage, filingStatus, stateOfResidence, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv, btcReleaseTriggerLtv, btcReleaseTargetLtv, savingsAllocationBtc, savingsAllocationStocks, savingsAllocationBonds, savingsAllocationCash, savingsAllocationOther, saveSettings]);
 
   // Calculate accurate debt payments for current month
   const currentMonthForDebt = new Date().getMonth();
@@ -487,9 +491,22 @@ export default function FinancialPlan() {
   const effectiveStocksCagr = stocksCagr;
   const effectiveInflation = inflationRate;
 
+  // Power Law growth rates cache
+  const powerLawRates = useMemo(() => {
+    if (btcReturnModel !== 'powerlaw' || !currentPrice) return null;
+    return getPowerLawGrowthRates(currentAge, lifeExpectancy, currentPrice, powerLawBand);
+  }, [btcReturnModel, currentAge, lifeExpectancy, currentPrice, powerLawBand]);
+
   // BTC growth models - now based on btcReturnModel, not withdrawalStrategy
-  const getBtcGrowthRate = (yearFromNow, inflationRate) => {
+  const getBtcGrowthRate = useCallback((yearFromNow, inflationRate) => {
     switch (btcReturnModel) {
+      case 'powerlaw':
+        // Power Law model - use pre-calculated rates
+        if (powerLawRates && powerLawRates[yearFromNow]) {
+          return powerLawRates[yearFromNow].growthRate;
+        }
+        // Fallback if rate not available
+        return effectiveBtcCagr;
       case 'saylor24':
         // Saylor's Bitcoin 24 Model with extended phases:
         // Phase 1 (2025-2037): 50% declining to 20%
@@ -517,13 +534,10 @@ export default function FinancialPlan() {
           // Phase 4: Terminal rate (2% above inflation for long-term real returns)
           return inflationRate + 2;
         }
-      case 'conservative':
-        // Conservative model: 10% flat
-        return 10;
       default:
         return effectiveBtcCagr;
     }
-  };
+  }, [btcReturnModel, powerLawRates, effectiveBtcCagr]);
 
   // Number formatting helper
   const formatNumber = (num, decimals = 0) => {
@@ -1327,40 +1341,102 @@ export default function FinancialPlan() {
             <Label className="text-zinc-300 font-medium mb-3 block">Bitcoin Return Model</Label>
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
               {[
-                { value: 'custom', label: 'Custom', desc: `${btcCagr}% CAGR` },
-                { value: 'saylor24', label: 'Saylor Bitcoin 24 Model', desc: '50%→20% declining' },
-                { value: 'conservative', label: 'Conservative', desc: '10% flat' },
+                { value: 'custom', label: 'Custom %', desc: `${btcCagr}% CAGR` },
+                { value: 'saylor24', label: 'Saylor Model', desc: '50%→20% declining' },
+                { value: 'powerlaw', label: 'Power Law', desc: 'Age-based projection', hasTooltip: true },
               ].map(model => (
-                <button
-                  key={model.value}
-                  onClick={() => setBtcReturnModel(model.value)}
-                  className={cn(
-                    "p-3 rounded-lg border text-left transition-all",
-                    btcReturnModel === model.value
-                      ? "bg-orange-500/20 border-orange-500/50 text-orange-300"
-                      : "bg-zinc-800/50 border-zinc-700 text-zinc-300 hover:border-zinc-600"
-                  )}
-                >
-                  <p className="font-medium text-sm">{model.label}</p>
-                  <p className="text-xs text-zinc-400">{model.desc}</p>
-                </button>
+                <div key={model.value} className="relative">
+                  <button
+                    onClick={() => setBtcReturnModel(model.value)}
+                    className={cn(
+                      "p-3 rounded-lg border text-left transition-all w-full",
+                      btcReturnModel === model.value
+                        ? "bg-orange-500/20 border-orange-500/50 text-orange-300"
+                        : "bg-zinc-800/50 border-zinc-700 text-zinc-300 hover:border-zinc-600"
+                    )}
+                  >
+                    <div className="flex items-center gap-1">
+                      <p className="font-medium text-sm">{model.label}</p>
+                      {model.hasTooltip && (
+                        <TooltipProvider delayDuration={100}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="cursor-help text-zinc-500 hover:text-zinc-300">
+                                <Info className="w-3.5 h-3.5" />
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-[280px] bg-zinc-800 border-zinc-700 text-zinc-200 text-sm p-3">
+                              <p>The Power Law model predicts Bitcoin's price based on its age (days since genesis). It has accurately tracked BTC's long-term price trend since 2009, regardless of market cycles.</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                    </div>
+                    <p className="text-xs text-zinc-400">{model.desc}</p>
+                  </button>
+                </div>
               ))}
             </div>
+            
+            {/* Power Law Band Selection */}
+            {btcReturnModel === 'powerlaw' && (
+              <div className="mt-4 p-3 rounded-lg bg-zinc-800/50 border border-zinc-700">
+                <div className="flex items-center gap-2 mb-2">
+                  <Label className="text-zinc-400 text-sm">Projection Band</Label>
+                  <TooltipProvider delayDuration={100}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="cursor-help text-zinc-500 hover:text-zinc-300">
+                          <Info className="w-3.5 h-3.5" />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[280px] bg-zinc-800 border-zinc-700 text-zinc-200 text-sm p-3">
+                        {powerLawBand === 'lower' && (
+                          <p>Assumes BTC trades at historical bear market floors (~42% of fair value). This is where BTC has bottomed in past cycles. Best for stress-testing your plan.</p>
+                        )}
+                        {powerLawBand === 'middle' && (
+                          <p>Projects BTC along its historical fair value trend line. This is the average expected price based on the Power Law model.</p>
+                        )}
+                        {powerLawBand === 'upper' && (
+                          <p>Assumes BTC trades at historical bull market peaks (~250% of fair value). Use this to see best-case scenarios.</p>
+                        )}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+                <Select value={powerLawBand} onValueChange={setPowerLawBand}>
+                  <SelectTrigger className="bg-zinc-900 border-zinc-700">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-zinc-900 border-zinc-700">
+                    <SelectItem value="lower">Conservative (Lower Band)</SelectItem>
+                    <SelectItem value="middle">Base Case (Fair Value)</SelectItem>
+                    <SelectItem value="upper">Optimistic (Upper Band)</SelectItem>
+                  </SelectContent>
+                </Select>
+                {powerLawRates && powerLawRates[1] && (
+                  <p className="text-xs text-zinc-500 mt-2">
+                    Year 1 growth: {powerLawRates[1].growthRate.toFixed(1)}% • Target price: ${Math.round(powerLawRates[1].targetPrice).toLocaleString()}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div className={cn("space-y-3", btcReturnModel !== 'custom' && "opacity-50")}>
-              <div className="flex justify-between">
-                <Label className="text-zinc-400">Bitcoin CAGR {btcReturnModel !== 'custom' && '(using model)'}</Label>
-                <span className="text-orange-400 font-semibold">{btcReturnModel === 'custom' ? btcCagr : getBtcGrowthRate(0, effectiveInflation)}%</span>
+            {btcReturnModel === 'custom' && (
+              <div className="space-y-3">
+                <div className="flex justify-between">
+                  <Label className="text-zinc-400">Bitcoin CAGR</Label>
+                  <span className="text-orange-400 font-semibold">{btcCagr}%</span>
+                </div>
+                <Slider
+                  value={[btcCagr]}
+                  onValueChange={([v]) => setBtcCagr(v)}
+                  min={-20} max={100} step={1}
+                />
               </div>
-              <Slider
-                value={[btcCagr]}
-                onValueChange={([v]) => { setBtcCagr(v); setBtcReturnModel('custom'); }}
-                min={-20} max={100} step={1}
-                disabled={btcReturnModel !== 'custom'}
-              />
-            </div>
+            )}
             <div className="space-y-3">
               <div className="flex justify-between">
                 <Label className="text-zinc-400">Stocks CAGR</Label>
@@ -3404,7 +3480,7 @@ export default function FinancialPlan() {
                 BTC Model: <span className="text-orange-400 font-semibold">
                   {btcReturnModel === 'custom' ? `${btcCagr || 25}%` :
                    btcReturnModel === 'saylor24' ? 'Saylor Bitcoin24' :
-                   btcReturnModel === 'powerlaw' ? 'Power Law' : 'Conservative'}
+                   btcReturnModel === 'powerlaw' ? `Power Law (${powerLawBand === 'lower' ? 'Conservative' : powerLawBand === 'middle' ? 'Base' : 'Optimistic'})` : 'Custom'}
                 </span>
               </p>
               </div>
@@ -3462,7 +3538,7 @@ export default function FinancialPlan() {
                     {successProbability?.toFixed(0)}%
                   </p>
                   <p className="text-xs text-zinc-400 mt-1">
-                    Income-Based: ${Math.round(inflationAdjustedRetirementSpending || 0).toLocaleString()}/yr • {btcReturnModel === 'custom' ? `${btcCagr || 25}%` : btcReturnModel} BTC • BTC Vol: {getBtcVolatilityForMonteCarlo(0).toFixed(0)}%→{getBtcVolatilityForMonteCarlo(30).toFixed(0)}%
+                    Income-Based: ${Math.round(inflationAdjustedRetirementSpending || 0).toLocaleString()}/yr • {btcReturnModel === 'custom' ? `${btcCagr || 25}%` : btcReturnModel === 'powerlaw' ? `Power Law (${powerLawBand})` : btcReturnModel} BTC • BTC Vol: {getBtcVolatilityForMonteCarlo(0).toFixed(0)}%→{getBtcVolatilityForMonteCarlo(30).toFixed(0)}%
                   </p>
                   <p className="text-sm text-zinc-300 mt-2">
                     {successProbability >= 80 ? "Excellent! You're on track for your desired retirement lifestyle." :
