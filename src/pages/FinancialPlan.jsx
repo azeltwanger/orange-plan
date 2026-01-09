@@ -1711,6 +1711,7 @@ export default function FinancialPlan() {
                                       <span className="text-zinc-200 font-medium text-right">
                                         ${((p.btcLiquid || 0) + (p.btcEncumbered || 0)).toLocaleString()}
                                         <span className="text-zinc-500 text-xs ml-1">({totalBtcAmount.toFixed(4)} BTC)</span>
+                                        <span className="text-zinc-600 text-xs ml-1">@ {(p.btcGrowthRate || 0).toFixed(1)}%</span>
                                       </span>
                                     </div>
                                     {(p.btcLiquid || 0) > 0 && (
@@ -1736,19 +1737,31 @@ export default function FinancialPlan() {
                               })()}
                               <div className="flex justify-between gap-6">
                                 <span className="text-blue-400 font-light">Stocks:</span>
-                                <span className="text-zinc-200 font-medium text-right">${(p.stocks || 0).toLocaleString()}</span>
+                                <span className="text-zinc-200 font-medium text-right">
+                                  ${(p.stocks || 0).toLocaleString()}
+                                  <span className="text-zinc-600 text-xs ml-1">@ {(p.stocksGrowthRate || 0).toFixed(1)}%</span>
+                                </span>
                               </div>
                               <div className="flex justify-between gap-6">
                                 <span className="text-emerald-400 font-light">Real Estate:</span>
-                                <span className="text-zinc-200 font-medium text-right">${(p.realEstate || 0).toLocaleString()}</span>
+                                <span className="text-zinc-200 font-medium text-right">
+                                  ${(p.realEstate || 0).toLocaleString()}
+                                  <span className="text-zinc-600 text-xs ml-1">@ {(p.realEstateGrowthRate || 0).toFixed(1)}%</span>
+                                </span>
                               </div>
                               <div className="flex justify-between gap-6">
                                 <span className="text-purple-400 font-light">Bonds:</span>
-                                <span className="text-zinc-200 font-medium text-right">${(p.bonds || 0).toLocaleString()}</span>
+                                <span className="text-zinc-200 font-medium text-right">
+                                  ${(p.bonds || 0).toLocaleString()}
+                                  <span className="text-zinc-600 text-xs ml-1">@ {(p.bondsGrowthRate || 0).toFixed(1)}%</span>
+                                </span>
                               </div>
                               <div className="flex justify-between gap-6">
                                 <span className="text-cyan-400 font-light">Cash:</span>
-                                <span className="text-zinc-200 font-medium text-right">${(p.cash || 0).toLocaleString()}</span>
+                                <span className="text-zinc-200 font-medium text-right">
+                                  ${(p.cash || 0).toLocaleString()}
+                                  <span className="text-zinc-600 text-xs ml-1">@ {(p.cashGrowthRate || 0).toFixed(1)}%</span>
+                                </span>
                               </div>
                               <div className="pt-3 mt-3 border-t border-zinc-700/70 space-y-1.5">
                                 <div className="flex justify-between gap-6">
@@ -1860,17 +1873,23 @@ export default function FinancialPlan() {
                                   <p className="text-zinc-400 mb-2 font-medium text-xs">Annual Cash Flow:</p>
                                   <div className="text-xs space-y-1.5 text-zinc-500 mb-2">
                                     {/* Income sources */}
+                                    {otherRetirementIncome > 0 && (
+                                    <div className="flex justify-between gap-6">
+                                      <span>Gross Income:</span>
+                                      <span className="text-emerald-400 text-right">+${otherRetirementIncome.toLocaleString()}</span>
+                                    </div>
+                                    )}
                                     {p.socialSecurityIncome > 0 && (
-                                      <div className="flex justify-between gap-6">
-                                        <span>Social Security Income:</span>
-                                        <span className="text-emerald-400 text-right">+${p.socialSecurityIncome.toLocaleString()}</span>
-                                      </div>
+                                    <div className="flex justify-between gap-6">
+                                      <span>Social Security Income:</span>
+                                      <span className="text-emerald-400 text-right">+${p.socialSecurityIncome.toLocaleString()}</span>
+                                    </div>
                                     )}
                                     {p.rmdWithdrawn > 0 && (
-                                      <div className="flex justify-between gap-6">
-                                        <span>RMD (Required):</span>
-                                        <span className="text-emerald-400 text-right">+${p.rmdWithdrawn.toLocaleString()}</span>
-                                      </div>
+                                    <div className="flex justify-between gap-6">
+                                      <span>RMD (Required):</span>
+                                      <span className="text-emerald-400 text-right">+${p.rmdWithdrawn.toLocaleString()}</span>
+                                    </div>
                                     )}
                                     {p.excessRmdReinvested > 0 && (
                                       <div className="flex justify-between gap-6 text-xs">
