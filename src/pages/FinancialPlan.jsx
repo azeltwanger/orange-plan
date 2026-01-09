@@ -538,10 +538,6 @@ export default function FinancialPlan() {
         rate = effectiveBtcCagr;
     }
     
-    if (yearFromNow < 3) {
-      console.log(`getBtcGrowthRate year ${yearFromNow}: ${rate?.toFixed(1)}% (model: ${btcReturnModel})`);
-    }
-    
     return rate;
   }, [btcReturnModel, effectiveBtcCagr]);
 
@@ -979,7 +975,6 @@ export default function FinancialPlan() {
 
   // UNIFIED: Derive maxSustainableSpending using binary search with accurate projection
   const derivedMaxSustainableSpending = useMemo(() => {
-    console.log('derivedMaxSustainableSpending recalculating with btcReturnModel:', btcReturnModel);
     const total = btcValue + stocksValue + realEstateValue + bondsValue + cashValue + otherValue;
     if (total <= 0) return 0;
     
@@ -999,7 +994,9 @@ export default function FinancialPlan() {
       }
     }
     
-    return Math.round(low);
+    const maxSustainable = Math.round(low);
+    console.log('MAX SPEND RESULT:', maxSustainable, '| Model:', btcReturnModel);
+    return maxSustainable;
   }, [holdings, accounts, liabilities, collateralizedLoans, currentPrice, currentAge, lifeExpectancy, 
       retirementAnnualSpending, effectiveSocialSecurity, socialSecurityStartAge, otherRetirementIncome,
       annualSavings, incomeGrowth, grossAnnualIncome, currentAnnualSpending, filingStatus, stateOfResidence,
