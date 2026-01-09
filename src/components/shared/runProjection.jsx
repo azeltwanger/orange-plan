@@ -1032,6 +1032,17 @@ export function runUnifiedProjection({
               const costBasisForSale = saleProceeds * actualCostBasisPercent;
               const gainOnSale = Math.max(0, saleProceeds - costBasisForSale);
               
+              console.log('LOAN EQUITY UNLOCK DEBUG (PRE-RETIRE):', {
+                totalEncumberedBtcValue,
+                encumberedBtcBasis,
+                actualCostBasisPercent: (actualCostBasisPercent * 100).toFixed(1) + '%',
+                btcToSell: btcToSellForDebt,
+                saleProceeds,
+                costBasisForSale,
+                gainOnSale,
+                taxOnSale: 0 // calculated next
+              });
+              
               const taxableIncomeBase = withdrawFromTaxable + withdrawFromTaxDeferred;
               const taxOnSale = gainOnSale * getLTCGRate(taxableIncomeBase, filingStatus, year);
               
@@ -1289,6 +1300,17 @@ export function runUnifiedProjection({
               const saleProceeds = btcToSellForDebt * cumulativeBtcPrice;
               const costBasisForSale = saleProceeds * actualCostBasisPercent;
               const gainOnSale = Math.max(0, saleProceeds - costBasisForSale);
+              
+              console.log('LOAN EQUITY UNLOCK DEBUG (RETIRE):', {
+                totalEncumberedBtcValue,
+                encumberedBtcBasis,
+                actualCostBasisPercent: (actualCostBasisPercent * 100).toFixed(1) + '%',
+                btcToSell: btcToSellForDebt,
+                saleProceeds,
+                costBasisForSale,
+                gainOnSale,
+                taxOnSale: 0 // calculated next
+              });
               
               const taxableIncomeBase = (totalOtherIncomeForTax || 0) + withdrawFromTaxable + withdrawFromTaxDeferred;
               const taxOnSale = gainOnSale * getLTCGRate(taxableIncomeBase, filingStatus, year);
