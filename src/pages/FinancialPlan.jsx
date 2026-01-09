@@ -814,20 +814,6 @@ export default function FinancialPlan() {
       DEBUG: false,
     });
     
-    console.log('🔍 DEBUG - runOutOfMoneyAge (depleteAge):', result.depleteAge);
-    
-    // Find years with liquidation events
-    const yearsWithLiquidations = result.yearByYear.filter(p => p.liquidations && p.liquidations.length > 0);
-    console.log('🔍 DEBUG - Years with liquidations:', yearsWithLiquidations.map(p => ({ age: p.age, events: p.liquidations })));
-    
-    // Find years with real estate sales
-    const yearsWithRealEstateSales = result.yearByYear.filter(p => p.realEstateSold);
-    console.log('🔍 DEBUG - Years with real estate sales:', yearsWithRealEstateSales.map(p => ({ age: p.age, proceeds: p.realEstateSaleProceeds })));
-    
-    // Find years with loan payoffs
-    const yearsWithLoanPayoffs = result.yearByYear.filter(p => p.loanPayoffs && p.loanPayoffs.length > 0);
-    console.log('🔍 DEBUG - Years with loan payoffs:', yearsWithLoanPayoffs.map(p => ({ age: p.age, payoffs: p.loanPayoffs })));
-    
     return result.yearByYear;
   }, [holdings, accounts, liabilities, collateralizedLoans, currentPrice, currentAge, retirementAge, lifeExpectancy, 
       retirementAnnualSpending, effectiveSocialSecurity, socialSecurityStartAge, otherRetirementIncome,
@@ -881,10 +867,6 @@ export default function FinancialPlan() {
   const depletionIndex = projections.findIndex(p => p.total <= 0);
   const willRunOutOfMoney = depletionIndex !== -1;
   const runOutOfMoneyAge = willRunOutOfMoney ? projections[depletionIndex]?.age : null;
-  
-  console.log('🔍 DEBUG - runOutOfMoneyAge (from projections):', runOutOfMoneyAge);
-  console.log('🔍 DEBUG - depletionIndex:', depletionIndex);
-  console.log('🔍 DEBUG - willRunOutOfMoney:', willRunOutOfMoney);
   
   const yearsInRetirement = lifeExpectancy - retirementAge;
 
