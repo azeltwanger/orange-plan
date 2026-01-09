@@ -82,8 +82,8 @@ export default function Settings() {
     }
   };
 
-  const subscriptionStatus = user?.subscription_status || 'none';
-  const isActive = ['active', 'trialing'].includes(subscriptionStatus);
+  const subscriptionStatus = user?.subscriptionStatus || 'none';
+  const hasAccess = user?.hasAccess === true;
 
   return (
     <div className="space-y-6">
