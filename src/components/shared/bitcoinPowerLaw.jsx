@@ -49,34 +49,19 @@ export function projectPowerLawByAge(currentAge, targetAge, currentDate = new Da
   return projections;
 }
 
-// Convert Power Law projections to yearly CAGR rates for use in existing projection engine
-export function getPowerLawGrowthRates(currentAge, targetAge, currentBtcPrice, band = 'middle', currentDate = new Date()) {
-  const projections = projectPowerLawByAge(currentAge, targetAge, currentDate);
-  const rates = [];
+// Get Power Law implied CAGR based on fair value trajectory
+export function getPowerLawCAGR(currentDate = new Date()) {
+  const today = new Date(currentDate);
+  const nextYear = new Date(currentDate);
+  nextYear.setFullYear(nextYear.getFullYear() + 1);
   
-  let previousPrice = currentBtcPrice;
+  const todayPrice = bitcoinPowerLaw(today).fair_value_usd;
+  const nextYearPrice = bitcoinPowerLaw(nextYear).fair_value_usd;
   
-  for (let i = 0; i < projections.length; i++) {
-    const projection = projections[i];
-    let targetPrice;
-    
-    if (band === 'lower') targetPrice = projection.lower_band_usd;
-    else if (band === 'upper') targetPrice = projection.upper_band_usd;
-    else targetPrice = projection.fair_value_usd;
-    
-    // Calculate implied growth rate from previous year
-    const growthRate = i === 0 ? 0 : ((targetPrice / previousPrice) - 1) * 100;
-    
-    rates.push({
-      age: projection.age,
-      targetPrice,
-      growthRate: Math.max(0, growthRate) // Don't allow negative for projections
-    });
-    
-    previousPrice = targetPrice;
-  }
+  // Calculate implied annual growth rate
+  const impliedCAGR = ((nextYearPrice / todayPrice) - 1) * 100;
   
-  return rates;
+  return impliedCAGR;
 }
 
-export default { daysSinceGenesis, bitcoinPowerLaw, getPowerLawPrice, projectPowerLawByAge, getPowerLawGrowthRates };
+export default { daysSinceGenesis, bitcoinPowerLaw, getPowerLawPrice, projectPowerLawByAge, getPowerLawCAGR };
