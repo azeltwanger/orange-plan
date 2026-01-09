@@ -34,6 +34,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { LoadingSkeleton } from '@/components/ui/LoadingSkeleton';
+import CustomPeriodsModal from '@/components/retirement/CustomPeriodsModal';
 
 // Calculate success probability (percentage of simulations that didn't run out of money)
 const calculateSuccessProbability = (successResults) => {
@@ -96,6 +97,17 @@ export default function FinancialPlan() {
   // BTC return model (separate from withdrawal)
   const [btcReturnModel, setBtcReturnModel] = useState('custom');
   const userBtcModelSelectionMade = useRef(false);
+  
+  // Custom return periods
+  const [showCustomPeriodsModal, setShowCustomPeriodsModal] = useState(false);
+  const [customReturnPeriods, setCustomReturnPeriods] = useState({
+    btc: [],
+    stocks: [],
+    realEstate: [],
+    bonds: [],
+    cash: [],
+    other: []
+  });
 
   // Tax settings
   const [filingStatus, setFilingStatus] = useState('single');
@@ -297,6 +309,7 @@ export default function FinancialPlan() {
       if (settings.btc_return_model !== undefined && !userBtcModelSelectionMade.current) {
         setBtcReturnModel(settings.btc_return_model);
       }
+      if (settings.custom_return_periods !== undefined) setCustomReturnPeriods(settings.custom_return_periods);
       if (settings.other_retirement_income !== undefined) setOtherRetirementIncome(settings.other_retirement_income);
                   if (settings.social_security_start_age !== undefined) setSocialSecurityStartAge(settings.social_security_start_age);
                   if (settings.social_security_amount !== undefined) setSocialSecurityAmount(settings.social_security_amount);
@@ -384,10 +397,11 @@ export default function FinancialPlan() {
                       btc_top_up_target_ltv: btcTopUpTargetLtv || 65,
                       btc_release_trigger_ltv: btcReleaseTriggerLtv || 30,
                       btc_release_target_ltv: btcReleaseTargetLtv || 40,
-                    });
-    }, 1000); // Debounce 1 second
-    return () => clearTimeout(timeoutId);
-  }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, otherCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, useCustomSocialSecurity, grossAnnualIncome, contribution401k, employer401kMatch, contributionRothIRA, contributionTraditionalIRA, contributionHSA, hsaFamilyCoverage, filingStatus, stateOfResidence, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv, btcReleaseTriggerLtv, btcReleaseTargetLtv, savingsAllocationBtc, savingsAllocationStocks, savingsAllocationBonds, savingsAllocationCash, savingsAllocationOther, saveSettings]);
+                      custom_return_periods: customReturnPeriods,
+                      });
+                      }, 1000); // Debounce 1 second
+                      return () => clearTimeout(timeoutId);
+                      }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, otherCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, useCustomSocialSecurity, grossAnnualIncome, contribution401k, employer401kMatch, contributionRothIRA, contributionTraditionalIRA, contributionHSA, hsaFamilyCoverage, filingStatus, stateOfResidence, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv, btcReleaseTriggerLtv, btcReleaseTargetLtv, savingsAllocationBtc, savingsAllocationStocks, savingsAllocationBonds, savingsAllocationCash, savingsAllocationOther, customReturnPeriods, saveSettings]);
 
   // Calculate accurate debt payments for current month
   const currentMonthForDebt = new Date().getMonth();
@@ -671,8 +685,9 @@ export default function FinancialPlan() {
         lifeEvents,
         getTaxTreatmentFromHolding,
         yearlyReturnOverrides,
+        customReturnPeriods,
         DEBUG: false,
-      });
+        });
 
       // Extract path data from result
       const path = result.yearByYear.map(yearData => yearData.total || 0);
@@ -749,11 +764,12 @@ export default function FinancialPlan() {
       goals,
       lifeEvents,
       getTaxTreatmentFromHolding,
+      customReturnPeriods,
       DEBUG: false,
     });
     
     return result;
-  }, [holdings, accounts, liabilities, collateralizedLoans, currentPrice, currentAge, lifeExpectancy, 
+  }, [holdings, accounts, liabilities, collateralizedLoans, currentPrice, currentAge, lifeExpectancy, customReturnPeriods, 
       retirementAnnualSpending, effectiveSocialSecurity, socialSecurityStartAge, otherRetirementIncome,
       annualSavings, incomeGrowth, grossAnnualIncome, currentAnnualSpending, filingStatus, stateOfResidence,
       contribution401k, employer401kMatch, contributionRothIRA, contributionTraditionalIRA, contributionHSA, hsaFamilyCoverage,
@@ -811,11 +827,12 @@ export default function FinancialPlan() {
       goals,
       lifeEvents,
       getTaxTreatmentFromHolding,
+      customReturnPeriods,
       DEBUG: false,
     });
     
     return result.yearByYear;
-  }, [holdings, accounts, liabilities, collateralizedLoans, currentPrice, currentAge, retirementAge, lifeExpectancy, 
+  }, [holdings, accounts, liabilities, collateralizedLoans, currentPrice, currentAge, retirementAge, lifeExpectancy, customReturnPeriods, 
       retirementAnnualSpending, effectiveSocialSecurity, socialSecurityStartAge, otherRetirementIncome,
       annualSavings, incomeGrowth, grossAnnualIncome, currentAnnualSpending, filingStatus, stateOfResidence,
       contribution401k, employer401kMatch, contributionRothIRA, contributionTraditionalIRA, contributionHSA, hsaFamilyCoverage,
@@ -1072,6 +1089,7 @@ export default function FinancialPlan() {
         goals,
         lifeEvents,
         getTaxTreatmentFromHolding,
+        customReturnPeriods,
         DEBUG: false,
       });
       
@@ -1343,17 +1361,24 @@ export default function FinancialPlan() {
           {/* BTC Return Model Selection */}
           <div className="mb-6 p-4 rounded-xl bg-orange-500/5 border border-orange-500/20">
             <Label className="text-zinc-300 font-medium mb-3 block">Bitcoin Return Model</Label>
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
               {[
                 { value: 'custom', label: 'Custom %', desc: `${btcCagr}% CAGR` },
-                { value: 'saylor24', label: 'Saylor Model', desc: '50%→20% declining' },
+                { value: 'saylor24', label: 'Saylor Model', desc: '50%→20%' },
                 { value: 'powerlaw', label: 'Power Law', desc: `${powerLawYear1CAGR.toFixed(0)}%→${powerLawYear10CAGR.toFixed(0)}%`, hasTooltip: true },
+                { value: 'custom_periods', label: 'Custom Periods', desc: '⚙️ Configure', isAction: true },
               ].map(model => (
                 <div key={model.value} className="relative">
                   <button
                     onClick={() => {
-                      setBtcReturnModel(model.value);
-                      userBtcModelSelectionMade.current = true;
+                      if (model.isAction) {
+                        setShowCustomPeriodsModal(true);
+                        setBtcReturnModel('custom_periods');
+                        userBtcModelSelectionMade.current = true;
+                      } else {
+                        setBtcReturnModel(model.value);
+                        userBtcModelSelectionMade.current = true;
+                      }
                     }}
                     className={cn(
                       "p-3 rounded-lg border text-left transition-all w-full",
@@ -1380,6 +1405,11 @@ export default function FinancialPlan() {
                       )}
                     </div>
                     <p className="text-xs text-zinc-400">{model.desc}</p>
+                    {model.value === 'custom_periods' && customReturnPeriods.btc?.length > 0 && (
+                      <p className="text-[10px] text-emerald-400 mt-1">
+                        ✓ {customReturnPeriods.btc.length} BTC period{customReturnPeriods.btc.length !== 1 ? 's' : ''}
+                      </p>
+                    )}
                   </button>
                 </div>
               ))}
@@ -1390,6 +1420,33 @@ export default function FinancialPlan() {
               <p className="text-xs text-zinc-500 mt-3">
                 Power Law growth: {powerLawYear1CAGR.toFixed(1)}% Year 1 → {powerLawYear10CAGR.toFixed(1)}% Year 10 (declining)
               </p>
+            )}
+            {btcReturnModel === 'custom_periods' && (
+              <div className="mt-3 space-y-2">
+                <p className="text-xs text-zinc-500">
+                  Custom periods allow different return rates for different time ranges across all asset classes.
+                </p>
+                {Object.entries(customReturnPeriods).filter(([_, periods]) => periods?.length > 0).length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {Object.entries(customReturnPeriods).filter(([_, periods]) => periods?.length > 0).map(([assetKey, periods]) => {
+                      const assetInfo = {
+                        btc: { label: 'BTC', color: 'text-orange-400' },
+                        stocks: { label: 'Stocks', color: 'text-blue-400' },
+                        realEstate: { label: 'RE', color: 'text-emerald-400' },
+                        bonds: { label: 'Bonds', color: 'text-purple-400' },
+                        cash: { label: 'Cash', color: 'text-cyan-400' },
+                        other: { label: 'Other', color: 'text-zinc-400' },
+                      }[assetKey] || { label: assetKey, color: 'text-zinc-400' };
+                      
+                      return (
+                        <span key={assetKey} className={cn("text-xs px-2 py-0.5 rounded bg-zinc-800 border border-zinc-700", assetInfo.color)}>
+                          {assetInfo.label}: {periods.length} period{periods.length !== 1 ? 's' : ''}
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             )}
           </div>
 
@@ -3922,6 +3979,15 @@ export default function FinancialPlan() {
 
       </Tabs>
 
+      {/* Custom Periods Modal */}
+      <CustomPeriodsModal
+        open={showCustomPeriodsModal}
+        onOpenChange={setShowCustomPeriodsModal}
+        customReturnPeriods={customReturnPeriods}
+        onSave={setCustomReturnPeriods}
+        currentAge={currentAge}
+        lifeExpectancy={lifeExpectancy}
+      />
 
     </div>
   );
