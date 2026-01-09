@@ -1021,8 +1021,17 @@ export function runUnifiedProjection({
               const btcReleased = loan.lockedBtc - btcToSellForDebt;
               const equityReleasedGross = btcReleased * cumulativeBtcPrice;
               
-              const costBasisPercent = 0.5;
-              const gainOnSale = debtToPay * (1 - costBasisPercent);
+              // Calculate actual cost basis percentage from encumbered BTC
+              const totalEncumberedBtcValue = Object.values(encumberedBtc).reduce((sum, btc) => sum + (btc * cumulativeBtcPrice), 0);
+              const actualCostBasisPercent = totalEncumberedBtcValue > 0 
+                ? Math.min(1, encumberedBtcBasis / totalEncumberedBtcValue) 
+                : 0.5; // fallback to 50% if no data
+
+              // Calculate gain based on actual cost basis
+              const saleProceeds = btcToSellForDebt * cumulativeBtcPrice;
+              const costBasisForSale = saleProceeds * actualCostBasisPercent;
+              const gainOnSale = Math.max(0, saleProceeds - costBasisForSale);
+              
               const taxableIncomeBase = withdrawFromTaxable + withdrawFromTaxDeferred;
               const taxOnSale = gainOnSale * getLTCGRate(taxableIncomeBase, filingStatus, year);
               
@@ -1270,8 +1279,17 @@ export function runUnifiedProjection({
               const btcReleased = loan.lockedBtc - btcToSellForDebt;
               const equityReleasedGross = btcReleased * cumulativeBtcPrice;
               
-              const costBasisPercent = 0.5;
-              const gainOnSale = debtToPay * (1 - costBasisPercent);
+              // Calculate actual cost basis percentage from encumbered BTC
+              const totalEncumberedBtcValue = Object.values(encumberedBtc).reduce((sum, btc) => sum + (btc * cumulativeBtcPrice), 0);
+              const actualCostBasisPercent = totalEncumberedBtcValue > 0 
+                ? Math.min(1, encumberedBtcBasis / totalEncumberedBtcValue) 
+                : 0.5; // fallback to 50% if no data
+
+              // Calculate gain based on actual cost basis
+              const saleProceeds = btcToSellForDebt * cumulativeBtcPrice;
+              const costBasisForSale = saleProceeds * actualCostBasisPercent;
+              const gainOnSale = Math.max(0, saleProceeds - costBasisForSale);
+              
               const taxableIncomeBase = (totalOtherIncomeForTax || 0) + withdrawFromTaxable + withdrawFromTaxDeferred;
               const taxOnSale = gainOnSale * getLTCGRate(taxableIncomeBase, filingStatus, year);
               
