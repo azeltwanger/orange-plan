@@ -465,14 +465,17 @@ export function runUnifiedProjection({
     let activeExpenseAdjustment = 0;
     
     lifeEvents.forEach(event => {
+      // Recurring income changes
       if (event.event_type === 'income_change') {
         const eventEndYear = event.year + (event.is_recurring ? (event.recurring_years || 1) : 1);
         if (year >= event.year && year < eventEndYear) activeIncomeAdjustment += event.amount;
       }
+      // Recurring expense changes
       if (event.event_type === 'expense_change') {
         const eventEndYear = event.year + (event.is_recurring ? (event.recurring_years || 1) : 1);
         if (year >= event.year && year < eventEndYear) activeExpenseAdjustment += event.amount;
       }
+      // Home purchase ongoing mortgage/expenses
       if (event.event_type === 'home_purchase' && event.year <= year && event.monthly_expense_impact > 0) {
         activeExpenseAdjustment += event.monthly_expense_impact * 12;
       }
@@ -486,6 +489,7 @@ export function runUnifiedProjection({
 
     lifeEvents.forEach(event => {
       if (event.year === year || (event.is_recurring && event.year <= year && year < event.year + (event.recurring_years || 1))) {
+        // Handle assets-affecting events (inheritance, windfall, one-time inflows)
         if (event.affects === 'assets') {
           const eventAmount = event.amount;
           eventImpact += eventAmount;
@@ -495,20 +499,54 @@ export function runUnifiedProjection({
             yearLifeEventIncome += eventAmount;
           }
           
+          // Invest according to allocation
           if (eventAmount > 0 && event.allocation_method === 'custom') {
             portfolio.taxable.btc += eventAmount * ((event.btc_allocation || 0) / 100);
             portfolio.taxable.stocks += eventAmount * ((event.stocks_allocation || 0) / 100);
             portfolio.realEstate += eventAmount * ((event.real_estate_allocation || 0) / 100);
             portfolio.taxable.bonds += eventAmount * ((event.bonds_allocation || 0) / 100);
             portfolio.taxable.other += eventAmount * (((event.cash_allocation || 0) + (event.other_allocation || 0)) / 100);
+          } else if (eventAmount > 0) {
+            // Proportionate allocation to existing taxable portfolio
+            const totalAllocation = savingsAllocationBtc + savingsAllocationStocks + savingsAllocationBonds + savingsAllocationCash + savingsAllocationOther;
+            if (totalAllocation > 0) {
+              portfolio.taxable.btc += eventAmount * (savingsAllocationBtc / totalAllocation);
+              portfolio.taxable.stocks += eventAmount * (savingsAllocationStocks / totalAllocation);
+              portfolio.taxable.bonds += eventAmount * (savingsAllocationBonds / totalAllocation);
+              portfolio.taxable.cash += eventAmount * (savingsAllocationCash / totalAllocation);
+              portfolio.taxable.other += eventAmount * (savingsAllocationOther / totalAllocation);
+            } else {
+              portfolio.taxable.cash += eventAmount;
+            }
+            // Track cost basis for positive inflows
+            runningTaxableBasis += eventAmount;
           }
         }
-        // Also track inheritance/windfall/gift event types that add to assets
+        // Also track inheritance/windfall/gift event types that may not have affects='assets' set
         if (['inheritance', 'windfall', 'gift', 'asset_sale'].includes(event.event_type) && event.amount > 0 && event.affects !== 'assets') {
           yearLifeEventIncome += event.amount;
+          // Add to portfolio proportionately
+          const totalAllocation = savingsAllocationBtc + savingsAllocationStocks + savingsAllocationBonds + savingsAllocationCash + savingsAllocationOther;
+          if (totalAllocation > 0) {
+            portfolio.taxable.btc += event.amount * (savingsAllocationBtc / totalAllocation);
+            portfolio.taxable.stocks += event.amount * (savingsAllocationStocks / totalAllocation);
+            portfolio.taxable.bonds += event.amount * (savingsAllocationBonds / totalAllocation);
+            portfolio.taxable.cash += event.amount * (savingsAllocationCash / totalAllocation);
+            portfolio.taxable.other += event.amount * (savingsAllocationOther / totalAllocation);
+          } else {
+            portfolio.taxable.cash += event.amount;
+          }
+          runningTaxableBasis += event.amount;
         }
+        // Handle one-time expenses (major_expense with negative amount or affects='assets' with negative)
+        if ((event.event_type === 'major_expense' || (event.affects === 'assets' && event.amount < 0)) && event.year === year) {
+          const expenseAmount = Math.abs(event.amount);
+          yearGoalWithdrawal += expenseAmount; // Treat as withdrawal need
+        }
+        // Home purchase down payment
         if (event.event_type === 'home_purchase' && event.year === year) {
           eventImpact -= (event.down_payment || 0);
+          yearGoalWithdrawal += (event.down_payment || 0); // Down payment is a withdrawal
         }
       }
     });
