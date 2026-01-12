@@ -175,6 +175,7 @@ export default function Goals() {
 
   const handleSubmitGoal = (e) => {
     e.preventDefault();
+    console.log("Update button clicked", { editingGoal, goalForm });
     const data = { 
       ...goalForm, 
       target_amount: parseFloat(goalForm.target_amount) || 0, 
@@ -182,7 +183,14 @@ export default function Goals() {
       extra_monthly_payment: parseFloat(goalForm.extra_monthly_payment) || null,
       linked_liability_id: goalForm.linked_liability_id || null,
     };
-    editingGoal ? updateGoal.mutate({ id: editingGoal.id, data }) : createGoal.mutate(data);
+    console.log("Submitting data:", data);
+    if (editingGoal) {
+      console.log("Calling updateGoal.mutate with:", { id: editingGoal.id, data });
+      updateGoal.mutate({ id: editingGoal.id, data });
+    } else {
+      console.log("Calling createGoal.mutate with:", data);
+      createGoal.mutate(data);
+    }
   };
 
   const handleSubmitEvent = (e) => {
