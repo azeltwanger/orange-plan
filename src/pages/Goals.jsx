@@ -175,20 +175,35 @@ export default function Goals() {
 
   const handleSubmitGoal = (e) => {
     e.preventDefault();
-    console.log("Update button clicked", { editingGoal, goalForm });
-    const data = { 
+    let data = { 
       ...goalForm, 
       target_amount: parseFloat(goalForm.target_amount) || 0, 
       saved_so_far: parseFloat(goalForm.saved_so_far) || 0,
       extra_monthly_payment: parseFloat(goalForm.extra_monthly_payment) || null,
       linked_liability_id: goalForm.linked_liability_id || null,
     };
-    console.log("Submitting data:", data);
+
+    if (!data.name || !data.target_amount) {
+      toast.error("Goal Name and Target Amount are required.");
+      return;
+    }
+
+    // Remove deprecated and system fields to prevent validation errors
+    delete data.funding_sources;
+    delete data.will_be_spent;
+    delete data.goal_type;
+    delete data.current_amount;
+    delete data.priority;
+    delete data.linked_dca_plan_id;
+    delete data.payoff_years;
+    delete data.id;
+    delete data.created_date;
+    delete data.updated_date;
+    delete data.created_by;
+
     if (editingGoal) {
-      console.log("Calling updateGoal.mutate with:", { id: editingGoal.id, data });
       updateGoal.mutate({ id: editingGoal.id, data });
     } else {
-      console.log("Calling createGoal.mutate with:", data);
       createGoal.mutate(data);
     }
   };
