@@ -16,7 +16,7 @@ import {
   calculateTaxableSocialSecurity,
   estimateSocialSecurityBenefit
 } from '@/components/tax/taxCalculations';
-import { runUnifiedProjection } from '@/components/shared/runProjection';
+import { runUnifiedProjection, getCustomReturnForYear } from '@/components/shared/runProjection';
 import { getRMDFactor } from '@/components/shared/taxData';
 import { get401kLimit, getRothIRALimit, getTraditionalIRALimit, getHSALimit, getTaxConfigForYear, getRothIRAIncomeLimit } from '@/components/shared/taxConfig';
 import { getStateOptions, getStateTaxSummary, STATE_TAX_CONFIG, calculateStateTaxOnRetirement, calculateStateCapitalGainsTax, calculateStateIncomeTax } from '@/components/shared/stateTaxConfig';
@@ -518,6 +518,17 @@ export default function FinancialPlan() {
   // BTC growth models - now based on btcReturnModel, not withdrawalStrategy
   const getBtcGrowthRate = useCallback((yearFromNow, inflationRate) => {
     let rate;
+    
+    // If custom_periods is selected, check for a custom period first
+    if (btcReturnModel === 'custom_periods') {
+      const customRate = getCustomReturnForYear('btc', yearFromNow, customReturnPeriods, null);
+      if (customRate !== null) {
+        return customRate;
+      }
+      // Fallback to Power Law if no custom period defined for this year
+      return getPowerLawCAGR(yearFromNow);
+    }
+    
     switch (btcReturnModel) {
       case 'powerlaw':
         // Power Law model - use year-specific declining CAGR
@@ -556,7 +567,7 @@ export default function FinancialPlan() {
     }
     
     return rate;
-  }, [btcReturnModel, effectiveBtcCagr]);
+  }, [btcReturnModel, effectiveBtcCagr, customReturnPeriods]);
 
   // Number formatting helper
   const formatNumber = (num, decimals = 0) => {
