@@ -5,6 +5,7 @@ import { Target, Plus, Pencil, Trash2, Calendar, Home, Car, Briefcase, Heart, Do
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
@@ -86,12 +87,31 @@ export default function Goals() {
   // Mutations
   const createGoal = useMutation({
     mutationFn: (data) => base44.entities.FinancialGoal.create(data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['goals'] }); setGoalFormOpen(false); resetGoalForm(); },
+    onSuccess: () => { 
+      queryClient.invalidateQueries({ queryKey: ['goals'] }); 
+      setGoalFormOpen(false); 
+      resetGoalForm(); 
+      toast.success("Goal created successfully!");
+    },
+    onError: (error) => {
+      console.error("Error creating goal:", error);
+      toast.error("Failed to create goal: " + (error?.message || "Unknown error"));
+    },
   });
 
   const updateGoal = useMutation({
     mutationFn: ({ id, data }) => base44.entities.FinancialGoal.update(id, data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['goals'] }); setGoalFormOpen(false); setEditingGoal(null); resetGoalForm(); },
+    onSuccess: () => { 
+      queryClient.invalidateQueries({ queryKey: ['goals'] }); 
+      setGoalFormOpen(false); 
+      setEditingGoal(null); 
+      resetGoalForm(); 
+      toast.success("Goal updated successfully!");
+    },
+    onError: (error) => {
+      console.error("Error updating goal:", error);
+      toast.error("Failed to update goal: " + (error?.message || "Unknown error"));
+    },
   });
 
   const deleteGoal = useMutation({
@@ -175,11 +195,19 @@ export default function Goals() {
 
   const handleSubmitGoal = (e) => {
     e.preventDefault();
-    let data = { 
-      ...goalForm, 
-      target_amount: parseFloat(goalForm.target_amount) || 0, 
+    
+    // Only include fields that exist in the FinancialGoal schema
+    const data = {
+      name: goalForm.name,
+      type: goalForm.type,
+      target_amount: parseFloat(goalForm.target_amount) || 0,
+      target_date: goalForm.target_date || null,
       saved_so_far: parseFloat(goalForm.saved_so_far) || 0,
+      withdraw_from_portfolio: goalForm.withdraw_from_portfolio || false,
+      notes: goalForm.notes || null,
+      payoff_strategy: goalForm.payoff_strategy || null,
       extra_monthly_payment: parseFloat(goalForm.extra_monthly_payment) || null,
+      lump_sum_date: goalForm.lump_sum_date || null,
       linked_liability_id: goalForm.linked_liability_id || null,
     };
 
@@ -188,18 +216,8 @@ export default function Goals() {
       return;
     }
 
-    // Remove deprecated and system fields to prevent validation errors
-    delete data.funding_sources;
-    delete data.will_be_spent;
-    delete data.goal_type;
-    delete data.current_amount;
-    delete data.priority;
-    delete data.linked_dca_plan_id;
-    delete data.payoff_years;
-    delete data.id;
-    delete data.created_date;
-    delete data.updated_date;
-    delete data.created_by;
+    console.log("FINAL DATA BEING SENT:", JSON.stringify(data, null, 2));
+    console.log("GOAL ID:", editingGoal?.id);
 
     if (editingGoal) {
       updateGoal.mutate({ id: editingGoal.id, data });
