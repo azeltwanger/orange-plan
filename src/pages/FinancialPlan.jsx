@@ -108,6 +108,7 @@ export default function FinancialPlan() {
     cash: [],
     other: []
   });
+  const [tickerReturns, setTickerReturns] = useState({});
 
   // Tax settings
   const [filingStatus, setFilingStatus] = useState('single');
@@ -310,6 +311,7 @@ export default function FinancialPlan() {
         setBtcReturnModel(settings.btc_return_model);
       }
       if (settings.custom_return_periods !== undefined) setCustomReturnPeriods(settings.custom_return_periods);
+      if (settings.ticker_returns !== undefined) setTickerReturns(settings.ticker_returns);
       if (settings.other_retirement_income !== undefined) setOtherRetirementIncome(settings.other_retirement_income);
                   if (settings.social_security_start_age !== undefined) setSocialSecurityStartAge(settings.social_security_start_age);
                   if (settings.social_security_amount !== undefined) setSocialSecurityAmount(settings.social_security_amount);
@@ -398,10 +400,11 @@ export default function FinancialPlan() {
                       btc_release_trigger_ltv: btcReleaseTriggerLtv || 30,
                       btc_release_target_ltv: btcReleaseTargetLtv || 40,
                       custom_return_periods: customReturnPeriods,
+                      ticker_returns: tickerReturns,
                       });
                       }, 1000); // Debounce 1 second
                       return () => clearTimeout(timeoutId);
-                      }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, otherCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, useCustomSocialSecurity, grossAnnualIncome, contribution401k, employer401kMatch, contributionRothIRA, contributionTraditionalIRA, contributionHSA, hsaFamilyCoverage, filingStatus, stateOfResidence, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv, btcReleaseTriggerLtv, btcReleaseTargetLtv, savingsAllocationBtc, savingsAllocationStocks, savingsAllocationBonds, savingsAllocationCash, savingsAllocationOther, customReturnPeriods, saveSettings]);
+                      }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, otherCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, useCustomSocialSecurity, grossAnnualIncome, contribution401k, employer401kMatch, contributionRothIRA, contributionTraditionalIRA, contributionHSA, hsaFamilyCoverage, filingStatus, stateOfResidence, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv, btcReleaseTriggerLtv, btcReleaseTargetLtv, savingsAllocationBtc, savingsAllocationStocks, savingsAllocationBonds, savingsAllocationCash, savingsAllocationOther, customReturnPeriods, tickerReturns, saveSettings]);
 
   // Calculate accurate debt payments for current month
   const currentMonthForDebt = new Date().getMonth();
@@ -697,6 +700,7 @@ export default function FinancialPlan() {
         getTaxTreatmentFromHolding,
         yearlyReturnOverrides,
         customReturnPeriods,
+        tickerReturns,
         DEBUG: false,
         });
 
@@ -3998,6 +4002,9 @@ export default function FinancialPlan() {
         onSave={setCustomReturnPeriods}
         currentAge={currentAge}
         lifeExpectancy={lifeExpectancy}
+        holdings={holdings}
+        tickerReturns={tickerReturns}
+        onTickerReturnsSave={setTickerReturns}
       />
 
     </div>

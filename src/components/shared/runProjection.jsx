@@ -107,6 +107,7 @@ export function runUnifiedProjection({
   getTaxTreatmentFromHolding,
   yearlyReturnOverrides = null, // { btc: number[], stocks: number[], bonds: number[], realEstate: number[], cash: number[], other: number[] }
   customReturnPeriods = {}, // { btc: [{startYear, endYear, rate}], stocks: [...], etc. }
+  tickerReturns = {}, // { 'MSTR': 40, 'AAPL': 12 } - per-ticker overrides
   DEBUG = false,
 }) {
   const results = [];
@@ -124,6 +125,38 @@ export function runUnifiedProjection({
     if (assetTypeLower === 'bonds') return 'bonds';
     if (assetTypeLower === 'cash') return 'cash';
     return 'other';
+  };
+
+  // Helper: get growth rate for a specific holding
+  const getHoldingGrowthRate = (ticker, assetCategory, yearIndex, yearlyOverride) => {
+    // Priority 1: Monte Carlo override
+    if (yearlyOverride !== undefined) {
+      return yearlyOverride;
+    }
+    
+    // Priority 2: Per-ticker override
+    const tickerUpper = ticker?.toUpperCase();
+    if (tickerUpper && tickerReturns && tickerReturns[tickerUpper] !== undefined) {
+      return tickerReturns[tickerUpper];
+    }
+    
+    // Priority 3: Custom period for asset class
+    const assetClassDefaults = {
+      btc: null, // Will use getBtcGrowthRate
+      stocks: effectiveStocksCagr,
+      bonds: bondsCagr,
+      cash: cashCagr,
+      other: otherCagr,
+      realEstate: realEstateCagr
+    };
+    
+    const customRate = getCustomReturnForYear(assetCategory, yearIndex, customReturnPeriods, assetClassDefaults[assetCategory]);
+    if (customRate !== null) {
+      return customRate;
+    }
+    
+    // Priority 4: Default asset class rate
+    return assetClassDefaults[assetCategory];
   };
 
   // Initialize portfolio from holdings
@@ -853,7 +886,9 @@ export function runUnifiedProjection({
       }
     });
 
-    // Apply growth AFTER collateral management - priority: Monte Carlo > Custom Periods > Default slider
+    // Apply growth AFTER collateral management
+    // NOTE: We're applying blanket growth rates here because portfolio structure aggregates by asset category
+    // Per-ticker returns would require tracking individual holdings through projection (future enhancement)
     if (i > 0) {
       const yearStocksGrowth = yearlyReturnOverrides?.stocks?.[i] !== undefined 
         ? yearlyReturnOverrides.stocks[i] 
@@ -871,9 +906,38 @@ export function runUnifiedProjection({
         ? yearlyReturnOverrides.realEstate[i] 
         : getCustomReturnForYear('realEstate', i, customReturnPeriods, realEstateCagr);
 
+      // Calculate weighted average growth for stocks based on ticker-level overrides
+      let effectiveStocksGrowthThisYear = yearStocksGrowth;
+      if (Object.keys(tickerReturns).length > 0 && i === 1) {
+        // For first year, calculate weighted average based on current holdings
+        const stockHoldings = holdings.filter(h => {
+          const cat = getAssetCategory(h.asset_type, h.ticker);
+          return cat === 'stocks';
+        });
+        
+        if (stockHoldings.length > 0) {
+          const totalStocksValue = stockHoldings.reduce((sum, h) => 
+            sum + (h.quantity * (h.current_price || 0)), 0);
+          
+          if (totalStocksValue > 0) {
+            let weightedReturn = 0;
+            stockHoldings.forEach(h => {
+              const holdingValue = h.quantity * (h.current_price || 0);
+              const weight = holdingValue / totalStocksValue;
+              const tickerUpper = h.ticker?.toUpperCase();
+              const rate = (tickerUpper && tickerReturns[tickerUpper] !== undefined) 
+                ? tickerReturns[tickerUpper] 
+                : yearStocksGrowth;
+              weightedReturn += weight * rate;
+            });
+            effectiveStocksGrowthThisYear = weightedReturn;
+          }
+        }
+      }
+
       ['taxable', 'taxDeferred', 'taxFree'].forEach(accountKey => {
         portfolio[accountKey].btc *= (1 + yearBtcGrowth / 100);
-        portfolio[accountKey].stocks *= (1 + yearStocksGrowth / 100);
+        portfolio[accountKey].stocks *= (1 + effectiveStocksGrowthThisYear / 100);
         portfolio[accountKey].bonds *= (1 + yearBondsGrowth / 100);
         portfolio[accountKey].cash *= (1 + yearCashGrowth / 100);
         portfolio[accountKey].other *= (1 + yearOtherGrowth / 100);
