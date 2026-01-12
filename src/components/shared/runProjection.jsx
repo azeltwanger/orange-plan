@@ -1166,8 +1166,6 @@ export function runUnifiedProjection({
         
         // For pre-retirement deficit, the true net cash flow includes withdrawal taxes
         preRetireNetCashFlow = -totalDeficitPlusTaxes;
-        
-        console.log('PRE-RETIRE DEFICIT:', { year, age, deficit, taxEstimateTotalTax: taxEstimate.totalTax, preRetireStateTax, penalty: taxEstimate.totalPenalty, totalDeficitPlusTaxes, totalActuallyWithdrawn, remainingShortfall });
 
         // Force additional withdrawals if shortfall (same as retirement)
         if (remainingShortfall > 0) {
