@@ -690,7 +690,11 @@ export default function Goals() {
               <Button type="button" variant="outline" onClick={() => { setGoalFormOpen(false); setEditingGoal(null); resetGoalForm(); }} className="flex-1 bg-zinc-800 border-zinc-700 text-zinc-100 hover:bg-zinc-700">
                 Cancel
               </Button>
-              <Button type="submit" className="flex-1 brand-gradient text-white font-semibold">
+              <Button 
+                type="submit" 
+                className="flex-1 brand-gradient text-white font-semibold"
+                disabled={updateGoal.isPending || createGoal.isPending}
+              >
                 {editingGoal ? 'Update' : 'Save'} Goal
               </Button>
             </div>
