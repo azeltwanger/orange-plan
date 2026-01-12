@@ -1024,7 +1024,7 @@ export function runUnifiedProjection({
       
       const proRatedNetIncome = i === 0 ? yearNetIncome * currentYearProRataFactor : yearNetIncome;
       const proRatedYearRoth = i === 0 ? yearRoth * currentYearProRataFactor : yearRoth;
-      yearSavings = proRatedNetIncome - yearSpending - proRatedYearRoth;
+      yearSavings = proRatedNetIncome - yearSpending - proRatedYearRoth - yearGoalWithdrawal;
 
       cumulativeSavings += yearSavings;
 
@@ -1331,9 +1331,9 @@ export function runUnifiedProjection({
       taxesPaid = federalTaxOnOtherIncome + (taxEstimate.totalTax || 0) + stateTax;
       penaltyPaid = taxEstimate.totalPenalty || 0;
 
-      // Calculate retirement net cash flow: income - spending - taxes
+      // Calculate retirement net cash flow: income - spending - goals - taxes
       // Positive = surplus, Negative = deficit
-      retirementNetCashFlow = (totalRetirementIncome + rmdWithdrawn) - (desiredWithdrawal + taxesPaid + penaltyPaid);
+      retirementNetCashFlow = (totalRetirementIncome + rmdWithdrawn) - (desiredWithdrawal + taxesPaid + penaltyPaid + yearGoalWithdrawal);
 
       // Handle retirement income surplus - reinvest excess into taxable cash
       if (retirementNetCashFlow > 0) {
