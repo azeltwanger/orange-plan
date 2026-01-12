@@ -413,6 +413,7 @@ export function runUnifiedProjection({
     let yearGrossIncome = 0;
     let yearSpending = 0;
     let desiredWithdrawal = 0;
+    let yearLifeEventIncome = 0;
     let year401k = 0;
     let yearRoth = 0;
     let yearTraditionalIRA = 0;
@@ -489,6 +490,11 @@ export function runUnifiedProjection({
           const eventAmount = event.amount;
           eventImpact += eventAmount;
           
+          // Track positive life event income for tooltip display
+          if (eventAmount > 0) {
+            yearLifeEventIncome += eventAmount;
+          }
+          
           if (eventAmount > 0 && event.allocation_method === 'custom') {
             portfolio.taxable.btc += eventAmount * ((event.btc_allocation || 0) / 100);
             portfolio.taxable.stocks += eventAmount * ((event.stocks_allocation || 0) / 100);
@@ -496,6 +502,10 @@ export function runUnifiedProjection({
             portfolio.taxable.bonds += eventAmount * ((event.bonds_allocation || 0) / 100);
             portfolio.taxable.other += eventAmount * (((event.cash_allocation || 0) + (event.other_allocation || 0)) / 100);
           }
+        }
+        // Also track inheritance/windfall/gift event types that add to assets
+        if (['inheritance', 'windfall', 'gift', 'asset_sale'].includes(event.event_type) && event.amount > 0 && event.affects !== 'assets') {
+          yearLifeEventIncome += event.amount;
         }
         if (event.event_type === 'home_purchase' && event.year === year) {
           eventImpact -= (event.down_payment || 0);
@@ -1634,6 +1644,7 @@ export function runUnifiedProjection({
         goals.some(g => (g.withdraw_from_portfolio || g.will_be_spent) && g.target_date && new Date(g.target_date).getFullYear() === year),
       hasGoalWithdrawal: yearGoalWithdrawal > 0,
       goalNames: [],
+      lifeEventIncome: Math.round(yearLifeEventIncome),
       
       // Retirement contributions (pre-retirement only)
       year401kContribution: !isRetired ? Math.round(year401k || 0) : 0,
