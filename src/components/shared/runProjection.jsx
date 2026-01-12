@@ -13,12 +13,12 @@ import { getTaxConfigForYear, get401kLimit, getRothIRALimit, getTraditionalIRALi
  * Checks custom period definitions and returns matching rate or fallback.
  * 
  * @param {string} assetType - Asset type key: 'btc', 'stocks', 'realEstate', 'bonds', 'cash', 'other'
- * @param {number} year - Calendar year to check
+ * @param {number} yearIndex - Year index from projection start (0 = current year, 1 = next year, etc.)
  * @param {Object} customReturnPeriods - Object with arrays of periods per asset type
  * @param {number|null} fallbackRate - Default rate if no period matches (null for BTC to use Power Law)
  * @returns {number|null} - Return rate percentage, or null if no match and fallback is null
  */
-function getCustomReturnForYear(assetType, year, customReturnPeriods, fallbackRate) {
+export function getCustomReturnForYear(assetType, yearIndex, customReturnPeriods, fallbackRate) {
   if (!customReturnPeriods || !customReturnPeriods[assetType]) {
     return fallbackRate;
   }
@@ -28,12 +28,16 @@ function getCustomReturnForYear(assetType, year, customReturnPeriods, fallbackRa
     return fallbackRate;
   }
   
+  // Custom periods use yearIndex (1-based: year 1 = first year of projection)
+  // Convert to 1-based for comparison with user-entered values
+  const yearNumber = yearIndex + 1;
+  
   // Find matching period (periods should be sorted by startYear)
   for (const period of periods) {
     const startYear = period.startYear;
     const endYear = period.endYear; // null means indefinite
     
-    if (year >= startYear && (endYear === null || year <= endYear)) {
+    if (yearNumber >= startYear && (endYear === null || yearNumber <= endYear)) {
       return period.rate;
     }
   }
@@ -385,7 +389,7 @@ export function runUnifiedProjection({
     let preRetireNetCashFlow = 0;
 
     // BTC growth and price tracking - priority: Monte Carlo > Custom Periods > Power Law/model
-    const customBtcRate = getCustomReturnForYear('btc', year, customReturnPeriods, null);
+    const customBtcRate = getCustomReturnForYear('btc', i, customReturnPeriods, null);
     const yearBtcGrowth = yearlyReturnOverrides?.btc?.[i] !== undefined 
       ? yearlyReturnOverrides.btc[i] 
       : customBtcRate !== null
@@ -853,19 +857,19 @@ export function runUnifiedProjection({
     if (i > 0) {
       const yearStocksGrowth = yearlyReturnOverrides?.stocks?.[i] !== undefined 
         ? yearlyReturnOverrides.stocks[i] 
-        : getCustomReturnForYear('stocks', year, customReturnPeriods, effectiveStocksCagr);
+        : getCustomReturnForYear('stocks', i, customReturnPeriods, effectiveStocksCagr);
       const yearBondsGrowth = yearlyReturnOverrides?.bonds?.[i] !== undefined 
         ? yearlyReturnOverrides.bonds[i] 
-        : getCustomReturnForYear('bonds', year, customReturnPeriods, bondsCagr);
+        : getCustomReturnForYear('bonds', i, customReturnPeriods, bondsCagr);
       const yearCashGrowth = yearlyReturnOverrides?.cash?.[i] !== undefined 
         ? yearlyReturnOverrides.cash[i] 
-        : getCustomReturnForYear('cash', year, customReturnPeriods, cashCagr);
+        : getCustomReturnForYear('cash', i, customReturnPeriods, cashCagr);
       const yearOtherGrowth = yearlyReturnOverrides?.other?.[i] !== undefined 
         ? yearlyReturnOverrides.other[i] 
-        : getCustomReturnForYear('other', year, customReturnPeriods, otherCagr);
+        : getCustomReturnForYear('other', i, customReturnPeriods, otherCagr);
       const yearRealEstateGrowth = yearlyReturnOverrides?.realEstate?.[i] !== undefined 
         ? yearlyReturnOverrides.realEstate[i] 
-        : getCustomReturnForYear('realEstate', year, customReturnPeriods, realEstateCagr);
+        : getCustomReturnForYear('realEstate', i, customReturnPeriods, realEstateCagr);
 
       ['taxable', 'taxDeferred', 'taxFree'].forEach(accountKey => {
         portfolio[accountKey].btc *= (1 + yearBtcGrowth / 100);
