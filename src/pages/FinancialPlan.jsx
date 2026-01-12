@@ -1037,9 +1037,7 @@ export default function FinancialPlan() {
       }
     }
     
-    // Round DOWN to nearest $1,000 to ensure displayed value actually works
-    // Subtract small buffer to account for any rounding in projection calculations
-    return Math.floor(low / 1000) * 1000;
+    return Math.round(low);
   }, [holdings, accounts, liabilities, collateralizedLoans, currentPrice, currentAge, lifeExpectancy, 
       retirementAnnualSpending, effectiveSocialSecurity, socialSecurityStartAge, otherRetirementIncome,
       annualSavings, incomeGrowth, grossAnnualIncome, currentAnnualSpending, filingStatus, stateOfResidence,
