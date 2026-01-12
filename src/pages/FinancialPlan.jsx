@@ -1911,8 +1911,14 @@ export default function FinancialPlan() {
                                       <span>Spending:</span>
                                       <span className="text-zinc-300 text-right">-${(p.yearSpending || 0).toLocaleString()}</span>
                                     </div>
-                                  </div>
-                                  {p.debtPayments > 0 && (
+                                    {p.lifeEventExpense > 0 && (
+                                      <div className="flex justify-between gap-6">
+                                        <span>Life Event Expense:</span>
+                                        <span className="text-rose-300 text-right">-${p.lifeEventExpense.toLocaleString()}</span>
+                                      </div>
+                                    )}
+                                    </div>
+                                    {p.debtPayments > 0 && (
                                     <div className="text-xs text-zinc-500 mb-2">
                                       (Debt Payments: ${p.debtPayments.toLocaleString()} - tracked separately)
                                     </div>
@@ -1959,13 +1965,13 @@ export default function FinancialPlan() {
                                 <div className="pt-3 mt-3 border-t border-zinc-700/70">
                                   <p className="text-zinc-400 mb-2 font-medium text-xs">Annual Cash Flow:</p>
                                   <div className="text-xs space-y-1.5 text-zinc-500 mb-2">
-                                    {/* Income sources */}
-                                    {otherRetirementIncome > 0 && (
+                                    {/* Income sources - show even if $0 */}
                                     <div className="flex justify-between gap-6">
                                       <span>Gross Income:</span>
-                                      <span className="text-emerald-400 text-right">+${otherRetirementIncome.toLocaleString()}</span>
+                                      <span className="text-emerald-400 text-right">
+                                        {otherRetirementIncome > 0 ? `+$${otherRetirementIncome.toLocaleString()}` : '$0'}
+                                      </span>
                                     </div>
-                                    )}
                                     {p.lifeEventIncome > 0 && (
                                       <div className="flex justify-between gap-6">
                                         <span>Life Event Income:</span>
@@ -2609,6 +2615,12 @@ export default function FinancialPlan() {
                             <span>Spending:</span>
                             <span className="text-zinc-300 text-right">-${(p.yearSpending || 0).toLocaleString()}</span>
                           </div>
+                          {p.lifeEventExpense > 0 && (
+                            <div className="flex justify-between gap-6">
+                              <span>Life Event Expense:</span>
+                              <span className="text-rose-300 text-right">-${p.lifeEventExpense.toLocaleString()}</span>
+                            </div>
+                          )}
                         </div>
                         {p.debtPayments > 0 && (
                           <div className="text-xs text-zinc-500 mb-2">
@@ -2657,13 +2669,13 @@ export default function FinancialPlan() {
                       <div className="pt-3 mt-3 border-t border-zinc-700/70">
                         <p className="text-zinc-400 mb-2 font-medium text-xs">Annual Cash Flow:</p>
                         <div className="text-xs space-y-1.5 text-zinc-500 mb-2">
-                          {/* Income sources */}
-                          {otherRetirementIncome > 0 && (
-                            <div className="flex justify-between gap-6">
-                              <span>Gross Income:</span>
-                              <span className="text-emerald-400 text-right">+${otherRetirementIncome.toLocaleString()}</span>
-                            </div>
-                          )}
+                          {/* Income sources - show even if $0 */}
+                          <div className="flex justify-between gap-6">
+                            <span>Gross Income:</span>
+                            <span className="text-emerald-400 text-right">
+                              {otherRetirementIncome > 0 ? `+$${otherRetirementIncome.toLocaleString()}` : '$0'}
+                            </span>
+                          </div>
                           {p.lifeEventIncome > 0 && (
                             <div className="flex justify-between gap-6">
                               <span>Life Event Income:</span>
@@ -2693,7 +2705,13 @@ export default function FinancialPlan() {
                             <span>Spending:</span>
                             <span className="text-zinc-300 text-right">-${(p.retirementSpendingOnly || 0).toLocaleString()}</span>
                           </div>
-                          {p.yearGoalWithdrawal > 0 && (
+                          {p.lifeEventExpense > 0 && (
+                            <div className="flex justify-between gap-6">
+                              <span>Life Event Expense:</span>
+                              <span className="text-rose-300 text-right">-${p.lifeEventExpense.toLocaleString()}</span>
+                            </div>
+                          )}
+                          {(p.yearGoalWithdrawal > 0 && !(p.lifeEventExpense > 0)) && (
                             <div className="flex justify-between gap-6">
                               <span>Goal Funding:</span>
                               <span className="text-zinc-300 text-right">-${p.yearGoalWithdrawal.toLocaleString()}</span>
@@ -2844,6 +2862,12 @@ export default function FinancialPlan() {
                             <span>• Spending:</span>
                             <span className="text-rose-300 text-right">-${(p.yearSpending || 0).toLocaleString()}</span>
                           </div>
+                          {p.lifeEventExpense > 0 && (
+                            <div className="flex justify-between gap-6">
+                              <span>• Life Event Expense:</span>
+                              <span className="text-rose-300 text-right">-${p.lifeEventExpense.toLocaleString()}</span>
+                            </div>
+                          )}
                         </div>
                         {(p.debtPayments > 0) && (
                           <div className="text-xs text-zinc-500 mb-2">

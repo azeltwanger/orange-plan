@@ -484,6 +484,7 @@ export function runUnifiedProjection({
     // Life events & Goals: asset impacts and withdrawals
     let eventImpact = 0;
     let yearGoalWithdrawal = 0;
+    let yearLifeEventExpense = 0; // Track expenses from life events separately
     const liabilitiesWithPayoffGoals = new Set();
     const loansWithPayoffGoals = new Set();
 
@@ -542,11 +543,13 @@ export function runUnifiedProjection({
         if ((event.event_type === 'major_expense' || (event.affects === 'assets' && event.amount < 0)) && event.year === year) {
           const expenseAmount = Math.abs(event.amount);
           yearGoalWithdrawal += expenseAmount; // Treat as withdrawal need
+          yearLifeEventExpense += expenseAmount; // Track for tooltip display
         }
         // Home purchase down payment
         if (event.event_type === 'home_purchase' && event.year === year) {
           eventImpact -= (event.down_payment || 0);
           yearGoalWithdrawal += (event.down_payment || 0); // Down payment is a withdrawal
+          yearLifeEventExpense += (event.down_payment || 0); // Track for tooltip
         }
       }
     });
@@ -1683,6 +1686,7 @@ export function runUnifiedProjection({
       hasGoalWithdrawal: yearGoalWithdrawal > 0,
       goalNames: [],
       lifeEventIncome: Math.round(yearLifeEventIncome),
+      lifeEventExpense: Math.round(yearLifeEventExpense),
       
       // Retirement contributions (pre-retirement only)
       year401kContribution: !isRetired ? Math.round(year401k || 0) : 0,
