@@ -2628,9 +2628,15 @@ export default function FinancialPlan() {
                           </div>
                         )}
                         <div className="pt-2 border-t border-zinc-700/40">
-                          <p className={`font-semibold text-sm ${p.netCashFlow >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                            Net Cash Flow: {p.netCashFlow >= 0 ? '+' : ''}${p.netCashFlow.toLocaleString()}
-                          </p>
+                          {p.netCashFlow > 0 ? (
+                            <p className="font-semibold text-emerald-400 text-sm">
+                              Net Savings: +${Math.abs(p.netCashFlow).toLocaleString()}
+                            </p>
+                          ) : (
+                            <p className="font-semibold text-rose-400 text-sm">
+                              Net Withdrawal from Portfolio: -${(p.totalWithdrawalAmount || 0).toLocaleString()}
+                            </p>
+                          )}
                         </div>
                         {/* Withdrawal sources for pre-retirement deficit */}
                         {(p.withdrawFromTaxable > 0 || p.withdrawFromTaxDeferred > 0 || p.withdrawFromTaxFree > 0) && (
@@ -2875,9 +2881,15 @@ export default function FinancialPlan() {
                           </div>
                         )}
                         <div className="pt-2 border-t border-zinc-700/40">
-                          <p className="font-semibold text-emerald-400 text-sm">
-                            Net Savings: ${p.netCashFlow.toLocaleString()}
-                          </p>
+                          {p.netCashFlow > 0 ? (
+                            <p className="font-semibold text-emerald-400 text-sm">
+                              Net Savings: +${Math.abs(p.netCashFlow).toLocaleString()}
+                            </p>
+                          ) : (
+                            <p className="font-semibold text-rose-400 text-sm">
+                              Net Withdrawal from Portfolio: -${(p.totalWithdrawalAmount || 0).toLocaleString()}
+                            </p>
+                          )}
                         </div>
                       </div>
                     )}
