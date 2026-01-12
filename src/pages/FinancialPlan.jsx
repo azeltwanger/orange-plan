@@ -1013,9 +1013,18 @@ export default function FinancialPlan() {
     if (total <= 0) return 0;
     
     // Binary search for max sustainable spending (in today's dollars)
+    // Start with a high upper bound - the search will find the true max
     let low = 0;
-    let high = total * 0.30; // Start with 30% of portfolio as upper bound
-    
+    let high = total * 2; // Start very high - 200% of portfolio
+
+    // First, find a valid upper bound (where portfolio fails)
+    let testResult = runProjectionForRetirementAge(retirementAge, high);
+    while (testResult.survives && high < total * 10) {
+      high = high * 2;
+      testResult = runProjectionForRetirementAge(retirementAge, high);
+    }
+
+    // Now binary search between low and high
     for (let iteration = 0; iteration < 30; iteration++) {
       const testSpending = (low + high) / 2;
       
