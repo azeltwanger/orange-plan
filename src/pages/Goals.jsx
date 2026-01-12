@@ -571,7 +571,19 @@ export default function Goals() {
             {goalForm.type === 'debt_payoff' && (
               <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 space-y-4">
                 <div className="space-y-2">
-                  <Label className="text-zinc-400">Link to Liability</Label>
+                  <Label className="text-zinc-400">Target Amount ($)</Label>
+                  <Input 
+                    type="number" 
+                    value={goalForm.target_amount} 
+                    onChange={(e) => setGoalForm({ ...goalForm, target_amount: e.target.value })} 
+                    placeholder="Amount to pay off" 
+                    className="bg-zinc-900 border-zinc-700 text-zinc-100" 
+                    required 
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-zinc-400">Link to Liability (optional)</Label>
                   <Select 
                     value={goalForm.linked_liability_id || 'none'} 
                     onValueChange={(value) => {
