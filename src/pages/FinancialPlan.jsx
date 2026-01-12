@@ -2587,6 +2587,12 @@ export default function FinancialPlan() {
                             <span>Gross Income:</span>
                             <span className="text-emerald-400 text-right">${(p.yearGrossIncome || 0).toLocaleString()}</span>
                           </div>
+                          {p.lifeEventIncome > 0 && (
+                            <div className="flex justify-between gap-6">
+                              <span>Life Event Income:</span>
+                              <span className="text-emerald-400 text-right">+${p.lifeEventIncome.toLocaleString()}</span>
+                            </div>
+                          )}
                           {p.federalTaxPaid > 0 && (
                             <div className="flex justify-between gap-6">
                               <span>Federal Tax:</span>
@@ -2656,6 +2662,12 @@ export default function FinancialPlan() {
                             <div className="flex justify-between gap-6">
                               <span>Gross Income:</span>
                               <span className="text-emerald-400 text-right">+${otherRetirementIncome.toLocaleString()}</span>
+                            </div>
+                          )}
+                          {p.lifeEventIncome > 0 && (
+                            <div className="flex justify-between gap-6">
+                              <span>Life Event Income:</span>
+                              <span className="text-emerald-400 text-right">+${p.lifeEventIncome.toLocaleString()}</span>
                             </div>
                           )}
                           {p.socialSecurityIncome > 0 && (
@@ -2786,6 +2798,12 @@ export default function FinancialPlan() {
                             <span>• Gross Income:</span>
                             <span className="text-emerald-400 text-right">${(p.yearGrossIncome || 0).toLocaleString()}</span>
                           </div>
+                          {p.lifeEventIncome > 0 && (
+                            <div className="flex justify-between gap-6">
+                              <span>• Life Event Income:</span>
+                              <span className="text-emerald-400 text-right">+${p.lifeEventIncome.toLocaleString()}</span>
+                            </div>
+                          )}
                           {p.federalTaxPaid > 0 && (
                            <div className="flex justify-between gap-6">
                              <span>• Federal Tax:</span>
