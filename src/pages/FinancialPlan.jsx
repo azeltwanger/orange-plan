@@ -162,7 +162,9 @@ export default function FinancialPlan() {
 
 
   const [goalForm, setGoalForm] = useState({
-    name: '', target_amount: '', current_amount: '', target_date: '', goal_type: 'other', priority: 'medium', notes: '',
+    name: '', type: 'savings', target_amount: '', saved_so_far: '', target_date: '',
+    withdraw_from_portfolio: false, linked_liability_id: '', payoff_strategy: 'minimum',
+    extra_monthly_payment: '', lump_sum_date: '', notes: '',
   });
 
   const [eventForm, setEventForm] = useState({
@@ -1293,8 +1295,17 @@ export default function FinancialPlan() {
   useEffect(() => {
     if (editingGoal) {
       setGoalForm({
-        name: editingGoal.name || '', target_amount: editingGoal.target_amount || '', current_amount: editingGoal.current_amount || '',
-        target_date: editingGoal.target_date || '', goal_type: editingGoal.goal_type || 'other', priority: editingGoal.priority || 'medium', notes: editingGoal.notes || '',
+        name: editingGoal.name || '',
+        type: editingGoal.type || 'savings',
+        target_amount: editingGoal.target_amount || '',
+        saved_so_far: editingGoal.saved_so_far || editingGoal.current_amount || '',
+        target_date: editingGoal.target_date || '',
+        withdraw_from_portfolio: editingGoal.withdraw_from_portfolio || editingGoal.will_be_spent || false,
+        linked_liability_id: editingGoal.linked_liability_id || '',
+        payoff_strategy: editingGoal.payoff_strategy || 'minimum',
+        extra_monthly_payment: editingGoal.extra_monthly_payment || '',
+        lump_sum_date: editingGoal.lump_sum_date || '',
+        notes: editingGoal.notes || '',
       });
     }
   }, [editingGoal]);
@@ -1322,7 +1333,22 @@ export default function FinancialPlan() {
 
   const handleSubmitGoal = (e) => {
     e.preventDefault();
-    const data = { ...goalForm, target_amount: parseFloat(goalForm.target_amount) || 0, current_amount: parseFloat(goalForm.current_amount) || 0 };
+    
+    // Only include fields that exist in the FinancialGoal schema
+    const data = {
+      name: goalForm.name,
+      type: goalForm.type,
+      target_amount: parseFloat(goalForm.target_amount) || 0,
+      target_date: goalForm.target_date || null,
+      saved_so_far: parseFloat(goalForm.saved_so_far) || 0,
+      withdraw_from_portfolio: goalForm.withdraw_from_portfolio || false,
+      notes: goalForm.notes || null,
+      payoff_strategy: goalForm.payoff_strategy || null,
+      extra_monthly_payment: parseFloat(goalForm.extra_monthly_payment) || null,
+      lump_sum_date: goalForm.lump_sum_date || null,
+      linked_liability_id: goalForm.linked_liability_id || null,
+    };
+    
     editingGoal ? updateGoal.mutate({ id: editingGoal.id, data }) : createGoal.mutate(data);
   };
 
@@ -1352,7 +1378,11 @@ export default function FinancialPlan() {
 
 
 
-  const resetGoalForm = () => setGoalForm({ name: '', target_amount: '', current_amount: '', target_date: '', goal_type: 'other', priority: 'medium', notes: '' });
+  const resetGoalForm = () => setGoalForm({
+    name: '', type: 'savings', target_amount: '', saved_so_far: '', target_date: '',
+    withdraw_from_portfolio: false, linked_liability_id: '', payoff_strategy: 'minimum',
+    extra_monthly_payment: '', lump_sum_date: '', notes: '',
+  });
   const resetEventForm = () => setEventForm({ name: '', event_type: 'expense_change', year: new Date().getFullYear() + 1, amount: '', is_recurring: false, recurring_years: '', affects: 'expenses', notes: '', monthly_expense_impact: '', liability_amount: '', down_payment: '', interest_rate: '', loan_term_years: '', allocation_method: 'proportionate', btc_allocation: 0, stocks_allocation: 0, real_estate_allocation: 0, bonds_allocation: 0, cash_allocation: 0, other_allocation: 0 });
 
 
