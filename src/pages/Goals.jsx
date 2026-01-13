@@ -733,7 +733,8 @@ export default function Goals() {
                 Cancel
               </Button>
               <Button 
-                type="submit" 
+                type="button"
+                onClick={handleSubmitGoal}
                 className="flex-1 brand-gradient text-white font-semibold"
                 disabled={updateGoal.isPending || createGoal.isPending}
               >
