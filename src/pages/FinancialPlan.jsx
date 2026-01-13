@@ -3741,6 +3741,12 @@ export default function FinancialPlan() {
                             <span className="text-zinc-400">Spending:</span>
                             <span className="text-zinc-200">-{formatNumber(projSpending)}</span>
                           </div>
+                          {currentYearProjection.goalFunding > 0 && (
+                            <div className="flex justify-between">
+                              <span className="text-zinc-400">Goal Funding:</span>
+                              <span className="text-rose-300">-{formatNumber(currentYearProjection.goalFunding)}</span>
+                            </div>
+                          )}
                           <div className="flex justify-between border-t border-zinc-700 pt-2">
                             <span className="text-zinc-300 font-medium">Net Savings:</span>
                             <span className={cn("font-semibold", projNetCashFlow >= 0 ? "text-emerald-400" : "text-rose-400")}>
