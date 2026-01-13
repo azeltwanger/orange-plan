@@ -216,9 +216,6 @@ export default function Goals() {
       return;
     }
 
-    console.log("FINAL DATA BEING SENT:", JSON.stringify(data, null, 2));
-    console.log("GOAL ID:", editingGoal?.id);
-
     if (editingGoal) {
       updateGoal.mutate({ id: editingGoal.id, data });
     } else {
