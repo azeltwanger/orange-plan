@@ -236,9 +236,13 @@ export default function TaxCenter() {
       const settings = userSettings[0];
       if (settings.filing_status !== undefined) setFilingStatus(settings.filing_status);
       if (settings.state_of_residence !== undefined) setStateOfResidence(settings.state_of_residence);
+      // Default expected future income to retirement spending (when user will likely sell)
+      if (expectedFutureIncome === null) {
+        setExpectedFutureIncome(settings.annual_retirement_spending || 80000);
+      }
       setSettingsLoaded(true);
     }
-  }, [userSettings, settingsLoaded]);
+  }, [userSettings, settingsLoaded, expectedFutureIncome]);
 
   // Save settings mutation
   const saveSettings = useMutation({
