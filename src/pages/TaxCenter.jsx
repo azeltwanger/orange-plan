@@ -1185,11 +1185,16 @@ export default function TaxCenter() {
     // Trading fees are based on the VALUE traded (round trip = sell + rebuy)
     const gainTradingFees = optimalGainValue * 2 * (feePercent / 100);
     
+    // FIXED future tax rates - not dependent on current income slider
+    // These represent expected tax rates when user eventually sells in future
+    const futureFederalLTCGRate = 0.15; // 15% - middle LTCG bracket assumption
+    const futureStateLTCGRate = 0.035; // ~3.5% - typical state LTCG effective rate
+    const futureFederalSTCGRate = 0.22; // 22% - mid-bracket ordinary income assumption
+    const futureStateSTCGRate = 0.05; // ~5% - typical state income rate
+    
     // Future tax rates for each category
-    // Long-term: would be taxed at 15% LTCG + state LTCG rate in future
-    const longTermFutureTaxRate = 0.15 + effectiveStateLTCGRate;
-    // Short-term: would be taxed at ordinary income rate + state rate in future
-    const shortTermFutureTaxRate = effectiveSTCGRate + effectiveStateSTCGRate;
+    const longTermFutureTaxRate = futureFederalLTCGRate + futureStateLTCGRate; // ~18.5%
+    const shortTermFutureTaxRate = futureFederalSTCGRate + futureStateSTCGRate; // ~27%
     
     // Calculate future tax saved based on actual lot composition
     const longTermTaxSaved = harvestedLongTermGains * longTermFutureTaxRate;
