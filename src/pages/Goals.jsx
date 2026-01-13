@@ -35,11 +35,19 @@ export default function Goals() {
   const [itemToDelete, setItemToDelete] = useState(null);
   const queryClient = useQueryClient();
 
-  // Form states
+  // Form states - ONLY valid schema fields
   const [goalForm, setGoalForm] = useState({
-    name: '', type: 'savings', target_amount: '', saved_so_far: '', target_date: '', 
-    withdraw_from_portfolio: false, linked_liability_id: '', payoff_strategy: 'minimum', 
-    extra_monthly_payment: '', lump_sum_date: '', notes: '',
+    name: '',
+    type: 'savings',
+    target_amount: '',
+    target_date: '',
+    saved_so_far: '',
+    withdraw_from_portfolio: false,
+    notes: '',
+    payoff_strategy: 'minimum',
+    extra_monthly_payment: '',
+    lump_sum_date: '',
+    linked_liability_id: '',
   });
 
   const [eventForm, setEventForm] = useState({
@@ -91,10 +99,10 @@ export default function Goals() {
       queryClient.invalidateQueries({ queryKey: ['goals'] }); 
       setGoalFormOpen(false); 
       resetGoalForm(); 
-      toast.success("Goal created successfully!");
+      toast.success("Goal created!");
     },
     onError: (error) => {
-      console.error("Error creating goal:", error);
+      console.error("Create error:", error);
       toast.error("Failed to create goal: " + (error?.message || "Unknown error"));
     },
   });
@@ -106,10 +114,10 @@ export default function Goals() {
       setGoalFormOpen(false); 
       setEditingGoal(null); 
       resetGoalForm(); 
-      toast.success("Goal updated successfully!");
+      toast.success("Goal updated!");
     },
     onError: (error) => {
-      console.error("Error updating goal:", error);
+      console.error("Update error:", error);
       toast.error("Failed to update goal: " + (error?.message || "Unknown error"));
     },
   });
@@ -134,11 +142,21 @@ export default function Goals() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['lifeEvents'] }),
   });
 
-  const resetGoalForm = () => setGoalForm({ 
-    name: '', type: 'savings', target_amount: '', saved_so_far: '', target_date: '', 
-    withdraw_from_portfolio: false, linked_liability_id: '', payoff_strategy: 'minimum', 
-    extra_monthly_payment: '', lump_sum_date: '', notes: '',
-  });
+  const resetGoalForm = () => {
+    setGoalForm({
+      name: '',
+      type: 'savings',
+      target_amount: '',
+      target_date: '',
+      saved_so_far: '',
+      withdraw_from_portfolio: false,
+      notes: '',
+      payoff_strategy: 'minimum',
+      extra_monthly_payment: '',
+      lump_sum_date: '',
+      linked_liability_id: '',
+    });
+  };
   
   const resetEventForm = () => setEventForm({ 
     name: '', event_type: 'major_expense', year: new Date().getFullYear() + 1, amount: '', 
@@ -150,18 +168,19 @@ export default function Goals() {
 
   useEffect(() => {
     if (editingGoal) {
+      // Only load valid schema fields - exclude deprecated fields like funding_sources
       setGoalForm({
         name: editingGoal.name || '',
         type: editingGoal.type || 'savings',
         target_amount: editingGoal.target_amount || '',
-        saved_so_far: editingGoal.saved_so_far || editingGoal.current_amount || '',
         target_date: editingGoal.target_date || '',
-        withdraw_from_portfolio: editingGoal.withdraw_from_portfolio || editingGoal.will_be_spent || false,
-        linked_liability_id: editingGoal.linked_liability_id || '',
+        saved_so_far: editingGoal.saved_so_far || '',
+        withdraw_from_portfolio: editingGoal.withdraw_from_portfolio || false,
+        notes: editingGoal.notes || '',
         payoff_strategy: editingGoal.payoff_strategy || 'minimum',
         extra_monthly_payment: editingGoal.extra_monthly_payment || '',
         lump_sum_date: editingGoal.lump_sum_date || '',
-        notes: editingGoal.notes || '',
+        linked_liability_id: editingGoal.linked_liability_id || '',
       });
     }
   }, [editingGoal]);
@@ -196,34 +215,37 @@ export default function Goals() {
   const handleSubmitGoal = (e) => {
     if (e) e.preventDefault();
     
-    // Explicitly build data with ONLY valid schema fields - NO spreading
-    const data = {};
+    // Build clean data object with ONLY valid schema fields
+    const cleanData = {
+      name: goalForm.name,
+      type: goalForm.type || 'savings',
+      target_amount: parseFloat(goalForm.target_amount) || 0,
+    };
     
-    // Required fields
-    data.name = goalForm.name || '';
-    data.type = goalForm.type || 'savings';
-    data.target_amount = parseFloat(goalForm.target_amount) || 0;
-    
-    // Optional fields - only add if they have values
-    if (goalForm.target_date) data.target_date = goalForm.target_date;
-    if (goalForm.saved_so_far) data.saved_so_far = parseFloat(goalForm.saved_so_far) || 0;
-    if (goalForm.withdraw_from_portfolio !== undefined) data.withdraw_from_portfolio = goalForm.withdraw_from_portfolio;
-    if (goalForm.notes) data.notes = goalForm.notes;
-    if (goalForm.payoff_strategy) data.payoff_strategy = goalForm.payoff_strategy;
-    if (goalForm.extra_monthly_payment) data.extra_monthly_payment = parseFloat(goalForm.extra_monthly_payment) || null;
-    if (goalForm.lump_sum_date) data.lump_sum_date = goalForm.lump_sum_date;
-    if (goalForm.linked_liability_id) data.linked_liability_id = goalForm.linked_liability_id;
+    // Add optional fields only if they have values
+    if (goalForm.target_date) cleanData.target_date = goalForm.target_date;
+    if (parseFloat(goalForm.saved_so_far)) cleanData.saved_so_far = parseFloat(goalForm.saved_so_far);
+    if (goalForm.withdraw_from_portfolio) cleanData.withdraw_from_portfolio = goalForm.withdraw_from_portfolio;
+    if (goalForm.notes) cleanData.notes = goalForm.notes;
+    if (goalForm.payoff_strategy && goalForm.payoff_strategy !== 'minimum') cleanData.payoff_strategy = goalForm.payoff_strategy;
+    if (parseFloat(goalForm.extra_monthly_payment)) cleanData.extra_monthly_payment = parseFloat(goalForm.extra_monthly_payment);
+    if (goalForm.lump_sum_date) cleanData.lump_sum_date = goalForm.lump_sum_date;
+    if (goalForm.linked_liability_id) cleanData.linked_liability_id = goalForm.linked_liability_id;
 
     // Validation
-    if (!data.name || !data.target_amount) {
-      toast.error("Goal Name and Target Amount are required.");
+    if (!cleanData.name) {
+      toast.error("Goal Name is required.");
+      return;
+    }
+    if (!cleanData.target_amount || cleanData.target_amount <= 0) {
+      toast.error("Target Amount must be greater than 0.");
       return;
     }
 
     if (editingGoal) {
-      updateGoal.mutate({ id: editingGoal.id, data });
+      updateGoal.mutate({ id: editingGoal.id, data: cleanData });
     } else {
-      createGoal.mutate(data);
+      createGoal.mutate(cleanData);
     }
   };
 
