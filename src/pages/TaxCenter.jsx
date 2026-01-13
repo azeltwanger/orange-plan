@@ -1472,14 +1472,16 @@ export default function TaxCenter() {
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-1.5">
                   <Label className="text-zinc-300">Expected Taxable Income (Year of Sale)</Label>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Info className="w-3.5 h-3.5 text-zinc-500 cursor-help" />
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-xs">
-                      <p>Enter your expected taxable income for the year you'll sell. This determines what tax rate you're avoiding by harvesting now. If selling during retirement, estimate your taxable withdrawals + Social Security.</p>
-                    </TooltipContent>
-                  </Tooltip>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="w-3.5 h-3.5 text-zinc-500 cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        <p>Enter your expected taxable income for the year you'll sell. This determines what tax rate you're avoiding by harvesting now. If selling during retirement, estimate your taxable withdrawals + Social Security.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-orange-400 font-semibold">${(expectedFutureIncome ?? annualIncome).toLocaleString()}</span>
