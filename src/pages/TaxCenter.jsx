@@ -1130,38 +1130,72 @@ export default function TaxCenter() {
     const lossTaxSavings = totalHarvestableLoss * combinedSTCGRate; // Can offset short-term gains or $3k ordinary income (federal + state)
     const lossNetBenefit = lossTaxSavings - lossTradingFees;
 
-    // For gain harvesting (0% LTCG)
-    const gainLots = lots.filter(lot => lot.unrealizedGain > 0 && lot.isLongTerm);
-    const totalGainValue = gainLots.reduce((sum, lot) => sum + lot.currentValue, 0);
-    const totalHarvestableGain = gainLots.reduce((sum, lot) => sum + lot.unrealizedGain, 0);
-    const optimalGainHarvest = Math.min(totalHarvestableGain, ltcgBracketRoom);
+    // For gain harvesting - separate by holding period
+    const longTermGainLots = lots.filter(lot => lot.unrealizedGain > 0 && lot.isLongTerm);
+    const shortTermGainLots = lots.filter(lot => lot.unrealizedGain > 0 && !lot.isLongTerm);
     
-    // Calculate the value we need to sell to realize the optimal gain amount
+    const totalLongTermGains = longTermGainLots.reduce((sum, lot) => sum + lot.unrealizedGain, 0);
+    const totalShortTermGains = shortTermGainLots.reduce((sum, lot) => sum + lot.unrealizedGain, 0);
+    const totalLongTermValue = longTermGainLots.reduce((sum, lot) => sum + lot.currentValue, 0);
+    const totalShortTermValue = shortTermGainLots.reduce((sum, lot) => sum + lot.currentValue, 0);
+    
+    // Calculate how much of each type fits in the 0% bracket room
+    // Prioritize long-term gains first (already qualify for preferential rates)
+    let remainingRoom = ltcgBracketRoom;
+    let harvestedLongTermGains = 0;
+    let harvestedShortTermGains = 0;
+    
+    if (totalLongTermGains > 0) {
+      harvestedLongTermGains = Math.min(totalLongTermGains, remainingRoom);
+      remainingRoom -= harvestedLongTermGains;
+    }
+    
+    // Use remaining room for short-term gains if any
+    if (totalShortTermGains > 0 && remainingRoom > 0) {
+      harvestedShortTermGains = Math.min(totalShortTermGains, remainingRoom);
+      remainingRoom -= harvestedShortTermGains;
+    }
+    
+    const optimalGainHarvest = harvestedLongTermGains + harvestedShortTermGains;
+    
+    // Calculate value to sell for each category
     // Sort lots by gain% (highest first) to minimize value traded for given gain
-    const sortedGainLots = [...gainLots].sort((a, b) => {
-      const aGainPercent = a.unrealizedGain / a.currentValue;
-      const bGainPercent = b.unrealizedGain / b.currentValue;
-      return bGainPercent - aGainPercent; // Higher gain% first = less value to trade
-    });
+    const calculateValueForGain = (gainLots, targetGain) => {
+      if (targetGain <= 0) return 0;
+      const sorted = [...gainLots].sort((a, b) => {
+        const aGainPercent = a.unrealizedGain / a.currentValue;
+        const bGainPercent = b.unrealizedGain / b.currentValue;
+        return bGainPercent - aGainPercent;
+      });
+      return sorted.reduce((acc, lot) => {
+        if (acc.remaining <= 0) return acc;
+        const gainFromLot = Math.min(lot.unrealizedGain, acc.remaining);
+        const valueRatio = gainFromLot / lot.unrealizedGain;
+        return {
+          remaining: acc.remaining - gainFromLot,
+          value: acc.value + (lot.currentValue * valueRatio)
+        };
+      }, { remaining: targetGain, value: 0 }).value;
+    };
     
-    const optimalGainValue = optimalGainHarvest > 0 
-      ? sortedGainLots.reduce((acc, lot) => {
-          if (acc.remaining <= 0) return acc;
-          const gainFromLot = Math.min(lot.unrealizedGain, acc.remaining);
-          const valueRatio = gainFromLot / lot.unrealizedGain;
-          return {
-            remaining: acc.remaining - gainFromLot,
-            value: acc.value + (lot.currentValue * valueRatio)
-          };
-        }, { remaining: optimalGainHarvest, value: 0 }).value
-      : 0;
+    const longTermValueToSell = calculateValueForGain(longTermGainLots, harvestedLongTermGains);
+    const shortTermValueToSell = calculateValueForGain(shortTermGainLots, harvestedShortTermGains);
+    const optimalGainValue = longTermValueToSell + shortTermValueToSell;
     
-    // Trading fees are based on the VALUE traded, not the gain
-    // Round trip = sell + rebuy = 2x the value
+    // Trading fees are based on the VALUE traded (round trip = sell + rebuy)
     const gainTradingFees = optimalGainValue * 2 * (feePercent / 100);
     
-    // Tax savings = future tax avoided by resetting basis (15% LTCG + state on future sale)
-    const gainFutureTaxSavings = optimalGainHarvest * (0.15 + stateRate); // Assume 15% LTCG + state in future
+    // Future tax rates for each category
+    // Long-term: would be taxed at 15% LTCG + state LTCG rate in future
+    const longTermFutureTaxRate = 0.15 + effectiveStateLTCGRate;
+    // Short-term: would be taxed at ordinary income rate + state rate in future
+    const shortTermFutureTaxRate = effectiveSTCGRate + effectiveStateSTCGRate;
+    
+    // Calculate future tax saved based on actual lot composition
+    const longTermTaxSaved = harvestedLongTermGains * longTermFutureTaxRate;
+    const shortTermTaxSaved = harvestedShortTermGains * shortTermFutureTaxRate;
+    const gainFutureTaxSavings = longTermTaxSaved + shortTermTaxSaved;
+    
     const gainNetBenefit = canHarvestGainsTaxFree ? gainFutureTaxSavings - gainTradingFees : -gainTradingFees;
 
     return {
@@ -1175,15 +1209,22 @@ export default function TaxCenter() {
         lots: lossLots,
       },
       gain: {
-        totalValue: totalGainValue,
-        harvestableGain: totalHarvestableGain,
+        totalValue: totalLongTermValue + totalShortTermValue,
+        harvestableGain: totalLongTermGains + totalShortTermGains,
         optimalHarvest: optimalGainHarvest,
         optimalValue: optimalGainValue,
         tradingFees: gainTradingFees,
         futureTaxSavings: gainFutureTaxSavings,
         netBenefit: gainNetBenefit,
         isWorthwhile: gainNetBenefit > 0 && canHarvestGainsTaxFree,
-        lots: gainLots,
+        lots: [...longTermGainLots, ...shortTermGainLots],
+        // Breakdown for display
+        longTermGains: harvestedLongTermGains,
+        shortTermGains: harvestedShortTermGains,
+        longTermTaxSaved: longTermTaxSaved,
+        shortTermTaxSaved: shortTermTaxSaved,
+        longTermLotCount: longTermGainLots.length,
+        shortTermLotCount: shortTermGainLots.length,
       },
     };
   };
