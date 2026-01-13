@@ -1303,7 +1303,7 @@ export default function TaxCenter() {
     return allInRate * 2; // Round trip
   }, [allTransactions]);
 
-  const washTradeAnalysis = useMemo(() => calculateWashTradeAnalysis(taxableLotsForHarvest, avgFeePercent), [taxableLotsForHarvest, avgFeePercent, combinedSTCGRate, ltcgBracketRoom, canHarvestGainsTaxFree, filingStatus, stateRate]);
+  const washTradeAnalysis = useMemo(() => calculateWashTradeAnalysis(taxableLotsForHarvest, avgFeePercent), [taxableLotsForHarvest, avgFeePercent, combinedSTCGRate, ltcgBracketRoom, canHarvestGainsTaxFree, filingStatus, stateRate, expectedFutureIncome, effectiveStateLTCGRate, effectiveStateSTCGRate]);
 
   // Generate Form 8949 style report
   const generateTaxReport = () => {
