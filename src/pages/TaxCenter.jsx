@@ -1456,15 +1456,41 @@ export default function TaxCenter() {
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="space-y-3">
-            <div className="flex justify-between">
-              <Label className="text-zinc-300">Household Taxable Income</Label>
-              <span className="text-orange-400 font-semibold">${annualIncome.toLocaleString()}</span>
+          <div className="space-y-5">
+            <div className="space-y-3">
+              <div className="flex justify-between">
+                <Label className="text-zinc-300">Household Taxable Income</Label>
+                <span className="text-orange-400 font-semibold">${annualIncome.toLocaleString()}</span>
+              </div>
+              <Slider value={[annualIncome]} onValueChange={([v]) => setAnnualIncome(v)} min={0} max={1000000} step={5000} />
+              <p className="text-xs text-zinc-500">
+                {filingStatus === 'married' ? 'Combined household income' : 'Your individual income'}
+              </p>
             </div>
-            <Slider value={[annualIncome]} onValueChange={([v]) => setAnnualIncome(v)} min={0} max={1000000} step={5000} />
-            <p className="text-xs text-zinc-500">
-              {filingStatus === 'married' ? 'Combined household income' : 'Your individual income'}
-            </p>
+            
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <Label className="text-zinc-300">Expected Future Income</Label>
+                <div className="flex items-center gap-2">
+                  <span className="text-orange-400 font-semibold">${(expectedFutureIncome || 80000).toLocaleString()}</span>
+                  <span className="text-xs text-zinc-500">→ {(() => {
+                    const futureIncome = expectedFutureIncome || 80000;
+                    const futureStdDeduction = filingStatus === 'married' ? 32200 : 16100;
+                    const futureTaxableIncome = Math.max(0, futureIncome - futureStdDeduction);
+                    const futureZeroBracketTop = filingStatus === 'married' ? 96700 : 48350;
+                    const futureFifteenBracketTop = filingStatus === 'married' ? 600050 : 533400;
+                    
+                    if (futureTaxableIncome <= futureZeroBracketTop) return '0% LTCG';
+                    if (futureTaxableIncome <= futureFifteenBracketTop) return '15% LTCG';
+                    return '20% LTCG';
+                  })()}</span>
+                </div>
+              </div>
+              <Slider value={[expectedFutureIncome || 80000]} onValueChange={([v]) => setExpectedFutureIncome(v)} min={0} max={500000} step={5000} />
+              <p className="text-xs text-zinc-500">
+                Income when you'll sell (for Net Benefit calculation)
+              </p>
+            </div>
           </div>
 
           <div className="space-y-3">
