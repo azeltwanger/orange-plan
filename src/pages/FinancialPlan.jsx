@@ -1186,7 +1186,7 @@ export default function FinancialPlan() {
   const goalsWithProjections = useMemo(() => {
     return goals.map(goal => {
       const targetAmount = goal.target_amount || 0;
-      const currentAmount = goal.current_amount || 0;
+      const currentAmount = goal.saved_so_far || 0;
 
       // Find when portfolio reaches goal amount
       const meetYearIndex = projections.findIndex(p => p.total >= targetAmount);
@@ -1731,7 +1731,7 @@ export default function FinancialPlan() {
             <h3 className="font-semibold mb-2">Wealth Projection</h3>
             <p className="text-sm text-zinc-400 mb-4">
               {lifeEvents.length > 0 && `${lifeEvents.length} life event${lifeEvents.length !== 1 ? 's' : ''} • `}
-              {goals.filter(g => g.will_be_spent).length > 0 && `${goals.filter(g => g.will_be_spent).length} planned expense${goals.filter(g => g.will_be_spent).length !== 1 ? 's' : ''} • `}
+              {goals.filter(g => g.withdraw_from_portfolio).length > 0 && `${goals.filter(g => g.withdraw_from_portfolio).length} planned expense${goals.filter(g => g.withdraw_from_portfolio).length !== 1 ? 's' : ''} • `}
               {goals.length > 0 && `${goals.length} goal${goals.length !== 1 ? 's' : ''} tracked`}
             </p>
             <div className="h-[500px] relative overflow-visible" ref={chartContainerRef}>
@@ -2265,13 +2265,13 @@ export default function FinancialPlan() {
                             </div>
                             {/* Event markers row */}
                             <div className="flex flex-wrap justify-center gap-4 text-xs pt-2 border-t border-zinc-800/50">
-                              {goals.filter(g => !g.will_be_spent).length > 0 && (
+                              {goals.filter(g => !g.withdraw_from_portfolio).length > 0 && (
                                 <div className="flex items-center gap-2">
                                   <div className="w-6 h-0.5 bg-blue-400/50" style={{backgroundImage: 'repeating-linear-gradient(90deg, #60a5fa 0, #60a5fa 8px, transparent 8px, transparent 12px)'}} />
                                   <span className="text-zinc-400">Goal Targets</span>
                                 </div>
                               )}
-                              {goals.filter(g => g.will_be_spent).length > 0 && (
+                              {goals.filter(g => g.withdraw_from_portfolio).length > 0 && (
                                 <div className="flex items-center gap-2">
                                   <div className="w-6 h-0.5 bg-blue-400" style={{backgroundImage: 'repeating-linear-gradient(90deg, #60a5fa 0, #60a5fa 6px, transparent 6px, transparent 10px)'}} />
                                   <span className="text-zinc-400">Goal Funding</span>
@@ -2344,14 +2344,10 @@ export default function FinancialPlan() {
                       return null;
                     })}
                     {/* All goals with target dates - vertical lines at target age - NO LABELS */}
-                    {goals.filter(g => g.target_date || (g.goal_type === 'debt_payoff' && g.payoff_years)).slice(0, 5).map((goal) => {
+                    {goals.filter(g => g.target_date).slice(0, 5).map((goal) => {
                       let goalYear;
                       
-                      // For debt payoff goals with spread payments, show at END of payment period
-                      if (goal.goal_type === 'debt_payoff' && goal.payoff_strategy === 'spread_payments' && goal.payoff_years > 0) {
-                        const startYear = goal.target_date ? new Date(goal.target_date).getFullYear() : new Date().getFullYear();
-                        goalYear = startYear + goal.payoff_years;
-                      } else if (goal.target_date) {
+                      if (goal.target_date) {
                         goalYear = new Date(goal.target_date).getFullYear();
                       } else {
                         return null; // Skip if no valid date
@@ -2430,7 +2426,7 @@ export default function FinancialPlan() {
                       return null;
                     })}
                     {/* Goal target lines - only show for accumulation goals (not one-time spending) - NO LABELS */}
-                    {goalsWithProjections.filter(g => g.target_amount > 0 && !g.will_be_spent).slice(0, 3).map((goal, i) => (
+                    {goalsWithProjections.filter(g => g.target_amount > 0 && !g.withdraw_from_portfolio).slice(0, 3).map((goal, i) => (
                       <ReferenceLine
                         key={goal.id}
                         y={goal.target_amount}

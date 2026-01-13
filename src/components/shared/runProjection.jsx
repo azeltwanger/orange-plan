@@ -556,7 +556,7 @@ export function runUnifiedProjection({
 
     // Goals: withdrawal and debt payoff
     goals.forEach(goal => {
-      if ((goal.withdraw_from_portfolio || goal.will_be_spent) && goal.target_date && goal.type !== 'debt_payoff') {
+      if (goal.withdraw_from_portfolio && goal.target_date && goal.type !== 'debt_payoff') {
         const goalYear = new Date(goal.target_date).getFullYear();
         if (goalYear === year) {
           yearGoalWithdrawal += goal.target_amount || 0;
@@ -1680,7 +1680,7 @@ export function runUnifiedProjection({
       
       // Event markers
       hasEvent: lifeEvents.some(e => e.year === year) ||
-        goals.some(g => (g.withdraw_from_portfolio || g.will_be_spent) && g.target_date && new Date(g.target_date).getFullYear() === year),
+        goals.some(g => g.withdraw_from_portfolio && g.target_date && new Date(g.target_date).getFullYear() === year),
       hasGoalWithdrawal: yearGoalWithdrawal > 0,
       goalNames: [],
       lifeEventIncome: Math.round(yearLifeEventIncome),
