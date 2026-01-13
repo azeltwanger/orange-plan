@@ -196,21 +196,25 @@ export default function Goals() {
   const handleSubmitGoal = (e) => {
     if (e) e.preventDefault();
     
-    // Only include fields that exist in the FinancialGoal schema
-    const data = {
-      name: goalForm.name,
-      type: goalForm.type,
-      target_amount: parseFloat(goalForm.target_amount) || 0,
-      target_date: goalForm.target_date || null,
-      saved_so_far: parseFloat(goalForm.saved_so_far) || 0,
-      withdraw_from_portfolio: goalForm.withdraw_from_portfolio || false,
-      notes: goalForm.notes || null,
-      payoff_strategy: goalForm.payoff_strategy || null,
-      extra_monthly_payment: parseFloat(goalForm.extra_monthly_payment) || null,
-      lump_sum_date: goalForm.lump_sum_date || null,
-      linked_liability_id: goalForm.linked_liability_id || null,
-    };
+    // Explicitly build data with ONLY valid schema fields - NO spreading
+    const data = {};
+    
+    // Required fields
+    data.name = goalForm.name || '';
+    data.type = goalForm.type || 'savings';
+    data.target_amount = parseFloat(goalForm.target_amount) || 0;
+    
+    // Optional fields - only add if they have values
+    if (goalForm.target_date) data.target_date = goalForm.target_date;
+    if (goalForm.saved_so_far) data.saved_so_far = parseFloat(goalForm.saved_so_far) || 0;
+    if (goalForm.withdraw_from_portfolio !== undefined) data.withdraw_from_portfolio = goalForm.withdraw_from_portfolio;
+    if (goalForm.notes) data.notes = goalForm.notes;
+    if (goalForm.payoff_strategy) data.payoff_strategy = goalForm.payoff_strategy;
+    if (goalForm.extra_monthly_payment) data.extra_monthly_payment = parseFloat(goalForm.extra_monthly_payment) || null;
+    if (goalForm.lump_sum_date) data.lump_sum_date = goalForm.lump_sum_date;
+    if (goalForm.linked_liability_id) data.linked_liability_id = goalForm.linked_liability_id;
 
+    // Validation
     if (!data.name || !data.target_amount) {
       toast.error("Goal Name and Target Amount are required.");
       return;
