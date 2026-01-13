@@ -1470,11 +1470,21 @@ export default function TaxCenter() {
             
             <div className="space-y-3">
               <div className="flex justify-between items-center">
-                <Label className="text-zinc-300">Expected Future Income</Label>
+                <div className="flex items-center gap-1.5">
+                  <Label className="text-zinc-300">Expected Taxable Income (Year of Sale)</Label>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="w-3.5 h-3.5 text-zinc-500 cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p>Enter your expected taxable income for the year you'll sell. This determines what tax rate you're avoiding by harvesting now. If selling during retirement, estimate your taxable withdrawals + Social Security.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-orange-400 font-semibold">${(expectedFutureIncome || 80000).toLocaleString()}</span>
+                  <span className="text-orange-400 font-semibold">${(expectedFutureIncome ?? annualIncome).toLocaleString()}</span>
                   <span className="text-xs text-zinc-500">→ {(() => {
-                    const futureIncome = expectedFutureIncome || 80000;
+                    const futureIncome = expectedFutureIncome ?? annualIncome;
                     const futureStdDeduction = filingStatus === 'married' ? 32200 : 16100;
                     const futureTaxableIncome = Math.max(0, futureIncome - futureStdDeduction);
                     const futureZeroBracketTop = filingStatus === 'married' ? 96700 : 48350;
@@ -1486,9 +1496,9 @@ export default function TaxCenter() {
                   })()}</span>
                 </div>
               </div>
-              <Slider value={[expectedFutureIncome ?? 80000]} onValueChange={([v]) => setExpectedFutureIncome(v)} min={0} max={500000} step={5000} />
+              <Slider value={[expectedFutureIncome ?? annualIncome]} onValueChange={([v]) => setExpectedFutureIncome(v)} min={0} max={500000} step={5000} />
               <p className="text-xs text-zinc-500">
-                Income when you'll sell (for Net Benefit calculation)
+                Your taxable income in the year you plan to sell these assets
               </p>
             </div>
           </div>
