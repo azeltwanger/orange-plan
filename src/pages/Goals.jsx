@@ -394,10 +394,10 @@ export default function Goals() {
           <div className="space-y-3">
             {sortedGoals.map(goal => {
               // Handle both new schema and legacy data
-              const goalType = goal.type || (goal.goal_type === 'debt_payoff' ? 'debt_payoff' : 'savings');
-              const savedAmount = goal.saved_so_far ?? goal.current_amount ?? 0;
+              const goalType = goal.type || 'savings';
+              const savedAmount = goal.saved_so_far || 0;
               const targetAmount = goal.target_amount || 0;
-              const withdrawFromPortfolio = goal.withdraw_from_portfolio ?? goal.will_be_spent ?? false;
+              const withdrawFromPortfolio = goal.withdraw_from_portfolio || false;
 
               const isSavings = goalType === 'savings';
               const isDebtPayoff = goalType === 'debt_payoff';
