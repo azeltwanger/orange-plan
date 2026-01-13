@@ -1486,7 +1486,7 @@ export default function TaxCenter() {
                   })()}</span>
                 </div>
               </div>
-              <Slider value={[expectedFutureIncome || 80000]} onValueChange={([v]) => setExpectedFutureIncome(v)} min={0} max={500000} step={5000} />
+              <Slider value={[expectedFutureIncome ?? 80000]} onValueChange={([v]) => setExpectedFutureIncome(v)} min={0} max={500000} step={5000} />
               <p className="text-xs text-zinc-500">
                 Income when you'll sell (for Net Benefit calculation)
               </p>
