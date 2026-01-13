@@ -194,7 +194,7 @@ export default function Goals() {
   }, [editingEvent]);
 
   const handleSubmitGoal = (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     
     // Only include fields that exist in the FinancialGoal schema
     const data = {
