@@ -215,36 +215,47 @@ export default function Goals() {
   const handleSubmitGoal = (e) => {
     if (e) e.preventDefault();
     
-    // Build clean data object with ONLY valid schema fields
+    // Build data with valid fields AND explicitly null out deprecated fields
     const cleanData = {
+      // Valid fields
       name: goalForm.name,
       type: goalForm.type || 'savings',
       target_amount: parseFloat(goalForm.target_amount) || 0,
+      target_date: goalForm.target_date || null,
+      saved_so_far: parseFloat(goalForm.saved_so_far) || 0,
+      withdraw_from_portfolio: goalForm.withdraw_from_portfolio || false,
+      notes: goalForm.notes || null,
+      payoff_strategy: goalForm.payoff_strategy || null,
+      extra_monthly_payment: parseFloat(goalForm.extra_monthly_payment) || null,
+      lump_sum_date: goalForm.lump_sum_date || null,
+      linked_liability_id: goalForm.linked_liability_id || null,
+      
+      // Explicitly null out ALL deprecated fields to clear them from record
+      funding_sources: null,
+      will_be_spent: null,
+      goal_type: null,
+      current_amount: null,
+      priority: null,
+      linked_dca_plan_id: null,
+      payoff_years: null,
     };
-    
-    // Add optional fields only if they have values
-    if (goalForm.target_date) cleanData.target_date = goalForm.target_date;
-    if (parseFloat(goalForm.saved_so_far)) cleanData.saved_so_far = parseFloat(goalForm.saved_so_far);
-    if (goalForm.withdraw_from_portfolio) cleanData.withdraw_from_portfolio = goalForm.withdraw_from_portfolio;
-    if (goalForm.notes) cleanData.notes = goalForm.notes;
-    if (goalForm.payoff_strategy && goalForm.payoff_strategy !== 'minimum') cleanData.payoff_strategy = goalForm.payoff_strategy;
-    if (parseFloat(goalForm.extra_monthly_payment)) cleanData.extra_monthly_payment = parseFloat(goalForm.extra_monthly_payment);
-    if (goalForm.lump_sum_date) cleanData.lump_sum_date = goalForm.lump_sum_date;
-    if (goalForm.linked_liability_id) cleanData.linked_liability_id = goalForm.linked_liability_id;
 
-    // Validation
     if (!cleanData.name) {
       toast.error("Goal Name is required.");
-      return;
-    }
-    if (!cleanData.target_amount || cleanData.target_amount <= 0) {
-      toast.error("Target Amount must be greater than 0.");
       return;
     }
 
     if (editingGoal) {
       updateGoal.mutate({ id: editingGoal.id, data: cleanData });
     } else {
+      // For create, remove the null deprecated fields
+      delete cleanData.funding_sources;
+      delete cleanData.will_be_spent;
+      delete cleanData.goal_type;
+      delete cleanData.current_amount;
+      delete cleanData.priority;
+      delete cleanData.linked_dca_plan_id;
+      delete cleanData.payoff_years;
       createGoal.mutate(cleanData);
     }
   };
