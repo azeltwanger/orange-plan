@@ -136,6 +136,14 @@ export const STANDARD_DEDUCTIONS = {
     head_of_household: 23850,
     additional_single: 2050,
     additional_married: 1650
+  },
+  2026: {
+    single: 16100,
+    married_filing_jointly: 32200,
+    married_filing_separately: 16100,
+    head_of_household: 24150,
+    additional_single: 2100,
+    additional_married: 1700
   }
 };
 
