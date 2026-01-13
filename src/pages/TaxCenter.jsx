@@ -1190,16 +1190,34 @@ export default function TaxCenter() {
     // Trading fees are based on the VALUE traded (round trip = sell + rebuy)
     const gainTradingFees = optimalGainValue * 2 * (feePercent / 100);
     
-    // FIXED future tax rates - not dependent on current income slider
-    // These represent expected tax rates when user eventually sells in future
-    const futureFederalLTCGRate = 0.15; // 15% - middle LTCG bracket assumption
-    const futureStateLTCGRate = 0.035; // ~3.5% - typical state LTCG effective rate
-    const futureFederalSTCGRate = 0.22; // 22% - mid-bracket ordinary income assumption
-    const futureStateSTCGRate = 0.05; // ~5% - typical state income rate
+    // Calculate future LTCG rate based on expectedFutureIncome (when user will sell)
+    const futureIncome = expectedFutureIncome || 80000;
+    const futureStdDeduction = filingStatus === 'married' ? 32200 : 16100; // 2026 estimates
+    const futureTaxableIncome = Math.max(0, futureIncome - futureStdDeduction);
+    
+    // Determine future federal LTCG rate based on expected taxable income
+    const futureZeroBracketTop = filingStatus === 'married' ? 96700 : 48350;
+    const futureFifteenBracketTop = filingStatus === 'married' ? 600050 : 533400;
+    
+    let futureFederalLTCGRate;
+    if (futureTaxableIncome <= futureZeroBracketTop) {
+      futureFederalLTCGRate = 0;
+    } else if (futureTaxableIncome <= futureFifteenBracketTop) {
+      futureFederalLTCGRate = 0.15;
+    } else {
+      futureFederalLTCGRate = 0.20;
+    }
+    
+    // State LTCG rate (use actual state rate, not income-dependent)
+    const futureStateLTCGRate = effectiveStateLTCGRate || 0.035;
+    
+    // Short-term future rates (if user holds ST gains, they'd be taxed at ordinary rates)
+    const futureFederalSTCGRate = 0.22; // Mid-bracket assumption for ordinary income
+    const futureStateSTCGRate = effectiveStateSTCGRate || 0.05;
     
     // Future tax rates for each category
-    const longTermFutureTaxRate = futureFederalLTCGRate + futureStateLTCGRate; // ~18.5%
-    const shortTermFutureTaxRate = futureFederalSTCGRate + futureStateSTCGRate; // ~27%
+    const longTermFutureTaxRate = futureFederalLTCGRate + futureStateLTCGRate;
+    const shortTermFutureTaxRate = futureFederalSTCGRate + futureStateSTCGRate;
     
     // Calculate future tax saved based on actual lot composition
     const longTermTaxSaved = harvestedLongTermGains * longTermFutureTaxRate;
