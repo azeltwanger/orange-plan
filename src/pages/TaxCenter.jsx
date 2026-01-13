@@ -1517,6 +1517,38 @@ export default function TaxCenter() {
             </p>
           </div>
         </div>
+
+        {/* Expected Future Income for Net Benefit calculation */}
+        <div className="mt-4 pt-4 border-t border-zinc-800/50">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="flex-1">
+              <Label className="text-zinc-300 text-sm">Expected Future Income</Label>
+              <p className="text-xs text-zinc-500 mt-0.5">Income level when you'll sell (for Net Benefit calculation)</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <Input
+                type="number"
+                value={expectedFutureIncome || ''}
+                onChange={(e) => setExpectedFutureIncome(parseFloat(e.target.value) || 0)}
+                className="w-32 bg-zinc-900 border-zinc-700 text-zinc-100"
+                placeholder="80000"
+              />
+              <span className="text-xs text-zinc-500 whitespace-nowrap">
+                → {(() => {
+                  const futureIncome = expectedFutureIncome || 80000;
+                  const futureStdDeduction = filingStatus === 'married' ? 32200 : 16100;
+                  const futureTaxableIncome = Math.max(0, futureIncome - futureStdDeduction);
+                  const futureZeroBracketTop = filingStatus === 'married' ? 96700 : 48350;
+                  const futureFifteenBracketTop = filingStatus === 'married' ? 600050 : 533400;
+                  
+                  if (futureTaxableIncome <= futureZeroBracketTop) return '0% LTCG';
+                  if (futureTaxableIncome <= futureFifteenBracketTop) return '15% LTCG';
+                  return '20% LTCG';
+                })()}
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Summary Cards - NO DUPLICATE CARDS HERE */}
