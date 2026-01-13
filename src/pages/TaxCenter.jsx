@@ -2405,7 +2405,14 @@ export default function TaxCenter() {
                   <p className="text-xs text-zinc-400">{avgFeePercent.toFixed(1)}% round trip</p>
                 </div>
                 <div>
-                  <p className="text-sm text-zinc-300">Net Benefit (vs 15% future)</p>
+                  <p className="text-sm text-zinc-300">Net Benefit (vs {(() => {
+                    const futureIncome = expectedFutureIncome || 80000;
+                    const futureStdDeduction = filingStatus === 'married' ? 32200 : 16100;
+                    const futureTaxableIncome = Math.max(0, futureIncome - futureStdDeduction);
+                    const futureZeroBracketTop = filingStatus === 'married' ? 96700 : 48350;
+                    if (futureTaxableIncome <= futureZeroBracketTop) return '0%';
+                    return '15%';
+                  })()} future)</p>
                   <p className={cn("text-xl font-bold", washTradeAnalysis.gain.isWorthwhile ? "text-emerald-400" : "text-rose-400")}>
                     {washTradeAnalysis.gain.netBenefit >= 0 ? '+' : ''}${washTradeAnalysis.gain.netBenefit.toLocaleString()}
                   </p>
