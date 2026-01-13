@@ -1941,6 +1941,12 @@ export default function FinancialPlan() {
                                       <span>Spending:</span>
                                       <span className="text-zinc-300 text-right">-${(p.yearSpending || 0).toLocaleString()}</span>
                                     </div>
+                                    {p.goalFunding > 0 && (
+                                      <div className="flex justify-between gap-6">
+                                        <span>Goal Funding:</span>
+                                        <span className="text-rose-300 text-right">-${p.goalFunding.toLocaleString()}</span>
+                                      </div>
+                                    )}
                                     {p.lifeEventExpense > 0 && (
                                       <div className="flex justify-between gap-6">
                                         <span>Life Event Expense:</span>
@@ -2641,13 +2647,19 @@ export default function FinancialPlan() {
                             <span>Spending:</span>
                             <span className="text-zinc-300 text-right">-${(p.yearSpending || 0).toLocaleString()}</span>
                           </div>
+                          {p.goalFunding > 0 && (
+                            <div className="flex justify-between gap-6">
+                              <span>Goal Funding:</span>
+                              <span className="text-rose-300 text-right">-${p.goalFunding.toLocaleString()}</span>
+                            </div>
+                          )}
                           {p.lifeEventExpense > 0 && (
                             <div className="flex justify-between gap-6">
                               <span>Life Event Expense:</span>
                               <span className="text-rose-300 text-right">-${p.lifeEventExpense.toLocaleString()}</span>
                             </div>
                           )}
-                        </div>
+                          </div>
                         {p.debtPayments > 0 && (
                           <div className="text-xs text-zinc-500 mb-2">
                             (Debt Payments: ${p.debtPayments.toLocaleString()} - tracked separately)
@@ -2737,16 +2749,16 @@ export default function FinancialPlan() {
                             <span>Spending:</span>
                             <span className="text-zinc-300 text-right">-${(p.retirementSpendingOnly || 0).toLocaleString()}</span>
                           </div>
+                          {p.goalFunding > 0 && (
+                            <div className="flex justify-between gap-6">
+                              <span>Goal Funding:</span>
+                              <span className="text-rose-300 text-right">-${p.goalFunding.toLocaleString()}</span>
+                            </div>
+                          )}
                           {p.lifeEventExpense > 0 && (
                             <div className="flex justify-between gap-6">
                               <span>Life Event Expense:</span>
                               <span className="text-rose-300 text-right">-${p.lifeEventExpense.toLocaleString()}</span>
-                            </div>
-                          )}
-                          {(p.yearGoalWithdrawal > 0 && !(p.lifeEventExpense > 0)) && (
-                            <div className="flex justify-between gap-6">
-                              <span>Goal Funding:</span>
-                              <span className="text-zinc-300 text-right">-${p.yearGoalWithdrawal.toLocaleString()}</span>
                             </div>
                           )}
                           {p.federalTaxPaid > 0 && (
@@ -2894,6 +2906,12 @@ export default function FinancialPlan() {
                             <span>• Spending:</span>
                             <span className="text-rose-300 text-right">-${(p.yearSpending || 0).toLocaleString()}</span>
                           </div>
+                          {p.goalFunding > 0 && (
+                            <div className="flex justify-between gap-6">
+                              <span>• Goal Funding:</span>
+                              <span className="text-rose-300 text-right">-${p.goalFunding.toLocaleString()}</span>
+                            </div>
+                          )}
                           {p.lifeEventExpense > 0 && (
                             <div className="flex justify-between gap-6">
                               <span>• Life Event Expense:</span>

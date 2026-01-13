@@ -1683,6 +1683,7 @@ export function runUnifiedProjection({
         goals.some(g => g.withdraw_from_portfolio && g.target_date && new Date(g.target_date).getFullYear() === year),
       hasGoalWithdrawal: yearGoalWithdrawal > 0,
       goalNames: [],
+      goalFunding: Math.round(yearGoalWithdrawal),
       lifeEventIncome: Math.round(yearLifeEventIncome),
       lifeEventExpense: Math.round(yearLifeEventExpense),
       
