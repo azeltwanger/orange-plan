@@ -2410,7 +2410,7 @@ export default function TaxCenter() {
                 </div>
                 <div>
                   <p className="text-sm text-zinc-300">Net Benefit (vs {(() => {
-                    const futureIncome = expectedFutureIncome || 80000;
+                    const futureIncome = expectedFutureIncome ?? annualIncome;
                     const futureStdDeduction = filingStatus === 'married' ? 32200 : 16100;
                     const futureTaxableIncome = Math.max(0, futureIncome - futureStdDeduction);
                     const futureZeroBracketTop = filingStatus === 'married' ? 96700 : 48350;
