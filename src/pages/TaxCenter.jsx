@@ -1455,23 +1455,24 @@ export default function TaxCenter() {
           </div>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="space-y-5">
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <Label className="text-zinc-300">Household Taxable Income</Label>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Left Column: Income Sliders */}
+          <div className="space-y-4">
+            {/* Current Income */}
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <Label className="text-zinc-300 text-sm">Household Taxable Income</Label>
                 <span className="text-orange-400 font-semibold">${annualIncome.toLocaleString()}</span>
               </div>
               <Slider value={[annualIncome]} onValueChange={([v]) => setAnnualIncome(v)} min={0} max={1000000} step={5000} />
-              <p className="text-xs text-zinc-500">
-                {filingStatus === 'married' ? 'Combined household income' : 'Your individual income'}
-              </p>
+              <p className="text-xs text-zinc-500">{filingStatus === 'married' ? 'Combined household income' : 'Your individual income'}</p>
             </div>
             
-            <div className="space-y-3">
+            {/* Future Income */}
+            <div className="space-y-2">
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-1.5">
-                  <Label className="text-zinc-300">Expected Taxable Income (Year of Sale)</Label>
+                  <Label className="text-zinc-300 text-sm">Expected Taxable Income (Year of Sale)</Label>
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -1499,60 +1500,60 @@ export default function TaxCenter() {
                 </div>
               </div>
               <Slider value={[expectedFutureIncome ?? annualIncome]} onValueChange={([v]) => setExpectedFutureIncome(v)} min={0} max={500000} step={5000} />
-              <p className="text-xs text-zinc-500">
-                Your taxable income in the year you plan to sell these assets
-              </p>
+              <p className="text-xs text-zinc-500">Your taxable income in the year you plan to sell these assets</p>
+            </div>
+
+            {/* State of Residence */}
+            <div className="space-y-2 pt-2">
+              <Label className="text-zinc-300 text-sm">State of Residence</Label>
+              <Select value={stateOfResidence} onValueChange={setStateOfResidence}>
+                <SelectTrigger className="bg-zinc-900 border-zinc-800">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-zinc-900 border-zinc-700 max-h-64">
+                  {getStateOptions().map(state => (
+                    <SelectItem key={state.value} value={state.value}>
+                      {state.label} — {state.taxInfo}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {STATE_TAX_CONFIG[stateOfResidence] && getStateTaxSummary(stateOfResidence)?.details.length > 0 && (
+                <p className="text-xs text-zinc-500">
+                  {getStateTaxSummary(stateOfResidence).details.join(' • ')}
+                </p>
+              )}
             </div>
           </div>
 
-          <div className="space-y-3">
-            <Label className="text-zinc-300">State of Residence</Label>
-            <Select value={stateOfResidence} onValueChange={setStateOfResidence}>
-              <SelectTrigger className="bg-zinc-900 border-zinc-800">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="bg-zinc-900 border-zinc-700 max-h-64">
-                {getStateOptions().map(state => (
-                  <SelectItem key={state.value} value={state.value}>
-                    {state.label} — {state.taxInfo}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {STATE_TAX_CONFIG[stateOfResidence] && getStateTaxSummary(stateOfResidence)?.details.length > 0 && (
-              <p className="text-xs text-zinc-500">
-                {getStateTaxSummary(stateOfResidence).details.join(' • ')}
-              </p>
-            )}
-          </div>
-
-          <div className="p-4 rounded-xl bg-zinc-800/30">
-            <p className="text-sm text-zinc-300 mb-2">Your Tax Brackets ({filingStatus === 'married' ? 'MFJ' : 'Single'})</p>
-            <div className="space-y-1">
-              <div className="flex justify-between text-sm">
-                <span className="text-zinc-400">Short-term (Fed + {stateOfResidence}):</span>
-                <span className={combinedSTCGRate <= 0.12 ? "text-emerald-400" : "text-zinc-200"}>
-                  {(combinedSTCGRate * 100).toFixed(1)}%
-                  {effectiveStateSTCGRate > 0 && <span className="text-zinc-500 text-xs ml-1">({(effectiveSTCGRate * 100).toFixed(0)}% + {(effectiveStateSTCGRate * 100).toFixed(1)}%)</span>}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-zinc-400">Long-term (Fed + {stateOfResidence}):</span>
-                <span className={effectiveLTCGRate === 0 && effectiveStateLTCGRate === 0 ? "text-emerald-400 font-semibold" : "text-zinc-200"}>
-                  {effectiveLTCGRate === 0 && effectiveStateLTCGRate === 0 ? '0% ✓' : `${(combinedLTCGRate * 100).toFixed(1)}%`}
-                  {effectiveStateLTCGRate > 0 && <span className="text-zinc-500 text-xs ml-1">({(effectiveLTCGRate * 100).toFixed(0)}% + {(effectiveStateLTCGRate * 100).toFixed(1)}%)</span>}
-                </span>
+          {/* Right Column: Tax Info Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="p-4 rounded-xl bg-zinc-800/30">
+              <p className="text-sm text-zinc-300 mb-2">Your Tax Brackets ({filingStatus === 'married' ? 'MFJ' : 'Single'})</p>
+              <div className="space-y-1">
+                <div className="flex justify-between text-sm">
+                  <span className="text-zinc-400">Short-term (Fed + {stateOfResidence}):</span>
+                  <span className={combinedSTCGRate <= 0.12 ? "text-emerald-400" : "text-zinc-200"}>
+                    {(combinedSTCGRate * 100).toFixed(1)}%
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-zinc-400">Long-term (Fed + {stateOfResidence}):</span>
+                  <span className={effectiveLTCGRate === 0 && effectiveStateLTCGRate === 0 ? "text-emerald-400 font-semibold" : "text-zinc-200"}>
+                    {effectiveLTCGRate === 0 && effectiveStateLTCGRate === 0 ? '0% ✓' : `${(combinedLTCGRate * 100).toFixed(1)}%`}
+                  </span>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="p-4 rounded-xl bg-zinc-800/30">
-            <p className="text-sm text-zinc-300 mb-2">0% LTCG Bracket Room</p>
-            <p className="text-2xl font-bold text-emerald-400">${ltcgBracketRoom.toLocaleString()}</p>
-            <Progress value={yearBrackets?.ltcg?.[0]?.max ? (taxableIncome / yearBrackets.ltcg[0].max) * 100 : 0} className="h-2 mt-2 bg-zinc-700" />
-            <p className="text-xs text-zinc-500 mt-1">
-              Taxable income: ${taxableIncome.toLocaleString()} (after ${standardDeduction.toLocaleString()} std deduction)
-            </p>
+            <div className="p-4 rounded-xl bg-zinc-800/30">
+              <p className="text-sm text-zinc-300 mb-2">0% LTCG Bracket Room</p>
+              <p className="text-2xl font-bold text-emerald-400">${ltcgBracketRoom.toLocaleString()}</p>
+              <Progress value={yearBrackets?.ltcg?.[0]?.max ? (taxableIncome / yearBrackets.ltcg[0].max) * 100 : 0} className="h-2 mt-2 bg-zinc-700" />
+              <p className="text-xs text-zinc-500 mt-1">
+                Taxable income: ${taxableIncome.toLocaleString()} (after ${standardDeduction.toLocaleString()} std deduction)
+              </p>
+            </div>
           </div>
         </div>
       </div>
