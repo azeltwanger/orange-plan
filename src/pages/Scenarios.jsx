@@ -100,11 +100,22 @@ export default function Scenarios() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const { data: collateralizedLoans = [], isLoading: loansLoading } = useQuery({
-    queryKey: ['collateralizedLoans'],
-    queryFn: () => base44.entities.CollateralizedLoan.list(),
-    staleTime: 5 * 60 * 1000,
-  });
+  // Derive BTC-backed loans from Liability entity (type='btc_collateralized')
+  const btcCollateralizedLoans = useMemo(() => {
+    if (!liabilities) return [];
+    return liabilities
+      .filter(l => l.type === 'btc_collateralized')
+      .map(l => ({
+        id: l.id,
+        loan_name: l.name,
+        current_balance: l.current_balance || 0,
+        collateral_btc_amount: l.collateral_btc_amount || 0,
+        liquidation_ltv: l.liquidation_ltv || 80,
+        margin_call_ltv: l.margin_call_ltv || 70,
+        interest_rate: l.interest_rate || 12.4,
+        collateral_release_ltv: l.collateral_release_ltv || 30,
+      }));
+  }, [liabilities]);
 
   const { data: goals = [], isLoading: goalsLoading } = useQuery({
     queryKey: ['goals'],
@@ -136,7 +147,7 @@ export default function Scenarios() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const isLoading = holdingsLoading || accountsLoading || liabilitiesLoading || loansLoading || goalsLoading || eventsLoading || settingsLoading || scenariosLoading || priceLoading;
+  const isLoading = holdingsLoading || accountsLoading || liabilitiesLoading || goalsLoading || eventsLoading || settingsLoading || scenariosLoading || priceLoading;
 
   const settings = userSettings[0] || {};
 
@@ -213,7 +224,7 @@ export default function Scenarios() {
       holdings,
       accounts,
       liabilities: liabilities || [],
-      collateralizedLoans: collateralizedLoans || [],
+      collateralizedLoans: btcCollateralizedLoans || [],
       currentPrice,
       currentAge,
       retirementAge,
@@ -261,7 +272,7 @@ export default function Scenarios() {
 
   // Run baseline projection
   const baselineProjection = useMemo(() => {
-    if (!holdings.length || !accounts.length || !userSettings.length || !currentPrice || !collateralizedLoans) return null;
+    if (!holdings.length || !accounts.length || !userSettings.length || !currentPrice) return null;
     try {
       const params = buildProjectionParams();
       return runUnifiedProjection(params);
@@ -269,13 +280,13 @@ export default function Scenarios() {
       console.error('Baseline projection error:', error);
       return null;
     }
-  }, [holdings, accounts, liabilities, collateralizedLoans, goals, lifeEvents, userSettings, budgetItems, currentPrice]);
+  }, [holdings, accounts, liabilities, btcCollateralizedLoans, goals, lifeEvents, userSettings, budgetItems, currentPrice]);
 
   // Run scenario projection
   const selectedScenario = scenarios.find(s => s.id === selectedScenarioId);
   
   const scenarioProjection = useMemo(() => {
-    if (!selectedScenario || !holdings.length || !accounts.length || !userSettings.length || !currentPrice || !collateralizedLoans) return null;
+    if (!selectedScenario || !holdings.length || !accounts.length || !userSettings.length || !currentPrice) return null;
     try {
       const overrides = {
         retirement_age_override: selectedScenario.retirement_age_override,
@@ -303,18 +314,18 @@ export default function Scenarios() {
       console.error('Scenario projection error:', error);
       return null;
     }
-  }, [selectedScenario, holdings, accounts, liabilities, collateralizedLoans, goals, lifeEvents, userSettings, budgetItems, currentPrice]);
+  }, [selectedScenario, holdings, accounts, liabilities, btcCollateralizedLoans, goals, lifeEvents, userSettings, budgetItems, currentPrice]);
 
   // Calculate max drawdown BTC can survive without liquidation
   const calculateMaxDrawdownSurvived = useCallback(() => {
-    if (!collateralizedLoans || collateralizedLoans.length === 0) {
+    if (!btcCollateralizedLoans || btcCollateralizedLoans.length === 0) {
       return null; // No BTC loans
     }
 
     // Find the loan with highest LTV (most at risk)
     let worstDrawdown = 100; // Start with best case
     
-    for (const loan of collateralizedLoans) {
+    for (const loan of btcCollateralizedLoans) {
       if (!loan.collateral_btc_amount || loan.collateral_btc_amount <= 0) continue;
       
       const collateralValue = loan.collateral_btc_amount * currentPrice;
@@ -331,7 +342,7 @@ export default function Scenarios() {
     }
     
     return worstDrawdown;
-  }, [collateralizedLoans, currentPrice]);
+  }, [btcCollateralizedLoans, currentPrice]);
 
   // Extract metrics from projection
   const extractMetrics = (projection, retirementAge) => {
