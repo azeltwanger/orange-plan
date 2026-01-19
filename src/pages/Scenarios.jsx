@@ -330,6 +330,13 @@ export default function Scenarios() {
     const retirementNetWorth = (retirementYear?.total || 0) - (retirementYear?.totalDebt || 0);
     const finalNetWorth = (finalYear?.total || 0) - (finalYear?.totalDebt || 0);
     
+    console.log('=== SCENARIO BUILDER DEBUG ===');
+    console.log('Retirement Age:', retirementAge);
+    console.log('Retirement Year found:', retirementYear);
+    console.log('retirementYear.total (Total Assets):', retirementYear?.total);
+    console.log('retirementYear.totalDebt:', retirementYear?.totalDebt);
+    console.log('Calculated Net Worth:', retirementNetWorth);
+    
     return {
       survives: projection.survives,
       depleteAge: projection.depleteAge,
