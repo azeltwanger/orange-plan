@@ -278,7 +278,7 @@ export default function Scenarios() {
 
   // Run baseline projection
   const baselineProjection = useMemo(() => {
-    if (!holdings.length || !accounts.length || !userSettings.length || !currentPrice) return null;
+    if (!holdings.length || !accounts.length || !userSettings.length || !currentPrice || !collateralizedLoans) return null;
     try {
       const params = buildProjectionParams();
       return runUnifiedProjection(params);
@@ -292,7 +292,7 @@ export default function Scenarios() {
   const selectedScenario = scenarios.find(s => s.id === selectedScenarioId);
   
   const scenarioProjection = useMemo(() => {
-    if (!selectedScenario || !holdings.length || !accounts.length || !userSettings.length || !currentPrice) return null;
+    if (!selectedScenario || !holdings.length || !accounts.length || !userSettings.length || !currentPrice || !collateralizedLoans) return null;
     try {
       const overrides = {
         retirement_age_override: selectedScenario.retirement_age_override,
