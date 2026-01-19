@@ -489,8 +489,8 @@ export default function Scenarios() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">Scenario Builder</h1>
-          <p className="text-zinc-500 mt-1">Compare different financial futures using real projections</p>
+          <h1 className="text-2xl lg:text-3xl font-bold tracking-tight text-zinc-100">Scenario Builder</h1>
+          <p className="text-zinc-400 mt-1">Compare different financial futures using real projections</p>
         </div>
         <Button 
           onClick={() => { resetForm(); setEditingScenario(null); setFormOpen(true); }} 
@@ -505,33 +505,33 @@ export default function Scenarios() {
       <div className="bg-zinc-900/50 rounded-2xl p-6 border border-zinc-800">
         <div className="flex items-center gap-2 mb-4">
           <Target className="w-5 h-5 text-orange-400" />
-          <h3 className="font-semibold">Baseline (Your Current Plan)</h3>
+          <h3 className="font-semibold text-zinc-100">Baseline (Your Current Plan)</h3>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
           <div className="p-3 rounded-xl bg-zinc-800/50">
-            <p className="text-xs text-zinc-500">Retire at</p>
+            <p className="text-xs text-zinc-400">Retire at</p>
             <p className="text-lg font-bold text-zinc-100">{baselineRetirementAge}</p>
           </div>
           <div className="p-3 rounded-xl bg-zinc-800/50">
-            <p className="text-xs text-zinc-500">Spending</p>
+            <p className="text-xs text-zinc-400">Spending</p>
             <p className="text-lg font-bold text-zinc-100">{formatCurrency(settings.annual_retirement_spending || 100000)}/yr</p>
           </div>
           <div className="p-3 rounded-xl bg-zinc-800/50">
-            <p className="text-xs text-zinc-500">State</p>
+            <p className="text-xs text-zinc-400">State</p>
             <p className="text-lg font-bold text-zinc-100">{settings.state_of_residence || 'TX'}</p>
           </div>
           <div className="p-3 rounded-xl bg-zinc-800/50">
-            <p className="text-xs text-zinc-500">At Retirement</p>
+            <p className="text-xs text-zinc-400">At Retirement</p>
             <p className="text-lg font-bold text-emerald-400">{formatCurrency(baselineMetrics?.portfolioAtRetirement)}</p>
           </div>
           <div className="p-3 rounded-xl bg-zinc-800/50">
-            <p className="text-xs text-zinc-500">Depletion Age</p>
+            <p className="text-xs text-zinc-400">Depletion Age</p>
             <p className={cn("text-lg font-bold", baselineMetrics?.survives ? "text-emerald-400" : "text-rose-400")}>
               {baselineMetrics?.survives ? 'Never' : `Age ${baselineMetrics?.depleteAge}`}
             </p>
           </div>
           <div className="p-3 rounded-xl bg-zinc-800/50">
-            <p className="text-xs text-zinc-500">Final Net Worth</p>
+            <p className="text-xs text-zinc-400">Final Net Worth</p>
             <p className="text-lg font-bold text-zinc-100">{formatCurrency(baselineMetrics?.finalNetWorth)}</p>
           </div>
         </div>
@@ -540,7 +540,7 @@ export default function Scenarios() {
       {/* Scenario Selector */}
       <div className="bg-zinc-900/50 rounded-2xl p-6 border border-zinc-800">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold flex items-center gap-2">
+          <h3 className="font-semibold text-zinc-100 flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-orange-400" />
             Compare Scenario
           </h3>
@@ -548,7 +548,7 @@ export default function Scenarios() {
         
         {scenarios.length === 0 ? (
           <div className="text-center py-8">
-            <p className="text-zinc-400 mb-4">No scenarios created yet. Create one to compare against your baseline.</p>
+            <p className="text-zinc-300 mb-4">No scenarios created yet. Create one to compare against your baseline.</p>
             <Button 
               onClick={() => { resetForm(); setEditingScenario(null); setFormOpen(true); }}
               className="bg-zinc-800 border border-zinc-600 text-white hover:bg-zinc-700"
@@ -577,7 +577,7 @@ export default function Scenarios() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8"
+                    className="h-8 w-8 text-zinc-400 hover:text-zinc-200"
                     onClick={() => handleEdit(scenario)}
                   >
                     <Pencil className="w-3 h-3" />
@@ -624,8 +624,8 @@ export default function Scenarios() {
       {selectedScenario && chartData.length > 0 && (
         <div className="bg-zinc-900/50 rounded-2xl p-6 border border-zinc-800">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold">Projection Comparison</h3>
-            <Button variant="ghost" size="sm" onClick={() => setShowChart(!showChart)}>
+            <h3 className="font-semibold text-zinc-100">Projection Comparison</h3>
+            <Button variant="ghost" size="sm" onClick={() => setShowChart(!showChart)} className="text-zinc-400 hover:text-zinc-200">
               {showChart ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             </Button>
           </div>
@@ -656,15 +656,15 @@ export default function Scenarios() {
       {/* Comparison Metrics */}
       {selectedScenario && baselineMetrics && scenarioMetrics && (
         <div className="bg-zinc-900/50 rounded-2xl p-6 border border-zinc-800">
-          <h3 className="font-semibold mb-4">Comparison Metrics</h3>
+          <h3 className="font-semibold text-zinc-100 mb-4">Comparison Metrics</h3>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-zinc-800">
-                  <th className="text-left py-3 px-4 text-zinc-400 font-medium">Metric</th>
-                  <th className="text-right py-3 px-4 text-zinc-400 font-medium">Baseline</th>
-                  <th className="text-right py-3 px-4 text-zinc-400 font-medium">{selectedScenario.name}</th>
-                  <th className="text-right py-3 px-4 text-zinc-400 font-medium">Difference</th>
+                  <th className="text-left py-3 px-4 text-zinc-300 font-medium">Metric</th>
+                  <th className="text-right py-3 px-4 text-zinc-300 font-medium">Baseline</th>
+                  <th className="text-right py-3 px-4 text-zinc-300 font-medium">{selectedScenario.name}</th>
+                  <th className="text-right py-3 px-4 text-zinc-300 font-medium">Difference</th>
                 </tr>
               </thead>
               <tbody>
@@ -747,7 +747,7 @@ export default function Scenarios() {
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   placeholder="e.g., Early Retirement, Move to Texas..."
-                  className="bg-zinc-800 border-zinc-700"
+                  className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
                   required
                 />
               </div>
@@ -757,7 +757,7 @@ export default function Scenarios() {
                   value={form.description}
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
                   placeholder="Describe what this scenario tests..."
-                  className="bg-zinc-800 border-zinc-700"
+                  className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
                   rows={2}
                 />
               </div>
@@ -774,7 +774,7 @@ export default function Scenarios() {
                     value={form.retirement_age_override}
                     onChange={(e) => setForm({ ...form, retirement_age_override: e.target.value })}
                     placeholder={String(settings.retirement_age || 65)}
-                    className="bg-zinc-800 border-zinc-700"
+                    className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
                   />
                 </div>
                 <div className="space-y-2">
@@ -784,7 +784,7 @@ export default function Scenarios() {
                     value={form.life_expectancy_override}
                     onChange={(e) => setForm({ ...form, life_expectancy_override: e.target.value })}
                     placeholder={String(settings.life_expectancy || 90)}
-                    className="bg-zinc-800 border-zinc-700"
+                    className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
                   />
                 </div>
                 <div className="space-y-2">
@@ -794,7 +794,7 @@ export default function Scenarios() {
                     value={form.annual_retirement_spending_override}
                     onChange={(e) => setForm({ ...form, annual_retirement_spending_override: e.target.value })}
                     placeholder={String(settings.annual_retirement_spending || 100000)}
-                    className="bg-zinc-800 border-zinc-700"
+                    className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
                   />
                 </div>
               </div>
@@ -806,13 +806,13 @@ export default function Scenarios() {
               <div className="space-y-2">
                 <Label className="text-zinc-300 text-xs">State of Residence</Label>
                 <Select value={form.state_override} onValueChange={(v) => setForm({ ...form, state_override: v })}>
-                  <SelectTrigger className="bg-zinc-800 border-zinc-700">
-                    <SelectValue placeholder={`Current: ${settings.state_of_residence || 'TX'}`} />
+                  <SelectTrigger className="bg-zinc-800 border-zinc-700 text-zinc-200">
+                    <SelectValue placeholder={`Current: ${settings.state_of_residence || 'TX'}`} className="text-zinc-200" />
                   </SelectTrigger>
                   <SelectContent className="bg-zinc-900 border-zinc-700 max-h-60">
-                    <SelectItem value={null}>Use current ({settings.state_of_residence || 'TX'})</SelectItem>
+                    <SelectItem value={null} className="text-zinc-200 focus:text-white">Use current ({settings.state_of_residence || 'TX'})</SelectItem>
                     {US_STATES.map(state => (
-                      <SelectItem key={state.value} value={state.value}>{state.label}</SelectItem>
+                      <SelectItem key={state.value} value={state.value} className="text-zinc-200 focus:text-white">{state.label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -831,7 +831,7 @@ export default function Scenarios() {
                     value={form.btc_cagr_override}
                     onChange={(e) => setForm({ ...form, btc_cagr_override: e.target.value })}
                     placeholder={String(settings.btc_cagr_assumption || 25)}
-                    className="bg-zinc-800 border-zinc-700"
+                    className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
                   />
                 </div>
                 <div className="space-y-2">
@@ -842,7 +842,7 @@ export default function Scenarios() {
                     value={form.stocks_cagr_override}
                     onChange={(e) => setForm({ ...form, stocks_cagr_override: e.target.value })}
                     placeholder={String(settings.stocks_cagr || 7)}
-                    className="bg-zinc-800 border-zinc-700"
+                    className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
                   />
                 </div>
                 <div className="space-y-2">
@@ -853,7 +853,7 @@ export default function Scenarios() {
                     value={form.bonds_cagr_override}
                     onChange={(e) => setForm({ ...form, bonds_cagr_override: e.target.value })}
                     placeholder={String(settings.bonds_cagr || 3)}
-                    className="bg-zinc-800 border-zinc-700"
+                    className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
                   />
                 </div>
                 <div className="space-y-2">
@@ -864,7 +864,7 @@ export default function Scenarios() {
                     value={form.real_estate_cagr_override}
                     onChange={(e) => setForm({ ...form, real_estate_cagr_override: e.target.value })}
                     placeholder={String(settings.real_estate_cagr || 4)}
-                    className="bg-zinc-800 border-zinc-700"
+                    className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
                   />
                 </div>
                 <div className="space-y-2">
@@ -875,7 +875,7 @@ export default function Scenarios() {
                     value={form.cash_cagr_override}
                     onChange={(e) => setForm({ ...form, cash_cagr_override: e.target.value })}
                     placeholder={String(settings.cash_cagr || 0)}
-                    className="bg-zinc-800 border-zinc-700"
+                    className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
                   />
                 </div>
                 <div className="space-y-2">
@@ -886,7 +886,7 @@ export default function Scenarios() {
                     value={form.inflation_override}
                     onChange={(e) => setForm({ ...form, inflation_override: e.target.value })}
                     placeholder={String(settings.inflation_rate || 3)}
-                    className="bg-zinc-800 border-zinc-700"
+                    className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
                   />
                 </div>
               </div>
@@ -903,7 +903,7 @@ export default function Scenarios() {
                     value={form.social_security_start_age_override}
                     onChange={(e) => setForm({ ...form, social_security_start_age_override: e.target.value })}
                     placeholder={String(settings.social_security_start_age || 67)}
-                    className="bg-zinc-800 border-zinc-700"
+                    className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
                   />
                 </div>
                 <div className="space-y-2">
@@ -913,7 +913,7 @@ export default function Scenarios() {
                     value={form.social_security_amount_override}
                     onChange={(e) => setForm({ ...form, social_security_amount_override: e.target.value })}
                     placeholder={String(settings.social_security_amount || 0)}
-                    className="bg-zinc-800 border-zinc-700"
+                    className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
                   />
                 </div>
               </div>
@@ -930,7 +930,7 @@ export default function Scenarios() {
                     value={form.savings_allocation_btc_override}
                     onChange={(e) => setForm({ ...form, savings_allocation_btc_override: e.target.value })}
                     placeholder={String(settings.savings_allocation_btc || 80)}
-                    className="bg-zinc-800 border-zinc-700"
+                    className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
                   />
                 </div>
                 <div className="space-y-2">
@@ -940,7 +940,7 @@ export default function Scenarios() {
                     value={form.savings_allocation_stocks_override}
                     onChange={(e) => setForm({ ...form, savings_allocation_stocks_override: e.target.value })}
                     placeholder={String(settings.savings_allocation_stocks || 20)}
-                    className="bg-zinc-800 border-zinc-700"
+                    className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
                   />
                 </div>
                 <div className="space-y-2">
@@ -950,7 +950,7 @@ export default function Scenarios() {
                     value={form.savings_allocation_bonds_override}
                     onChange={(e) => setForm({ ...form, savings_allocation_bonds_override: e.target.value })}
                     placeholder={String(settings.savings_allocation_bonds || 0)}
-                    className="bg-zinc-800 border-zinc-700"
+                    className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
                   />
                 </div>
                 <div className="space-y-2">
@@ -960,7 +960,7 @@ export default function Scenarios() {
                     value={form.savings_allocation_cash_override}
                     onChange={(e) => setForm({ ...form, savings_allocation_cash_override: e.target.value })}
                     placeholder={String(settings.savings_allocation_cash || 0)}
-                    className="bg-zinc-800 border-zinc-700"
+                    className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
                   />
                 </div>
                 <div className="space-y-2">
@@ -970,7 +970,7 @@ export default function Scenarios() {
                     value={form.savings_allocation_other_override}
                     onChange={(e) => setForm({ ...form, savings_allocation_other_override: e.target.value })}
                     placeholder={String(settings.savings_allocation_other || 0)}
-                    className="bg-zinc-800 border-zinc-700"
+                    className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
                   />
                 </div>
               </div>
@@ -978,7 +978,7 @@ export default function Scenarios() {
             </div>
 
             <div className="flex justify-end gap-3 pt-4 border-t border-zinc-800">
-              <Button type="button" variant="outline" onClick={() => setFormOpen(false)} className="border-zinc-700">
+              <Button type="button" variant="outline" onClick={() => setFormOpen(false)} className="border-zinc-700 text-zinc-200 hover:text-white">
                 Cancel
               </Button>
               <Button type="submit" className="bg-gradient-to-r from-orange-500 to-amber-500 text-white">
