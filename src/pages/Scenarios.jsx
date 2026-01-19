@@ -979,7 +979,7 @@ export default function Scenarios() {
             </div>
 
             <div className="flex justify-end gap-3 pt-4 border-t border-zinc-800">
-              <Button type="button" variant="outline" onClick={() => setFormOpen(false)} className="border-zinc-700 text-zinc-200 hover:text-white">
+              <Button type="button" variant="outline" onClick={() => setFormOpen(false)} className="border-zinc-600 bg-zinc-800 text-zinc-200 hover:bg-zinc-700 hover:text-white">
                 Cancel
               </Button>
               <Button type="submit" className="bg-gradient-to-r from-orange-500 to-amber-500 text-white">
