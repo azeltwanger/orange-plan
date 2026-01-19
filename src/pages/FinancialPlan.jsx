@@ -799,14 +799,6 @@ export default function FinancialPlan() {
 
   // Generate projection data using unified projection engine
   const projections = useMemo(() => {
-    console.log('=== FINANCIALPLAN INPUT PARAMS ===');
-    console.log('holdings count:', holdings.length);
-    console.log('BTC holdings:', holdings.filter(h => h.ticker === 'BTC').map(h => ({ account: h.account_name, qty: h.quantity })));
-    console.log('collateralizedLoans:', collateralizedLoans);
-    console.log('currentPrice:', currentPrice);
-    console.log('retirementAge:', retirementAge);
-    console.log('retirementAnnualSpending:', retirementAnnualSpending);
-
     const result = runUnifiedProjection({
       holdings,
       accounts,
