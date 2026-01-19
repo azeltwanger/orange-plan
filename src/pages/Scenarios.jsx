@@ -15,8 +15,12 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { LoadingSkeleton } from '@/components/ui/LoadingSkeleton';
 import { useBtcPrice } from '@/components/shared/useBtcPrice';
-import { getPowerLawCAGR } from '@/components/shared/bitcoinPowerLaw';
-import { estimateSocialSecurityBenefit } from '@/components/tax/taxCalculations';
+import { 
+  calculateComprehensiveAnnualSavings, 
+  deriveEffectiveSocialSecurity, 
+  createBtcGrowthRateFunction,
+  getTaxTreatmentFromHolding as sharedGetTaxTreatment
+} from '@/components/shared/projectionHelpers';
 
 // State list for state comparison feature
 const US_STATES = [
@@ -132,66 +136,8 @@ export default function Scenarios() {
 
   const settings = userSettings[0] || {};
 
-  // Helper: Get tax treatment from holding - MUST match FinancialPlan.jsx
-  const getTaxTreatmentFromHolding = (holding) => {
-    if (holding.account_id && accounts?.length > 0) {
-      const account = accounts.find(a => a.id === holding.account_id);
-      if (account) {
-        const accountType = account.account_type || '';
-        if (accountType === 'taxable_real_estate' || account.tax_treatment === 'real_estate') return 'real_estate';
-        if (['traditional_401k', 'traditional_ira', 'sep_ira', '403b', '401k_traditional', 'ira_traditional'].includes(accountType)) return 'tax_deferred';
-        if (['roth_401k', 'roth_ira', 'hsa', '529', '401k_roth', 'ira_roth'].includes(accountType)) return 'tax_free';
-        if (account.tax_treatment) return account.tax_treatment;
-      }
-    }
-    const assetType = holding.asset_type || '';
-    if (assetType === 'real_estate') return 'real_estate';
-    if (holding.tax_treatment) return holding.tax_treatment;
-    return 'taxable';
-  };
-
-  // Helper: Get BTC growth rate based on model - MUST match FinancialPlan.jsx
-  const getBtcGrowthRate = (yearsFromNow, inflationRate, btcReturnModel, btcCagr) => {
-    const model = btcReturnModel || 'custom';
-    
-    if (model === 'powerlaw') {
-      return getPowerLawCAGR(yearsFromNow);
-    } else if (model === 'saylor24') {
-      const currentYear = new Date().getFullYear();
-      const absoluteYear = currentYear + yearsFromNow;
-      
-      if (absoluteYear <= 2037) {
-        const yearsFromStart = absoluteYear - 2025;
-        return Math.max(20, 50 - (yearsFromStart * 2.5));
-      } else if (absoluteYear <= 2045) {
-        return 20;
-      } else if (absoluteYear <= 2075) {
-        const yearsIntoDecline = absoluteYear - 2045;
-        const totalDeclineYears = 2075 - 2045;
-        const targetRate = inflationRate + 3;
-        const declineAmount = 20 - targetRate;
-        return 20 - (declineAmount * (yearsIntoDecline / totalDeclineYears));
-      } else {
-        return inflationRate + 2;
-      }
-    } else {
-      return btcCagr;
-    }
-  };
-
-  // Calculate annual savings from budget items - MUST match FinancialPlan.jsx
-  const calculatedAnnualSavings = useMemo(() => {
-    const freqMultiplier = { monthly: 12, weekly: 52, biweekly: 26, quarterly: 4, annual: 1, one_time: 0 };
-    const monthlyIncome = budgetItems
-      .filter(b => b.type === 'income' && b.is_active !== false)
-      .reduce((sum, b) => sum + (b.amount * (freqMultiplier[b.frequency] || 12) / 12), 0);
-    const monthlyExpenses = budgetItems
-      .filter(b => b.type === 'expense' && b.is_active !== false)
-      .reduce((sum, b) => sum + (b.amount * (freqMultiplier[b.frequency] || 12) / 12), 0);
-    return (monthlyIncome - monthlyExpenses) * 12;
-  }, [budgetItems]);
-
   // Build projection parameters from settings - creates the baseline params object
+  // Uses shared helpers for EXACT consistency with FinancialPlan.jsx
   const buildProjectionParams = (overrides = {}) => {
     const effectiveSettings = { ...settings, ...overrides };
     
@@ -211,6 +157,7 @@ export default function Scenarios() {
     const ssStartAge = effectiveSettings.social_security_start_age_override || effectiveSettings.social_security_start_age || 67;
     const ssAmount = effectiveSettings.social_security_amount_override ?? effectiveSettings.social_security_amount ?? 0;
     const btcReturnModel = effectiveSettings.btc_return_model_override || effectiveSettings.btc_return_model || 'custom';
+    const useCustomSocialSecurity = effectiveSettings.use_custom_social_security ?? false;
     
     const savingsAllocationBtc = effectiveSettings.savings_allocation_btc_override ?? effectiveSettings.savings_allocation_btc ?? 80;
     const savingsAllocationStocks = effectiveSettings.savings_allocation_stocks_override ?? effectiveSettings.savings_allocation_stocks ?? 20;
@@ -218,13 +165,45 @@ export default function Scenarios() {
     const savingsAllocationCash = effectiveSettings.savings_allocation_cash_override ?? effectiveSettings.savings_allocation_cash ?? 0;
     const savingsAllocationOther = effectiveSettings.savings_allocation_other_override ?? effectiveSettings.savings_allocation_other ?? 0;
 
-    console.log('=== SCENARIOS INPUT PARAMS ===');
-    console.log('holdings count:', holdings.length);
-    console.log('BTC holdings:', holdings.filter(h => h.ticker === 'BTC').map(h => ({ account: h.account_name, qty: h.quantity })));
-    console.log('collateralizedLoans:', collateralizedLoans);
-    console.log('currentPrice:', currentPrice);
-    console.log('retirementAge:', retirementAge);
-    console.log('retirementAnnualSpending:', retirementSpending);
+    // Use shared helper for comprehensive annual savings (EXACT match with FinancialPlan.jsx)
+    const grossAnnualIncome = effectiveSettings.gross_annual_income || 100000;
+    const currentAnnualSpending = effectiveSettings.current_annual_spending || 80000;
+    const filingStatus = effectiveSettings.filing_status || 'single';
+    const contribution401k = effectiveSettings.contribution_401k || 0;
+    const employer401kMatch = effectiveSettings.employer_401k_match || 0;
+    const contributionRothIRA = effectiveSettings.contribution_roth_ira || 0;
+    const contributionTraditionalIRA = effectiveSettings.contribution_traditional_ira || 0;
+    const contributionHSA = effectiveSettings.contribution_hsa || 0;
+    const hsaFamilyCoverage = effectiveSettings.hsa_family_coverage || false;
+
+    const savingsResult = calculateComprehensiveAnnualSavings({
+      grossAnnualIncome,
+      currentAnnualSpending,
+      filingStatus,
+      contribution401k,
+      employer401kMatch,
+      contributionRothIRA,
+      contributionTraditionalIRA,
+      contributionHSA,
+      hsaFamilyCoverage,
+      currentAge,
+    });
+
+    // Use shared helper for effective Social Security (EXACT match with FinancialPlan.jsx)
+    const effectiveSocialSecurity = deriveEffectiveSocialSecurity({
+      grossAnnualIncome,
+      socialSecurityStartAge: ssStartAge,
+      socialSecurityAmount: ssAmount,
+      useCustomSocialSecurity,
+      currentAge,
+    });
+
+    // Use shared helper for BTC growth rate function (EXACT match with FinancialPlan.jsx)
+    const getBtcGrowthRate = createBtcGrowthRateFunction(
+      btcReturnModel, 
+      btcCagr, 
+      effectiveSettings.custom_return_periods || {}
+    );
 
     return {
       holdings,
@@ -236,22 +215,22 @@ export default function Scenarios() {
       retirementAge,
       lifeExpectancy,
       retirementAnnualSpending: retirementSpending,
-      effectiveSocialSecurity: ssAmount,
+      effectiveSocialSecurity,
       socialSecurityStartAge: ssStartAge,
       otherRetirementIncome: effectiveSettings.other_retirement_income || 0,
-      annualSavings: calculatedAnnualSavings,
+      annualSavings: savingsResult.annualSavings,
       incomeGrowth,
-      grossAnnualIncome: effectiveSettings.gross_annual_income || 100000,
-      currentAnnualSpending: effectiveSettings.current_annual_spending || 80000,
-      filingStatus: effectiveSettings.filing_status || 'single',
+      grossAnnualIncome,
+      currentAnnualSpending,
+      filingStatus,
       stateOfResidence,
-      contribution401k: effectiveSettings.contribution_401k || 0,
-      employer401kMatch: effectiveSettings.employer_401k_match || 0,
-      contributionRothIRA: effectiveSettings.contribution_roth_ira || 0,
-      contributionTraditionalIRA: effectiveSettings.contribution_traditional_ira || 0,
-      contributionHSA: effectiveSettings.contribution_hsa || 0,
-      hsaFamilyCoverage: effectiveSettings.hsa_family_coverage || false,
-      getBtcGrowthRate: (yearsFromNow, inflation) => getBtcGrowthRate(yearsFromNow, inflation, btcReturnModel, btcCagr),
+      contribution401k,
+      employer401kMatch,
+      contributionRothIRA,
+      contributionTraditionalIRA,
+      contributionHSA,
+      hsaFamilyCoverage,
+      getBtcGrowthRate,
       effectiveInflation: inflationRate,
       effectiveStocksCagr: stocksCagr,
       bondsCagr,
@@ -270,7 +249,7 @@ export default function Scenarios() {
       btcReleaseTargetLtv: effectiveSettings.btc_release_target_ltv || 40,
       goals: goals || [],
       lifeEvents: lifeEvents || [],
-      getTaxTreatmentFromHolding,
+      getTaxTreatmentFromHolding: (holding) => sharedGetTaxTreatment(holding, accounts),
       customReturnPeriods: effectiveSettings.custom_return_periods || {},
       tickerReturns: effectiveSettings.ticker_returns || {},
     };
