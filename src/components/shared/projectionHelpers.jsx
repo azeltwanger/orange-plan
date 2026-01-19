@@ -1,11 +1,4 @@
-/**
- * Shared Projection Helper Functions
- * 
- * This file centralizes financial calculation logic used by both FinancialPlan.jsx and Scenarios.jsx
- * to ensure IDENTICAL projection results across pages.
- * 
- * All functions are extracted directly from FinancialPlan.jsx's working implementation.
- */
+// components/shared/projectionHelpers.js
 
 import { getPowerLawCAGR } from './bitcoinPowerLaw';
 import { estimateSocialSecurityBenefit, calculateProgressiveIncomeTax } from '../tax/taxCalculations';
@@ -14,11 +7,7 @@ import { getCustomReturnForYear } from './runProjection';
 
 /**
  * Determines the tax treatment for a given holding.
- * EXACT copy from FinancialPlan.jsx lines 251-266
- * 
- * @param {Object} holding - The holding object
- * @param {Array} accounts - Array of account objects
- * @returns {string} - Tax treatment: 'taxable', 'tax_deferred', 'tax_free', or 'real_estate'
+ * EXACT copy from FinancialPlan.jsx
  */
 export function getTaxTreatmentFromHolding(holding, accounts) {
   if (holding.account_id && accounts?.length > 0) {
@@ -38,27 +27,18 @@ export function getTaxTreatmentFromHolding(holding, accounts) {
 }
 
 /**
- * Creates a BTC growth rate function with closure over model and parameters.
+ * Creates a BTC growth rate function.
  * EXACT logic from FinancialPlan.jsx lines 524-575
- * 
- * This returns a FUNCTION that can be passed to runUnifiedProjection.
- * 
- * @param {string} btcReturnModel - 'custom', 'powerlaw', 'saylor24', 'custom_periods', 'conservative'
- * @param {number} effectiveBtcCagr - The custom BTC CAGR percentage
- * @param {Object} customReturnPeriods - Custom return periods object
- * @returns {Function} - Function(yearFromNow, inflationRate) => growth rate percentage
  */
 export function createBtcGrowthRateFunction(btcReturnModel, effectiveBtcCagr, customReturnPeriods) {
   return (yearFromNow, inflationRate) => {
     let rate;
     
-    // If custom_periods is selected, check for a custom period first
     if (btcReturnModel === 'custom_periods') {
       const customRate = getCustomReturnForYear('btc', yearFromNow, customReturnPeriods, null);
       if (customRate !== null) {
         return customRate;
       }
-      // Fallback to Power Law if no custom period defined for this year
       return getPowerLawCAGR(yearFromNow);
     }
     
@@ -85,9 +65,6 @@ export function createBtcGrowthRateFunction(btcReturnModel, effectiveBtcCagr, cu
           rate = inflationRate + 2;
         }
         break;
-      case 'conservative':
-        rate = 15;
-        break;
       default:
         rate = effectiveBtcCagr;
     }
@@ -97,11 +74,8 @@ export function createBtcGrowthRateFunction(btcReturnModel, effectiveBtcCagr, cu
 }
 
 /**
- * Calculates comprehensive annual savings considering taxes and retirement contributions.
+ * Calculates comprehensive annual savings.
  * EXACT logic from FinancialPlan.jsx lines 440-473
- * 
- * @param {Object} params - Calculation parameters
- * @returns {Object} - Contains annualSavings and all intermediate calculations
  */
 export function calculateComprehensiveAnnualSavings({
   grossAnnualIncome,
@@ -119,35 +93,25 @@ export function calculateComprehensiveAnnualSavings({
   const { standardDeductions } = getTaxDataForYear(currentYear);
   const currentStandardDeduction = standardDeductions[filingStatus] || standardDeductions.single;
   
-  // Get current contribution limits for validation
   const currentLimit401k = get401kLimit(currentYear, currentAge);
   const currentLimitRoth = getRothIRALimit(currentYear, currentAge);
   const currentLimitTraditionalIRA = getTraditionalIRALimit(currentYear, currentAge);
   const currentLimitHSA = getHSALimit(currentYear, currentAge, hsaFamilyCoverage);
   
-  // Cap contributions to limits
   const actual401k = Math.min(contribution401k || 0, currentLimit401k);
   const actualRoth = Math.min(contributionRothIRA || 0, currentLimitRoth);
   const actualTraditionalIRA = Math.min(contributionTraditionalIRA || 0, currentLimitTraditionalIRA);
   const actualHSA = Math.min(contributionHSA || 0, currentLimitHSA);
   
-  // Check Roth IRA income eligibility
   const rothIncomeLimit = getRothIRAIncomeLimit(currentYear, filingStatus);
   const adjustedGrossIncome = grossAnnualIncome - actual401k - actualTraditionalIRA - actualHSA;
   const rothIncomeEligible = adjustedGrossIncome < rothIncomeLimit.phaseOutEnd;
-  const rothInPhaseOut = adjustedGrossIncome >= rothIncomeLimit.phaseOutStart && adjustedGrossIncome < rothIncomeLimit.phaseOutEnd;
   
-  // Pre-tax contributions (401k, Traditional IRA, HSA) reduce taxable income
   const taxableGrossIncome = Math.max(0, grossAnnualIncome - actual401k - actualTraditionalIRA - actualHSA - currentStandardDeduction);
   const estimatedIncomeTax = calculateProgressiveIncomeTax(taxableGrossIncome, filingStatus, currentYear);
   
-  // Net income after taxes
   const netIncome = grossAnnualIncome - estimatedIncomeTax;
-  
-  // Total retirement contributions (Roth comes from after-tax income)
   const totalRetirementContributions = actualRoth;
-  
-  // Annual net cash flow = netIncome - spending - rothContribution (CAN be negative)
   const annualSavings = netIncome - currentAnnualSpending - totalRetirementContributions;
 
   return {
@@ -161,21 +125,13 @@ export function calculateComprehensiveAnnualSavings({
     employer401kMatch: employer401kMatch || 0,
     totalRetirementContributions,
     rothIncomeEligible,
-    rothInPhaseOut,
     currentStandardDeduction,
-    currentLimit401k,
-    currentLimitRoth,
-    currentLimitTraditionalIRA,
-    currentLimitHSA,
   };
 }
 
 /**
  * Derives the effective Social Security amount.
  * EXACT logic from FinancialPlan.jsx lines 436-437
- * 
- * @param {Object} params - Calculation parameters
- * @returns {number} - Effective annual Social Security benefit
  */
 export function deriveEffectiveSocialSecurity({
   grossAnnualIncome,
