@@ -569,7 +569,7 @@ export default function Scenarios() {
                     className={cn(
                       selectedScenarioId === scenario.id 
                         ? "bg-orange-500 hover:bg-orange-600 text-white" 
-                        : "border-zinc-700 hover:border-zinc-600 text-zinc-200"
+                        : "border-zinc-600 bg-zinc-800 text-zinc-100 hover:bg-zinc-700 hover:text-white"
                     )}
                   >
                     {scenario.name}
