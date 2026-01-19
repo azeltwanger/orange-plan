@@ -326,16 +326,23 @@ export default function Scenarios() {
     const hasLiquidations = yearByYear.some(y => y.liquidations && y.liquidations.length > 0);
     const liquidationCount = yearByYear.reduce((sum, y) => sum + (y.liquidations?.length || 0), 0);
     
+    // Calculate Net Worth = Total Assets - Total Debt
+    const retirementNetWorth = (retirementYear?.total || 0) - (retirementYear?.totalDebt || 0);
+    const finalNetWorth = (finalYear?.total || 0) - (finalYear?.totalDebt || 0);
+    
     return {
       survives: projection.survives,
       depleteAge: projection.depleteAge,
-      portfolioAtRetirement: retirementYear?.total || 0,
-      finalNetWorth: finalYear?.total || 0,
+      portfolioAtRetirement: retirementNetWorth,
+      finalNetWorth: finalNetWorth,
       lifetimeTaxes,
       btcAtRetirement: retirementYear?.liquidBtc || 0,
       btcAtEnd: finalYear?.liquidBtc || 0,
       hasLiquidations,
       liquidationCount,
+      // Also include gross values for reference
+      totalAssetsAtRetirement: retirementYear?.total || 0,
+      totalDebtAtRetirement: retirementYear?.totalDebt || 0,
     };
   };
 
@@ -669,7 +676,7 @@ export default function Scenarios() {
               </thead>
               <tbody>
                 <tr className="border-b border-zinc-800/50">
-                  <td className="py-3 px-4 text-zinc-200">Portfolio at Retirement</td>
+                  <td className="py-3 px-4 text-zinc-200">Net Worth at Retirement</td>
                   <td className="py-3 px-4 text-right font-mono text-zinc-200">{formatCurrency(baselineMetrics.portfolioAtRetirement)}</td>
                   <td className="py-3 px-4 text-right font-mono text-zinc-200">{formatCurrency(scenarioMetrics.portfolioAtRetirement)}</td>
                   <td className={cn("py-3 px-4 text-right font-mono", scenarioMetrics.portfolioAtRetirement >= baselineMetrics.portfolioAtRetirement ? "text-emerald-400" : "text-rose-400")}>
