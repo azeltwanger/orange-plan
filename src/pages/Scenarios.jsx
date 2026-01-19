@@ -551,8 +551,7 @@ export default function Scenarios() {
             <p className="text-zinc-400 mb-4">No scenarios created yet. Create one to compare against your baseline.</p>
             <Button 
               onClick={() => { resetForm(); setEditingScenario(null); setFormOpen(true); }}
-              variant="outline"
-              className="border-zinc-600 text-zinc-200 hover:bg-zinc-800 hover:text-white"
+              className="bg-zinc-800 border border-zinc-600 text-white hover:bg-zinc-700"
             >
               <Plus className="w-4 h-4 mr-2" />
               Create Your First Scenario
