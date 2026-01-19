@@ -352,13 +352,11 @@ export default function Scenarios() {
     return minimumVolatility + (initialVolatility - minimumVolatility) * Math.exp(-decayRate * yearsFromNow);
   }, []);
 
-  // Monte Carlo simulation function - runs 500 simulations
-  const runMonteCarloForParams = useCallback((baseParams, numSimulations = 500) => {
-    const projectionYears = baseParams.lifeExpectancy - baseParams.currentAge + 1;
-    let successCount = 0;
-    let liquidationSimCount = 0;
-
-    // Helper: Generate random normal using Box-Muller
+  // Generate random paths ONCE for consistent A/B comparison
+  const generateRandomPaths = useCallback((numSimulations, projectionYears, baseParams) => {
+    const paths = [];
+    
+    // Helper: Generate random normal using Box-Muller with seeded values
     const randomNormal = () => {
       const u1 = Math.max(0.0001, Math.random());
       const u2 = Math.random();
@@ -366,40 +364,47 @@ export default function Scenarios() {
     };
 
     for (let sim = 0; sim < numSimulations; sim++) {
-      // Generate random yearly returns for this simulation
       const yearlyReturnOverrides = {
         btc: [],
         stocks: [],
         bonds: [],
         realEstate: [],
         cash: [],
-        other: []
+        other: [],
+        // Store the random Z-scores so we can reconstruct with different expected returns
+        zScores: []
       };
 
       for (let year = 0; year <= projectionYears; year++) {
         const z1 = randomNormal();
         const z2 = randomNormal();
+        const z3 = randomNormal();
+        const z4 = randomNormal();
+        const z5 = randomNormal();
+        const z6 = randomNormal();
+
+        yearlyReturnOverrides.zScores.push({ z1, z2, z3, z4, z5, z6 });
 
         // BTC: Use getBtcGrowthRate as expected return, add volatility
         const expectedBtcReturn = baseParams.getBtcGrowthRate(year, baseParams.effectiveInflation);
         const btcVolatility = getBtcVolatilityForMonteCarlo(year);
         const btcReturn = Math.max(-60, Math.min(200, expectedBtcReturn + btcVolatility * z1));
 
-        // Stocks: Use effectiveStocksCagr as expected, add volatility
+        // Stocks
         const stocksVolatilityVal = 18;
         const stocksReturn = Math.max(-40, Math.min(50, baseParams.effectiveStocksCagr + stocksVolatilityVal * z2));
 
-        // Real Estate: Add +/- 5% randomness
-        const realEstateReturn = baseParams.realEstateCagr + (Math.random() * 10 - 5);
+        // Real Estate (+/- 5%)
+        const realEstateReturn = baseParams.realEstateCagr + 5 * z3;
 
-        // Bonds: Add +/- 2% randomness
-        const bondsReturn = baseParams.bondsCagr + (Math.random() * 4 - 2);
+        // Bonds (+/- 2%)
+        const bondsReturn = baseParams.bondsCagr + 2 * z4;
 
-        // Cash: Add +/- 1% randomness
-        const cashReturn = baseParams.cashCagr + (Math.random() * 2 - 1);
+        // Cash (+/- 1%)
+        const cashReturn = baseParams.cashCagr + 1 * z5;
 
-        // Other: Add +/- 3% randomness
-        const otherReturn = baseParams.otherCagr + (Math.random() * 6 - 3);
+        // Other (+/- 3%)
+        const otherReturn = baseParams.otherCagr + 3 * z6;
 
         yearlyReturnOverrides.btc.push(btcReturn);
         yearlyReturnOverrides.stocks.push(stocksReturn);
@@ -409,40 +414,150 @@ export default function Scenarios() {
         yearlyReturnOverrides.other.push(otherReturn);
       }
 
-      // Run unified projection with randomized returns
-      const result = runUnifiedProjection({
-        ...baseParams,
-        yearlyReturnOverrides,
+      paths.push(yearlyReturnOverrides);
+    }
+
+    return paths;
+  }, [getBtcVolatilityForMonteCarlo]);
+
+  // Regenerate return overrides for a different parameter set using same Z-scores
+  const regenerateReturnsForParams = useCallback((path, params) => {
+    const newOverrides = {
+      btc: [],
+      stocks: [],
+      bonds: [],
+      realEstate: [],
+      cash: [],
+      other: []
+    };
+
+    for (let year = 0; year < path.zScores.length; year++) {
+      const { z1, z2, z3, z4, z5, z6 } = path.zScores[year];
+
+      // BTC with scenario's expected return
+      const expectedBtcReturn = params.getBtcGrowthRate(year, params.effectiveInflation);
+      const btcVolatility = getBtcVolatilityForMonteCarlo(year);
+      const btcReturn = Math.max(-60, Math.min(200, expectedBtcReturn + btcVolatility * z1));
+
+      // Stocks with scenario's expected return
+      const stocksVolatilityVal = 18;
+      const stocksReturn = Math.max(-40, Math.min(50, params.effectiveStocksCagr + stocksVolatilityVal * z2));
+
+      // Real Estate
+      const realEstateReturn = params.realEstateCagr + 5 * z3;
+
+      // Bonds
+      const bondsReturn = params.bondsCagr + 2 * z4;
+
+      // Cash
+      const cashReturn = params.cashCagr + 1 * z5;
+
+      // Other
+      const otherReturn = params.otherCagr + 3 * z6;
+
+      newOverrides.btc.push(btcReturn);
+      newOverrides.stocks.push(stocksReturn);
+      newOverrides.bonds.push(bondsReturn);
+      newOverrides.realEstate.push(realEstateReturn);
+      newOverrides.cash.push(cashReturn);
+      newOverrides.other.push(otherReturn);
+    }
+
+    return newOverrides;
+  }, [getBtcVolatilityForMonteCarlo]);
+
+  // Check if scenario affects loan/liquidation parameters
+  const scenarioAffectsLiquidation = useCallback((scenario) => {
+    if (!scenario) return false;
+    // Only these overrides affect liquidation risk
+    return (
+      scenario.btc_cagr_override !== null && scenario.btc_cagr_override !== undefined ||
+      scenario.savings_allocation_btc_override !== null && scenario.savings_allocation_btc_override !== undefined
+    );
+  }, []);
+
+  // Run Monte Carlo comparison with SAME random paths for both baseline and scenario
+  const runMonteCarloComparison = useCallback((baselineParams, scenarioParams, numSimulations = 1000) => {
+    const projectionYears = Math.max(
+      baselineParams.lifeExpectancy - baselineParams.currentAge + 1,
+      scenarioParams ? scenarioParams.lifeExpectancy - scenarioParams.currentAge + 1 : 0
+    );
+
+    // Generate paths once using baseline params
+    const paths = generateRandomPaths(numSimulations, projectionYears, baselineParams);
+
+    let baselineSuccess = 0;
+    let scenarioSuccess = 0;
+    let baselineLiquidations = 0;
+    let scenarioLiquidations = 0;
+
+    for (let i = 0; i < paths.length; i++) {
+      // Run baseline with original path
+      const baseResult = runUnifiedProjection({
+        ...baselineParams,
+        yearlyReturnOverrides: paths[i],
         DEBUG: false,
       });
 
-      if (result.survives) successCount++;
-      
-      // Check for liquidation events
-      const hasLiquidation = result.yearByYear?.some(y => 
+      if (baseResult.survives) baselineSuccess++;
+      const baseHasLiquidation = baseResult.yearByYear?.some(y => 
         y.liquidations?.some(l => l.type !== 'top_up' && l.type !== 'release')
       );
-      if (hasLiquidation) liquidationSimCount++;
+      if (baseHasLiquidation) baselineLiquidations++;
+
+      // Run scenario with regenerated returns (same Z-scores, different expected returns if changed)
+      if (scenarioParams) {
+        const scenarioOverrides = regenerateReturnsForParams(paths[i], scenarioParams);
+        const scenResult = runUnifiedProjection({
+          ...scenarioParams,
+          yearlyReturnOverrides: scenarioOverrides,
+          DEBUG: false,
+        });
+
+        if (scenResult.survives) scenarioSuccess++;
+        const scenHasLiquidation = scenResult.yearByYear?.some(y => 
+          y.liquidations?.some(l => l.type !== 'top_up' && l.type !== 'release')
+        );
+        if (scenHasLiquidation) scenarioLiquidations++;
+      }
     }
 
     return {
-      successRate: (successCount / numSimulations) * 100,
-      liquidationRisk: (liquidationSimCount / numSimulations) * 100,
+      baselineSuccessRate: (baselineSuccess / numSimulations) * 100,
+      scenarioSuccessRate: scenarioParams ? (scenarioSuccess / numSimulations) * 100 : null,
+      baselineLiquidationRisk: (baselineLiquidations / numSimulations) * 100,
+      scenarioLiquidationRisk: scenarioParams ? (scenarioLiquidations / numSimulations) * 100 : null,
+      numSimulations,
     };
-  }, [getBtcVolatilityForMonteCarlo]);
+  }, [generateRandomPaths, regenerateReturnsForParams]);
 
-  // Binary search for max sustainable spending (90% success rate threshold)
-  const findMaxSustainableSpending = useCallback((baseParams, numSimulations = 100) => {
+  // Binary search for max sustainable spending with shared paths
+  const findMaxSustainableSpendingWithPaths = useCallback((baseParams, numSimulations = 200) => {
     let low = 10000;
     let high = 500000;
     let maxSpending = low;
 
+    // Generate paths once for all iterations
+    const projectionYears = baseParams.lifeExpectancy - baseParams.currentAge + 1;
+    const paths = generateRandomPaths(numSimulations, projectionYears, baseParams);
+
     for (let iteration = 0; iteration < 15; iteration++) {
       const testSpending = Math.round((low + high) / 2);
       const testParams = { ...baseParams, retirementAnnualSpending: testSpending };
-      const result = runMonteCarloForParams(testParams, numSimulations);
+      
+      let successCount = 0;
+      for (let i = 0; i < paths.length; i++) {
+        const result = runUnifiedProjection({
+          ...testParams,
+          yearlyReturnOverrides: paths[i],
+          DEBUG: false,
+        });
+        if (result.survives) successCount++;
+      }
+      
+      const successRate = (successCount / numSimulations) * 100;
 
-      if (result.successRate >= 90) {
+      if (successRate >= 90) {
         maxSpending = testSpending;
         low = testSpending;
       } else {
@@ -453,7 +568,7 @@ export default function Scenarios() {
     }
 
     return maxSpending;
-  }, [runMonteCarloForParams]);
+  }, [generateRandomPaths]);
 
   // Run Monte Carlo for both baseline and scenario
   const handleRunMonteCarlo = useCallback(async () => {
@@ -464,16 +579,9 @@ export default function Scenarios() {
     // Use setTimeout to allow UI to update before heavy computation
     setTimeout(() => {
       try {
-        // Run baseline Monte Carlo
         const baselineParams = buildProjectionParams();
-        const baselineMC = runMonteCarloForParams(baselineParams, 500);
-        const baselineMaxSpending = findMaxSustainableSpending(baselineParams, 100);
-        setBaselineMonteCarloResults({
-          ...baselineMC,
-          maxSustainableSpending: baselineMaxSpending,
-        });
+        let scenarioParams = null;
 
-        // Run scenario Monte Carlo if selected
         if (selectedScenario) {
           const overrides = {
             retirement_age_override: selectedScenario.retirement_age_override,
@@ -495,12 +603,35 @@ export default function Scenarios() {
             savings_allocation_cash_override: selectedScenario.savings_allocation_cash_override,
             savings_allocation_other_override: selectedScenario.savings_allocation_other_override,
           };
-          const scenarioParams = buildProjectionParams(overrides);
-          const scenarioMC = runMonteCarloForParams(scenarioParams, 500);
-          const scenarioMaxSpending = findMaxSustainableSpending(scenarioParams, 100);
+          scenarioParams = buildProjectionParams(overrides);
+        }
+
+        // Run comparison with shared random paths (1000 simulations)
+        const mcResults = runMonteCarloComparison(baselineParams, scenarioParams, 1000);
+
+        // Find max sustainable spending for baseline
+        const baselineMaxSpending = findMaxSustainableSpendingWithPaths(baselineParams, 200);
+        
+        // Check if liquidation difference is meaningful
+        const liquidationAffected = scenarioAffectsLiquidation(selectedScenario);
+
+        setBaselineMonteCarloResults({
+          successRate: mcResults.baselineSuccessRate,
+          liquidationRisk: mcResults.baselineLiquidationRisk,
+          maxSustainableSpending: baselineMaxSpending,
+          numSimulations: mcResults.numSimulations,
+        });
+
+        if (scenarioParams) {
+          // Find max sustainable spending for scenario
+          const scenarioMaxSpending = findMaxSustainableSpendingWithPaths(scenarioParams, 200);
+          
           setScenarioMonteCarloResults({
-            ...scenarioMC,
+            successRate: mcResults.scenarioSuccessRate,
+            liquidationRisk: mcResults.scenarioLiquidationRisk,
             maxSustainableSpending: scenarioMaxSpending,
+            numSimulations: mcResults.numSimulations,
+            liquidationAffected, // Flag to indicate if liquidation comparison is meaningful
           });
         }
       } catch (error) {
@@ -509,7 +640,7 @@ export default function Scenarios() {
         setMonteCarloRunning(false);
       }
     }, 50);
-  }, [buildProjectionParams, runMonteCarloForParams, findMaxSustainableSpending, selectedScenario]);
+  }, [buildProjectionParams, runMonteCarloComparison, findMaxSustainableSpendingWithPaths, selectedScenario, scenarioAffectsLiquidation]);
 
   // Clear Monte Carlo results when scenario changes
   useEffect(() => {
