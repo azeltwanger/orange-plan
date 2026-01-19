@@ -166,14 +166,14 @@ export default function Scenarios() {
     const savingsAllocationOther = effectiveSettings.savings_allocation_other_override ?? effectiveSettings.savings_allocation_other ?? 0;
 
     // Use shared helper for comprehensive annual savings (EXACT match with FinancialPlan.jsx)
-    const grossAnnualIncome = effectiveSettings.gross_annual_income || 100000;
-    const currentAnnualSpending = effectiveSettings.current_annual_spending || 80000;
+    const grossAnnualIncome = effectiveSettings.gross_annual_income ?? 100000;
+    const currentAnnualSpending = effectiveSettings.current_annual_spending ?? 80000;
     const filingStatus = effectiveSettings.filing_status || 'single';
-    const contribution401k = effectiveSettings.contribution_401k || 0;
-    const employer401kMatch = effectiveSettings.employer_401k_match || 0;
-    const contributionRothIRA = effectiveSettings.contribution_roth_ira || 0;
-    const contributionTraditionalIRA = effectiveSettings.contribution_traditional_ira || 0;
-    const contributionHSA = effectiveSettings.contribution_hsa || 0;
+    const contribution401k = effectiveSettings.contribution_401k ?? 0;
+    const employer401kMatch = effectiveSettings.employer_401k_match ?? 0;
+    const contributionRothIRA = effectiveSettings.contribution_roth_ira ?? 0;
+    const contributionTraditionalIRA = effectiveSettings.contribution_traditional_ira ?? 0;
+    const contributionHSA = effectiveSettings.contribution_hsa ?? 0;
     const hsaFamilyCoverage = effectiveSettings.hsa_family_coverage || false;
 
     const savingsResult = calculateComprehensiveAnnualSavings({
