@@ -477,8 +477,8 @@ export default function Scenarios() {
   const formatDelta = (baseline, scenario) => {
     if (baseline === null || scenario === null) return '-';
     const diff = scenario - baseline;
-    const prefix = diff >= 0 ? '+' : '';
-    return prefix + formatCurrency(Math.abs(diff)).replace('$', (diff >= 0 ? '+$' : '-$'));
+    const prefix = diff >= 0 ? '+' : '-';
+    return prefix + formatCurrency(Math.abs(diff));
   };
 
   if (isLoading) {
@@ -566,7 +566,7 @@ export default function Scenarios() {
                   <Button
                     variant={selectedScenarioId === scenario.id ? "default" : "outline"}
                     size="sm"
-                    onClick={() => setSelectedScenarioId(scenario.id)}
+                    onClick={() => setSelectedScenarioId(selectedScenarioId === scenario.id ? null : scenario.id)}
                     className={cn(
                       selectedScenarioId === scenario.id 
                         ? "bg-orange-500 hover:bg-orange-600 text-white" 
