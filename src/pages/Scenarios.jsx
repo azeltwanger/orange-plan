@@ -305,6 +305,34 @@ export default function Scenarios() {
     }
   }, [selectedScenario, holdings, accounts, liabilities, collateralizedLoans, goals, lifeEvents, userSettings, budgetItems, currentPrice]);
 
+  // Calculate max drawdown BTC can survive without liquidation
+  const calculateMaxDrawdownSurvived = useCallback(() => {
+    if (!collateralizedLoans || collateralizedLoans.length === 0) {
+      return null; // No BTC loans
+    }
+
+    // Find the loan with highest LTV (most at risk)
+    let worstDrawdown = 100; // Start with best case
+    
+    for (const loan of collateralizedLoans) {
+      if (!loan.collateral_btc_amount || loan.collateral_btc_amount <= 0) continue;
+      
+      const collateralValue = loan.collateral_btc_amount * currentPrice;
+      const currentLTV = (loan.current_balance / collateralValue) * 100;
+      const liquidationLTV = loan.liquidation_ltv || 80;
+      
+      // Max drawdown = 1 - (currentLTV / liquidationLTV)
+      // If LTV is 50% and liquidation is 80%, we can survive a 37.5% drop
+      const maxDrawdown = (1 - (currentLTV / liquidationLTV)) * 100;
+      
+      if (maxDrawdown < worstDrawdown) {
+        worstDrawdown = maxDrawdown;
+      }
+    }
+    
+    return worstDrawdown;
+  }, [collateralizedLoans, currentPrice]);
+
   // Extract metrics from projection
   const extractMetrics = (projection, retirementAge) => {
     if (!projection || !projection.yearByYear) return null;
@@ -314,13 +342,10 @@ export default function Scenarios() {
     const finalYear = yearByYear[yearByYear.length - 1];
     
     const lifetimeTaxes = yearByYear.reduce((sum, y) => sum + (y.taxesPaid || 0), 0);
-    const hasLiquidations = yearByYear.some(y => y.liquidations && y.liquidations.length > 0);
-    const liquidationCount = yearByYear.reduce((sum, y) => sum + (y.liquidations?.length || 0), 0);
     
     // Calculate Net Worth = Total Assets - Total Debt
     const retirementNetWorth = (retirementYear?.total || 0) - (retirementYear?.totalDebt || 0);
     const finalNetWorth = (finalYear?.total || 0) - (finalYear?.totalDebt || 0);
-    
     
     return {
       survives: projection.survives,
@@ -330,13 +355,13 @@ export default function Scenarios() {
       lifetimeTaxes,
       btcAtRetirement: retirementYear?.liquidBtc || 0,
       btcAtEnd: finalYear?.liquidBtc || 0,
-      hasLiquidations,
-      liquidationCount,
       // Also include gross values for reference
       totalAssetsAtRetirement: retirementYear?.total || 0,
       totalDebtAtRetirement: retirementYear?.totalDebt || 0,
     };
   };
+
+  const maxDrawdownSurvived = calculateMaxDrawdownSurvived();
 
   const baselineRetirementAge = settings.retirement_age || 65;
   const scenarioRetirementAge = selectedScenario?.retirement_age_override || baselineRetirementAge;
@@ -1028,41 +1053,34 @@ export default function Scenarios() {
                     {formatDelta(baselineMetrics.lifetimeTaxes, scenarioMetrics.lifetimeTaxes)}
                   </td>
                 </tr>
-                <tr className="border-b border-zinc-800/50">
+                <tr>
                   <td className="py-3 px-4 text-zinc-200">BTC at Retirement</td>
                   <td className="py-3 px-4 text-right font-mono text-zinc-200">{baselineMetrics.btcAtRetirement?.toFixed(2) || '0'} BTC</td>
                   <td className="py-3 px-4 text-right font-mono text-zinc-200">{scenarioMetrics.btcAtRetirement?.toFixed(2) || '0'} BTC</td>
                   <td className={cn("py-3 px-4 text-right font-mono", (scenarioMetrics.btcAtRetirement || 0) >= (baselineMetrics.btcAtRetirement || 0) ? "text-emerald-400" : "text-rose-400")}>
-                    {((scenarioMetrics.btcAtRetirement || 0) - (baselineMetrics.btcAtRetirement || 0)).toFixed(2)} BTC
-                  </td>
-                </tr>
-                <tr className="border-b border-zinc-800/50">
-                  <td className="py-3 px-4 text-zinc-200">Liquidation Events</td>
-                  <td className="py-3 px-4 text-right font-mono text-zinc-200">{baselineMetrics.hasLiquidations ? `${baselineMetrics.liquidationCount} events` : 'None'}</td>
-                  <td className="py-3 px-4 text-right font-mono text-zinc-200">{scenarioMetrics.hasLiquidations ? `${scenarioMetrics.liquidationCount} events` : 'None'}</td>
-                  <td className={cn("py-3 px-4 text-right font-mono", 
-                    (scenarioMetrics.liquidationCount || 0) <= (baselineMetrics.liquidationCount || 0) ? "text-emerald-400" : "text-rose-400"
-                  )}>
-                    {(scenarioMetrics.liquidationCount || 0) - (baselineMetrics.liquidationCount || 0) === 0 ? '-' :
-                     `${(scenarioMetrics.liquidationCount || 0) - (baselineMetrics.liquidationCount || 0) > 0 ? '+' : ''}${(scenarioMetrics.liquidationCount || 0) - (baselineMetrics.liquidationCount || 0)}`}
+                    {(() => {
+                      const diff = (scenarioMetrics.btcAtRetirement || 0) - (baselineMetrics.btcAtRetirement || 0);
+                      if (Math.abs(diff) < 0.01) return <span className="text-zinc-500">≈ same</span>;
+                      return <>{diff >= 0 ? '▲' : '▼'} {Math.abs(diff).toFixed(2)} BTC</>;
+                    })()}
                   </td>
                 </tr>
                 
-                {/* Monte Carlo Metrics Section */}
+                {/* Plan Confidence Section */}
                 {(baselineMonteCarloResults || monteCarloRunning) && (
                   <>
                     <tr className="border-t-2 border-purple-500/30">
                       <td colSpan={4} className="py-2 px-4 text-xs text-purple-400 font-semibold uppercase tracking-wide">
-                        Monte Carlo Analysis ({baselineMonteCarloResults?.numSimulations || 1000} simulations, same random paths)
+                        Plan Confidence ({baselineMonteCarloResults?.numSimulations?.toLocaleString() || '1,000'} scenarios)
                       </td>
                     </tr>
                     <tr className="border-b border-zinc-800/50">
-                      <td className="py-3 px-4 text-zinc-200">Monte Carlo Success Rate</td>
+                      <td className="py-3 px-4 text-zinc-200">Plan Success Rate</td>
                       <td className="py-3 px-4 text-right font-mono text-zinc-200">
                         {monteCarloRunning && !baselineMonteCarloResults ? (
                           <Loader2 className="w-4 h-4 animate-spin inline" />
                         ) : baselineMonteCarloResults ? (
-                          <span className={baselineMonteCarloResults.successRate >= 80 ? "text-emerald-400" : baselineMonteCarloResults.successRate >= 50 ? "text-amber-400" : "text-rose-400"}>
+                          <span className={baselineMonteCarloResults.successRate >= 85 ? "text-emerald-400" : baselineMonteCarloResults.successRate >= 70 ? "text-amber-400" : "text-orange-500"}>
                             {baselineMonteCarloResults.successRate.toFixed(1)}%
                           </span>
                         ) : '-'}
@@ -1071,7 +1089,7 @@ export default function Scenarios() {
                         {monteCarloRunning && !scenarioMonteCarloResults ? (
                           <Loader2 className="w-4 h-4 animate-spin inline" />
                         ) : scenarioMonteCarloResults ? (
-                          <span className={scenarioMonteCarloResults.successRate >= 80 ? "text-emerald-400" : scenarioMonteCarloResults.successRate >= 50 ? "text-amber-400" : "text-rose-400"}>
+                          <span className={scenarioMonteCarloResults.successRate >= 85 ? "text-emerald-400" : scenarioMonteCarloResults.successRate >= 70 ? "text-amber-400" : "text-orange-500"}>
                             {scenarioMonteCarloResults.successRate.toFixed(1)}%
                           </span>
                         ) : '-'}
@@ -1079,14 +1097,12 @@ export default function Scenarios() {
                       <td className="py-3 px-4 text-right font-mono">
                         {baselineMonteCarloResults && scenarioMonteCarloResults ? (() => {
                           const diff = scenarioMonteCarloResults.successRate - baselineMonteCarloResults.successRate;
-                          const absDiff = Math.abs(diff);
-                          // Within 3% is margin of error
-                          if (absDiff < 3) {
-                            return <span className="text-zinc-500">~same</span>;
+                          if (Math.abs(diff) < 3) {
+                            return <span className="text-zinc-500">≈ same</span>;
                           }
                           return (
                             <span className={diff > 0 ? "text-emerald-400" : "text-rose-400"}>
-                              {diff >= 0 ? '+' : ''}{diff.toFixed(1)}%
+                              {diff > 0 ? '▲' : '▼'} {Math.abs(diff).toFixed(1)}%
                             </span>
                           );
                         })() : '-'}
@@ -1097,42 +1113,68 @@ export default function Scenarios() {
                       <td className="py-3 px-4 text-right font-mono text-zinc-200">
                         {monteCarloRunning && !baselineMonteCarloResults ? (
                           <Loader2 className="w-4 h-4 animate-spin inline" />
-                        ) : baselineMonteCarloResults ? (
-                          <span className={baselineMonteCarloResults.liquidationRisk <= 10 ? "text-emerald-400" : baselineMonteCarloResults.liquidationRisk <= 30 ? "text-amber-400" : "text-rose-400"}>
-                            {baselineMonteCarloResults.liquidationRisk.toFixed(1)}%
-                          </span>
-                        ) : '-'}
+                        ) : baselineMonteCarloResults ? (() => {
+                          const risk = baselineMonteCarloResults.liquidationRisk;
+                          if (risk === 0) return <span className="text-emerald-400">None</span>;
+                          if (risk <= 20) return <span className="text-amber-400">Low ({risk.toFixed(0)}%)</span>;
+                          if (risk <= 50) return <span className="text-orange-500">Moderate ({risk.toFixed(0)}%)</span>;
+                          return <span className="text-rose-400">High ({risk.toFixed(0)}%)</span>;
+                        })() : '-'}
                       </td>
                       <td className="py-3 px-4 text-right font-mono text-zinc-200">
                         {monteCarloRunning && !scenarioMonteCarloResults ? (
                           <Loader2 className="w-4 h-4 animate-spin inline" />
-                        ) : scenarioMonteCarloResults ? (
-                          <span className={scenarioMonteCarloResults.liquidationRisk <= 10 ? "text-emerald-400" : scenarioMonteCarloResults.liquidationRisk <= 30 ? "text-amber-400" : "text-rose-400"}>
-                            {scenarioMonteCarloResults.liquidationRisk.toFixed(1)}%
-                          </span>
-                        ) : '-'}
+                        ) : scenarioMonteCarloResults ? (() => {
+                          const risk = scenarioMonteCarloResults.liquidationRisk;
+                          if (risk === 0) return <span className="text-emerald-400">None</span>;
+                          if (risk <= 20) return <span className="text-amber-400">Low ({risk.toFixed(0)}%)</span>;
+                          if (risk <= 50) return <span className="text-orange-500">Moderate ({risk.toFixed(0)}%)</span>;
+                          return <span className="text-rose-400">High ({risk.toFixed(0)}%)</span>;
+                        })() : '-'}
                       </td>
                       <td className="py-3 px-4 text-right font-mono">
                         {baselineMonteCarloResults && scenarioMonteCarloResults ? (() => {
                           const diff = scenarioMonteCarloResults.liquidationRisk - baselineMonteCarloResults.liquidationRisk;
-                          // If scenario doesn't affect liquidation params, show unchanged
                           if (!scenarioMonteCarloResults.liquidationAffected && Math.abs(diff) < 1) {
-                            return <span className="text-zinc-500" title="Loan terms unchanged">—</span>;
+                            return <span className="text-zinc-500">—</span>;
                           }
-                          // Within 2% is negligible for liquidation
-                          if (Math.abs(diff) < 2) {
-                            return <span className="text-zinc-500">~same</span>;
+                          if (Math.abs(diff) < 3) {
+                            return <span className="text-zinc-500">≈ same</span>;
                           }
                           return (
-                            <span className={diff <= 0 ? "text-emerald-400" : "text-rose-400"}>
-                              {diff >= 0 ? '+' : ''}{diff.toFixed(1)}%
+                            <span className={diff < 0 ? "text-emerald-400" : "text-rose-400"}>
+                              {diff < 0 ? '▲' : '▼'} {Math.abs(diff).toFixed(0)}%
                             </span>
                           );
                         })() : '-'}
                       </td>
                     </tr>
+                    <tr className="border-b border-zinc-800/50">
+                      <td className="py-3 px-4 text-zinc-200">Max Drawdown Survived</td>
+                      <td className="py-3 px-4 text-right font-mono text-zinc-200">
+                        {maxDrawdownSurvived === null ? (
+                          <span className="text-zinc-500">N/A</span>
+                        ) : (
+                          <span className={maxDrawdownSurvived >= 50 ? "text-emerald-400" : maxDrawdownSurvived >= 30 ? "text-amber-400" : "text-rose-400"}>
+                            {maxDrawdownSurvived.toFixed(0)}%
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 text-right font-mono text-zinc-200">
+                        {maxDrawdownSurvived === null ? (
+                          <span className="text-zinc-500">N/A</span>
+                        ) : (
+                          <span className={maxDrawdownSurvived >= 50 ? "text-emerald-400" : maxDrawdownSurvived >= 30 ? "text-amber-400" : "text-rose-400"}>
+                            {maxDrawdownSurvived.toFixed(0)}%
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 text-right font-mono text-zinc-500">
+                        {maxDrawdownSurvived === null ? '—' : '≈ same'}
+                      </td>
+                    </tr>
                     <tr>
-                      <td className="py-3 px-4 text-zinc-200">Max Sustainable Spending (90%)</td>
+                      <td className="py-3 px-4 text-zinc-200">Safe Spending Level</td>
                       <td className="py-3 px-4 text-right font-mono text-zinc-200">
                         {monteCarloRunning && !baselineMonteCarloResults ? (
                           <Loader2 className="w-4 h-4 animate-spin inline" />
@@ -1150,13 +1192,12 @@ export default function Scenarios() {
                       <td className="py-3 px-4 text-right font-mono">
                         {baselineMonteCarloResults && scenarioMonteCarloResults ? (() => {
                           const diff = scenarioMonteCarloResults.maxSustainableSpending - baselineMonteCarloResults.maxSustainableSpending;
-                          // Within $5K is margin of error due to binary search granularity
                           if (Math.abs(diff) <= 5000) {
-                            return <span className="text-zinc-500">~same</span>;
+                            return <span className="text-zinc-500">≈ same</span>;
                           }
                           return (
                             <span className={diff >= 0 ? "text-emerald-400" : "text-rose-400"}>
-                              {formatDelta(baselineMonteCarloResults.maxSustainableSpending, scenarioMonteCarloResults.maxSustainableSpending)}
+                              {diff >= 0 ? '▲' : '▼'} {formatCurrency(Math.abs(diff))}
                             </span>
                           );
                         })() : '-'}
