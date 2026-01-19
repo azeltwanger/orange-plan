@@ -218,6 +218,14 @@ export default function Scenarios() {
     const savingsAllocationCash = effectiveSettings.savings_allocation_cash_override ?? effectiveSettings.savings_allocation_cash ?? 0;
     const savingsAllocationOther = effectiveSettings.savings_allocation_other_override ?? effectiveSettings.savings_allocation_other ?? 0;
 
+    console.log('=== SCENARIOS INPUT PARAMS ===');
+    console.log('holdings count:', holdings.length);
+    console.log('BTC holdings:', holdings.filter(h => h.ticker === 'BTC').map(h => ({ account: h.account_name, qty: h.quantity })));
+    console.log('collateralizedLoans:', collateralizedLoans);
+    console.log('currentPrice:', currentPrice);
+    console.log('retirementAge:', retirementAge);
+    console.log('retirementAnnualSpending:', retirementSpending);
+
     return {
       holdings,
       accounts,
