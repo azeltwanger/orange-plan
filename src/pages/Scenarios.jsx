@@ -205,6 +205,12 @@ export default function Scenarios() {
       effectiveSettings.custom_return_periods || {}
     );
 
+    console.log('SC PARAMS:', JSON.stringify({
+      currentAge, retirementAge, annualSavings: savingsResult.annualSavings, 
+      effectiveSocialSecurity, retirementAnnualSpending: retirementSpending,
+      grossAnnualIncome, currentAnnualSpending
+    }));
+
     return {
       holdings,
       accounts,
