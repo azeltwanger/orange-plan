@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { runUnifiedProjection } from '@/components/shared/runProjection';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine, Area, ComposedChart } from 'recharts';
-import { Plus, Pencil, Trash2, Target, TrendingUp, TrendingDown, ArrowRight, RefreshCw, ChevronDown, ChevronUp, Sparkles, DollarSign, Calendar, MapPin, PiggyBank } from 'lucide-react';
+import { Plus, Pencil, Trash2, Target, TrendingUp, TrendingDown, ArrowRight, RefreshCw, ChevronDown, ChevronUp, Sparkles, DollarSign, Calendar, MapPin, PiggyBank, Loader2, Play } from 'lucide-react';
+import { getPowerLawCAGR } from '@/components/shared/bitcoinPowerLaw';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -49,6 +50,9 @@ export default function Scenarios() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingScenario, setEditingScenario] = useState(null);
   const [showChart, setShowChart] = useState(true);
+  const [monteCarloRunning, setMonteCarloRunning] = useState(false);
+  const [baselineMonteCarloResults, setBaselineMonteCarloResults] = useState(null);
+  const [scenarioMonteCarloResults, setScenarioMonteCarloResults] = useState(null);
   const queryClient = useQueryClient();
 
   // Form state for creating/editing scenarios
@@ -205,12 +209,6 @@ export default function Scenarios() {
       effectiveSettings.custom_return_periods || {}
     );
 
-    console.log('SC PARAMS:', JSON.stringify({
-      currentAge, retirementAge, annualSavings: savingsResult.annualSavings, 
-      effectiveSocialSecurity, retirementAnnualSpending: retirementSpending,
-      grossAnnualIncome, currentAnnualSpending
-    }));
-
     return {
       holdings,
       accounts,
@@ -345,6 +343,178 @@ export default function Scenarios() {
   
   const baselineMetrics = extractMetrics(baselineProjection, baselineRetirementAge);
   const scenarioMetrics = extractMetrics(scenarioProjection, scenarioRetirementAge);
+
+  // BTC volatility model - starts high and decays over time (same as FinancialPlan.jsx)
+  const getBtcVolatilityForMonteCarlo = useCallback((yearsFromNow) => {
+    const initialVolatility = 55;
+    const minimumVolatility = 20;
+    const decayRate = 0.05;
+    return minimumVolatility + (initialVolatility - minimumVolatility) * Math.exp(-decayRate * yearsFromNow);
+  }, []);
+
+  // Monte Carlo simulation function - runs 500 simulations
+  const runMonteCarloForParams = useCallback((baseParams, numSimulations = 500) => {
+    const projectionYears = baseParams.lifeExpectancy - baseParams.currentAge + 1;
+    let successCount = 0;
+    let liquidationSimCount = 0;
+
+    // Helper: Generate random normal using Box-Muller
+    const randomNormal = () => {
+      const u1 = Math.max(0.0001, Math.random());
+      const u2 = Math.random();
+      return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+    };
+
+    for (let sim = 0; sim < numSimulations; sim++) {
+      // Generate random yearly returns for this simulation
+      const yearlyReturnOverrides = {
+        btc: [],
+        stocks: [],
+        bonds: [],
+        realEstate: [],
+        cash: [],
+        other: []
+      };
+
+      for (let year = 0; year <= projectionYears; year++) {
+        const z1 = randomNormal();
+        const z2 = randomNormal();
+
+        // BTC: Use getBtcGrowthRate as expected return, add volatility
+        const expectedBtcReturn = baseParams.getBtcGrowthRate(year, baseParams.effectiveInflation);
+        const btcVolatility = getBtcVolatilityForMonteCarlo(year);
+        const btcReturn = Math.max(-60, Math.min(200, expectedBtcReturn + btcVolatility * z1));
+
+        // Stocks: Use effectiveStocksCagr as expected, add volatility
+        const stocksVolatilityVal = 18;
+        const stocksReturn = Math.max(-40, Math.min(50, baseParams.effectiveStocksCagr + stocksVolatilityVal * z2));
+
+        // Real Estate: Add +/- 5% randomness
+        const realEstateReturn = baseParams.realEstateCagr + (Math.random() * 10 - 5);
+
+        // Bonds: Add +/- 2% randomness
+        const bondsReturn = baseParams.bondsCagr + (Math.random() * 4 - 2);
+
+        // Cash: Add +/- 1% randomness
+        const cashReturn = baseParams.cashCagr + (Math.random() * 2 - 1);
+
+        // Other: Add +/- 3% randomness
+        const otherReturn = baseParams.otherCagr + (Math.random() * 6 - 3);
+
+        yearlyReturnOverrides.btc.push(btcReturn);
+        yearlyReturnOverrides.stocks.push(stocksReturn);
+        yearlyReturnOverrides.bonds.push(bondsReturn);
+        yearlyReturnOverrides.realEstate.push(realEstateReturn);
+        yearlyReturnOverrides.cash.push(cashReturn);
+        yearlyReturnOverrides.other.push(otherReturn);
+      }
+
+      // Run unified projection with randomized returns
+      const result = runUnifiedProjection({
+        ...baseParams,
+        yearlyReturnOverrides,
+        DEBUG: false,
+      });
+
+      if (result.survives) successCount++;
+      
+      // Check for liquidation events
+      const hasLiquidation = result.yearByYear?.some(y => 
+        y.liquidations?.some(l => l.type !== 'top_up' && l.type !== 'release')
+      );
+      if (hasLiquidation) liquidationSimCount++;
+    }
+
+    return {
+      successRate: (successCount / numSimulations) * 100,
+      liquidationRisk: (liquidationSimCount / numSimulations) * 100,
+    };
+  }, [getBtcVolatilityForMonteCarlo]);
+
+  // Binary search for max sustainable spending (90% success rate threshold)
+  const findMaxSustainableSpending = useCallback((baseParams, numSimulations = 100) => {
+    let low = 10000;
+    let high = 500000;
+    let maxSpending = low;
+
+    for (let iteration = 0; iteration < 15; iteration++) {
+      const testSpending = Math.round((low + high) / 2);
+      const testParams = { ...baseParams, retirementAnnualSpending: testSpending };
+      const result = runMonteCarloForParams(testParams, numSimulations);
+
+      if (result.successRate >= 90) {
+        maxSpending = testSpending;
+        low = testSpending;
+      } else {
+        high = testSpending;
+      }
+
+      if (high - low <= 5000) break;
+    }
+
+    return maxSpending;
+  }, [runMonteCarloForParams]);
+
+  // Run Monte Carlo for both baseline and scenario
+  const handleRunMonteCarlo = useCallback(async () => {
+    setMonteCarloRunning(true);
+    setBaselineMonteCarloResults(null);
+    setScenarioMonteCarloResults(null);
+
+    // Use setTimeout to allow UI to update before heavy computation
+    setTimeout(() => {
+      try {
+        // Run baseline Monte Carlo
+        const baselineParams = buildProjectionParams();
+        const baselineMC = runMonteCarloForParams(baselineParams, 500);
+        const baselineMaxSpending = findMaxSustainableSpending(baselineParams, 100);
+        setBaselineMonteCarloResults({
+          ...baselineMC,
+          maxSustainableSpending: baselineMaxSpending,
+        });
+
+        // Run scenario Monte Carlo if selected
+        if (selectedScenario) {
+          const overrides = {
+            retirement_age_override: selectedScenario.retirement_age_override,
+            life_expectancy_override: selectedScenario.life_expectancy_override,
+            annual_retirement_spending_override: selectedScenario.annual_retirement_spending_override,
+            state_override: selectedScenario.state_override,
+            btc_cagr_override: selectedScenario.btc_cagr_override,
+            stocks_cagr_override: selectedScenario.stocks_cagr_override,
+            bonds_cagr_override: selectedScenario.bonds_cagr_override,
+            real_estate_cagr_override: selectedScenario.real_estate_cagr_override,
+            cash_cagr_override: selectedScenario.cash_cagr_override,
+            inflation_override: selectedScenario.inflation_override,
+            income_growth_override: selectedScenario.income_growth_override,
+            social_security_start_age_override: selectedScenario.social_security_start_age_override,
+            social_security_amount_override: selectedScenario.social_security_amount_override,
+            savings_allocation_btc_override: selectedScenario.savings_allocation_btc_override,
+            savings_allocation_stocks_override: selectedScenario.savings_allocation_stocks_override,
+            savings_allocation_bonds_override: selectedScenario.savings_allocation_bonds_override,
+            savings_allocation_cash_override: selectedScenario.savings_allocation_cash_override,
+            savings_allocation_other_override: selectedScenario.savings_allocation_other_override,
+          };
+          const scenarioParams = buildProjectionParams(overrides);
+          const scenarioMC = runMonteCarloForParams(scenarioParams, 500);
+          const scenarioMaxSpending = findMaxSustainableSpending(scenarioParams, 100);
+          setScenarioMonteCarloResults({
+            ...scenarioMC,
+            maxSustainableSpending: scenarioMaxSpending,
+          });
+        }
+      } catch (error) {
+        console.error('Monte Carlo error:', error);
+      } finally {
+        setMonteCarloRunning(false);
+      }
+    }, 50);
+  }, [buildProjectionParams, runMonteCarloForParams, findMaxSustainableSpending, selectedScenario]);
+
+  // Clear Monte Carlo results when scenario changes
+  useEffect(() => {
+    setScenarioMonteCarloResults(null);
+  }, [selectedScenarioId]);
 
   // Build comparison chart data
   const chartData = useMemo(() => {
@@ -657,7 +827,27 @@ export default function Scenarios() {
       {/* Comparison Metrics */}
       {selectedScenario && baselineMetrics && scenarioMetrics && (
         <div className="bg-zinc-900/50 rounded-2xl p-6 border border-zinc-800">
-          <h3 className="font-semibold text-zinc-100 mb-4">Comparison Metrics</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-zinc-100">Comparison Metrics</h3>
+            <Button
+              onClick={handleRunMonteCarlo}
+              disabled={monteCarloRunning}
+              className="bg-purple-600 hover:bg-purple-700 text-white"
+              size="sm"
+            >
+              {monteCarloRunning ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Running...
+                </>
+              ) : (
+                <>
+                  <Play className="w-4 h-4 mr-2" />
+                  Run Monte Carlo
+                </>
+              )}
+            </Button>
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -715,7 +905,7 @@ export default function Scenarios() {
                     {((scenarioMetrics.btcAtRetirement || 0) - (baselineMetrics.btcAtRetirement || 0)).toFixed(2)} BTC
                   </td>
                 </tr>
-                <tr>
+                <tr className="border-b border-zinc-800/50">
                   <td className="py-3 px-4 text-zinc-200">Liquidation Events</td>
                   <td className="py-3 px-4 text-right font-mono text-zinc-200">{baselineMetrics.hasLiquidations ? `${baselineMetrics.liquidationCount} events` : 'None'}</td>
                   <td className="py-3 px-4 text-right font-mono text-zinc-200">{scenarioMetrics.hasLiquidations ? `${scenarioMetrics.liquidationCount} events` : 'None'}</td>
@@ -726,6 +916,103 @@ export default function Scenarios() {
                      `${(scenarioMetrics.liquidationCount || 0) - (baselineMetrics.liquidationCount || 0) > 0 ? '+' : ''}${(scenarioMetrics.liquidationCount || 0) - (baselineMetrics.liquidationCount || 0)}`}
                   </td>
                 </tr>
+                
+                {/* Monte Carlo Metrics Section */}
+                {(baselineMonteCarloResults || monteCarloRunning) && (
+                  <>
+                    <tr className="border-t-2 border-purple-500/30">
+                      <td colSpan={4} className="py-2 px-4 text-xs text-purple-400 font-semibold uppercase tracking-wide">
+                        Monte Carlo Analysis (500 simulations)
+                      </td>
+                    </tr>
+                    <tr className="border-b border-zinc-800/50">
+                      <td className="py-3 px-4 text-zinc-200">Monte Carlo Success Rate</td>
+                      <td className="py-3 px-4 text-right font-mono text-zinc-200">
+                        {monteCarloRunning && !baselineMonteCarloResults ? (
+                          <Loader2 className="w-4 h-4 animate-spin inline" />
+                        ) : baselineMonteCarloResults ? (
+                          <span className={baselineMonteCarloResults.successRate >= 80 ? "text-emerald-400" : baselineMonteCarloResults.successRate >= 50 ? "text-amber-400" : "text-rose-400"}>
+                            {baselineMonteCarloResults.successRate.toFixed(0)}%
+                          </span>
+                        ) : '-'}
+                      </td>
+                      <td className="py-3 px-4 text-right font-mono text-zinc-200">
+                        {monteCarloRunning && !scenarioMonteCarloResults ? (
+                          <Loader2 className="w-4 h-4 animate-spin inline" />
+                        ) : scenarioMonteCarloResults ? (
+                          <span className={scenarioMonteCarloResults.successRate >= 80 ? "text-emerald-400" : scenarioMonteCarloResults.successRate >= 50 ? "text-amber-400" : "text-rose-400"}>
+                            {scenarioMonteCarloResults.successRate.toFixed(0)}%
+                          </span>
+                        ) : '-'}
+                      </td>
+                      <td className={cn("py-3 px-4 text-right font-mono",
+                        scenarioMonteCarloResults && baselineMonteCarloResults
+                          ? scenarioMonteCarloResults.successRate >= baselineMonteCarloResults.successRate ? "text-emerald-400" : "text-rose-400"
+                          : "text-zinc-400"
+                      )}>
+                        {baselineMonteCarloResults && scenarioMonteCarloResults
+                          ? `${scenarioMonteCarloResults.successRate - baselineMonteCarloResults.successRate >= 0 ? '+' : ''}${(scenarioMonteCarloResults.successRate - baselineMonteCarloResults.successRate).toFixed(0)}%`
+                          : '-'}
+                      </td>
+                    </tr>
+                    <tr className="border-b border-zinc-800/50">
+                      <td className="py-3 px-4 text-zinc-200">Liquidation Risk</td>
+                      <td className="py-3 px-4 text-right font-mono text-zinc-200">
+                        {monteCarloRunning && !baselineMonteCarloResults ? (
+                          <Loader2 className="w-4 h-4 animate-spin inline" />
+                        ) : baselineMonteCarloResults ? (
+                          <span className={baselineMonteCarloResults.liquidationRisk <= 10 ? "text-emerald-400" : baselineMonteCarloResults.liquidationRisk <= 30 ? "text-amber-400" : "text-rose-400"}>
+                            {baselineMonteCarloResults.liquidationRisk.toFixed(0)}%
+                          </span>
+                        ) : '-'}
+                      </td>
+                      <td className="py-3 px-4 text-right font-mono text-zinc-200">
+                        {monteCarloRunning && !scenarioMonteCarloResults ? (
+                          <Loader2 className="w-4 h-4 animate-spin inline" />
+                        ) : scenarioMonteCarloResults ? (
+                          <span className={scenarioMonteCarloResults.liquidationRisk <= 10 ? "text-emerald-400" : scenarioMonteCarloResults.liquidationRisk <= 30 ? "text-amber-400" : "text-rose-400"}>
+                            {scenarioMonteCarloResults.liquidationRisk.toFixed(0)}%
+                          </span>
+                        ) : '-'}
+                      </td>
+                      <td className={cn("py-3 px-4 text-right font-mono",
+                        scenarioMonteCarloResults && baselineMonteCarloResults
+                          ? scenarioMonteCarloResults.liquidationRisk <= baselineMonteCarloResults.liquidationRisk ? "text-emerald-400" : "text-rose-400"
+                          : "text-zinc-400"
+                      )}>
+                        {baselineMonteCarloResults && scenarioMonteCarloResults
+                          ? `${scenarioMonteCarloResults.liquidationRisk - baselineMonteCarloResults.liquidationRisk >= 0 ? '+' : ''}${(scenarioMonteCarloResults.liquidationRisk - baselineMonteCarloResults.liquidationRisk).toFixed(0)}%`
+                          : '-'}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="py-3 px-4 text-zinc-200">Max Sustainable Spending (90%)</td>
+                      <td className="py-3 px-4 text-right font-mono text-zinc-200">
+                        {monteCarloRunning && !baselineMonteCarloResults ? (
+                          <Loader2 className="w-4 h-4 animate-spin inline" />
+                        ) : baselineMonteCarloResults ? (
+                          formatCurrency(baselineMonteCarloResults.maxSustainableSpending) + '/yr'
+                        ) : '-'}
+                      </td>
+                      <td className="py-3 px-4 text-right font-mono text-zinc-200">
+                        {monteCarloRunning && !scenarioMonteCarloResults ? (
+                          <Loader2 className="w-4 h-4 animate-spin inline" />
+                        ) : scenarioMonteCarloResults ? (
+                          formatCurrency(scenarioMonteCarloResults.maxSustainableSpending) + '/yr'
+                        ) : '-'}
+                      </td>
+                      <td className={cn("py-3 px-4 text-right font-mono",
+                        scenarioMonteCarloResults && baselineMonteCarloResults
+                          ? scenarioMonteCarloResults.maxSustainableSpending >= baselineMonteCarloResults.maxSustainableSpending ? "text-emerald-400" : "text-rose-400"
+                          : "text-zinc-400"
+                      )}>
+                        {baselineMonteCarloResults && scenarioMonteCarloResults
+                          ? formatDelta(baselineMonteCarloResults.maxSustainableSpending, scenarioMonteCarloResults.maxSustainableSpending)
+                          : '-'}
+                      </td>
+                    </tr>
+                  </>
+                )}
               </tbody>
             </table>
           </div>
