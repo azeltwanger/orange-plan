@@ -1053,7 +1053,7 @@ export default function Scenarios() {
                   <>
                     <tr className="border-t-2 border-purple-500/30">
                       <td colSpan={4} className="py-2 px-4 text-xs text-purple-400 font-semibold uppercase tracking-wide">
-                        Monte Carlo Analysis (500 simulations)
+                        Monte Carlo Analysis ({baselineMonteCarloResults?.numSimulations || 1000} simulations, same random paths)
                       </td>
                     </tr>
                     <tr className="border-b border-zinc-800/50">
@@ -1063,7 +1063,7 @@ export default function Scenarios() {
                           <Loader2 className="w-4 h-4 animate-spin inline" />
                         ) : baselineMonteCarloResults ? (
                           <span className={baselineMonteCarloResults.successRate >= 80 ? "text-emerald-400" : baselineMonteCarloResults.successRate >= 50 ? "text-amber-400" : "text-rose-400"}>
-                            {baselineMonteCarloResults.successRate.toFixed(0)}%
+                            {baselineMonteCarloResults.successRate.toFixed(1)}%
                           </span>
                         ) : '-'}
                       </td>
@@ -1072,18 +1072,24 @@ export default function Scenarios() {
                           <Loader2 className="w-4 h-4 animate-spin inline" />
                         ) : scenarioMonteCarloResults ? (
                           <span className={scenarioMonteCarloResults.successRate >= 80 ? "text-emerald-400" : scenarioMonteCarloResults.successRate >= 50 ? "text-amber-400" : "text-rose-400"}>
-                            {scenarioMonteCarloResults.successRate.toFixed(0)}%
+                            {scenarioMonteCarloResults.successRate.toFixed(1)}%
                           </span>
                         ) : '-'}
                       </td>
-                      <td className={cn("py-3 px-4 text-right font-mono",
-                        scenarioMonteCarloResults && baselineMonteCarloResults
-                          ? scenarioMonteCarloResults.successRate >= baselineMonteCarloResults.successRate ? "text-emerald-400" : "text-rose-400"
-                          : "text-zinc-400"
-                      )}>
-                        {baselineMonteCarloResults && scenarioMonteCarloResults
-                          ? `${scenarioMonteCarloResults.successRate - baselineMonteCarloResults.successRate >= 0 ? '+' : ''}${(scenarioMonteCarloResults.successRate - baselineMonteCarloResults.successRate).toFixed(0)}%`
-                          : '-'}
+                      <td className="py-3 px-4 text-right font-mono">
+                        {baselineMonteCarloResults && scenarioMonteCarloResults ? (() => {
+                          const diff = scenarioMonteCarloResults.successRate - baselineMonteCarloResults.successRate;
+                          const absDiff = Math.abs(diff);
+                          // Within 3% is margin of error
+                          if (absDiff < 3) {
+                            return <span className="text-zinc-500">~same</span>;
+                          }
+                          return (
+                            <span className={diff > 0 ? "text-emerald-400" : "text-rose-400"}>
+                              {diff >= 0 ? '+' : ''}{diff.toFixed(1)}%
+                            </span>
+                          );
+                        })() : '-'}
                       </td>
                     </tr>
                     <tr className="border-b border-zinc-800/50">
@@ -1093,7 +1099,7 @@ export default function Scenarios() {
                           <Loader2 className="w-4 h-4 animate-spin inline" />
                         ) : baselineMonteCarloResults ? (
                           <span className={baselineMonteCarloResults.liquidationRisk <= 10 ? "text-emerald-400" : baselineMonteCarloResults.liquidationRisk <= 30 ? "text-amber-400" : "text-rose-400"}>
-                            {baselineMonteCarloResults.liquidationRisk.toFixed(0)}%
+                            {baselineMonteCarloResults.liquidationRisk.toFixed(1)}%
                           </span>
                         ) : '-'}
                       </td>
@@ -1102,18 +1108,27 @@ export default function Scenarios() {
                           <Loader2 className="w-4 h-4 animate-spin inline" />
                         ) : scenarioMonteCarloResults ? (
                           <span className={scenarioMonteCarloResults.liquidationRisk <= 10 ? "text-emerald-400" : scenarioMonteCarloResults.liquidationRisk <= 30 ? "text-amber-400" : "text-rose-400"}>
-                            {scenarioMonteCarloResults.liquidationRisk.toFixed(0)}%
+                            {scenarioMonteCarloResults.liquidationRisk.toFixed(1)}%
                           </span>
                         ) : '-'}
                       </td>
-                      <td className={cn("py-3 px-4 text-right font-mono",
-                        scenarioMonteCarloResults && baselineMonteCarloResults
-                          ? scenarioMonteCarloResults.liquidationRisk <= baselineMonteCarloResults.liquidationRisk ? "text-emerald-400" : "text-rose-400"
-                          : "text-zinc-400"
-                      )}>
-                        {baselineMonteCarloResults && scenarioMonteCarloResults
-                          ? `${scenarioMonteCarloResults.liquidationRisk - baselineMonteCarloResults.liquidationRisk >= 0 ? '+' : ''}${(scenarioMonteCarloResults.liquidationRisk - baselineMonteCarloResults.liquidationRisk).toFixed(0)}%`
-                          : '-'}
+                      <td className="py-3 px-4 text-right font-mono">
+                        {baselineMonteCarloResults && scenarioMonteCarloResults ? (() => {
+                          const diff = scenarioMonteCarloResults.liquidationRisk - baselineMonteCarloResults.liquidationRisk;
+                          // If scenario doesn't affect liquidation params, show unchanged
+                          if (!scenarioMonteCarloResults.liquidationAffected && Math.abs(diff) < 1) {
+                            return <span className="text-zinc-500" title="Loan terms unchanged">—</span>;
+                          }
+                          // Within 2% is negligible for liquidation
+                          if (Math.abs(diff) < 2) {
+                            return <span className="text-zinc-500">~same</span>;
+                          }
+                          return (
+                            <span className={diff <= 0 ? "text-emerald-400" : "text-rose-400"}>
+                              {diff >= 0 ? '+' : ''}{diff.toFixed(1)}%
+                            </span>
+                          );
+                        })() : '-'}
                       </td>
                     </tr>
                     <tr>
@@ -1132,14 +1147,19 @@ export default function Scenarios() {
                           formatCurrency(scenarioMonteCarloResults.maxSustainableSpending) + '/yr'
                         ) : '-'}
                       </td>
-                      <td className={cn("py-3 px-4 text-right font-mono",
-                        scenarioMonteCarloResults && baselineMonteCarloResults
-                          ? scenarioMonteCarloResults.maxSustainableSpending >= baselineMonteCarloResults.maxSustainableSpending ? "text-emerald-400" : "text-rose-400"
-                          : "text-zinc-400"
-                      )}>
-                        {baselineMonteCarloResults && scenarioMonteCarloResults
-                          ? formatDelta(baselineMonteCarloResults.maxSustainableSpending, scenarioMonteCarloResults.maxSustainableSpending)
-                          : '-'}
+                      <td className="py-3 px-4 text-right font-mono">
+                        {baselineMonteCarloResults && scenarioMonteCarloResults ? (() => {
+                          const diff = scenarioMonteCarloResults.maxSustainableSpending - baselineMonteCarloResults.maxSustainableSpending;
+                          // Within $5K is margin of error due to binary search granularity
+                          if (Math.abs(diff) <= 5000) {
+                            return <span className="text-zinc-500">~same</span>;
+                          }
+                          return (
+                            <span className={diff >= 0 ? "text-emerald-400" : "text-rose-400"}>
+                              {formatDelta(baselineMonteCarloResults.maxSustainableSpending, scenarioMonteCarloResults.maxSustainableSpending)}
+                            </span>
+                          );
+                        })() : '-'}
                       </td>
                     </tr>
                   </>
