@@ -510,15 +510,15 @@ export default function Scenarios() {
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
           <div className="p-3 rounded-xl bg-zinc-800/50">
             <p className="text-xs text-zinc-500">Retire at</p>
-            <p className="text-lg font-bold">{baselineRetirementAge}</p>
+            <p className="text-lg font-bold text-zinc-100">{baselineRetirementAge}</p>
           </div>
           <div className="p-3 rounded-xl bg-zinc-800/50">
             <p className="text-xs text-zinc-500">Spending</p>
-            <p className="text-lg font-bold">{formatCurrency(settings.annual_retirement_spending || 100000)}/yr</p>
+            <p className="text-lg font-bold text-zinc-100">{formatCurrency(settings.annual_retirement_spending || 100000)}/yr</p>
           </div>
           <div className="p-3 rounded-xl bg-zinc-800/50">
             <p className="text-xs text-zinc-500">State</p>
-            <p className="text-lg font-bold">{settings.state_of_residence || 'TX'}</p>
+            <p className="text-lg font-bold text-zinc-100">{settings.state_of_residence || 'TX'}</p>
           </div>
           <div className="p-3 rounded-xl bg-zinc-800/50">
             <p className="text-xs text-zinc-500">At Retirement</p>
@@ -532,7 +532,7 @@ export default function Scenarios() {
           </div>
           <div className="p-3 rounded-xl bg-zinc-800/50">
             <p className="text-xs text-zinc-500">Final Net Worth</p>
-            <p className="text-lg font-bold">{formatCurrency(baselineMetrics?.finalNetWorth)}</p>
+            <p className="text-lg font-bold text-zinc-100">{formatCurrency(baselineMetrics?.finalNetWorth)}</p>
           </div>
         </div>
       </div>
@@ -548,11 +548,11 @@ export default function Scenarios() {
         
         {scenarios.length === 0 ? (
           <div className="text-center py-8">
-            <p className="text-zinc-500 mb-4">No scenarios created yet. Create one to compare against your baseline.</p>
+            <p className="text-zinc-400 mb-4">No scenarios created yet. Create one to compare against your baseline.</p>
             <Button 
               onClick={() => { resetForm(); setEditingScenario(null); setFormOpen(true); }}
               variant="outline"
-              className="border-zinc-700"
+              className="border-zinc-600 text-zinc-200 hover:bg-zinc-800 hover:text-white"
             >
               <Plus className="w-4 h-4 mr-2" />
               Create Your First Scenario
@@ -570,7 +570,7 @@ export default function Scenarios() {
                     className={cn(
                       selectedScenarioId === scenario.id 
                         ? "bg-orange-500 hover:bg-orange-600 text-white" 
-                        : "border-zinc-700 hover:border-zinc-600"
+                        : "border-zinc-700 hover:border-zinc-600 text-zinc-200"
                     )}
                   >
                     {scenario.name}
@@ -598,13 +598,13 @@ export default function Scenarios() {
             {selectedScenario && (
               <div className="flex flex-wrap gap-2 mt-2">
                 {selectedScenario.retirement_age_override && (
-                  <Badge variant="outline" className="border-zinc-600">Retire: {selectedScenario.retirement_age_override}</Badge>
+                  <Badge variant="outline" className="border-zinc-600 text-zinc-200">Retire: {selectedScenario.retirement_age_override}</Badge>
                 )}
                 {selectedScenario.annual_retirement_spending_override && (
-                  <Badge variant="outline" className="border-zinc-600">Spend: {formatCurrency(selectedScenario.annual_retirement_spending_override)}/yr</Badge>
+                  <Badge variant="outline" className="border-zinc-600 text-zinc-200">Spend: {formatCurrency(selectedScenario.annual_retirement_spending_override)}/yr</Badge>
                 )}
                 {selectedScenario.state_override && (
-                  <Badge variant="outline" className="border-zinc-600">State: {selectedScenario.state_override}</Badge>
+                  <Badge variant="outline" className="border-zinc-600 text-zinc-200">State: {selectedScenario.state_override}</Badge>
                 )}
                 {selectedScenario.btc_cagr_override !== null && selectedScenario.btc_cagr_override !== undefined && (
                   <Badge variant="outline" className="border-orange-500/50 text-orange-400">BTC: {selectedScenario.btc_cagr_override}%</Badge>
@@ -670,17 +670,17 @@ export default function Scenarios() {
               </thead>
               <tbody>
                 <tr className="border-b border-zinc-800/50">
-                  <td className="py-3 px-4">Portfolio at Retirement</td>
-                  <td className="py-3 px-4 text-right font-mono">{formatCurrency(baselineMetrics.portfolioAtRetirement)}</td>
-                  <td className="py-3 px-4 text-right font-mono">{formatCurrency(scenarioMetrics.portfolioAtRetirement)}</td>
+                  <td className="py-3 px-4 text-zinc-200">Portfolio at Retirement</td>
+                  <td className="py-3 px-4 text-right font-mono text-zinc-200">{formatCurrency(baselineMetrics.portfolioAtRetirement)}</td>
+                  <td className="py-3 px-4 text-right font-mono text-zinc-200">{formatCurrency(scenarioMetrics.portfolioAtRetirement)}</td>
                   <td className={cn("py-3 px-4 text-right font-mono", scenarioMetrics.portfolioAtRetirement >= baselineMetrics.portfolioAtRetirement ? "text-emerald-400" : "text-rose-400")}>
                     {formatDelta(baselineMetrics.portfolioAtRetirement, scenarioMetrics.portfolioAtRetirement)}
                   </td>
                 </tr>
                 <tr className="border-b border-zinc-800/50">
-                  <td className="py-3 px-4">Depletion Age</td>
-                  <td className="py-3 px-4 text-right font-mono">{baselineMetrics.survives ? 'Never' : `Age ${baselineMetrics.depleteAge}`}</td>
-                  <td className="py-3 px-4 text-right font-mono">{scenarioMetrics.survives ? 'Never' : `Age ${scenarioMetrics.depleteAge}`}</td>
+                  <td className="py-3 px-4 text-zinc-200">Depletion Age</td>
+                  <td className="py-3 px-4 text-right font-mono text-zinc-200">{baselineMetrics.survives ? 'Never' : `Age ${baselineMetrics.depleteAge}`}</td>
+                  <td className="py-3 px-4 text-right font-mono text-zinc-200">{scenarioMetrics.survives ? 'Never' : `Age ${scenarioMetrics.depleteAge}`}</td>
                   <td className={cn("py-3 px-4 text-right font-mono", 
                     scenarioMetrics.survives && !baselineMetrics.survives ? "text-emerald-400" :
                     !scenarioMetrics.survives && baselineMetrics.survives ? "text-rose-400" :
@@ -692,33 +692,33 @@ export default function Scenarios() {
                   </td>
                 </tr>
                 <tr className="border-b border-zinc-800/50">
-                  <td className="py-3 px-4">Final Net Worth</td>
-                  <td className="py-3 px-4 text-right font-mono">{formatCurrency(baselineMetrics.finalNetWorth)}</td>
-                  <td className="py-3 px-4 text-right font-mono">{formatCurrency(scenarioMetrics.finalNetWorth)}</td>
+                  <td className="py-3 px-4 text-zinc-200">Final Net Worth</td>
+                  <td className="py-3 px-4 text-right font-mono text-zinc-200">{formatCurrency(baselineMetrics.finalNetWorth)}</td>
+                  <td className="py-3 px-4 text-right font-mono text-zinc-200">{formatCurrency(scenarioMetrics.finalNetWorth)}</td>
                   <td className={cn("py-3 px-4 text-right font-mono", scenarioMetrics.finalNetWorth >= baselineMetrics.finalNetWorth ? "text-emerald-400" : "text-rose-400")}>
                     {formatDelta(baselineMetrics.finalNetWorth, scenarioMetrics.finalNetWorth)}
                   </td>
                 </tr>
                 <tr className="border-b border-zinc-800/50">
-                  <td className="py-3 px-4">Lifetime Taxes Paid</td>
-                  <td className="py-3 px-4 text-right font-mono">{formatCurrency(baselineMetrics.lifetimeTaxes)}</td>
-                  <td className="py-3 px-4 text-right font-mono">{formatCurrency(scenarioMetrics.lifetimeTaxes)}</td>
+                  <td className="py-3 px-4 text-zinc-200">Lifetime Taxes Paid</td>
+                  <td className="py-3 px-4 text-right font-mono text-zinc-200">{formatCurrency(baselineMetrics.lifetimeTaxes)}</td>
+                  <td className="py-3 px-4 text-right font-mono text-zinc-200">{formatCurrency(scenarioMetrics.lifetimeTaxes)}</td>
                   <td className={cn("py-3 px-4 text-right font-mono", scenarioMetrics.lifetimeTaxes <= baselineMetrics.lifetimeTaxes ? "text-emerald-400" : "text-rose-400")}>
                     {formatDelta(baselineMetrics.lifetimeTaxes, scenarioMetrics.lifetimeTaxes)}
                   </td>
                 </tr>
                 <tr className="border-b border-zinc-800/50">
-                  <td className="py-3 px-4">BTC at Retirement</td>
-                  <td className="py-3 px-4 text-right font-mono">{baselineMetrics.btcAtRetirement?.toFixed(2) || '0'} BTC</td>
-                  <td className="py-3 px-4 text-right font-mono">{scenarioMetrics.btcAtRetirement?.toFixed(2) || '0'} BTC</td>
+                  <td className="py-3 px-4 text-zinc-200">BTC at Retirement</td>
+                  <td className="py-3 px-4 text-right font-mono text-zinc-200">{baselineMetrics.btcAtRetirement?.toFixed(2) || '0'} BTC</td>
+                  <td className="py-3 px-4 text-right font-mono text-zinc-200">{scenarioMetrics.btcAtRetirement?.toFixed(2) || '0'} BTC</td>
                   <td className={cn("py-3 px-4 text-right font-mono", (scenarioMetrics.btcAtRetirement || 0) >= (baselineMetrics.btcAtRetirement || 0) ? "text-emerald-400" : "text-rose-400")}>
                     {((scenarioMetrics.btcAtRetirement || 0) - (baselineMetrics.btcAtRetirement || 0)).toFixed(2)} BTC
                   </td>
                 </tr>
                 <tr>
-                  <td className="py-3 px-4">Liquidation Events</td>
-                  <td className="py-3 px-4 text-right font-mono">{baselineMetrics.hasLiquidations ? `${baselineMetrics.liquidationCount} events` : 'None'}</td>
-                  <td className="py-3 px-4 text-right font-mono">{scenarioMetrics.hasLiquidations ? `${scenarioMetrics.liquidationCount} events` : 'None'}</td>
+                  <td className="py-3 px-4 text-zinc-200">Liquidation Events</td>
+                  <td className="py-3 px-4 text-right font-mono text-zinc-200">{baselineMetrics.hasLiquidations ? `${baselineMetrics.liquidationCount} events` : 'None'}</td>
+                  <td className="py-3 px-4 text-right font-mono text-zinc-200">{scenarioMetrics.hasLiquidations ? `${scenarioMetrics.liquidationCount} events` : 'None'}</td>
                   <td className={cn("py-3 px-4 text-right font-mono", 
                     (scenarioMetrics.liquidationCount || 0) <= (baselineMetrics.liquidationCount || 0) ? "text-emerald-400" : "text-rose-400"
                   )}>
@@ -743,7 +743,7 @@ export default function Scenarios() {
             {/* Basic Info */}
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label>Scenario Name *</Label>
+                <Label className="text-zinc-200">Scenario Name *</Label>
                 <Input
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -753,7 +753,7 @@ export default function Scenarios() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Description</Label>
+                <Label className="text-zinc-200">Description</Label>
                 <Textarea
                   value={form.description}
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
