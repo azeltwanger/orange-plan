@@ -736,7 +736,7 @@ export default function Scenarios() {
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
         <DialogContent className="bg-zinc-900 border-zinc-800 max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingScenario ? 'Edit Scenario' : 'Create New Scenario'}</DialogTitle>
+            <DialogTitle className="text-zinc-100">{editingScenario ? 'Edit Scenario' : 'Create New Scenario'}</DialogTitle>
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -766,10 +766,10 @@ export default function Scenarios() {
 
             {/* Retirement Settings */}
             <div className="space-y-4">
-              <h4 className="text-sm font-medium text-zinc-300 border-b border-zinc-800 pb-2">Retirement Settings</h4>
+              <h4 className="text-sm font-semibold text-zinc-100 border-b border-zinc-800 pb-2">Retirement Settings</h4>
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-zinc-400 text-xs">Retirement Age</Label>
+                  <Label className="text-zinc-300 text-xs">Retirement Age</Label>
                   <Input
                     type="number"
                     value={form.retirement_age_override}
@@ -779,7 +779,7 @@ export default function Scenarios() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-zinc-400 text-xs">Life Expectancy</Label>
+                  <Label className="text-zinc-300 text-xs">Life Expectancy</Label>
                   <Input
                     type="number"
                     value={form.life_expectancy_override}
@@ -789,7 +789,7 @@ export default function Scenarios() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-zinc-400 text-xs">Annual Spending</Label>
+                  <Label className="text-zinc-300 text-xs">Annual Spending</Label>
                   <Input
                     type="number"
                     value={form.annual_retirement_spending_override}
@@ -803,9 +803,9 @@ export default function Scenarios() {
 
             {/* State Override */}
             <div className="space-y-4">
-              <h4 className="text-sm font-medium text-zinc-300 border-b border-zinc-800 pb-2">Location</h4>
+              <h4 className="text-sm font-semibold text-zinc-100 border-b border-zinc-800 pb-2">Location</h4>
               <div className="space-y-2">
-                <Label className="text-zinc-400 text-xs">State of Residence</Label>
+                <Label className="text-zinc-300 text-xs">State of Residence</Label>
                 <Select value={form.state_override} onValueChange={(v) => setForm({ ...form, state_override: v })}>
                   <SelectTrigger className="bg-zinc-800 border-zinc-700">
                     <SelectValue placeholder={`Current: ${settings.state_of_residence || 'TX'}`} />
@@ -822,10 +822,10 @@ export default function Scenarios() {
 
             {/* Return Assumptions */}
             <div className="space-y-4">
-              <h4 className="text-sm font-medium text-zinc-300 border-b border-zinc-800 pb-2">Return Assumptions</h4>
+              <h4 className="text-sm font-semibold text-zinc-100 border-b border-zinc-800 pb-2">Return Assumptions</h4>
               <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-zinc-400 text-xs">BTC CAGR (%)</Label>
+                  <Label className="text-zinc-300 text-xs">BTC CAGR (%)</Label>
                   <Input
                     type="number"
                     step="0.1"
@@ -836,7 +836,7 @@ export default function Scenarios() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-zinc-400 text-xs">Stocks CAGR (%)</Label>
+                  <Label className="text-zinc-300 text-xs">Stocks CAGR (%)</Label>
                   <Input
                     type="number"
                     step="0.1"
@@ -847,7 +847,7 @@ export default function Scenarios() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-zinc-400 text-xs">Bonds CAGR (%)</Label>
+                  <Label className="text-zinc-300 text-xs">Bonds CAGR (%)</Label>
                   <Input
                     type="number"
                     step="0.1"
@@ -858,7 +858,7 @@ export default function Scenarios() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-zinc-400 text-xs">Real Estate CAGR (%)</Label>
+                  <Label className="text-zinc-300 text-xs">Real Estate CAGR (%)</Label>
                   <Input
                     type="number"
                     step="0.1"
@@ -869,7 +869,7 @@ export default function Scenarios() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-zinc-400 text-xs">Cash CAGR (%)</Label>
+                  <Label className="text-zinc-300 text-xs">Cash CAGR (%)</Label>
                   <Input
                     type="number"
                     step="0.1"
@@ -880,7 +880,7 @@ export default function Scenarios() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-zinc-400 text-xs">Inflation Rate (%)</Label>
+                  <Label className="text-zinc-300 text-xs">Inflation Rate (%)</Label>
                   <Input
                     type="number"
                     step="0.1"
@@ -895,10 +895,10 @@ export default function Scenarios() {
 
             {/* Social Security */}
             <div className="space-y-4">
-              <h4 className="text-sm font-medium text-zinc-300 border-b border-zinc-800 pb-2">Social Security</h4>
+              <h4 className="text-sm font-semibold text-zinc-100 border-b border-zinc-800 pb-2">Social Security</h4>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-zinc-400 text-xs">Start Age</Label>
+                  <Label className="text-zinc-300 text-xs">Start Age</Label>
                   <Input
                     type="number"
                     value={form.social_security_start_age_override}
@@ -908,7 +908,7 @@ export default function Scenarios() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-zinc-400 text-xs">Annual Amount ($)</Label>
+                  <Label className="text-zinc-300 text-xs">Annual Amount ($)</Label>
                   <Input
                     type="number"
                     value={form.social_security_amount_override}
@@ -922,10 +922,10 @@ export default function Scenarios() {
 
             {/* Savings Allocation */}
             <div className="space-y-4">
-              <h4 className="text-sm font-medium text-zinc-300 border-b border-zinc-800 pb-2">Savings Allocation (%)</h4>
+              <h4 className="text-sm font-semibold text-zinc-100 border-b border-zinc-800 pb-2">Savings Allocation (%)</h4>
               <div className="grid grid-cols-5 gap-3">
                 <div className="space-y-2">
-                  <Label className="text-zinc-400 text-xs">BTC</Label>
+                  <Label className="text-zinc-300 text-xs">BTC</Label>
                   <Input
                     type="number"
                     value={form.savings_allocation_btc_override}
@@ -935,7 +935,7 @@ export default function Scenarios() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-zinc-400 text-xs">Stocks</Label>
+                  <Label className="text-zinc-300 text-xs">Stocks</Label>
                   <Input
                     type="number"
                     value={form.savings_allocation_stocks_override}
@@ -945,7 +945,7 @@ export default function Scenarios() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-zinc-400 text-xs">Bonds</Label>
+                  <Label className="text-zinc-300 text-xs">Bonds</Label>
                   <Input
                     type="number"
                     value={form.savings_allocation_bonds_override}
@@ -955,7 +955,7 @@ export default function Scenarios() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-zinc-400 text-xs">Cash</Label>
+                  <Label className="text-zinc-300 text-xs">Cash</Label>
                   <Input
                     type="number"
                     value={form.savings_allocation_cash_override}
@@ -965,7 +965,7 @@ export default function Scenarios() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-zinc-400 text-xs">Other</Label>
+                  <Label className="text-zinc-300 text-xs">Other</Label>
                   <Input
                     type="number"
                     value={form.savings_allocation_other_override}
@@ -975,7 +975,7 @@ export default function Scenarios() {
                   />
                 </div>
               </div>
-              <p className="text-xs text-zinc-500">Leave empty to use current allocation. Total should equal 100%.</p>
+              <p className="text-xs text-zinc-400">Leave empty to use current allocation. Total should equal 100%.</p>
             </div>
 
             <div className="flex justify-end gap-3 pt-4 border-t border-zinc-800">
