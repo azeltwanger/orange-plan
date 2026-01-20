@@ -23,6 +23,61 @@ import {
   getTaxTreatmentFromHolding as sharedGetTaxTreatment
 } from '@/components/shared/projectionHelpers';
 
+// CollapsibleSection component for organizing metrics
+const CollapsibleSection = ({ title, defaultOpen = true, children }) => {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+  return (
+    <div className="mb-2 rounded-xl border border-zinc-800/50 bg-zinc-900/50">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center justify-between w-full py-3 px-4 hover:bg-zinc-800/70 rounded-t-xl text-left transition-colors duration-200"
+      >
+        <span className="text-sm font-semibold text-zinc-300">{title}</span>
+        <span className="text-zinc-400">
+          {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+        </span>
+      </button>
+      {isOpen && <div className="p-4 pt-0">{children}</div>}
+    </div>
+  );
+};
+
+// Helper to get BTC quantity and value at a specific age
+function getBtcAtAge(projectionResults, targetAge, startAge) {
+  if (!projectionResults) return { quantity: null, value: null, depleted: true };
+  const yearIndex = targetAge - startAge;
+  if (yearIndex < 0 || yearIndex >= projectionResults.length) {
+    return { quantity: null, value: null, depleted: true };
+  }
+  const yearData = projectionResults[yearIndex];
+  if (!yearData || yearData.total <= 0) {
+    return { quantity: 0, value: 0, depleted: true };
+  }
+  const btcPrice = yearData.btcPrice || 97000;
+  const btcLiquidQty = (yearData.btcLiquid || 0) / btcPrice;
+  const btcEncumberedQty = (yearData.btcEncumbered || 0) / btcPrice;
+  const btcQuantity = btcLiquidQty + btcEncumberedQty;
+  const btcValue = (yearData.btcLiquid || 0) + (yearData.btcEncumbered || 0);
+  return { quantity: btcQuantity, value: btcValue, depleted: false };
+}
+
+// Helper for liquidation risk display with proper coloring
+function getLiquidationRiskDisplay(riskPercent) {
+  if (riskPercent === null || riskPercent === undefined) {
+    return { label: "N/A", color: "text-zinc-500" };
+  }
+  const roundedRisk = riskPercent.toFixed(0);
+  if (riskPercent <= 10) {
+    return { label: `Low (${roundedRisk}%)`, color: "text-emerald-400" };
+  } else if (riskPercent <= 25) {
+    return { label: `Moderate (${roundedRisk}%)`, color: "text-amber-400" };
+  } else if (riskPercent <= 50) {
+    return { label: `Elevated (${roundedRisk}%)`, color: "text-orange-400" };
+  } else {
+    return { label: `High (${roundedRisk}%)`, color: "text-rose-400" };
+  }
+}
+
 // State list for state comparison feature
 const US_STATES = [
   { value: 'AL', label: 'Alabama' }, { value: 'AK', label: 'Alaska' }, { value: 'AZ', label: 'Arizona' },
@@ -379,6 +434,30 @@ export default function Scenarios() {
   
   const baselineMetrics = extractMetrics(baselineProjection, baselineRetirementAge);
   const scenarioMetrics = extractMetrics(scenarioProjection, scenarioRetirementAge);
+
+  // Calculate BTC milestones based on retirement status
+  const currentAge = settings.current_age || 35;
+  const lifeExpectancy = settings.life_expectancy || 90;
+  const isCurrentlyRetired = currentAge >= baselineRetirementAge;
+  
+  let btcMilestones = [];
+  if (isCurrentlyRetired) {
+    btcMilestones = [
+      { age: currentAge, label: "BTC Now" },
+      { age: Math.min(currentAge + 10, lifeExpectancy), label: "BTC in 10 Years" },
+      { age: Math.min(currentAge + 20, lifeExpectancy), label: "BTC in 20 Years" },
+      { age: lifeExpectancy, label: "BTC at Life Expectancy" }
+    ];
+  } else {
+    btcMilestones = [
+      { age: baselineRetirementAge, label: "BTC at Retirement" },
+      { age: Math.min(baselineRetirementAge + 10, lifeExpectancy), label: "BTC at Ret. +10 Yrs" },
+      { age: Math.min(baselineRetirementAge + 20, lifeExpectancy), label: "BTC at Ret. +20 Yrs" },
+      { age: lifeExpectancy, label: "BTC at Life Expectancy" }
+    ];
+  }
+  // Remove duplicates
+  btcMilestones = btcMilestones.filter((m, i, arr) => i === 0 || m.age !== arr[i - 1].age);
 
   // BTC volatility model - starts high and decays over time (same as FinancialPlan.jsx)
   const getBtcVolatilityForMonteCarlo = useCallback((yearsFromNow) => {
@@ -1111,236 +1190,283 @@ export default function Scenarios() {
               )}
             </Button>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-zinc-800">
-                  <th className="text-left py-3 px-4 text-zinc-300 font-medium">Metric</th>
-                  <th className="text-right py-3 px-4 text-zinc-300 font-medium">Baseline</th>
-                  <th className="text-right py-3 px-4 text-zinc-300 font-medium">{selectedScenario.name}</th>
-                  <th className="text-right py-3 px-4 text-zinc-300 font-medium">Difference</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr className="border-b border-zinc-800/50">
-                  <td className="py-3 px-4 text-zinc-200">Net Worth at Retirement</td>
-                  <td className="py-3 px-4 text-right font-mono text-zinc-200">{formatCurrency(baselineMetrics.portfolioAtRetirement)}</td>
-                  <td className="py-3 px-4 text-right font-mono text-zinc-200">{formatCurrency(scenarioMetrics.portfolioAtRetirement)}</td>
-                  <td className={cn("py-3 px-4 text-right font-mono", scenarioMetrics.portfolioAtRetirement >= baselineMetrics.portfolioAtRetirement ? "text-emerald-400" : "text-rose-400")}>
-                    {formatDelta(baselineMetrics.portfolioAtRetirement, scenarioMetrics.portfolioAtRetirement)}
-                  </td>
-                </tr>
-                <tr className="border-b border-zinc-800/50">
-                  <td className="py-3 px-4 text-zinc-200">Depletion Age</td>
-                  <td className="py-3 px-4 text-right font-mono text-zinc-200">{baselineMetrics.survives ? 'Never' : `Age ${baselineMetrics.depleteAge}`}</td>
-                  <td className="py-3 px-4 text-right font-mono text-zinc-200">{scenarioMetrics.survives ? 'Never' : `Age ${scenarioMetrics.depleteAge}`}</td>
-                  <td className={cn("py-3 px-4 text-right font-mono", 
-                    scenarioMetrics.survives && !baselineMetrics.survives ? "text-emerald-400" :
-                    !scenarioMetrics.survives && baselineMetrics.survives ? "text-rose-400" :
-                    (scenarioMetrics.depleteAge || 999) >= (baselineMetrics.depleteAge || 999) ? "text-emerald-400" : "text-rose-400"
-                  )}>
-                    {baselineMetrics.survives && scenarioMetrics.survives ? '-' :
-                     !baselineMetrics.survives && !scenarioMetrics.survives ? `${(scenarioMetrics.depleteAge - baselineMetrics.depleteAge) >= 0 ? '+' : ''}${scenarioMetrics.depleteAge - baselineMetrics.depleteAge} years` :
-                     scenarioMetrics.survives ? '✓ Now survives' : '✗ Now depletes'}
-                  </td>
-                </tr>
-                <tr className="border-b border-zinc-800/50">
-                  <td className="py-3 px-4 text-zinc-200">Final Net Worth</td>
-                  <td className="py-3 px-4 text-right font-mono text-zinc-200">{formatCurrency(baselineMetrics.finalNetWorth)}</td>
-                  <td className="py-3 px-4 text-right font-mono text-zinc-200">{formatCurrency(scenarioMetrics.finalNetWorth)}</td>
-                  <td className={cn("py-3 px-4 text-right font-mono", scenarioMetrics.finalNetWorth >= baselineMetrics.finalNetWorth ? "text-emerald-400" : "text-rose-400")}>
-                    {formatDelta(baselineMetrics.finalNetWorth, scenarioMetrics.finalNetWorth)}
-                  </td>
-                </tr>
-                <tr className="border-b border-zinc-800/50">
-                  <td className="py-3 px-4 text-zinc-200">Lifetime Taxes Paid</td>
-                  <td className="py-3 px-4 text-right font-mono text-zinc-200">{formatCurrency(baselineMetrics.lifetimeTaxes)}</td>
-                  <td className="py-3 px-4 text-right font-mono text-zinc-200">{formatCurrency(scenarioMetrics.lifetimeTaxes)}</td>
-                  <td className={cn("py-3 px-4 text-right font-mono", scenarioMetrics.lifetimeTaxes <= baselineMetrics.lifetimeTaxes ? "text-emerald-400" : "text-rose-400")}>
-                    {formatDelta(baselineMetrics.lifetimeTaxes, scenarioMetrics.lifetimeTaxes)}
-                  </td>
-                </tr>
-                <tr>
-                  <td className="py-3 px-4 text-zinc-200">BTC at Retirement</td>
-                  <td className="py-3 px-4 text-right font-mono text-zinc-200">{baselineMetrics.btcAtRetirement?.toFixed(2) || '0'} BTC</td>
-                  <td className="py-3 px-4 text-right font-mono text-zinc-200">{scenarioMetrics.btcAtRetirement?.toFixed(2) || '0'} BTC</td>
-                  <td className={cn("py-3 px-4 text-right font-mono", (scenarioMetrics.btcAtRetirement || 0) >= (baselineMetrics.btcAtRetirement || 0) ? "text-emerald-400" : "text-rose-400")}>
-                    {(() => {
-                      const diff = (scenarioMetrics.btcAtRetirement || 0) - (baselineMetrics.btcAtRetirement || 0);
-                      if (Math.abs(diff) < 0.01) return <span className="text-zinc-500">≈ same</span>;
-                      return <>{diff >= 0 ? '▲' : '▼'} {Math.abs(diff).toFixed(2)} BTC</>;
-                    })()}
-                  </td>
-                </tr>
-                
-                {/* Plan Confidence Section */}
-                {(baselineMonteCarloResults || monteCarloRunning) && (
-                  <>
-                    <tr className="border-t-2 border-purple-500/30">
-                      <td colSpan={4} className="py-2 px-4 text-xs text-purple-400 font-semibold uppercase tracking-wide">
-                        Plan Confidence ({baselineMonteCarloResults?.numSimulations?.toLocaleString() || '1,000'} scenarios)
+
+          <div className="space-y-4">
+            {/* Section 1: PLAN OVERVIEW */}
+            <CollapsibleSection title="PLAN OVERVIEW" defaultOpen={true}>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-zinc-800">
+                      <th className="text-left py-3 px-4 text-zinc-300 font-medium">Metric</th>
+                      <th className="text-right py-3 px-4 text-zinc-300 font-medium">Baseline</th>
+                      <th className="text-right py-3 px-4 text-zinc-300 font-medium">{selectedScenario.name}</th>
+                      <th className="text-right py-3 px-4 text-zinc-300 font-medium">Difference</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="border-b border-zinc-800/50">
+                      <td className="py-3 px-4 text-zinc-200">Net Worth at Retirement</td>
+                      <td className="py-3 px-4 text-right font-mono text-zinc-200">{formatCurrency(baselineMetrics.portfolioAtRetirement)}</td>
+                      <td className="py-3 px-4 text-right font-mono text-zinc-200">{formatCurrency(scenarioMetrics.portfolioAtRetirement)}</td>
+                      <td className={cn("py-3 px-4 text-right font-mono", scenarioMetrics.portfolioAtRetirement >= baselineMetrics.portfolioAtRetirement ? "text-emerald-400" : "text-rose-400")}>
+                        {formatDelta(baselineMetrics.portfolioAtRetirement, scenarioMetrics.portfolioAtRetirement)}
                       </td>
                     </tr>
                     <tr className="border-b border-zinc-800/50">
-                      <td className="py-3 px-4 text-zinc-200">Plan Success Rate</td>
-                      <td className="py-3 px-4 text-right font-mono text-zinc-200">
-                        {monteCarloRunning && !baselineMonteCarloResults ? (
-                          <Loader2 className="w-4 h-4 animate-spin inline" />
-                        ) : baselineMonteCarloResults ? (
-                          <span className={baselineMonteCarloResults.successRate >= 85 ? "text-emerald-400" : baselineMonteCarloResults.successRate >= 70 ? "text-amber-400" : "text-orange-500"}>
-                            {baselineMonteCarloResults.successRate.toFixed(1)}%
-                          </span>
-                        ) : '-'}
-                      </td>
-                      <td className="py-3 px-4 text-right font-mono text-zinc-200">
-                        {monteCarloRunning && !scenarioMonteCarloResults ? (
-                          <Loader2 className="w-4 h-4 animate-spin inline" />
-                        ) : scenarioMonteCarloResults ? (
-                          <span className={scenarioMonteCarloResults.successRate >= 85 ? "text-emerald-400" : scenarioMonteCarloResults.successRate >= 70 ? "text-amber-400" : "text-orange-500"}>
-                            {scenarioMonteCarloResults.successRate.toFixed(1)}%
-                          </span>
-                        ) : '-'}
-                      </td>
-                      <td className="py-3 px-4 text-right font-mono">
-                        {baselineMonteCarloResults && scenarioMonteCarloResults ? (() => {
-                          const diff = scenarioMonteCarloResults.successRate - baselineMonteCarloResults.successRate;
-                          if (Math.abs(diff) < 3) {
-                            return <span className="text-zinc-500">≈ same</span>;
-                          }
-                          return (
-                            <span className={diff > 0 ? "text-emerald-400" : "text-rose-400"}>
-                              {diff > 0 ? '▲' : '▼'} {Math.abs(diff).toFixed(1)}%
-                            </span>
-                          );
-                        })() : '-'}
+                      <td className="py-3 px-4 text-zinc-200">Depletion Age</td>
+                      <td className="py-3 px-4 text-right font-mono text-zinc-200">{baselineMetrics.survives ? 'Never' : `Age ${baselineMetrics.depleteAge}`}</td>
+                      <td className="py-3 px-4 text-right font-mono text-zinc-200">{scenarioMetrics.survives ? 'Never' : `Age ${scenarioMetrics.depleteAge}`}</td>
+                      <td className={cn("py-3 px-4 text-right font-mono", 
+                        scenarioMetrics.survives && !baselineMetrics.survives ? "text-emerald-400" :
+                        !scenarioMetrics.survives && baselineMetrics.survives ? "text-rose-400" :
+                        (scenarioMetrics.depleteAge || lifeExpectancy + 1) >= (baselineMetrics.depleteAge || lifeExpectancy + 1) ? "text-emerald-400" : "text-rose-400"
+                      )}>
+                        {baselineMetrics.survives && scenarioMetrics.survives ? '—' :
+                         !baselineMetrics.survives && !scenarioMetrics.survives ? `${(scenarioMetrics.depleteAge - baselineMetrics.depleteAge) >= 0 ? '+' : ''}${scenarioMetrics.depleteAge - baselineMetrics.depleteAge} years` :
+                         scenarioMetrics.survives ? '✓ Now survives' : '✗ Now depletes'}
                       </td>
                     </tr>
                     <tr className="border-b border-zinc-800/50">
-                      <td className="py-3 px-4 text-zinc-200">
-                        <div className="flex items-center gap-1">
-                          Catastrophic Liquidation Risk
-                          <span className="text-zinc-500 cursor-help" title="The probability that a loan liquidation causes your plan to run out of money before your life expectancy. Liquidations that don't cause plan failure are not counted.">
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                          </span>
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 text-right font-mono text-zinc-200">
-                        {monteCarloRunning && !baselineMonteCarloResults ? (
-                          <Loader2 className="w-4 h-4 animate-spin inline" />
-                        ) : baselineMonteCarloResults ? (() => {
-                          const risk = baselineMonteCarloResults.liquidationRisk;
-                          if (risk === 0) return <span className="text-emerald-400">None</span>;
-                          if (risk <= 15) return <span className="text-amber-400">Low ({risk.toFixed(0)}%)</span>;
-                          if (risk <= 30) return <span className="text-orange-500">Moderate ({risk.toFixed(0)}%)</span>;
-                          return <span className="text-rose-400">High ({risk.toFixed(0)}%)</span>;
-                        })() : '-'}
-                      </td>
-                      <td className="py-3 px-4 text-right font-mono text-zinc-200">
-                        {monteCarloRunning && !scenarioMonteCarloResults ? (
-                          <Loader2 className="w-4 h-4 animate-spin inline" />
-                        ) : scenarioMonteCarloResults ? (() => {
-                          const risk = scenarioMonteCarloResults.liquidationRisk;
-                          if (risk === 0) return <span className="text-emerald-400">None</span>;
-                          if (risk <= 15) return <span className="text-amber-400">Low ({risk.toFixed(0)}%)</span>;
-                          if (risk <= 30) return <span className="text-orange-500">Moderate ({risk.toFixed(0)}%)</span>;
-                          return <span className="text-rose-400">High ({risk.toFixed(0)}%)</span>;
-                        })() : '-'}
-                      </td>
-                      <td className="py-3 px-4 text-right font-mono">
-                        {baselineMonteCarloResults && scenarioMonteCarloResults ? (() => {
-                          const diff = scenarioMonteCarloResults.liquidationRisk - baselineMonteCarloResults.liquidationRisk;
-                          if (!scenarioMonteCarloResults.liquidationAffected && Math.abs(diff) < 1) {
-                            return <span className="text-zinc-500">—</span>;
-                          }
-                          if (Math.abs(diff) < 3) {
-                            return <span className="text-zinc-500">≈ same</span>;
-                          }
-                          return (
-                            <span className={diff < 0 ? "text-emerald-400" : "text-rose-400"}>
-                              {diff < 0 ? '▲' : '▼'} {Math.abs(diff).toFixed(0)}%
-                            </span>
-                          );
-                        })() : '-'}
-                      </td>
-                    </tr>
-                    <tr className="border-b border-zinc-800/50">
-                      <td className="py-3 px-4 text-zinc-200">
-                        <div className="flex items-center gap-1">
-                          Max Drawdown Survived
-                          <span className="text-zinc-500 cursor-help" title="The maximum BTC price drop your loans can survive based on current LTV and liquidation thresholds. This is a simple calculation and doesn't account for top-up protection or portfolio adjustments.">
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                          </span>
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 text-right font-mono text-zinc-200">
-                        {maxDrawdownSurvived === null ? (
-                          <span className="text-zinc-500">N/A</span>
-                        ) : (
-                          <span className={maxDrawdownSurvived >= 50 ? "text-emerald-400" : maxDrawdownSurvived >= 30 ? "text-amber-400" : "text-rose-400"}>
-                            {maxDrawdownSurvived.toFixed(0)}%
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-3 px-4 text-right font-mono text-zinc-200">
-                        {maxDrawdownSurvived === null ? (
-                          <span className="text-zinc-500">N/A</span>
-                        ) : (
-                          <span className={maxDrawdownSurvived >= 50 ? "text-emerald-400" : maxDrawdownSurvived >= 30 ? "text-amber-400" : "text-rose-400"}>
-                            {maxDrawdownSurvived.toFixed(0)}%
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-3 px-4 text-right font-mono text-zinc-500">
-                        {maxDrawdownSurvived === null ? '—' : '≈ same'}
+                      <td className="py-3 px-4 text-zinc-200">Final Net Worth</td>
+                      <td className="py-3 px-4 text-right font-mono text-zinc-200">{formatCurrency(baselineMetrics.finalNetWorth)}</td>
+                      <td className="py-3 px-4 text-right font-mono text-zinc-200">{formatCurrency(scenarioMetrics.finalNetWorth)}</td>
+                      <td className={cn("py-3 px-4 text-right font-mono", scenarioMetrics.finalNetWorth >= baselineMetrics.finalNetWorth ? "text-emerald-400" : "text-rose-400")}>
+                        {formatDelta(baselineMetrics.finalNetWorth, scenarioMetrics.finalNetWorth)}
                       </td>
                     </tr>
                     <tr>
-                      <td className="py-3 px-4 text-zinc-200">
-                        <div className="flex items-center gap-1">
-                          90% Safe Spending at Retirement
-                          <span className="text-zinc-500 cursor-help" title="The maximum annual spending (in today's dollars) where your plan succeeds in at least 90% of simulated market scenarios. Based on 1,000 market scenarios reflecting Bitcoin's volatility patterns.">
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                          </span>
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 text-right font-mono text-zinc-200">
-                        {monteCarloRunning && !baselineMonteCarloResults ? (
-                          <Loader2 className="w-4 h-4 animate-spin inline" />
-                        ) : baselineMonteCarloResults ? (
-                          formatCurrency(baselineMonteCarloResults.maxSustainableSpending) + '/yr'
-                        ) : '-'}
-                      </td>
-                      <td className="py-3 px-4 text-right font-mono text-zinc-200">
-                        {monteCarloRunning && !scenarioMonteCarloResults ? (
-                          <Loader2 className="w-4 h-4 animate-spin inline" />
-                        ) : scenarioMonteCarloResults ? (
-                          formatCurrency(scenarioMonteCarloResults.maxSustainableSpending) + '/yr'
-                        ) : '-'}
-                      </td>
-                      <td className="py-3 px-4 text-right font-mono">
-                        {baselineMonteCarloResults && scenarioMonteCarloResults ? (() => {
-                          const diff = scenarioMonteCarloResults.maxSustainableSpending - baselineMonteCarloResults.maxSustainableSpending;
-                          if (Math.abs(diff) <= 5000) {
-                            return <span className="text-zinc-500">≈ same</span>;
-                          }
-                          return (
-                            <span className={diff >= 0 ? "text-emerald-400" : "text-rose-400"}>
-                              {diff >= 0 ? '▲' : '▼'} {formatCurrency(Math.abs(diff))}
-                            </span>
-                          );
-                        })() : '-'}
+                      <td className="py-3 px-4 text-zinc-200">Lifetime Taxes Paid</td>
+                      <td className="py-3 px-4 text-right font-mono text-zinc-200">{formatCurrency(baselineMetrics.lifetimeTaxes)}</td>
+                      <td className="py-3 px-4 text-right font-mono text-zinc-200">{formatCurrency(scenarioMetrics.lifetimeTaxes)}</td>
+                      <td className={cn("py-3 px-4 text-right font-mono", scenarioMetrics.lifetimeTaxes <= baselineMetrics.lifetimeTaxes ? "text-emerald-400" : "text-rose-400")}>
+                        {formatDelta(baselineMetrics.lifetimeTaxes, scenarioMetrics.lifetimeTaxes)}
                       </td>
                     </tr>
-                  </>
-                )}
-              </tbody>
-            </table>
+                  </tbody>
+                </table>
+              </div>
+            </CollapsibleSection>
+
+            {/* Section 2: BITCOIN HOLDINGS OVER TIME */}
+            <CollapsibleSection title="BITCOIN HOLDINGS OVER TIME" defaultOpen={true}>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-zinc-800">
+                      <th className="text-left py-3 px-4 text-zinc-300 font-medium">Milestone</th>
+                      <th className="text-right py-3 px-4 text-zinc-300 font-medium">Baseline</th>
+                      <th className="text-right py-3 px-4 text-zinc-300 font-medium">{selectedScenario.name}</th>
+                      <th className="text-right py-3 px-4 text-zinc-300 font-medium">Difference</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {btcMilestones.map((milestone, idx) => {
+                      const baselineBtc = getBtcAtAge(baselineProjection?.yearByYear, milestone.age, currentAge);
+                      const scenarioBtc = getBtcAtAge(scenarioProjection?.yearByYear, milestone.age, currentAge);
+
+                      const baselineDisplay = baselineBtc.depleted
+                        ? <span className="text-rose-400">Plan Depleted</span>
+                        : <><span className="text-orange-400">{baselineBtc.quantity?.toFixed(2) || '0.00'} BTC</span> <span className="text-zinc-500 text-xs">({formatCurrency(baselineBtc.value)})</span></>;
+                      
+                      const scenarioDisplay = scenarioBtc.depleted
+                        ? <span className="text-rose-400">Plan Depleted</span>
+                        : <><span className="text-orange-400">{scenarioBtc.quantity?.toFixed(2) || '0.00'} BTC</span> <span className="text-zinc-500 text-xs">({formatCurrency(scenarioBtc.value)})</span></>;
+
+                      const diffQuantity = (scenarioBtc.quantity || 0) - (baselineBtc.quantity || 0);
+
+                      return (
+                        <tr key={milestone.age} className={cn(idx < btcMilestones.length - 1 && "border-b border-zinc-800/50")}>
+                          <td className="py-3 px-4 text-zinc-200">{milestone.label} (Age {milestone.age})</td>
+                          <td className="py-3 px-4 text-right font-mono text-zinc-200">{baselineDisplay}</td>
+                          <td className="py-3 px-4 text-right font-mono text-zinc-200">{scenarioDisplay}</td>
+                          <td className={cn("py-3 px-4 text-right font-mono", diffQuantity >= 0 ? "text-emerald-400" : "text-rose-400")}>
+                            {
+                              baselineBtc.depleted && !scenarioBtc.depleted ? <span className="text-emerald-400">✓ Now holds</span> :
+                              !baselineBtc.depleted && scenarioBtc.depleted ? <span className="text-rose-400">✗ Now depleted</span> :
+                              Math.abs(diffQuantity) < 0.01 ? <span className="text-zinc-500">≈ same</span> :
+                              <>{diffQuantity >= 0 ? '▲' : '▼'} {Math.abs(diffQuantity).toFixed(2)} BTC</>
+                            }
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </CollapsibleSection>
+
+            {/* Section 3: PLAN CONFIDENCE */}
+            {baselineMonteCarloResults && (
+              <CollapsibleSection title={`PLAN CONFIDENCE (${baselineMonteCarloResults?.numSimulations?.toLocaleString() || '1,000'} scenarios)`} defaultOpen={true}>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-zinc-800">
+                        <th className="text-left py-3 px-4 text-zinc-300 font-medium">Metric</th>
+                        <th className="text-right py-3 px-4 text-zinc-300 font-medium">Baseline</th>
+                        <th className="text-right py-3 px-4 text-zinc-300 font-medium">{selectedScenario.name}</th>
+                        <th className="text-right py-3 px-4 text-zinc-300 font-medium">Difference</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="border-b border-zinc-800/50">
+                        <td className="py-3 px-4 text-zinc-200">Plan Success Rate</td>
+                        <td className="py-3 px-4 text-right font-mono text-zinc-200">
+                          {monteCarloRunning && !baselineMonteCarloResults ? (
+                            <Loader2 className="w-4 h-4 animate-spin inline" />
+                          ) : baselineMonteCarloResults ? (
+                            <span className={baselineMonteCarloResults.successRate >= 85 ? "text-emerald-400" : baselineMonteCarloResults.successRate >= 70 ? "text-amber-400" : "text-orange-500"}>
+                              {baselineMonteCarloResults.successRate.toFixed(1)}%
+                            </span>
+                          ) : '—'}
+                        </td>
+                        <td className="py-3 px-4 text-right font-mono text-zinc-200">
+                          {monteCarloRunning && !scenarioMonteCarloResults ? (
+                            <Loader2 className="w-4 h-4 animate-spin inline" />
+                          ) : scenarioMonteCarloResults ? (
+                            <span className={scenarioMonteCarloResults.successRate >= 85 ? "text-emerald-400" : scenarioMonteCarloResults.successRate >= 70 ? "text-amber-400" : "text-orange-500"}>
+                              {scenarioMonteCarloResults.successRate.toFixed(1)}%
+                            </span>
+                          ) : '—'}
+                        </td>
+                        <td className="py-3 px-4 text-right font-mono">
+                          {baselineMonteCarloResults && scenarioMonteCarloResults ? (() => {
+                            const diff = scenarioMonteCarloResults.successRate - baselineMonteCarloResults.successRate;
+                            if (Math.abs(diff) < 3) {
+                              return <span className="text-zinc-500">≈ same</span>;
+                            }
+                            return (
+                              <span className={diff > 0 ? "text-emerald-400" : "text-rose-400"}>
+                                {diff > 0 ? '▲' : '▼'} {Math.abs(diff).toFixed(1)}%
+                              </span>
+                            );
+                          })() : '—'}
+                        </td>
+                      </tr>
+                      <tr className="border-b border-zinc-800/50">
+                        <td className="py-3 px-4 text-zinc-200">
+                          <div className="flex items-center gap-1">
+                            Catastrophic Liquidation Risk
+                            <span className="text-zinc-500 cursor-help" title="The probability that a loan liquidation causes your plan to run out of money before your life expectancy. Liquidations that don't cause plan failure are not counted.">
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-right font-mono">
+                          {monteCarloRunning && !baselineMonteCarloResults ? (
+                            <Loader2 className="w-4 h-4 animate-spin inline" />
+                          ) : baselineMonteCarloResults ? (
+                            <span className={getLiquidationRiskDisplay(baselineMonteCarloResults.liquidationRisk).color}>
+                              {getLiquidationRiskDisplay(baselineMonteCarloResults.liquidationRisk).label}
+                            </span>
+                          ) : '—'}
+                        </td>
+                        <td className="py-3 px-4 text-right font-mono">
+                          {monteCarloRunning && !scenarioMonteCarloResults ? (
+                            <Loader2 className="w-4 h-4 animate-spin inline" />
+                          ) : scenarioMonteCarloResults ? (
+                            <span className={getLiquidationRiskDisplay(scenarioMonteCarloResults.liquidationRisk).color}>
+                              {getLiquidationRiskDisplay(scenarioMonteCarloResults.liquidationRisk).label}
+                            </span>
+                          ) : '—'}
+                        </td>
+                        <td className="py-3 px-4 text-right font-mono">
+                          {baselineMonteCarloResults && scenarioMonteCarloResults ? (() => {
+                            const diff = scenarioMonteCarloResults.liquidationRisk - baselineMonteCarloResults.liquidationRisk;
+                            if (!scenarioMonteCarloResults.liquidationAffected && Math.abs(diff) < 1) {
+                              return <span className="text-zinc-500">—</span>;
+                            }
+                            if (Math.abs(diff) < 3) {
+                              return <span className="text-zinc-500">≈ same</span>;
+                            }
+                            return (
+                              <span className={diff < 0 ? "text-emerald-400" : "text-rose-400"}>
+                                {diff < 0 ? '▲' : '▼'} {Math.abs(diff).toFixed(0)}%
+                              </span>
+                            );
+                          })() : '—'}
+                        </td>
+                      </tr>
+                      <tr className="border-b border-zinc-800/50">
+                        <td className="py-3 px-4 text-zinc-200">
+                          <div className="flex items-center gap-1">
+                            Max Drawdown Survived
+                            <span className="text-zinc-500 cursor-help" title="The maximum BTC price drop your loans can survive based on current LTV and liquidation thresholds. This is a simple calculation and doesn't account for top-up protection or portfolio adjustments.">
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-right font-mono text-zinc-200">
+                          {maxDrawdownSurvived === null ? (
+                            <span className="text-zinc-500">N/A</span>
+                          ) : (
+                            <span className={maxDrawdownSurvived >= 50 ? "text-emerald-400" : maxDrawdownSurvived >= 30 ? "text-amber-400" : "text-rose-400"}>
+                              {maxDrawdownSurvived.toFixed(0)}%
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-right font-mono text-zinc-200">
+                          {maxDrawdownSurvived === null ? (
+                            <span className="text-zinc-500">N/A</span>
+                          ) : (
+                            <span className={maxDrawdownSurvived >= 50 ? "text-emerald-400" : maxDrawdownSurvived >= 30 ? "text-amber-400" : "text-rose-400"}>
+                              {maxDrawdownSurvived.toFixed(0)}%
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-right font-mono text-zinc-500">
+                          {maxDrawdownSurvived === null ? '—' : '≈ same'}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="py-3 px-4 text-zinc-200">
+                          <div className="flex items-center gap-1">
+                            90% Safe Spending at Retirement
+                            <span className="text-zinc-500 cursor-help" title="The maximum annual spending (in today's dollars) where your plan succeeds in at least 90% of simulated market scenarios. Based on 1,000 market scenarios reflecting Bitcoin's volatility patterns.">
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-right font-mono text-zinc-200">
+                          {monteCarloRunning && !baselineMonteCarloResults ? (
+                            <Loader2 className="w-4 h-4 animate-spin inline" />
+                          ) : baselineMonteCarloResults ? (
+                            formatCurrency(baselineMonteCarloResults.maxSustainableSpending) + '/yr'
+                          ) : '—'}
+                        </td>
+                        <td className="py-3 px-4 text-right font-mono text-zinc-200">
+                          {monteCarloRunning && !scenarioMonteCarloResults ? (
+                            <Loader2 className="w-4 h-4 animate-spin inline" />
+                          ) : scenarioMonteCarloResults ? (
+                            formatCurrency(scenarioMonteCarloResults.maxSustainableSpending) + '/yr'
+                          ) : '—'}
+                        </td>
+                        <td className="py-3 px-4 text-right font-mono">
+                          {baselineMonteCarloResults && scenarioMonteCarloResults ? (() => {
+                            const diff = scenarioMonteCarloResults.maxSustainableSpending - baselineMonteCarloResults.maxSustainableSpending;
+                            if (Math.abs(diff) <= 5000) {
+                              return <span className="text-zinc-500">≈ same</span>;
+                            }
+                            return (
+                              <span className={diff >= 0 ? "text-emerald-400" : "text-rose-400"}>
+                                {diff >= 0 ? '▲' : '▼'} {formatCurrency(Math.abs(diff))}
+                              </span>
+                            );
+                          })() : '—'}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </CollapsibleSection>
+            )}
           </div>
         </div>
       )}
