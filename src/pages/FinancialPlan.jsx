@@ -4203,7 +4203,7 @@ export default function FinancialPlan() {
                     </Tooltip>
                   </TooltipProvider>
                 </h3>
-                <p className="text-sm text-zinc-500 mt-1">1,000 randomized scenarios based on historical volatility</p>
+                <p className="text-sm text-zinc-500 mt-1">1,000 market scenarios reflecting Bitcoin's volatility patterns</p>
               </div>
             </div>
 
@@ -4349,7 +4349,7 @@ export default function FinancialPlan() {
                           </span>
                         </TooltipTrigger>
                         <TooltipContent side="top" className="max-w-[300px] bg-zinc-800 border-zinc-700 text-zinc-200 text-sm p-3">
-                          <p>The maximum annual spending (in today's dollars) where your plan succeeds in at least 90% of simulated market scenarios. This is a conservative estimate that accounts for market volatility.</p>
+                          <p>The maximum annual spending (in today's dollars) where your plan succeeds in at least 90% of simulated market scenarios. Based on 1,000 market scenarios reflecting Bitcoin's volatility patterns.</p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
@@ -4358,7 +4358,7 @@ export default function FinancialPlan() {
                     {safeSpending90 ? `${formatNumber(safeSpending90)}/yr` : 'Calculating...'}
                   </p>
                   <p className="text-xs text-zinc-500 mt-2">
-                    Based on 1,000 market scenarios with historical Bitcoin volatility (Skewed Student-t distribution)
+                    Based on 1,000 market scenarios reflecting Bitcoin's volatility patterns
                   </p>
                 </div>
 

@@ -1302,7 +1302,7 @@ export default function Scenarios() {
                       <td className="py-3 px-4 text-zinc-200">
                         <div className="flex items-center gap-1">
                           90% Safe Spending at Retirement
-                          <span className="text-zinc-500 cursor-help" title="The maximum annual spending (in today's dollars) where your plan succeeds in at least 90% of simulated market scenarios.">
+                          <span className="text-zinc-500 cursor-help" title="The maximum annual spending (in today's dollars) where your plan succeeds in at least 90% of simulated market scenarios. Based on 1,000 market scenarios reflecting Bitcoin's volatility patterns.">
                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
