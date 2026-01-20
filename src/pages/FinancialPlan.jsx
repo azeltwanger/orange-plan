@@ -904,8 +904,8 @@ export default function FinancialPlan() {
       savingsAllocationCash, savingsAllocationOther, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv,
       btcReleaseTriggerLtv, btcReleaseTargetLtv, goals, lifeEvents, getTaxTreatmentFromHolding]);
 
-  // Calculate 90% safe spending using Monte Carlo binary search
-  const calculateSafeSpendingMonteCarlo = useCallback((numSimulations = 200) => {
+  // Calculate 90% safe spending using Monte Carlo binary search - OPTIMIZED
+  const calculateSafeSpendingMonteCarlo = useCallback((numSimulations = 1000) => {
     let low = 0;
     let high = 500000;
     let safeSpending = 0;
@@ -948,8 +948,9 @@ export default function FinancialPlan() {
       }
     };
     
-    // Generate returns for a single simulation
-    const generateReturns = () => {
+    // STEP 1: Generate all random paths ONCE at the start (more efficient and consistent)
+    const paths = [];
+    for (let sim = 0; sim < numSimulations; sim++) {
       const yearlyReturnOverrides = {
         btc: [], stocks: [], bonds: [], realEstate: [], cash: [], other: []
       };
@@ -978,15 +979,15 @@ export default function FinancialPlan() {
         yearlyReturnOverrides.cash.push(cashReturn);
         yearlyReturnOverrides.other.push(otherReturn);
       }
-      return yearlyReturnOverrides;
-    };
+      paths.push(yearlyReturnOverrides);
+    }
     
+    // STEP 2: Binary search using the SAME paths for each spending level test
     for (let iteration = 0; iteration < 15; iteration++) {
       const mid = Math.round((low + high) / 2);
       let successes = 0;
       
       for (let sim = 0; sim < numSimulations; sim++) {
-        const yearlyReturns = generateReturns();
         const result = runUnifiedProjection({
           holdings,
           accounts,
@@ -1032,7 +1033,7 @@ export default function FinancialPlan() {
           goals,
           lifeEvents,
           getTaxTreatmentFromHolding,
-          yearlyReturnOverrides: yearlyReturns,
+          yearlyReturnOverrides: paths[sim],
           customReturnPeriods,
           tickerReturns,
           DEBUG: false,
@@ -1087,7 +1088,7 @@ export default function FinancialPlan() {
     setSuccessProbability(probability);
     
     // Calculate 90% safe spending
-    const safeSpendingResult = calculateSafeSpendingMonteCarlo(200);
+    const safeSpendingResult = calculateSafeSpendingMonteCarlo(1000);
     setSafeSpending90(safeSpendingResult);
 
     const chartData = percentiles.map((p, i) => ({
@@ -4357,7 +4358,7 @@ export default function FinancialPlan() {
                     {safeSpending90 ? `${formatNumber(safeSpending90)}/yr` : 'Calculating...'}
                   </p>
                   <p className="text-xs text-zinc-500 mt-2">
-                    Based on 200 market scenarios with historical Bitcoin volatility (Skewed Student-t distribution)
+                    Based on 1,000 market scenarios with historical Bitcoin volatility (Skewed Student-t distribution)
                   </p>
                 </div>
 

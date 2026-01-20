@@ -742,7 +742,7 @@ export default function Scenarios() {
         const mcResults = runMonteCarloComparison(baselineParams, scenarioParams, 1000);
 
         // Find max sustainable spending for baseline
-        const baselineMaxSpending = findMaxSustainableSpendingWithPaths(baselineParams, 200);
+        const baselineMaxSpending = findMaxSustainableSpendingWithPaths(baselineParams, 1000);
         
         // Check if liquidation difference is meaningful
         const liquidationAffected = scenarioAffectsLiquidation(selectedScenario);
@@ -756,7 +756,7 @@ export default function Scenarios() {
 
         if (scenarioParams) {
           // Find max sustainable spending for scenario
-          const scenarioMaxSpending = findMaxSustainableSpendingWithPaths(scenarioParams, 200);
+          const scenarioMaxSpending = findMaxSustainableSpendingWithPaths(scenarioParams, 1000);
           
           setScenarioMonteCarloResults({
             successRate: mcResults.scenarioSuccessRate,
