@@ -3956,7 +3956,7 @@ export default function FinancialPlan() {
                 <p className="text-xs text-zinc-500">Need: {formatNumber(requiredNestEgg)}</p>
               </div>
               <div>
-                <p className="text-sm text-zinc-400">Max Sustainable Spending</p>
+                <p className="text-sm text-zinc-400">Max Spending at Retirement</p>
                 <p className="text-2xl font-bold text-emerald-400">{formatNumber(maxSustainableSpending)}/yr</p>
                 <p className="text-xs text-zinc-500">{formatNumber(maxSustainableSpending / 12)}/mo (today's dollars)</p>
               </div>
