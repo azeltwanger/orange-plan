@@ -4231,7 +4231,7 @@ export default function FinancialPlan() {
                     {successProbability?.toFixed(0)}%
                   </p>
                   <p className="text-xs text-zinc-400 mt-1">
-                    Income-Based: ${Math.round(inflationAdjustedRetirementSpending || 0).toLocaleString()}/yr • {btcReturnModel === 'custom' ? `${btcCagr || 25}%` : btcReturnModel === 'powerlaw' ? `Power Law (${powerLawYear1CAGR.toFixed(0)}%→${powerLawYear10CAGR.toFixed(0)}%)` : btcReturnModel} BTC • BTC Vol: {getBtcVolatilityForMonteCarlo(0).toFixed(0)}%→{getBtcVolatilityForMonteCarlo(30).toFixed(0)}%
+                    Target Spending: ${Math.round(inflationAdjustedRetirementSpending || 0).toLocaleString()}/yr • {btcReturnModel === 'custom' ? `${btcCagr || 25}%` : btcReturnModel === 'powerlaw' ? `Power Law (${powerLawYear1CAGR.toFixed(0)}%→${powerLawYear10CAGR.toFixed(0)}%)` : btcReturnModel} BTC • BTC Vol: {getBtcVolatilityForMonteCarlo(0).toFixed(0)}%→{getBtcVolatilityForMonteCarlo(30).toFixed(0)}%
                   </p>
                   <p className="text-sm text-zinc-300 mt-2">
                     {successProbability >= 80 ? "Excellent! You're on track for your desired retirement lifestyle." :
