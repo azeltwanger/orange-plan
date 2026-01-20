@@ -1273,7 +1273,16 @@ export default function Scenarios() {
                       </td>
                     </tr>
                     <tr>
-                      <td className="py-3 px-4 text-zinc-200">Safe Spending Level</td>
+                      <td className="py-3 px-4 text-zinc-200">
+                        <div className="flex items-center gap-1">
+                          90% Safe Spending at Retirement
+                          <span className="text-zinc-500 cursor-help" title="The maximum annual spending (in today's dollars) where your plan succeeds in at least 90% of simulated market scenarios.">
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          </span>
+                        </div>
+                      </td>
                       <td className="py-3 px-4 text-right font-mono text-zinc-200">
                         {monteCarloRunning && !baselineMonteCarloResults ? (
                           <Loader2 className="w-4 h-4 animate-spin inline" />

@@ -149,6 +149,7 @@ export default function FinancialPlan() {
   const [runSimulation, setRunSimulation] = useState(false);
   const [simulationResults, setSimulationResults] = useState(null);
   const [successProbability, setSuccessProbability] = useState(null);
+  const [safeSpending90, setSafeSpending90] = useState(null);
 
   // Forms
   const [goalFormOpen, setGoalFormOpen] = useState(false);
@@ -903,6 +904,169 @@ export default function FinancialPlan() {
       savingsAllocationCash, savingsAllocationOther, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv,
       btcReleaseTriggerLtv, btcReleaseTargetLtv, goals, lifeEvents, getTaxTreatmentFromHolding]);
 
+  // Calculate 90% safe spending using Monte Carlo binary search
+  const calculateSafeSpendingMonteCarlo = useCallback((numSimulations = 200) => {
+    let low = 0;
+    let high = 500000;
+    let safeSpending = 0;
+    
+    const projectionYears = lifeExpectancy - currentAge + 1;
+    
+    // Helper: Generate random normal using Box-Muller
+    const randomNormal = () => {
+      const u1 = Math.max(0.0001, Math.random());
+      const u2 = Math.random();
+      return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+    };
+
+    // Chi-squared random variate generator
+    const randomChiSquared = (df) => {
+      let sum = 0;
+      for (let i = 0; i < df; i++) {
+        const z = randomNormal();
+        sum += z * z;
+      }
+      return sum;
+    };
+
+    // Standard Student-t random variate
+    const randomStudentT = (df) => {
+      const z = randomNormal();
+      const chi2 = randomChiSquared(df);
+      return z / Math.sqrt(chi2 / df);
+    };
+
+    // Skewed Student-t using Fernández-Steel transformation
+    const randomSkewedStudentT = (df, skew) => {
+      const t = randomStudentT(df);
+      const u = Math.random();
+      const threshold = 1 / (1 + skew * skew);
+      if (u < threshold) {
+        return -Math.abs(t) / skew;
+      } else {
+        return Math.abs(t) * skew;
+      }
+    };
+    
+    // Generate returns for a single simulation
+    const generateReturns = () => {
+      const yearlyReturnOverrides = {
+        btc: [], stocks: [], bonds: [], realEstate: [], cash: [], other: []
+      };
+      
+      for (let year = 0; year <= projectionYears; year++) {
+        const z1 = randomSkewedStudentT(BTC_DEGREES_OF_FREEDOM, BTC_SKEW_PARAM);
+        const z2 = randomNormal();
+        const z3 = randomNormal();
+        const z4 = randomNormal();
+        const z5 = randomNormal();
+        const z6 = randomNormal();
+
+        const expectedBtcReturn = getBtcGrowthRate(year, effectiveInflation);
+        const btcVolatility = getBtcVolatilityForMonteCarlo(year);
+        const btcReturn = Math.max(-75, Math.min(250, expectedBtcReturn + btcVolatility * z1));
+        const stocksReturn = Math.max(-40, Math.min(50, effectiveStocksCagr + 18 * z2));
+        const realEstateReturn = realEstateCagr + 5 * z3;
+        const bondsReturn = bondsCagr + 2 * z4;
+        const cashReturn = cashCagr + 1 * z5;
+        const otherReturn = otherCagr + 3 * z6;
+
+        yearlyReturnOverrides.btc.push(btcReturn);
+        yearlyReturnOverrides.stocks.push(stocksReturn);
+        yearlyReturnOverrides.bonds.push(bondsReturn);
+        yearlyReturnOverrides.realEstate.push(realEstateReturn);
+        yearlyReturnOverrides.cash.push(cashReturn);
+        yearlyReturnOverrides.other.push(otherReturn);
+      }
+      return yearlyReturnOverrides;
+    };
+    
+    for (let iteration = 0; iteration < 15; iteration++) {
+      const mid = Math.round((low + high) / 2);
+      let successes = 0;
+      
+      for (let sim = 0; sim < numSimulations; sim++) {
+        const yearlyReturns = generateReturns();
+        const result = runUnifiedProjection({
+          holdings,
+          accounts,
+          liabilities,
+          collateralizedLoans,
+          currentPrice,
+          currentAge,
+          retirementAge,
+          lifeExpectancy,
+          retirementAnnualSpending: mid,
+          effectiveSocialSecurity,
+          socialSecurityStartAge,
+          otherRetirementIncome,
+          annualSavings,
+          incomeGrowth,
+          grossAnnualIncome,
+          currentAnnualSpending,
+          filingStatus,
+          stateOfResidence,
+          contribution401k,
+          employer401kMatch,
+          contributionRothIRA,
+          contributionTraditionalIRA,
+          contributionHSA,
+          hsaFamilyCoverage,
+          getBtcGrowthRate,
+          effectiveInflation,
+          effectiveStocksCagr,
+          bondsCagr,
+          realEstateCagr,
+          cashCagr,
+          otherCagr,
+          savingsAllocationBtc,
+          savingsAllocationStocks,
+          savingsAllocationBonds,
+          savingsAllocationCash,
+          savingsAllocationOther,
+          autoTopUpBtcCollateral,
+          btcTopUpTriggerLtv,
+          btcTopUpTargetLtv,
+          btcReleaseTriggerLtv,
+          btcReleaseTargetLtv,
+          goals,
+          lifeEvents,
+          getTaxTreatmentFromHolding,
+          yearlyReturnOverrides: yearlyReturns,
+          customReturnPeriods,
+          tickerReturns,
+          DEBUG: false,
+        });
+        
+        if (result.survives) {
+          successes++;
+        }
+      }
+      
+      const successRate = successes / numSimulations;
+      if (successRate >= 0.90) {
+        safeSpending = mid;
+        low = mid;
+      } else {
+        high = mid;
+      }
+      
+      if (high - low <= 5000) break;
+    }
+    
+    return safeSpending;
+  }, [
+    holdings, accounts, liabilities, collateralizedLoans, currentPrice, currentAge, retirementAge,
+    lifeExpectancy, effectiveSocialSecurity, socialSecurityStartAge, otherRetirementIncome, annualSavings,
+    incomeGrowth, grossAnnualIncome, currentAnnualSpending, filingStatus, stateOfResidence,
+    contribution401k, employer401kMatch, contributionRothIRA, contributionTraditionalIRA, contributionHSA,
+    hsaFamilyCoverage, getBtcGrowthRate, effectiveInflation, effectiveStocksCagr, bondsCagr, realEstateCagr,
+    cashCagr, otherCagr, savingsAllocationBtc, savingsAllocationStocks, savingsAllocationBonds,
+    savingsAllocationCash, savingsAllocationOther, autoTopUpBtcCollateral, btcTopUpTriggerLtv,
+    btcTopUpTargetLtv, btcReleaseTriggerLtv, btcReleaseTargetLtv, goals, lifeEvents,
+    getTaxTreatmentFromHolding, getBtcVolatilityForMonteCarlo, customReturnPeriods, tickerReturns
+  ]);
+
   // Run Monte Carlo when button clicked
   const handleRunSimulation = () => {
     const { paths: simulations, successResults, withdrawalPaths } = runMonteCarloSimulation(1000);
@@ -921,6 +1085,10 @@ export default function FinancialPlan() {
     // Calculate success probability - did you NOT run out of money through life expectancy?
     const probability = calculateSuccessProbability(successResults);
     setSuccessProbability(probability);
+    
+    // Calculate 90% safe spending
+    const safeSpendingResult = calculateSafeSpendingMonteCarlo(200);
+    setSafeSpending90(safeSpendingResult);
 
     const chartData = percentiles.map((p, i) => ({
       age: currentAge + i,
@@ -3956,9 +4124,23 @@ export default function FinancialPlan() {
                 <p className="text-xs text-zinc-500">Need: {formatNumber(requiredNestEgg)}</p>
               </div>
               <div>
-                <p className="text-sm text-zinc-400">Max Spending at Retirement</p>
+                <div className="flex items-center gap-1">
+                  <p className="text-sm text-zinc-400">Projected Max Spending at Retirement</p>
+                  <TooltipProvider delayDuration={100}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="cursor-help text-zinc-500 hover:text-zinc-300">
+                          <Info className="w-3.5 h-3.5" />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[280px] bg-zinc-800 border-zinc-700 text-zinc-200 text-sm p-3">
+                        <p>The maximum annual spending (in today's dollars) your plan can sustain from retirement through age {lifeExpectancy}, assuming your projected returns are achieved. See Monte Carlo tab for conservative estimates that account for market volatility.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
                 <p className="text-2xl font-bold text-emerald-400">{formatNumber(maxSustainableSpending)}/yr</p>
-                <p className="text-xs text-zinc-500">{formatNumber(maxSustainableSpending / 12)}/mo (today's dollars)</p>
+                <p className="text-xs text-zinc-500">{formatNumber(maxSustainableSpending / 12)}/mo (today's $) • See Monte Carlo for risk-adjusted</p>
               </div>
               <div>
                 <p className="text-sm text-zinc-400">At Age {lifeExpectancy}</p>
@@ -4152,6 +4334,31 @@ export default function FinancialPlan() {
                       <p className="text-lg font-bold text-emerald-400">{formatNumber(simulationResults[Math.min(retirementAge - currentAge, simulationResults.length - 1)]?.p90 || 0, 1)}</p>
                     </div>
                   </div>
+                </div>
+
+                {/* 90% Safe Spending Section */}
+                <div className="mt-4 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
+                  <div className="flex items-center gap-2 mb-2">
+                    <h4 className="text-sm font-medium text-zinc-300">90% Safe Spending at Retirement</h4>
+                    <TooltipProvider delayDuration={100}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="cursor-help text-zinc-500 hover:text-zinc-300">
+                            <Info className="w-4 h-4" />
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-[300px] bg-zinc-800 border-zinc-700 text-zinc-200 text-sm p-3">
+                          <p>The maximum annual spending (in today's dollars) where your plan succeeds in at least 90% of simulated market scenarios. This is a conservative estimate that accounts for market volatility.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <p className="text-3xl font-bold text-emerald-400">
+                    {safeSpending90 ? `${formatNumber(safeSpending90)}/yr` : 'Calculating...'}
+                  </p>
+                  <p className="text-xs text-zinc-500 mt-2">
+                    Based on 200 market scenarios with historical Bitcoin volatility (Skewed Student-t distribution)
+                  </p>
                 </div>
 
 
