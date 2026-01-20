@@ -1219,7 +1219,7 @@ export default function Scenarios() {
                       <td className="py-3 px-4 text-zinc-200">
                         <div className="flex items-center gap-1">
                           Catastrophic Liquidation Risk
-                          <span className="text-zinc-500 cursor-help" title="Percentage of simulations where a loan liquidation occurred AND the plan ran out of money. Measures risk of liquidation causing plan failure.">
+                          <span className="text-zinc-500 cursor-help" title="The probability that a loan liquidation causes your plan to run out of money before your life expectancy. Liquidations that don't cause plan failure are not counted.">
                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
@@ -1266,7 +1266,16 @@ export default function Scenarios() {
                       </td>
                     </tr>
                     <tr className="border-b border-zinc-800/50">
-                      <td className="py-3 px-4 text-zinc-200">Max Drawdown Survived</td>
+                      <td className="py-3 px-4 text-zinc-200">
+                        <div className="flex items-center gap-1">
+                          Max Drawdown Survived
+                          <span className="text-zinc-500 cursor-help" title="The maximum BTC price drop your loans can survive based on current LTV and liquidation thresholds. This is a simple calculation and doesn't account for top-up protection or portfolio adjustments.">
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          </span>
+                        </div>
+                      </td>
                       <td className="py-3 px-4 text-right font-mono text-zinc-200">
                         {maxDrawdownSurvived === null ? (
                           <span className="text-zinc-500">N/A</span>
