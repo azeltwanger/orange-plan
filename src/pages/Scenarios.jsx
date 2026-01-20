@@ -388,6 +388,12 @@ export default function Scenarios() {
     return minimumVolatility + (initialVolatility - minimumVolatility) * Math.exp(-decayRate * yearsFromNow);
   }, []);
 
+  // Bitcoin distribution parameters based on academic research
+  // Swan Research: Skewness +2.8, Kurtosis ~105
+  // Skewed Student-t provides better empirical fit than normal distribution
+  const BTC_SKEW_PARAM = 1.15;  // Positive skew (>1 = more upside outcomes)
+  const BTC_DEGREES_OF_FREEDOM = 5;  // Fat tails (lower = fatter, 5 is typical for crypto)
+
   // Generate random paths ONCE for consistent A/B comparison
   const generateRandomPaths = useCallback((numSimulations, projectionYears, baseParams) => {
     const paths = [];
@@ -397,6 +403,38 @@ export default function Scenarios() {
       const u1 = Math.max(0.0001, Math.random());
       const u2 = Math.random();
       return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+    };
+
+    // Chi-squared random variate generator (sum of squared normals)
+    const randomChiSquared = (df) => {
+      let sum = 0;
+      for (let i = 0; i < df; i++) {
+        const z = randomNormal();
+        sum += z * z;
+      }
+      return sum;
+    };
+
+    // Standard Student-t random variate
+    const randomStudentT = (df) => {
+      const z = randomNormal();
+      const chi2 = randomChiSquared(df);
+      return z / Math.sqrt(chi2 / df);
+    };
+
+    // Skewed Student-t using Fernández-Steel transformation
+    // skew > 1 means positive skew (more upside), skew < 1 means negative skew
+    const randomSkewedStudentT = (df, skew) => {
+      const t = randomStudentT(df);
+      const u = Math.random();
+      
+      // Fernández-Steel skewing: flip sign based on skew parameter
+      const threshold = 1 / (1 + skew * skew);
+      if (u < threshold) {
+        return -Math.abs(t) / skew;
+      } else {
+        return Math.abs(t) * skew;
+      }
     };
 
     for (let sim = 0; sim < numSimulations; sim++) {
@@ -412,7 +450,9 @@ export default function Scenarios() {
       };
 
       for (let year = 0; year <= projectionYears; year++) {
-        const z1 = randomNormal();
+        // Use Skewed Student-t for BTC to model positive skew and fat tails
+        // Based on academic research: Bitcoin has +2.8 skewness and kurtosis ~105
+        const z1 = randomSkewedStudentT(BTC_DEGREES_OF_FREEDOM, BTC_SKEW_PARAM);
         const z2 = randomNormal();
         const z3 = randomNormal();
         const z4 = randomNormal();
@@ -424,7 +464,8 @@ export default function Scenarios() {
         // BTC: Use getBtcGrowthRate as expected return, add volatility
         const expectedBtcReturn = baseParams.getBtcGrowthRate(year, baseParams.effectiveInflation);
         const btcVolatility = getBtcVolatilityForMonteCarlo(year);
-        const btcReturn = Math.max(-60, Math.min(200, expectedBtcReturn + btcVolatility * z1));
+        // Expanded caps: -75% (worst year was -73%), +250% (allow fat tail upside)
+        const btcReturn = Math.max(-75, Math.min(250, expectedBtcReturn + btcVolatility * z1));
 
         // Stocks
         const stocksVolatilityVal = 18;
@@ -473,7 +514,8 @@ export default function Scenarios() {
       // BTC with scenario's expected return
       const expectedBtcReturn = params.getBtcGrowthRate(year, params.effectiveInflation);
       const btcVolatility = getBtcVolatilityForMonteCarlo(year);
-      const btcReturn = Math.max(-60, Math.min(200, expectedBtcReturn + btcVolatility * z1));
+      // Expanded caps: -75% (worst year was -73%), +250% (allow fat tail upside)
+      const btcReturn = Math.max(-75, Math.min(250, expectedBtcReturn + btcVolatility * z1));
 
       // Stocks with scenario's expected return
       const stocksVolatilityVal = 18;
