@@ -803,11 +803,6 @@ export default function FinancialPlan() {
 
   // Generate projection data using unified projection engine
   const projections = useMemo(() => {
-    console.log('FP PARAMS:', JSON.stringify({
-      currentAge, retirementAge, annualSavings, effectiveSocialSecurity, 
-      retirementAnnualSpending, grossAnnualIncome, currentAnnualSpending
-    }));
-
     const result = runUnifiedProjection({
       holdings,
       accounts,
