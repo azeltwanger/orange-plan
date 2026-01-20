@@ -3,7 +3,7 @@ import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { runUnifiedProjection } from '@/components/shared/runProjection';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine, Area, ComposedChart } from 'recharts';
-import { Plus, Pencil, Trash2, Target, TrendingUp, TrendingDown, ArrowRight, RefreshCw, ChevronDown, ChevronUp, Sparkles, DollarSign, Calendar, MapPin, PiggyBank, Loader2, Play, X } from 'lucide-react';
+import { Plus, Pencil, Trash2, Target, TrendingUp, TrendingDown, ArrowRight, RefreshCw, ChevronDown, ChevronUp, Sparkles, DollarSign, Calendar, MapPin, PiggyBank, Loader2, Play } from 'lucide-react';
 import { getPowerLawCAGR } from '@/components/shared/bitcoinPowerLaw';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +13,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { LoadingSkeleton } from '@/components/ui/LoadingSkeleton';
 import { useBtcPrice } from '@/components/shared/useBtcPrice';
@@ -39,24 +38,6 @@ const CollapsibleSection = ({ title, defaultOpen = true, children }) => {
         </span>
       </button>
       {isOpen && <div className="p-4 pt-0">{children}</div>}
-    </div>
-  );
-};
-
-// CollapsibleFormSection component for organizing form
-const CollapsibleFormSection = ({ title, defaultOpen = false, children }) => {
-  const [isOpen, setIsOpen] = useState(defaultOpen);
-  return (
-    <div className="border border-zinc-800 rounded-lg overflow-hidden">
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center justify-between w-full py-3 px-4 bg-zinc-800/50 hover:bg-zinc-800 text-left"
-      >
-        <span className="text-sm font-semibold text-zinc-200">{title}</span>
-        <ChevronDown className={`h-4 w-4 text-zinc-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-      </button>
-      {isOpen && <div className="p-4 space-y-4">{children}</div>}
     </div>
   );
 };
@@ -129,15 +110,14 @@ export default function Scenarios() {
   const [scenarioMonteCarloResults, setScenarioMonteCarloResults] = useState(null);
   const queryClient = useQueryClient();
 
-  // Default form state
-  const defaultFormState = {
+  // Form state for creating/editing scenarios
+  const [form, setForm] = useState({
     name: '',
     description: '',
     retirement_age_override: '',
     life_expectancy_override: '',
     annual_retirement_spending_override: '',
     state_override: '',
-    btc_return_model_override: '',
     btc_cagr_override: '',
     stocks_cagr_override: '',
     bonds_cagr_override: '',
@@ -145,10 +125,6 @@ export default function Scenarios() {
     cash_cagr_override: '',
     inflation_override: '',
     income_growth_override: '',
-    gross_annual_income_override: '',
-    current_annual_spending_override: '',
-    dividend_income_override: '',
-    dividend_income_qualified: true,
     social_security_start_age_override: '',
     social_security_amount_override: '',
     savings_allocation_btc_override: '',
@@ -156,13 +132,7 @@ export default function Scenarios() {
     savings_allocation_bonds_override: '',
     savings_allocation_cash_override: '',
     savings_allocation_other_override: '',
-    one_time_events: [],
-    asset_reallocations: [],
-    hypothetical_btc_loan: { enabled: false, loan_amount: '', interest_rate: '', collateral_btc: '', ltv: '' }
-  };
-
-  // Form state for creating/editing scenarios
-  const [form, setForm] = useState(defaultFormState);
+  });
 
   const currentPrice = btcPrice || 97000;
 
@@ -934,88 +904,19 @@ export default function Scenarios() {
   });
 
   const resetForm = () => {
-    setForm(defaultFormState);
-  };
-
-  // Array handlers for one-time events
-  const addOneTimeEvent = () => {
     setForm({
-      ...form,
-      one_time_events: [...(form.one_time_events || []), { 
-        id: Date.now().toString(), 
-        year: '', 
-        amount: '', 
-        description: '', 
-        event_type: 'windfall' 
-      }]
+      name: '', description: '',
+      retirement_age_override: '', life_expectancy_override: '',
+      annual_retirement_spending_override: '', state_override: '',
+      btc_cagr_override: '', stocks_cagr_override: '', bonds_cagr_override: '',
+      real_estate_cagr_override: '', cash_cagr_override: '',
+      inflation_override: '', income_growth_override: '',
+      social_security_start_age_override: '', social_security_amount_override: '',
+      savings_allocation_btc_override: '', savings_allocation_stocks_override: '',
+      savings_allocation_bonds_override: '', savings_allocation_cash_override: '',
+      savings_allocation_other_override: '',
     });
   };
-
-  const removeOneTimeEvent = (id) => {
-    setForm({
-      ...form,
-      one_time_events: (form.one_time_events || []).filter(e => e.id !== id)
-    });
-  };
-
-  const updateOneTimeEvent = (id, field, value) => {
-    setForm({
-      ...form,
-      one_time_events: (form.one_time_events || []).map(e => 
-        e.id === id ? { ...e, [field]: value } : e
-      )
-    });
-  };
-
-  // Array handlers for asset reallocations
-  const addAssetReallocation = () => {
-    setForm({
-      ...form,
-      asset_reallocations: [...(form.asset_reallocations || []), {
-        id: Date.now().toString(),
-        sell_holding_id: '',
-        sell_amount: '',
-        execution_year: '',
-        buy_asset_name: '',
-        buy_asset_type: 'stocks',
-        buy_cagr: '',
-        buy_dividend_yield: '',
-        buy_dividend_qualified: true
-      }]
-    });
-  };
-
-  const removeAssetReallocation = (id) => {
-    setForm({
-      ...form,
-      asset_reallocations: (form.asset_reallocations || []).filter(r => r.id !== id)
-    });
-  };
-
-  const updateAssetReallocation = (id, field, value) => {
-    setForm({
-      ...form,
-      asset_reallocations: (form.asset_reallocations || []).map(r =>
-        r.id === id ? { ...r, [field]: value } : r
-      )
-    });
-  };
-
-  // Populate holdings dropdown options
-  const holdingsOptions = useMemo(() => {
-    return holdings.map(h => {
-      const value = h.ticker === 'BTC' 
-        ? h.quantity * (currentPrice || 0)
-        : h.quantity * (h.current_price || 0);
-      return {
-        id: h.id,
-        label: `${h.asset_name}${h.ticker ? ` (${h.ticker})` : ''} - ${formatCurrency(value)}`,
-        assetType: h.asset_type,
-        quantity: h.quantity,
-        value: value
-      };
-    });
-  }, [holdings, currentPrice]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -1026,7 +927,6 @@ export default function Scenarios() {
       life_expectancy_override: form.life_expectancy_override ? parseInt(form.life_expectancy_override) : null,
       annual_retirement_spending_override: form.annual_retirement_spending_override ? parseFloat(form.annual_retirement_spending_override) : null,
       state_override: form.state_override || null,
-      btc_return_model_override: form.btc_return_model_override || null,
       btc_cagr_override: form.btc_cagr_override !== '' ? parseFloat(form.btc_cagr_override) : null,
       stocks_cagr_override: form.stocks_cagr_override !== '' ? parseFloat(form.stocks_cagr_override) : null,
       bonds_cagr_override: form.bonds_cagr_override !== '' ? parseFloat(form.bonds_cagr_override) : null,
@@ -1034,10 +934,6 @@ export default function Scenarios() {
       cash_cagr_override: form.cash_cagr_override !== '' ? parseFloat(form.cash_cagr_override) : null,
       inflation_override: form.inflation_override !== '' ? parseFloat(form.inflation_override) : null,
       income_growth_override: form.income_growth_override !== '' ? parseFloat(form.income_growth_override) : null,
-      gross_annual_income_override: form.gross_annual_income_override !== '' ? parseFloat(form.gross_annual_income_override) : null,
-      current_annual_spending_override: form.current_annual_spending_override !== '' ? parseFloat(form.current_annual_spending_override) : null,
-      dividend_income_override: form.dividend_income_override !== '' ? parseFloat(form.dividend_income_override) : null,
-      dividend_income_qualified: form.dividend_income_qualified,
       social_security_start_age_override: form.social_security_start_age_override ? parseInt(form.social_security_start_age_override) : null,
       social_security_amount_override: form.social_security_amount_override !== '' ? parseFloat(form.social_security_amount_override) : null,
       savings_allocation_btc_override: form.savings_allocation_btc_override !== '' ? parseFloat(form.savings_allocation_btc_override) : null,
@@ -1045,31 +941,6 @@ export default function Scenarios() {
       savings_allocation_bonds_override: form.savings_allocation_bonds_override !== '' ? parseFloat(form.savings_allocation_bonds_override) : null,
       savings_allocation_cash_override: form.savings_allocation_cash_override !== '' ? parseFloat(form.savings_allocation_cash_override) : null,
       savings_allocation_other_override: form.savings_allocation_other_override !== '' ? parseFloat(form.savings_allocation_other_override) : null,
-      one_time_events: (form.one_time_events || []).map(e => ({
-        id: e.id,
-        year: parseInt(e.year) || 0,
-        amount: parseFloat(e.amount) || 0,
-        description: e.description || '',
-        event_type: e.event_type || 'windfall'
-      })),
-      asset_reallocations: (form.asset_reallocations || []).map(r => ({
-        id: r.id,
-        sell_holding_id: r.sell_holding_id || '',
-        sell_amount: parseFloat(r.sell_amount) || 0,
-        execution_year: parseInt(r.execution_year) || 0,
-        buy_asset_name: r.buy_asset_name || '',
-        buy_asset_type: r.buy_asset_type || 'stocks',
-        buy_cagr: parseFloat(r.buy_cagr) || 0,
-        buy_dividend_yield: parseFloat(r.buy_dividend_yield) || 0,
-        buy_dividend_qualified: r.buy_dividend_qualified ?? true
-      })),
-      hypothetical_btc_loan: {
-        enabled: form.hypothetical_btc_loan?.enabled || false,
-        loan_amount: form.hypothetical_btc_loan?.loan_amount !== '' ? parseFloat(form.hypothetical_btc_loan?.loan_amount) : null,
-        interest_rate: form.hypothetical_btc_loan?.interest_rate !== '' ? parseFloat(form.hypothetical_btc_loan?.interest_rate) : null,
-        collateral_btc: form.hypothetical_btc_loan?.collateral_btc !== '' ? parseFloat(form.hypothetical_btc_loan?.collateral_btc) : null,
-        ltv: form.hypothetical_btc_loan?.ltv !== '' ? parseFloat(form.hypothetical_btc_loan?.ltv) : null
-      }
     };
 
     if (editingScenario) {
@@ -1082,14 +953,12 @@ export default function Scenarios() {
   const handleEdit = (scenario) => {
     setEditingScenario(scenario);
     setForm({
-      ...defaultFormState,
       name: scenario.name || '',
       description: scenario.description || '',
       retirement_age_override: scenario.retirement_age_override || '',
       life_expectancy_override: scenario.life_expectancy_override || '',
       annual_retirement_spending_override: scenario.annual_retirement_spending_override || '',
       state_override: scenario.state_override || '',
-      btc_return_model_override: scenario.btc_return_model_override || '',
       btc_cagr_override: scenario.btc_cagr_override ?? '',
       stocks_cagr_override: scenario.stocks_cagr_override ?? '',
       bonds_cagr_override: scenario.bonds_cagr_override ?? '',
@@ -1097,10 +966,6 @@ export default function Scenarios() {
       cash_cagr_override: scenario.cash_cagr_override ?? '',
       inflation_override: scenario.inflation_override ?? '',
       income_growth_override: scenario.income_growth_override ?? '',
-      gross_annual_income_override: scenario.gross_annual_income_override ?? '',
-      current_annual_spending_override: scenario.current_annual_spending_override ?? '',
-      dividend_income_override: scenario.dividend_income_override ?? '',
-      dividend_income_qualified: scenario.dividend_income_qualified ?? true,
       social_security_start_age_override: scenario.social_security_start_age_override || '',
       social_security_amount_override: scenario.social_security_amount_override ?? '',
       savings_allocation_btc_override: scenario.savings_allocation_btc_override ?? '',
@@ -1108,9 +973,6 @@ export default function Scenarios() {
       savings_allocation_bonds_override: scenario.savings_allocation_bonds_override ?? '',
       savings_allocation_cash_override: scenario.savings_allocation_cash_override ?? '',
       savings_allocation_other_override: scenario.savings_allocation_other_override ?? '',
-      one_time_events: scenario.one_time_events || [],
-      asset_reallocations: scenario.asset_reallocations || [],
-      hypothetical_btc_loan: scenario.hypothetical_btc_loan || { enabled: false, loan_amount: '', interest_rate: '', collateral_btc: '', ltv: '' }
     });
     setFormOpen(true);
   };
@@ -1611,13 +1473,13 @@ export default function Scenarios() {
 
       {/* Create/Edit Scenario Dialog */}
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
-        <DialogContent className="bg-zinc-900 border-zinc-800 max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="bg-zinc-900 border-zinc-800 max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-zinc-100">{editingScenario ? 'Edit Scenario' : 'Create New Scenario'}</DialogTitle>
           </DialogHeader>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Basic Info - Always Visible */}
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Basic Info */}
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label className="text-zinc-200">Scenario Name *</Label>
@@ -1642,7 +1504,8 @@ export default function Scenarios() {
             </div>
 
             {/* Retirement Settings */}
-            <CollapsibleFormSection title="RETIREMENT SETTINGS" defaultOpen={true}>
+            <div className="space-y-4">
+              <h4 className="text-sm font-semibold text-zinc-100 border-b border-zinc-800 pb-2">Retirement Settings</h4>
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label className="text-zinc-300 text-xs">Retirement Age</Label>
@@ -1675,6 +1538,11 @@ export default function Scenarios() {
                   />
                 </div>
               </div>
+            </div>
+
+            {/* State Override */}
+            <div className="space-y-4">
+              <h4 className="text-sm font-semibold text-zinc-100 border-b border-zinc-800 pb-2">Location</h4>
               <div className="space-y-2">
                 <Label className="text-zinc-300 text-xs">State of Residence</Label>
                 <Select value={form.state_override} onValueChange={(v) => setForm({ ...form, state_override: v })}>
@@ -1689,163 +1557,84 @@ export default function Scenarios() {
                   </SelectContent>
                 </Select>
               </div>
-            </CollapsibleFormSection>
+            </div>
 
-            {/* Income Settings */}
-            <CollapsibleFormSection title="INCOME SETTINGS" defaultOpen={false}>
-              <div className="grid grid-cols-2 gap-4">
+            {/* Return Assumptions */}
+            <div className="space-y-4">
+              <h4 className="text-sm font-semibold text-zinc-100 border-b border-zinc-800 pb-2">Return Assumptions</h4>
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-zinc-300 text-xs">Gross Annual Income ($)</Label>
-                  <Input
-                    type="number"
-                    value={form.gross_annual_income_override}
-                    onChange={(e) => setForm({ ...form, gross_annual_income_override: e.target.value })}
-                    placeholder={String(settings.gross_annual_income || 100000)}
-                    className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-zinc-300 text-xs">Income Growth Rate (%)</Label>
+                  <Label className="text-zinc-300 text-xs">BTC CAGR (%)</Label>
                   <Input
                     type="number"
                     step="0.1"
-                    value={form.income_growth_override}
-                    onChange={(e) => setForm({ ...form, income_growth_override: e.target.value })}
-                    placeholder={String(settings.income_growth_rate || 3)}
+                    value={form.btc_cagr_override}
+                    onChange={(e) => setForm({ ...form, btc_cagr_override: e.target.value })}
+                    placeholder={String(settings.btc_cagr_assumption || 25)}
                     className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-zinc-300 text-xs">Pre-Retirement Annual Spending ($)</Label>
+                  <Label className="text-zinc-300 text-xs">Stocks CAGR (%)</Label>
                   <Input
                     type="number"
-                    value={form.current_annual_spending_override}
-                    onChange={(e) => setForm({ ...form, current_annual_spending_override: e.target.value })}
-                    placeholder={String(settings.current_annual_spending || 80000)}
+                    step="0.1"
+                    value={form.stocks_cagr_override}
+                    onChange={(e) => setForm({ ...form, stocks_cagr_override: e.target.value })}
+                    placeholder={String(settings.stocks_cagr || 7)}
                     className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
                   />
                 </div>
-              </div>
-            </CollapsibleFormSection>
-
-            {/* Dividend Income */}
-            <CollapsibleFormSection title="DIVIDEND INCOME" defaultOpen={false}>
-              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-zinc-300 text-xs">Annual Dividend Income ($)</Label>
+                  <Label className="text-zinc-300 text-xs">Bonds CAGR (%)</Label>
                   <Input
                     type="number"
-                    value={form.dividend_income_override}
-                    onChange={(e) => setForm({ ...form, dividend_income_override: e.target.value })}
-                    placeholder="0"
+                    step="0.1"
+                    value={form.bonds_cagr_override}
+                    onChange={(e) => setForm({ ...form, bonds_cagr_override: e.target.value })}
+                    placeholder={String(settings.bonds_cagr || 3)}
                     className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-zinc-300 text-xs">Qualified Dividends</Label>
-                  <div className="flex items-center gap-2 h-10">
-                    <Switch
-                      checked={form.dividend_income_qualified}
-                      onCheckedChange={(checked) => setForm({ ...form, dividend_income_qualified: checked })}
-                    />
-                    <span className="text-sm text-zinc-400">{form.dividend_income_qualified ? 'Yes (15-20% LTCG rate)' : 'No (ordinary income)'}</span>
-                  </div>
+                  <Label className="text-zinc-300 text-xs">Real Estate CAGR (%)</Label>
+                  <Input
+                    type="number"
+                    step="0.1"
+                    value={form.real_estate_cagr_override}
+                    onChange={(e) => setForm({ ...form, real_estate_cagr_override: e.target.value })}
+                    placeholder={String(settings.real_estate_cagr || 4)}
+                    className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
+                  />
                 </div>
-              </div>
-            </CollapsibleFormSection>
-
-            {/* Return Assumptions */}
-            <CollapsibleFormSection title="RETURN ASSUMPTIONS" defaultOpen={false}>
-              <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label className="text-zinc-300 text-xs">BTC Return Model</Label>
-                  <Select value={form.btc_return_model_override || ''} onValueChange={(v) => setForm({ ...form, btc_return_model_override: v })}>
-                    <SelectTrigger className="bg-zinc-800 border-zinc-700 text-zinc-200">
-                      <SelectValue placeholder={`Current: ${settings.btc_return_model || 'custom'}`} className="text-zinc-200" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-zinc-900 border-zinc-700">
-                      <SelectItem value={null} className="text-zinc-200 focus:text-white">Use current ({settings.btc_return_model || 'custom'})</SelectItem>
-                      <SelectItem value="custom" className="text-zinc-200 focus:text-white">Custom CAGR</SelectItem>
-                      <SelectItem value="powerlaw" className="text-zinc-200 focus:text-white">Power Law Model</SelectItem>
-                      <SelectItem value="saylor24" className="text-zinc-200 focus:text-white">Saylor Model</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label className="text-zinc-300 text-xs">Cash CAGR (%)</Label>
+                  <Input
+                    type="number"
+                    step="0.1"
+                    value={form.cash_cagr_override}
+                    onChange={(e) => setForm({ ...form, cash_cagr_override: e.target.value })}
+                    placeholder={String(settings.cash_cagr || 0)}
+                    className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
+                  />
                 </div>
-                {form.btc_return_model_override === 'custom' && (
-                  <div className="space-y-2">
-                    <Label className="text-zinc-300 text-xs">BTC CAGR (%)</Label>
-                    <Input
-                      type="number"
-                      step="0.1"
-                      value={form.btc_cagr_override}
-                      onChange={(e) => setForm({ ...form, btc_cagr_override: e.target.value })}
-                      placeholder={String(settings.btc_cagr_assumption || 25)}
-                      className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
-                    />
-                  </div>
-                )}
-                <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-zinc-300 text-xs">Stocks CAGR (%)</Label>
-                    <Input
-                      type="number"
-                      step="0.1"
-                      value={form.stocks_cagr_override}
-                      onChange={(e) => setForm({ ...form, stocks_cagr_override: e.target.value })}
-                      placeholder={String(settings.stocks_cagr || 7)}
-                      className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-zinc-300 text-xs">Bonds CAGR (%)</Label>
-                    <Input
-                      type="number"
-                      step="0.1"
-                      value={form.bonds_cagr_override}
-                      onChange={(e) => setForm({ ...form, bonds_cagr_override: e.target.value })}
-                      placeholder={String(settings.bonds_cagr || 3)}
-                      className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-zinc-300 text-xs">Real Estate CAGR (%)</Label>
-                    <Input
-                      type="number"
-                      step="0.1"
-                      value={form.real_estate_cagr_override}
-                      onChange={(e) => setForm({ ...form, real_estate_cagr_override: e.target.value })}
-                      placeholder={String(settings.real_estate_cagr || 4)}
-                      className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-zinc-300 text-xs">Cash CAGR (%)</Label>
-                    <Input
-                      type="number"
-                      step="0.1"
-                      value={form.cash_cagr_override}
-                      onChange={(e) => setForm({ ...form, cash_cagr_override: e.target.value })}
-                      placeholder={String(settings.cash_cagr || 0)}
-                      className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-zinc-300 text-xs">Inflation Rate (%)</Label>
-                    <Input
-                      type="number"
-                      step="0.1"
-                      value={form.inflation_override}
-                      onChange={(e) => setForm({ ...form, inflation_override: e.target.value })}
-                      placeholder={String(settings.inflation_rate || 3)}
-                      className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
-                    />
-                  </div>
+                <div className="space-y-2">
+                  <Label className="text-zinc-300 text-xs">Inflation Rate (%)</Label>
+                  <Input
+                    type="number"
+                    step="0.1"
+                    value={form.inflation_override}
+                    onChange={(e) => setForm({ ...form, inflation_override: e.target.value })}
+                    placeholder={String(settings.inflation_rate || 3)}
+                    className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
+                  />
                 </div>
               </div>
-            </CollapsibleFormSection>
+            </div>
 
             {/* Social Security */}
-            <CollapsibleFormSection title="SOCIAL SECURITY" defaultOpen={false}>
+            <div className="space-y-4">
+              <h4 className="text-sm font-semibold text-zinc-100 border-b border-zinc-800 pb-2">Social Security</h4>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label className="text-zinc-300 text-xs">Start Age</Label>
@@ -1868,13 +1657,14 @@ export default function Scenarios() {
                   />
                 </div>
               </div>
-            </CollapsibleFormSection>
+            </div>
 
             {/* Savings Allocation */}
-            <CollapsibleFormSection title="SAVINGS ALLOCATION" defaultOpen={false}>
+            <div className="space-y-4">
+              <h4 className="text-sm font-semibold text-zinc-100 border-b border-zinc-800 pb-2">Savings Allocation (%)</h4>
               <div className="grid grid-cols-5 gap-3">
                 <div className="space-y-2">
-                  <Label className="text-zinc-300 text-xs">BTC %</Label>
+                  <Label className="text-zinc-300 text-xs">BTC</Label>
                   <Input
                     type="number"
                     value={form.savings_allocation_btc_override}
@@ -1884,7 +1674,7 @@ export default function Scenarios() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-zinc-300 text-xs">Stocks %</Label>
+                  <Label className="text-zinc-300 text-xs">Stocks</Label>
                   <Input
                     type="number"
                     value={form.savings_allocation_stocks_override}
@@ -1894,7 +1684,7 @@ export default function Scenarios() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-zinc-300 text-xs">Bonds %</Label>
+                  <Label className="text-zinc-300 text-xs">Bonds</Label>
                   <Input
                     type="number"
                     value={form.savings_allocation_bonds_override}
@@ -1904,7 +1694,7 @@ export default function Scenarios() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-zinc-300 text-xs">Cash %</Label>
+                  <Label className="text-zinc-300 text-xs">Cash</Label>
                   <Input
                     type="number"
                     value={form.savings_allocation_cash_override}
@@ -1914,7 +1704,7 @@ export default function Scenarios() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-zinc-300 text-xs">Other %</Label>
+                  <Label className="text-zinc-300 text-xs">Other</Label>
                   <Input
                     type="number"
                     value={form.savings_allocation_other_override}
@@ -1925,300 +1715,7 @@ export default function Scenarios() {
                 </div>
               </div>
               <p className="text-xs text-zinc-400">Leave empty to use current allocation. Total should equal 100%.</p>
-            </CollapsibleFormSection>
-
-            {/* One-Time Events */}
-            <CollapsibleFormSection title="ONE-TIME EVENTS" defaultOpen={false}>
-              <div className="space-y-3">
-                {(form.one_time_events || []).map((event) => (
-                  <div key={event.id} className="p-3 rounded-lg bg-zinc-800/50 border border-zinc-700 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-zinc-300 text-xs">Event</Label>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 text-rose-400 hover:text-rose-300"
-                        onClick={() => removeOneTimeEvent(event.id)}
-                      >
-                        <X className="w-3 h-3" />
-                      </Button>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-2">
-                        <Label className="text-zinc-400 text-xs">Year</Label>
-                        <Input
-                          type="number"
-                          value={event.year}
-                          onChange={(e) => updateOneTimeEvent(event.id, 'year', e.target.value)}
-                          placeholder={String(new Date().getFullYear() + 1)}
-                          className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-zinc-400 text-xs">Amount ($)</Label>
-                        <Input
-                          type="number"
-                          value={event.amount}
-                          onChange={(e) => updateOneTimeEvent(event.id, 'amount', e.target.value)}
-                          placeholder="Positive for income, negative for expense"
-                          className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-zinc-400 text-xs">Type</Label>
-                        <Select value={event.event_type} onValueChange={(v) => updateOneTimeEvent(event.id, 'event_type', v)}>
-                          <SelectTrigger className="bg-zinc-800 border-zinc-700 text-zinc-200">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="bg-zinc-900 border-zinc-700">
-                            <SelectItem value="windfall" className="text-zinc-200">Windfall</SelectItem>
-                            <SelectItem value="expense" className="text-zinc-200">Expense</SelectItem>
-                            <SelectItem value="inheritance" className="text-zinc-200">Inheritance</SelectItem>
-                            <SelectItem value="bonus" className="text-zinc-200">Bonus</SelectItem>
-                            <SelectItem value="other" className="text-zinc-200">Other</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-zinc-400 text-xs">Description</Label>
-                        <Input
-                          type="text"
-                          value={event.description}
-                          onChange={(e) => updateOneTimeEvent(event.id, 'description', e.target.value)}
-                          placeholder="e.g., Company bonus"
-                          className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addOneTimeEvent}
-                  className="w-full border-zinc-700 bg-zinc-800 text-zinc-200 hover:bg-zinc-700"
-                >
-                  <Plus className="w-3 h-3 mr-2" />
-                  Add Event
-                </Button>
-              </div>
-            </CollapsibleFormSection>
-
-            {/* Asset Reallocation */}
-            <CollapsibleFormSection title="ASSET REALLOCATION" defaultOpen={false}>
-              <div className="space-y-3">
-                {(form.asset_reallocations || []).map((realloc) => {
-                  const selectedHolding = holdingsOptions.find(h => h.id === realloc.sell_holding_id);
-                  return (
-                    <div key={realloc.id} className="p-4 rounded-lg bg-zinc-800/50 border border-zinc-700 space-y-4">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-zinc-300 text-sm font-medium">Reallocation</Label>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 text-rose-400 hover:text-rose-300"
-                          onClick={() => removeAssetReallocation(realloc.id)}
-                        >
-                          <X className="w-3 h-3" />
-                        </Button>
-                      </div>
-                      
-                      {/* SELL Section */}
-                      <div className="space-y-3 p-3 rounded bg-rose-500/10 border border-rose-500/20">
-                        <Label className="text-rose-400 text-xs font-semibold">SELL</Label>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="space-y-2">
-                            <Label className="text-zinc-400 text-xs">Asset to Sell</Label>
-                            <Select value={realloc.sell_holding_id} onValueChange={(v) => updateAssetReallocation(realloc.id, 'sell_holding_id', v)}>
-                              <SelectTrigger className="bg-zinc-800 border-zinc-700 text-zinc-200">
-                                <SelectValue placeholder="Select holding..." />
-                              </SelectTrigger>
-                              <SelectContent className="bg-zinc-900 border-zinc-700">
-                                {holdingsOptions.map(h => (
-                                  <SelectItem key={h.id} value={h.id} className="text-zinc-200">{h.label}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-2">
-                            <Label className="text-zinc-400 text-xs">Amount to Sell ($)</Label>
-                            <Input
-                              type="number"
-                              value={realloc.sell_amount}
-                              onChange={(e) => updateAssetReallocation(realloc.id, 'sell_amount', e.target.value)}
-                              placeholder={selectedHolding ? `Max: ${formatCurrency(selectedHolding.value)}` : '0'}
-                              className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
-                            />
-                          </div>
-                          <div className="space-y-2 col-span-2">
-                            <Label className="text-zinc-400 text-xs">Execution Year</Label>
-                            <Input
-                              type="number"
-                              value={realloc.execution_year}
-                              onChange={(e) => updateAssetReallocation(realloc.id, 'execution_year', e.target.value)}
-                              placeholder={String(new Date().getFullYear() + 1)}
-                              className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* BUY Section */}
-                      <div className="space-y-3 p-3 rounded bg-emerald-500/10 border border-emerald-500/20">
-                        <Label className="text-emerald-400 text-xs font-semibold">BUY</Label>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="space-y-2">
-                            <Label className="text-zinc-400 text-xs">Buy Asset Name</Label>
-                            <Input
-                              type="text"
-                              value={realloc.buy_asset_name}
-                              onChange={(e) => updateAssetReallocation(realloc.id, 'buy_asset_name', e.target.value)}
-                              placeholder="e.g., S&P 500 ETF"
-                              className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label className="text-zinc-400 text-xs">Asset Type</Label>
-                            <Select value={realloc.buy_asset_type} onValueChange={(v) => updateAssetReallocation(realloc.id, 'buy_asset_type', v)}>
-                              <SelectTrigger className="bg-zinc-800 border-zinc-700 text-zinc-200">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent className="bg-zinc-900 border-zinc-700">
-                                <SelectItem value="stocks" className="text-zinc-200">Stocks</SelectItem>
-                                <SelectItem value="bonds" className="text-zinc-200">Bonds</SelectItem>
-                                <SelectItem value="real_estate" className="text-zinc-200">Real Estate</SelectItem>
-                                <SelectItem value="cash" className="text-zinc-200">Cash</SelectItem>
-                                <SelectItem value="other" className="text-zinc-200">Other</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-2">
-                            <Label className="text-zinc-400 text-xs">Expected CAGR (%)</Label>
-                            <Input
-                              type="number"
-                              step="0.1"
-                              value={realloc.buy_cagr}
-                              onChange={(e) => updateAssetReallocation(realloc.id, 'buy_cagr', e.target.value)}
-                              placeholder="7"
-                              className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label className="text-zinc-400 text-xs">Dividend Yield (%)</Label>
-                            <Input
-                              type="number"
-                              step="0.1"
-                              value={realloc.buy_dividend_yield}
-                              onChange={(e) => updateAssetReallocation(realloc.id, 'buy_dividend_yield', e.target.value)}
-                              placeholder="0"
-                              className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
-                            />
-                          </div>
-                          <div className="space-y-2 col-span-2">
-                            <Label className="text-zinc-400 text-xs">Qualified Dividends</Label>
-                            <div className="flex items-center gap-2">
-                              <Switch
-                                checked={realloc.buy_dividend_qualified ?? true}
-                                onCheckedChange={(checked) => updateAssetReallocation(realloc.id, 'buy_dividend_qualified', checked)}
-                              />
-                              <span className="text-xs text-zinc-400">{realloc.buy_dividend_qualified ? 'Yes (15-20% tax)' : 'No (ordinary income)'}</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addAssetReallocation}
-                  className="w-full border-zinc-700 bg-zinc-800 text-zinc-200 hover:bg-zinc-700"
-                >
-                  <Plus className="w-3 h-3 mr-2" />
-                  Add Reallocation
-                </Button>
-              </div>
-            </CollapsibleFormSection>
-
-            {/* BTC Loan Strategy */}
-            <CollapsibleFormSection title="BTC LOAN STRATEGY" defaultOpen={false}>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label className="text-zinc-300 text-sm">Add Hypothetical Loan</Label>
-                  <Switch
-                    checked={form.hypothetical_btc_loan?.enabled || false}
-                    onCheckedChange={(checked) => setForm({ 
-                      ...form, 
-                      hypothetical_btc_loan: { ...form.hypothetical_btc_loan, enabled: checked }
-                    })}
-                  />
-                </div>
-                {form.hypothetical_btc_loan?.enabled && (
-                  <div className="grid grid-cols-2 gap-4 p-4 rounded-lg bg-orange-500/10 border border-orange-500/20">
-                    <div className="space-y-2">
-                      <Label className="text-zinc-300 text-xs">Loan Amount ($)</Label>
-                      <Input
-                        type="number"
-                        value={form.hypothetical_btc_loan?.loan_amount || ''}
-                        onChange={(e) => setForm({ 
-                          ...form, 
-                          hypothetical_btc_loan: { ...form.hypothetical_btc_loan, loan_amount: e.target.value }
-                        })}
-                        placeholder="50000"
-                        className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-zinc-300 text-xs">Interest Rate (%)</Label>
-                      <Input
-                        type="number"
-                        step="0.1"
-                        value={form.hypothetical_btc_loan?.interest_rate || ''}
-                        onChange={(e) => setForm({ 
-                          ...form, 
-                          hypothetical_btc_loan: { ...form.hypothetical_btc_loan, interest_rate: e.target.value }
-                        })}
-                        placeholder="12.4"
-                        className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-zinc-300 text-xs">Collateral BTC</Label>
-                      <Input
-                        type="number"
-                        step="0.001"
-                        value={form.hypothetical_btc_loan?.collateral_btc || ''}
-                        onChange={(e) => setForm({ 
-                          ...form, 
-                          hypothetical_btc_loan: { ...form.hypothetical_btc_loan, collateral_btc: e.target.value }
-                        })}
-                        placeholder="1.5"
-                        className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-zinc-300 text-xs">Starting LTV (%)</Label>
-                      <Input
-                        type="number"
-                        step="1"
-                        value={form.hypothetical_btc_loan?.ltv || ''}
-                        onChange={(e) => setForm({ 
-                          ...form, 
-                          hypothetical_btc_loan: { ...form.hypothetical_btc_loan, ltv: e.target.value }
-                        })}
-                        placeholder="50"
-                        className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-            </CollapsibleFormSection>
+            </div>
 
             <div className="flex justify-end gap-3 pt-4 border-t border-zinc-800">
               <Button type="button" variant="outline" onClick={() => setFormOpen(false)} className="border-zinc-600 bg-zinc-800 text-zinc-200 hover:bg-zinc-700 hover:text-white">
