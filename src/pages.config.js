@@ -11,9 +11,9 @@ import Landing from './pages/Landing';
 import Liabilities from './pages/Liabilities';
 import Performance from './pages/Performance';
 import Pricing from './pages/Pricing';
-import Scenarios from './pages/Scenarios';
 import Settings from './pages/Settings';
 import TaxCenter from './pages/TaxCenter';
+import Scenarios from './pages/Scenarios';
 import __Layout from './Layout.jsx';
 
 
@@ -31,9 +31,9 @@ export const PAGES = {
     "Liabilities": Liabilities,
     "Performance": Performance,
     "Pricing": Pricing,
-    "Scenarios": Scenarios,
     "Settings": Settings,
     "TaxCenter": TaxCenter,
+    "Scenarios": Scenarios,
 }
 
 export const pagesConfig = {
