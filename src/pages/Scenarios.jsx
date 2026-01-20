@@ -535,37 +535,50 @@ export default function Scenarios() {
         DEBUG: false,
       });
 
-      // DEBUG: Log first 3 simulations to understand liquidation issue
+      // Debug first 3 simulations only
       if (i < 3) {
-        console.log(`=== SIMULATION ${i} DEBUG ===`);
-        
-        // Log all liquidation events
-        const allLiquidations = baseResult.yearByYear?.flatMap(y => 
-          (y.liquidations || []).map(l => ({ year: y.year, age: y.age, type: l.type, message: l.message }))
+        console.log(`\n=== MONTE CARLO SIM ${i} ===`);
+
+        // Check if collateralizedLoans has data
+        console.log('Collateralized loans passed:', baselineParams.collateralizedLoans?.length || 0, 'loans');
+        console.log('Top-up enabled:', baselineParams.autoTopUpBtcCollateral);
+        console.log('Top-up trigger:', baselineParams.btcTopUpTriggerLtv, '% -> target:', baselineParams.btcTopUpTargetLtv, '%');
+
+        // Get all liquidation events
+        const allEvents = baseResult.yearByYear?.flatMap(y => 
+          (y.liquidations || []).map(l => ({ 
+            year: y.year, 
+            type: l.type, 
+            name: l.liabilityName,
+            msg: l.message?.substring(0, 80) 
+          }))
         ) || [];
-        console.log('All liquidation events:', allLiquidations);
-        
-        // Log actual liquidations (not top-up or release)
-        const actualLiquidations = allLiquidations.filter(l => l.type !== 'top_up' && l.type !== 'release');
-        console.log('Actual liquidations (excluding top-up/release):', actualLiquidations);
-        
-        // Log BTC price path for years where liquidation happened
-        if (actualLiquidations.length > 0) {
-          const liquidationYears = actualLiquidations.map(l => l.year);
-          const btcPrices = baseResult.yearByYear
-            ?.filter(y => liquidationYears.includes(y.year) || y.year === liquidationYears[0] - 1)
-            ?.map(y => ({ year: y.year, btcPrice: y.btcPrice, btcGrowthRate: y.btcGrowthRate }));
-          console.log('BTC prices around liquidation:', btcPrices);
+
+        console.log('Total liquidation events:', allEvents.length);
+        console.log('By type:', {
+          topUp: allEvents.filter(e => e.type === 'top_up').length,
+          release: allEvents.filter(e => e.type === 'release').length,
+          fullLiquidation: allEvents.filter(e => e.type === 'full_liquidation').length,
+          partialLiquidation: allEvents.filter(e => e.type === 'partial_liquidation').length,
+          other: allEvents.filter(e => !['top_up', 'release', 'full_liquidation', 'partial_liquidation'].includes(e.type)).length
+        });
+
+        // Show first few actual liquidations
+        const actualLiqs = allEvents.filter(e => e.type !== 'top_up' && e.type !== 'release');
+        if (actualLiqs.length > 0) {
+          console.log('First 3 actual liquidations:', actualLiqs.slice(0, 3));
         }
-        
-        // Log liquid BTC available in early years
-        const earlyYears = baseResult.yearByYear?.slice(0, 5).map(y => ({
-          year: y.year,
-          liquidBtc: y.liquidBtc,
-          encumberedBtc: y.encumberedBtc,
-          btcPrice: y.btcPrice
+
+        // Show BTC price in early years
+        const earlyPrices = baseResult.yearByYear?.slice(0, 10).map(y => ({
+          yr: y.year,
+          age: y.age,
+          btc: '$' + Math.round(y.btcPrice).toLocaleString(),
+          growth: (y.btcGrowthRate || 0).toFixed(1) + '%',
+          liqBtc: (y.liquidBtc || 0).toFixed(2),
+          encBtc: (y.encumberedBtc || 0).toFixed(2)
         }));
-        console.log('Early years liquid/encumbered BTC:', earlyYears);
+        console.log('First 10 years BTC data:', earlyPrices);
       }
 
       if (baseResult.survives) baselineSuccess++;
