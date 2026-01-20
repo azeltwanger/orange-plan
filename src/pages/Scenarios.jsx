@@ -535,6 +535,39 @@ export default function Scenarios() {
         DEBUG: false,
       });
 
+      // DEBUG: Log first 3 simulations to understand liquidation issue
+      if (i < 3) {
+        console.log(`=== SIMULATION ${i} DEBUG ===`);
+        
+        // Log all liquidation events
+        const allLiquidations = baseResult.yearByYear?.flatMap(y => 
+          (y.liquidations || []).map(l => ({ year: y.year, age: y.age, type: l.type, message: l.message }))
+        ) || [];
+        console.log('All liquidation events:', allLiquidations);
+        
+        // Log actual liquidations (not top-up or release)
+        const actualLiquidations = allLiquidations.filter(l => l.type !== 'top_up' && l.type !== 'release');
+        console.log('Actual liquidations (excluding top-up/release):', actualLiquidations);
+        
+        // Log BTC price path for years where liquidation happened
+        if (actualLiquidations.length > 0) {
+          const liquidationYears = actualLiquidations.map(l => l.year);
+          const btcPrices = baseResult.yearByYear
+            ?.filter(y => liquidationYears.includes(y.year) || y.year === liquidationYears[0] - 1)
+            ?.map(y => ({ year: y.year, btcPrice: y.btcPrice, btcGrowthRate: y.btcGrowthRate }));
+          console.log('BTC prices around liquidation:', btcPrices);
+        }
+        
+        // Log liquid BTC available in early years
+        const earlyYears = baseResult.yearByYear?.slice(0, 5).map(y => ({
+          year: y.year,
+          liquidBtc: y.liquidBtc,
+          encumberedBtc: y.encumberedBtc,
+          btcPrice: y.btcPrice
+        }));
+        console.log('Early years liquid/encumbered BTC:', earlyYears);
+      }
+
       if (baseResult.survives) baselineSuccess++;
       const baseHasLiquidation = baseResult.yearByYear?.some(y => 
         y.liquidations?.some(l => l.type !== 'top_up' && l.type !== 'release')
