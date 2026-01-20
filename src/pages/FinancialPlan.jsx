@@ -624,6 +624,10 @@ export default function FinancialPlan() {
       for (let year = 0; year <= projectionYears; year++) {
         const z1 = randomNormal();
         const z2 = randomNormal();
+        const z3 = randomNormal();
+        const z4 = randomNormal();
+        const z5 = randomNormal();
+        const z6 = randomNormal();
 
         // BTC: Use getBtcGrowthRate as expected return, add volatility
         const expectedBtcReturn = getBtcGrowthRate(year, effectiveInflation);
@@ -635,16 +639,16 @@ export default function FinancialPlan() {
         const stocksReturn = Math.max(-40, Math.min(50, effectiveStocksCagr + stocksVolatilityVal * z2));
 
         // Real Estate: Add +/- 5% randomness
-        const realEstateReturn = realEstateCagr + (Math.random() * 10 - 5);
+        const realEstateReturn = realEstateCagr + 5 * z3;
 
         // Bonds: Add +/- 2% randomness
-        const bondsReturn = bondsCagr + (Math.random() * 4 - 2);
+        const bondsReturn = bondsCagr + 2 * z4;
 
         // Cash: Add +/- 1% randomness
-        const cashReturn = cashCagr + (Math.random() * 2 - 1);
+        const cashReturn = cashCagr + 1 * z5;
 
         // Other: Add +/- 3% randomness
-        const otherReturn = otherCagr + (Math.random() * 6 - 3);
+        const otherReturn = otherCagr + 3 * z6;
 
         yearlyReturnOverrides.btc.push(btcReturn);
         yearlyReturnOverrides.stocks.push(stocksReturn);
