@@ -905,7 +905,7 @@ export default function TaxCenter() {
   // Calculate outcomes for all methods
   const saleOutcomes = useMemo(() => {
     if (!saleForm.quantity || !saleForm.price_per_unit || !saleForm.account_id) return null;
-    const qty = parseFloat(saleForm.quantity);
+    const qty = Math.abs(parseFloat(saleForm.quantity)); // Always use positive quantity
     const price = parseFloat(saleForm.price_per_unit);
     const fee = parseFloat(saleForm.fee) || 0;
     const assetTicker = saleForm.asset_ticker;
@@ -944,7 +944,7 @@ export default function TaxCenter() {
     const transactionData = {
       type: 'sell',
       asset_ticker: saleForm.asset_ticker,
-      quantity: parseFloat(saleForm.quantity),
+      quantity: Math.abs(parseFloat(saleForm.quantity)), // Always use positive quantity
       price_per_unit: parseFloat(saleForm.price_per_unit),
       date: saleForm.date,
       exchange_or_wallet: saleForm.exchange,
