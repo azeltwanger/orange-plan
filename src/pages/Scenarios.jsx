@@ -624,10 +624,14 @@ export default function Scenarios() {
       }
 
       if (baseResult.survives) baselineSuccess++;
+      
+      // Check for liquidation events (excluding top_up and release)
       const baseHasLiquidation = baseResult.yearByYear?.some(y => 
         y.liquidations?.some(l => l.type !== 'top_up' && l.type !== 'release')
       );
-      if (baseHasLiquidation) baselineLiquidations++;
+      
+      // Only count as catastrophic liquidation if BOTH liquidation happened AND plan failed
+      if (baseHasLiquidation && !baseResult.survives) baselineLiquidations++;
 
       // Run scenario with regenerated returns (same Z-scores, different expected returns if changed)
       if (scenarioParams) {
@@ -639,10 +643,14 @@ export default function Scenarios() {
         });
 
         if (scenResult.survives) scenarioSuccess++;
+        
+        // Check for liquidation events (excluding top_up and release)
         const scenHasLiquidation = scenResult.yearByYear?.some(y => 
           y.liquidations?.some(l => l.type !== 'top_up' && l.type !== 'release')
         );
-        if (scenHasLiquidation) scenarioLiquidations++;
+        
+        // Only count as catastrophic liquidation if BOTH liquidation happened AND plan failed
+        if (scenHasLiquidation && !scenResult.survives) scenarioLiquidations++;
       }
     }
 
@@ -1208,15 +1216,24 @@ export default function Scenarios() {
                       </td>
                     </tr>
                     <tr className="border-b border-zinc-800/50">
-                      <td className="py-3 px-4 text-zinc-200">Liquidation Risk</td>
+                      <td className="py-3 px-4 text-zinc-200">
+                        <div className="flex items-center gap-1">
+                          Catastrophic Liquidation Risk
+                          <span className="text-zinc-500 cursor-help" title="Percentage of simulations where a loan liquidation occurred AND the plan ran out of money. Measures risk of liquidation causing plan failure.">
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          </span>
+                        </div>
+                      </td>
                       <td className="py-3 px-4 text-right font-mono text-zinc-200">
                         {monteCarloRunning && !baselineMonteCarloResults ? (
                           <Loader2 className="w-4 h-4 animate-spin inline" />
                         ) : baselineMonteCarloResults ? (() => {
                           const risk = baselineMonteCarloResults.liquidationRisk;
                           if (risk === 0) return <span className="text-emerald-400">None</span>;
-                          if (risk <= 20) return <span className="text-amber-400">Low ({risk.toFixed(0)}%)</span>;
-                          if (risk <= 50) return <span className="text-orange-500">Moderate ({risk.toFixed(0)}%)</span>;
+                          if (risk <= 15) return <span className="text-amber-400">Low ({risk.toFixed(0)}%)</span>;
+                          if (risk <= 30) return <span className="text-orange-500">Moderate ({risk.toFixed(0)}%)</span>;
                           return <span className="text-rose-400">High ({risk.toFixed(0)}%)</span>;
                         })() : '-'}
                       </td>
@@ -1226,8 +1243,8 @@ export default function Scenarios() {
                         ) : scenarioMonteCarloResults ? (() => {
                           const risk = scenarioMonteCarloResults.liquidationRisk;
                           if (risk === 0) return <span className="text-emerald-400">None</span>;
-                          if (risk <= 20) return <span className="text-amber-400">Low ({risk.toFixed(0)}%)</span>;
-                          if (risk <= 50) return <span className="text-orange-500">Moderate ({risk.toFixed(0)}%)</span>;
+                          if (risk <= 15) return <span className="text-amber-400">Low ({risk.toFixed(0)}%)</span>;
+                          if (risk <= 30) return <span className="text-orange-500">Moderate ({risk.toFixed(0)}%)</span>;
                           return <span className="text-rose-400">High ({risk.toFixed(0)}%)</span>;
                         })() : '-'}
                       </td>
