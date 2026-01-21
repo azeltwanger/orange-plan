@@ -498,8 +498,6 @@ export default function Scenarios() {
         hypothetical_btc_loan: selectedScenario.hypothetical_btc_loan,
       };
       const params = buildProjectionParams(overrides);
-      console.log('=== scenarioProjection params ===');
-      console.log('hypothetical_btc_loan in params:', params.hypothetical_btc_loan);
       return runUnifiedProjection(params);
     } catch (error) {
       console.error('Scenario projection error:', error);

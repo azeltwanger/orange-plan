@@ -111,9 +111,6 @@ export function runUnifiedProjection({
   hypothetical_btc_loan = null,
   DEBUG = false,
 }) {
-  console.log('=== runUnifiedProjection DEBUG ===');
-  console.log('hypothetical_btc_loan:', JSON.stringify(hypothetical_btc_loan, null, 2));
-  
   const results = [];
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth();
@@ -488,13 +485,7 @@ export function runUnifiedProjection({
 
     // === HYPOTHETICAL LOAN ACTIVATION ===
     const loansToActivateThisYear = pendingHypotheticalLoans.filter(loan => age === loan.start_age);
-    if (loansToActivateThisYear.length > 0) {
-      console.log(`=== LOAN ACTIVATION at Age ${age} ===`);
-      console.log('Loans to activate:', loansToActivateThisYear);
-    }
     loansToActivateThisYear.forEach(newLoan => {
-      console.log('Processing loan:', JSON.stringify(newLoan, null, 2));
-      console.log('collateral_btc_amount:', newLoan.collateral_btc_amount, 'collateral_btc:', newLoan.collateral_btc);
       const liquidBtcQuantity = portfolio.taxable.btc / cumulativeBtcPrice;
       const collateralNeeded = newLoan.collateral_btc_amount || 0;
       
@@ -508,8 +499,6 @@ export function runUnifiedProjection({
       }
       
       tempRunningCollateralizedLoans[newLoan.id] = newLoan;
-      console.log('Loan added to active loans. Proceeds:', newLoan.current_balance, 'Use:', newLoan.use_of_proceeds);
-      console.log('Portfolio BEFORE proceeds - Cash:', portfolio.taxable.cash, 'BTC:', portfolio.taxable.btc, 'Stocks:', portfolio.taxable.stocks);
       const loanKey = `loan_${newLoan.id}`;
       
       if (collateralNeeded > 0) {
@@ -535,8 +524,6 @@ export function runUnifiedProjection({
           portfolio.taxable.cash += proceeds;
         }
         runningTaxableBasis += proceeds;
-        
-        console.log('Portfolio AFTER proceeds - Cash:', portfolio.taxable.cash, 'BTC:', portfolio.taxable.btc, 'Stocks:', portfolio.taxable.stocks);
         
         liquidationEvents.push({
           year, age, type: 'loan_activation',
