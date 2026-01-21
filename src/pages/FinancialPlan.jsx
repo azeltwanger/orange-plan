@@ -245,8 +245,22 @@ export default function FinancialPlan() {
     staleTime: 5 * 60 * 1000,
   });
 
+  const { data: transactions = [] } = useQuery({
+    queryKey: ['transactions'],
+    queryFn: () => base44.entities.Transaction.list(),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Filter transactions to active tax lots (buys with remaining quantity)
+  const activeTaxLots = useMemo(() => {
+    return transactions.filter(t => 
+      t.type === 'buy' && 
+      (t.remaining_quantity ?? t.quantity) > 0
+    );
+  }, [transactions]);
+
   // Check if critical data is loading (after all queries defined) - include BTC price
-  const isLoadingData = !holdings || !accounts || !userSettings || !liabilities || !collateralizedLoans || priceLoading || !btcPrice;
+  const isLoadingData = !holdings || !accounts || !userSettings || !liabilities || !collateralizedLoans || !transactions || priceLoading || !btcPrice;
 
   // Calculate portfolio values by tax treatment
   const getHoldingValue = (h) => h.ticker === 'BTC' ? h.quantity * currentPrice : h.quantity * (h.current_price || 0);
@@ -753,10 +767,12 @@ export default function FinancialPlan() {
         yearlyReturnOverrides,
         customReturnPeriods,
         tickerReturns,
+        taxLots: activeTaxLots,
+        costBasisMethod,
         DEBUG: false,
         });
 
-      // Extract path data from result
+        // Extract path data from result
       const path = result.yearByYear.map(yearData => yearData.total || 0);
       const withdrawalPath = result.yearByYear.map(yearData => 
         (yearData.withdrawFromTaxable || 0) + 
@@ -779,7 +795,8 @@ export default function FinancialPlan() {
     effectiveStocksCagr, bondsCagr, realEstateCagr, cashCagr, otherCagr, savingsAllocationBtc,
     savingsAllocationStocks, savingsAllocationBonds, savingsAllocationCash, savingsAllocationOther,
     autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv, btcReleaseTriggerLtv,
-    btcReleaseTargetLtv, goals, lifeEvents, getTaxTreatmentFromHolding, getBtcVolatilityForMonteCarlo
+    btcReleaseTargetLtv, goals, lifeEvents, getTaxTreatmentFromHolding, getBtcVolatilityForMonteCarlo,
+    activeTaxLots, costBasisMethod
   ]);
 
   // Reusable projection function using unified projection engine
@@ -832,6 +849,8 @@ export default function FinancialPlan() {
       lifeEvents,
       getTaxTreatmentFromHolding,
       customReturnPeriods,
+      taxLots: activeTaxLots,
+      costBasisMethod,
       DEBUG: false,
     });
     
@@ -843,7 +862,7 @@ export default function FinancialPlan() {
       getBtcGrowthRate, effectiveInflation, effectiveStocksCagr, bondsCagr, 
       realEstateCagr, cashCagr, otherCagr, savingsAllocationBtc, savingsAllocationStocks, savingsAllocationBonds,
       savingsAllocationCash, savingsAllocationOther, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv,
-      btcReleaseTriggerLtv, btcReleaseTargetLtv, goals, lifeEvents, getTaxTreatmentFromHolding]);
+      btcReleaseTriggerLtv, btcReleaseTargetLtv, goals, lifeEvents, getTaxTreatmentFromHolding, activeTaxLots, costBasisMethod]);
 
 
 
@@ -895,6 +914,8 @@ export default function FinancialPlan() {
       lifeEvents,
       getTaxTreatmentFromHolding,
       customReturnPeriods,
+      taxLots: activeTaxLots,
+      costBasisMethod,
       DEBUG: false,
     });
     
@@ -906,7 +927,7 @@ export default function FinancialPlan() {
       getBtcGrowthRate, effectiveInflation, effectiveStocksCagr, bondsCagr, 
       realEstateCagr, cashCagr, otherCagr, savingsAllocationBtc, savingsAllocationStocks, savingsAllocationBonds,
       savingsAllocationCash, savingsAllocationOther, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv,
-      btcReleaseTriggerLtv, btcReleaseTargetLtv, goals, lifeEvents, getTaxTreatmentFromHolding]);
+      btcReleaseTriggerLtv, btcReleaseTargetLtv, goals, lifeEvents, getTaxTreatmentFromHolding, activeTaxLots, costBasisMethod]);
 
   // Calculate 90% safe spending using Monte Carlo binary search - OPTIMIZED
   const calculateSafeSpendingMonteCarlo = useCallback((numSimulations = 1000) => {
@@ -1040,6 +1061,8 @@ export default function FinancialPlan() {
           yearlyReturnOverrides: paths[sim],
           customReturnPeriods,
           tickerReturns,
+          taxLots: activeTaxLots,
+          costBasisMethod,
           DEBUG: false,
         });
         
@@ -1069,7 +1092,8 @@ export default function FinancialPlan() {
     cashCagr, otherCagr, savingsAllocationBtc, savingsAllocationStocks, savingsAllocationBonds,
     savingsAllocationCash, savingsAllocationOther, autoTopUpBtcCollateral, btcTopUpTriggerLtv,
     btcTopUpTargetLtv, btcReleaseTriggerLtv, btcReleaseTargetLtv, goals, lifeEvents,
-    getTaxTreatmentFromHolding, getBtcVolatilityForMonteCarlo, customReturnPeriods, tickerReturns
+    getTaxTreatmentFromHolding, getBtcVolatilityForMonteCarlo, customReturnPeriods, tickerReturns,
+    activeTaxLots, costBasisMethod
   ]);
 
   // Run Monte Carlo when button clicked
@@ -1334,6 +1358,8 @@ export default function FinancialPlan() {
         lifeEvents,
         getTaxTreatmentFromHolding,
         customReturnPeriods,
+        taxLots: activeTaxLots,
+        costBasisMethod,
         DEBUG: false,
       });
       
@@ -1368,7 +1394,8 @@ export default function FinancialPlan() {
       effectiveStocksCagr, bondsCagr, realEstateCagr, cashCagr, otherCagr, savingsAllocationBtc, 
       savingsAllocationStocks, savingsAllocationBonds, savingsAllocationCash, savingsAllocationOther, 
       autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv, btcReleaseTriggerLtv, 
-      btcReleaseTargetLtv, goals, lifeEvents, getTaxTreatmentFromHolding, runProjectionForRetirementAge]);
+      btcReleaseTargetLtv, goals, lifeEvents, getTaxTreatmentFromHolding, runProjectionForRetirementAge,
+      activeTaxLots, costBasisMethod]);
 
   // Calculate lifetime tax burden in retirement
   const lifetimeTaxesPaid = projections.filter(p => p.isRetired).reduce((sum, p) => sum + (p.taxesPaid || 0), 0);
