@@ -493,6 +493,8 @@ export function runUnifiedProjection({
       console.log('Loans to activate:', loansToActivateThisYear);
     }
     loansToActivateThisYear.forEach(newLoan => {
+      console.log('Processing loan:', JSON.stringify(newLoan, null, 2));
+      console.log('collateral_btc_amount:', newLoan.collateral_btc_amount, 'collateral_btc:', newLoan.collateral_btc);
       const liquidBtcQuantity = portfolio.taxable.btc / cumulativeBtcPrice;
       const collateralNeeded = newLoan.collateral_btc_amount || 0;
       
