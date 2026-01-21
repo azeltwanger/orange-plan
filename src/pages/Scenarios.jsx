@@ -775,8 +775,9 @@ export default function Scenarios() {
     if (!scenario) return false;
     // Only these overrides affect liquidation risk
     return (
-      scenario.btc_cagr_override !== null && scenario.btc_cagr_override !== undefined ||
-      scenario.savings_allocation_btc_override !== null && scenario.savings_allocation_btc_override !== undefined
+      (scenario.btc_cagr_override !== null && scenario.btc_cagr_override !== undefined) ||
+      (scenario.savings_allocation_btc_override !== null && scenario.savings_allocation_btc_override !== undefined) ||
+      (scenario.hypothetical_btc_loan?.enabled === true)
     );
   }, []);
 
