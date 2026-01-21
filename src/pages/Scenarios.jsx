@@ -2173,6 +2173,100 @@ export default function Scenarios() {
               </Button>
             </CollapsibleFormSection>
 
+            {/* BTC Loan Strategy */}
+            <CollapsibleFormSection title="BTC LOAN STRATEGY" defaultOpen={false}>
+              <p className="text-xs text-zinc-500 mb-4">Model adding a hypothetical BTC-backed loan to see how it affects your plan.</p>
+              
+              {/* Enable toggle */}
+              <div className="flex items-center justify-between p-3 bg-zinc-800/50 rounded-lg mb-4">
+                <div>
+                  <Label className="text-zinc-200 text-sm">Add Hypothetical BTC Loan</Label>
+                  <p className="text-xs text-zinc-500">Simulate taking a new BTC-backed loan</p>
+                </div>
+                <Switch
+                  checked={form.hypothetical_btc_loan?.enabled || false}
+                  onCheckedChange={(checked) => setForm({
+                    ...form,
+                    hypothetical_btc_loan: { ...form.hypothetical_btc_loan, enabled: checked }
+                  })}
+                />
+              </div>
+              
+              {/* Loan details - only show if enabled */}
+              {form.hypothetical_btc_loan?.enabled && (
+                <div className="grid grid-cols-2 gap-4 p-4 border border-zinc-700 rounded-lg">
+                  <div className="space-y-2">
+                    <Label className="text-zinc-300 text-xs">Loan Amount ($)</Label>
+                    <Input
+                      type="number"
+                      placeholder="100000"
+                      value={form.hypothetical_btc_loan?.loan_amount || ''}
+                      onChange={(e) => setForm({
+                        ...form,
+                        hypothetical_btc_loan: { ...form.hypothetical_btc_loan, loan_amount: e.target.value }
+                      })}
+                      className="bg-zinc-800 border-zinc-700 text-zinc-100"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-zinc-300 text-xs">Interest Rate (%)</Label>
+                    <Input
+                      type="number"
+                      placeholder="12"
+                      value={form.hypothetical_btc_loan?.interest_rate || ''}
+                      onChange={(e) => setForm({
+                        ...form,
+                        hypothetical_btc_loan: { ...form.hypothetical_btc_loan, interest_rate: e.target.value }
+                      })}
+                      className="bg-zinc-800 border-zinc-700 text-zinc-100"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-zinc-300 text-xs">Collateral BTC</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      placeholder="2.0"
+                      value={form.hypothetical_btc_loan?.collateral_btc || ''}
+                      onChange={(e) => setForm({
+                        ...form,
+                        hypothetical_btc_loan: { ...form.hypothetical_btc_loan, collateral_btc: e.target.value }
+                      })}
+                      className="bg-zinc-800 border-zinc-700 text-zinc-100"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-zinc-300 text-xs">Starting LTV (%)</Label>
+                    <Input
+                      type="number"
+                      placeholder="50"
+                      value={form.hypothetical_btc_loan?.ltv || ''}
+                      onChange={(e) => setForm({
+                        ...form,
+                        hypothetical_btc_loan: { ...form.hypothetical_btc_loan, ltv: e.target.value }
+                      })}
+                      className="bg-zinc-800 border-zinc-700 text-zinc-100"
+                    />
+                  </div>
+                  
+                  {/* LTV indicator */}
+                  {form.hypothetical_btc_loan?.ltv && (
+                    <div className="col-span-2 mt-2">
+                      <div className={`text-xs px-2 py-1 rounded inline-block ${
+                        parseFloat(form.hypothetical_btc_loan.ltv) <= 40 ? 'bg-emerald-900/50 text-emerald-400' :
+                        parseFloat(form.hypothetical_btc_loan.ltv) <= 60 ? 'bg-amber-900/50 text-amber-400' :
+                        'bg-red-900/50 text-red-400'
+                      }`}>
+                        {parseFloat(form.hypothetical_btc_loan.ltv) <= 40 ? 'Conservative LTV' :
+                         parseFloat(form.hypothetical_btc_loan.ltv) <= 60 ? 'Moderate LTV' :
+                         'Aggressive LTV'}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </CollapsibleFormSection>
+
             <div className="flex justify-end gap-3 pt-4 border-t border-zinc-800">
               <Button type="button" variant="outline" onClick={() => setFormOpen(false)} className="border-zinc-600 bg-zinc-800 text-zinc-200 hover:bg-zinc-700 hover:text-white">
                 Cancel
