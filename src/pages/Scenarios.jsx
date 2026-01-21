@@ -361,22 +361,8 @@ export default function Scenarios() {
     let scenarioLiabilities = [...(liabilities || [])];
     let scenarioCollateralizedLoans = [...(btcCollateralizedLoans || [])];
 
-    if (effectiveSettings.hypothetical_btc_loan?.enabled) {
-      const hypotheticalLoan = {
-        id: 'hypothetical_btc_loan',
-        name: 'Hypothetical BTC Loan',
-        type: 'btc_collateralized',
-        principal_amount: parseFloat(effectiveSettings.hypothetical_btc_loan.loan_amount) || 0,
-        current_balance: parseFloat(effectiveSettings.hypothetical_btc_loan.loan_amount) || 0,
-        interest_rate: parseFloat(effectiveSettings.hypothetical_btc_loan.interest_rate) || 12,
-        collateral_btc_amount: parseFloat(effectiveSettings.hypothetical_btc_loan.collateral_btc) || 0,
-        liquidation_ltv: 80,
-        monthly_payment: 0,
-        _isHypothetical: true
-      };
-      scenarioLiabilities.push(hypotheticalLoan);
-      scenarioCollateralizedLoans.push(hypotheticalLoan);
-    }
+    // Note: hypothetical_btc_loan is passed directly to runUnifiedProjection
+    // which handles it with proper start_age logic. Do NOT add it to liabilities arrays here.
 
     // Asset reallocations for future processing
     const assetReallocations = effectiveSettings.asset_reallocations || [];
