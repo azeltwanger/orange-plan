@@ -260,6 +260,7 @@ export function runUnifiedProjection({
   });
 
   const tempRunningCollateralizedLoans = {};
+  const pendingHypotheticalLoans = [];
   collateralizedLoans.forEach(loan => {
     tempRunningCollateralizedLoans[loan.id] = {
       ...loan,
