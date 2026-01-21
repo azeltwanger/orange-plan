@@ -868,6 +868,13 @@ export default function FinancialPlan() {
 
   // Generate projection data using unified projection engine
   const projections = useMemo(() => {
+    console.log('=== PASSING TO PROJECTION ===');
+    console.log('activeTaxLots:', activeTaxLots?.length || 0);
+    console.log('costBasisMethod:', costBasisMethod);
+    if (activeTaxLots?.length > 0) {
+      console.log('First lot:', activeTaxLots[0]);
+    }
+    
     const result = runUnifiedProjection({
       holdings,
       accounts,
