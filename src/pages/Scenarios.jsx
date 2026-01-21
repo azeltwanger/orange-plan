@@ -327,8 +327,8 @@ export default function Scenarios() {
     const savingsAllocationOther = effectiveSettings.savings_allocation_other_override ?? effectiveSettings.savings_allocation_other ?? 0;
 
     // Use shared helper for comprehensive annual savings (EXACT match with FinancialPlan.jsx)
-    const grossAnnualIncome = effectiveSettings.gross_annual_income ?? 100000;
-    const currentAnnualSpending = effectiveSettings.current_annual_spending ?? 80000;
+    const grossAnnualIncome = effectiveSettings.gross_annual_income_override ?? effectiveSettings.gross_annual_income ?? 100000;
+    const currentAnnualSpending = effectiveSettings.current_annual_spending_override ?? effectiveSettings.current_annual_spending ?? 80000;
     const filingStatus = effectiveSettings.filing_status || 'single';
     const contribution401k = effectiveSettings.contribution_401k ?? 0;
     const employer401kMatch = effectiveSettings.employer_401k_match ?? 0;
@@ -336,6 +336,50 @@ export default function Scenarios() {
     const contributionTraditionalIRA = effectiveSettings.contribution_traditional_ira ?? 0;
     const contributionHSA = effectiveSettings.contribution_hsa ?? 0;
     const hsaFamilyCoverage = effectiveSettings.hsa_family_coverage || false;
+
+    // Dividend income parameters
+    const dividendIncome = effectiveSettings.dividend_income_override ?? 0;
+    const dividendIncomeQualified = effectiveSettings.dividend_income_qualified ?? true;
+
+    // Process one-time events from scenario into lifeEvents format
+    const scenarioOneTimeEvents = (effectiveSettings.one_time_events || []).map(event => ({
+      id: `scenario_event_${event.id}`,
+      name: event.description || `${event.event_type} at age ${event.year}`,
+      event_type: event.amount >= 0 ? 'income_change' : 'expense_change',
+      year: parseInt(event.year) || currentAge,
+      amount: Math.abs(parseFloat(event.amount) || 0),
+      is_recurring: false,
+      affects: event.amount >= 0 ? 'income' : 'expenses',
+      _isOneTime: true,
+      _originalAmount: parseFloat(event.amount) || 0
+    }));
+
+    // Combine with existing life events
+    const combinedLifeEvents = [...(lifeEvents || []), ...scenarioOneTimeEvents];
+
+    // Process hypothetical BTC loan
+    let scenarioLiabilities = [...(liabilities || [])];
+    let scenarioCollateralizedLoans = [...(btcCollateralizedLoans || [])];
+
+    if (effectiveSettings.hypothetical_btc_loan?.enabled) {
+      const hypotheticalLoan = {
+        id: 'hypothetical_btc_loan',
+        name: 'Hypothetical BTC Loan',
+        type: 'btc_collateralized',
+        principal_amount: parseFloat(effectiveSettings.hypothetical_btc_loan.loan_amount) || 0,
+        current_balance: parseFloat(effectiveSettings.hypothetical_btc_loan.loan_amount) || 0,
+        interest_rate: parseFloat(effectiveSettings.hypothetical_btc_loan.interest_rate) || 12,
+        collateral_btc_amount: parseFloat(effectiveSettings.hypothetical_btc_loan.collateral_btc) || 0,
+        liquidation_ltv: 80,
+        monthly_payment: 0,
+        _isHypothetical: true
+      };
+      scenarioLiabilities.push(hypotheticalLoan);
+      scenarioCollateralizedLoans.push(hypotheticalLoan);
+    }
+
+    // Asset reallocations for future processing
+    const assetReallocations = effectiveSettings.asset_reallocations || [];
 
     const savingsResult = calculateComprehensiveAnnualSavings({
       grossAnnualIncome,
@@ -369,8 +413,8 @@ export default function Scenarios() {
     return {
       holdings,
       accounts,
-      liabilities: liabilities || [],
-      collateralizedLoans: btcCollateralizedLoans || [],
+      liabilities: scenarioLiabilities,
+      collateralizedLoans: scenarioCollateralizedLoans,
       currentPrice,
       currentAge,
       retirementAge,
@@ -378,7 +422,7 @@ export default function Scenarios() {
       retirementAnnualSpending: retirementSpending,
       effectiveSocialSecurity,
       socialSecurityStartAge: ssStartAge,
-      otherRetirementIncome: effectiveSettings.other_retirement_income || 0,
+      otherRetirementIncome: (effectiveSettings.other_retirement_income || 0) + dividendIncome,
       annualSavings: savingsResult.annualSavings,
       incomeGrowth,
       grossAnnualIncome,
@@ -409,10 +453,12 @@ export default function Scenarios() {
       btcReleaseTriggerLtv: effectiveSettings.btc_release_trigger_ltv || 30,
       btcReleaseTargetLtv: effectiveSettings.btc_release_target_ltv || 40,
       goals: goals || [],
-      lifeEvents: lifeEvents || [],
+      lifeEvents: combinedLifeEvents,
       getTaxTreatmentFromHolding: (holding) => sharedGetTaxTreatment(holding, accounts),
       customReturnPeriods: effectiveSettings.custom_return_periods || {},
       tickerReturns: effectiveSettings.ticker_returns || {},
+      dividendIncomeQualified,
+      assetReallocations,
     };
   };
 
