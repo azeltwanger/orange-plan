@@ -483,6 +483,59 @@ export function runUnifiedProjection({
       cumulativeBtcPrice = cumulativeBtcPrice * (1 + yearBtcGrowth / 100);
     }
 
+    // === HYPOTHETICAL LOAN ACTIVATION ===
+    const loansToActivateThisYear = pendingHypotheticalLoans.filter(loan => age === loan.start_age);
+    loansToActivateThisYear.forEach(newLoan => {
+      const liquidBtcQuantity = portfolio.taxable.btc / cumulativeBtcPrice;
+      const collateralNeeded = newLoan.collateral_btc_amount || 0;
+      
+      if (collateralNeeded > 0 && liquidBtcQuantity < collateralNeeded) {
+        liquidationEvents.push({
+          year, age, type: 'loan_activation_failed',
+          liabilityName: newLoan.name,
+          message: `Insufficient BTC: need ${collateralNeeded.toFixed(4)}, have ${liquidBtcQuantity.toFixed(4)}`
+        });
+        return;
+      }
+      
+      tempRunningCollateralizedLoans[newLoan.id] = newLoan;
+      const loanKey = `loan_${newLoan.id}`;
+      
+      if (collateralNeeded > 0) {
+        const collateralValue = collateralNeeded * cumulativeBtcPrice;
+        portfolio.taxable.btc -= collateralValue;
+        encumberedBtc[loanKey] = collateralNeeded;
+        releasedBtc[loanKey] = 0;
+        const taxableTotal = getAccountTotal('taxable');
+        if (taxableTotal > 0 && runningTaxableBasis > 0) {
+          const basisToTransfer = runningTaxableBasis * (collateralValue / (taxableTotal + collateralValue));
+          encumberedBtcBasis += basisToTransfer;
+          runningTaxableBasis -= basisToTransfer;
+        }
+      }
+      
+      const proceeds = newLoan.current_balance;
+      if (proceeds > 0) {
+        if (newLoan.use_of_proceeds === 'btc') {
+          portfolio.taxable.btc += proceeds;
+        } else if (newLoan.use_of_proceeds === 'stocks') {
+          portfolio.taxable.stocks += proceeds;
+        } else {
+          portfolio.taxable.cash += proceeds;
+        }
+        runningTaxableBasis += proceeds;
+        
+        liquidationEvents.push({
+          year, age, type: 'loan_activation',
+          liabilityName: newLoan.name,
+          message: `Activated: $${Math.round(proceeds).toLocaleString()} → ${newLoan.use_of_proceeds}`
+        });
+      }
+      
+      const idx = pendingHypotheticalLoans.indexOf(newLoan);
+      if (idx > -1) pendingHypotheticalLoans.splice(idx, 1);
+    });
+
     // Social Security - calculate REGARDLESS of retirement status
     if (age >= socialSecurityStartAge && effectiveSocialSecurity > 0) {
       const yearsToSSStart = Math.max(0, socialSecurityStartAge - currentAge);
