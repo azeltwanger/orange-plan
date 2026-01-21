@@ -534,6 +534,8 @@ export function runUnifiedProjection({
         }
         runningTaxableBasis += proceeds;
         
+        console.log('Portfolio AFTER proceeds - Cash:', portfolio.taxable.cash, 'BTC:', portfolio.taxable.btc, 'Stocks:', portfolio.taxable.stocks);
+        
         liquidationEvents.push({
           year, age, type: 'loan_activation',
           liabilityName: newLoan.name,
