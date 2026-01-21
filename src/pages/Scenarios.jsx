@@ -42,6 +42,24 @@ const CollapsibleSection = ({ title, defaultOpen = true, children }) => {
   );
 };
 
+// CollapsibleFormSection component for modal form sections
+const CollapsibleFormSection = ({ title, defaultOpen = false, children }) => {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+  return (
+    <div className="border border-zinc-800 rounded-lg overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center justify-between w-full py-3 px-4 bg-zinc-800/50 hover:bg-zinc-800 text-left"
+      >
+        <span className="text-sm font-semibold text-zinc-200">{title}</span>
+        <ChevronDown className={`h-4 w-4 text-zinc-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+      {isOpen && <div className="p-4 space-y-4">{children}</div>}
+    </div>
+  );
+};
+
 // Helper to get BTC quantity and value at a specific age
 function getBtcAtAge(projectionResults, targetAge, startAge) {
   if (!projectionResults) return { quantity: null, value: null, depleted: true };
@@ -1575,7 +1593,7 @@ export default function Scenarios() {
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Basic Info */}
+            {/* Basic Info - Always visible */}
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label className="text-zinc-200">Scenario Name *</Label>
@@ -1600,8 +1618,7 @@ export default function Scenarios() {
             </div>
 
             {/* Retirement Settings */}
-            <div className="space-y-4">
-              <h4 className="text-sm font-semibold text-zinc-100 border-b border-zinc-800 pb-2">Retirement Settings</h4>
+            <CollapsibleFormSection title="RETIREMENT SETTINGS" defaultOpen={true}>
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label className="text-zinc-300 text-xs">Retirement Age</Label>
@@ -1634,11 +1651,6 @@ export default function Scenarios() {
                   />
                 </div>
               </div>
-            </div>
-
-            {/* State Override */}
-            <div className="space-y-4">
-              <h4 className="text-sm font-semibold text-zinc-100 border-b border-zinc-800 pb-2">Location</h4>
               <div className="space-y-2">
                 <Label className="text-zinc-300 text-xs">State of Residence</Label>
                 <Select value={form.state_override} onValueChange={(v) => setForm({ ...form, state_override: v })}>
@@ -1653,11 +1665,10 @@ export default function Scenarios() {
                   </SelectContent>
                 </Select>
               </div>
-            </div>
+            </CollapsibleFormSection>
 
             {/* Return Assumptions */}
-            <div className="space-y-4">
-              <h4 className="text-sm font-semibold text-zinc-100 border-b border-zinc-800 pb-2">Return Assumptions</h4>
+            <CollapsibleFormSection title="RETURN ASSUMPTIONS" defaultOpen={false}>
               <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label className="text-zinc-300 text-xs">BTC CAGR (%)</Label>
@@ -1726,11 +1737,10 @@ export default function Scenarios() {
                   />
                 </div>
               </div>
-            </div>
+            </CollapsibleFormSection>
 
             {/* Social Security */}
-            <div className="space-y-4">
-              <h4 className="text-sm font-semibold text-zinc-100 border-b border-zinc-800 pb-2">Social Security</h4>
+            <CollapsibleFormSection title="SOCIAL SECURITY" defaultOpen={false}>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label className="text-zinc-300 text-xs">Start Age</Label>
@@ -1753,11 +1763,10 @@ export default function Scenarios() {
                   />
                 </div>
               </div>
-            </div>
+            </CollapsibleFormSection>
 
             {/* Savings Allocation */}
-            <div className="space-y-4">
-              <h4 className="text-sm font-semibold text-zinc-100 border-b border-zinc-800 pb-2">Savings Allocation (%)</h4>
+            <CollapsibleFormSection title="SAVINGS ALLOCATION" defaultOpen={false}>
               <div className="grid grid-cols-5 gap-3">
                 <div className="space-y-2">
                   <Label className="text-zinc-300 text-xs">BTC</Label>
@@ -1811,7 +1820,7 @@ export default function Scenarios() {
                 </div>
               </div>
               <p className="text-xs text-zinc-400">Leave empty to use current allocation. Total should equal 100%.</p>
-            </div>
+            </CollapsibleFormSection>
 
             <div className="flex justify-end gap-3 pt-4 border-t border-zinc-800">
               <Button type="button" variant="outline" onClick={() => setFormOpen(false)} className="border-zinc-600 bg-zinc-800 text-zinc-200 hover:bg-zinc-700 hover:text-white">
