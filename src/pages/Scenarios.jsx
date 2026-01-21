@@ -1667,20 +1667,107 @@ export default function Scenarios() {
               </div>
             </CollapsibleFormSection>
 
-            {/* Return Assumptions */}
-            <CollapsibleFormSection title="RETURN ASSUMPTIONS" defaultOpen={false}>
-              <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Income Settings */}
+            <CollapsibleFormSection title="INCOME SETTINGS" defaultOpen={false}>
+              <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-zinc-300 text-xs">BTC CAGR (%)</Label>
-                  <Input
-                    type="number"
-                    step="0.1"
-                    value={form.btc_cagr_override}
-                    onChange={(e) => setForm({ ...form, btc_cagr_override: e.target.value })}
-                    placeholder={String(settings.btc_cagr_assumption || 25)}
+                  <Label className="text-zinc-300 text-xs">Gross Annual Income ($)</Label>
+                  <Input 
+                    type="number" 
+                    placeholder={String(settings.gross_annual_income || 100000)}
+                    value={form.gross_annual_income_override} 
+                    onChange={(e) => setForm({ ...form, gross_annual_income_override: e.target.value })} 
                     className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label className="text-zinc-300 text-xs">Income Growth Rate (%)</Label>
+                  <Input 
+                    type="number" 
+                    placeholder={String(settings.income_growth_rate || 3)}
+                    value={form.income_growth_override} 
+                    onChange={(e) => setForm({ ...form, income_growth_override: e.target.value })} 
+                    className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-zinc-300 text-xs">Pre-Retirement Spending ($)</Label>
+                  <Input 
+                    type="number" 
+                    placeholder={String(settings.current_annual_spending || 80000)}
+                    value={form.current_annual_spending_override} 
+                    onChange={(e) => setForm({ ...form, current_annual_spending_override: e.target.value })} 
+                    className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
+                  />
+                </div>
+              </div>
+            </CollapsibleFormSection>
+
+            {/* Dividend Income */}
+            <CollapsibleFormSection title="DIVIDEND INCOME" defaultOpen={false}>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-zinc-300 text-xs">Annual Dividend Income ($)</Label>
+                  <Input 
+                    type="number" 
+                    placeholder="0"
+                    value={form.dividend_income_override} 
+                    onChange={(e) => setForm({ ...form, dividend_income_override: e.target.value })} 
+                    className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-zinc-300 text-xs">Qualified Dividends?</Label>
+                  <Select 
+                    value={form.dividend_income_qualified ? "yes" : "no"} 
+                    onValueChange={(v) => setForm({ ...form, dividend_income_qualified: v === "yes" })}
+                  >
+                    <SelectTrigger className="bg-zinc-800 border-zinc-700 text-zinc-200">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-zinc-900 border-zinc-700">
+                      <SelectItem value="yes" className="text-zinc-200 focus:text-white">Yes (lower tax rate)</SelectItem>
+                      <SelectItem value="no" className="text-zinc-200 focus:text-white">No (ordinary income)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <p className="text-xs text-zinc-500 mt-2">Model additional dividend income from investments outside your current holdings.</p>
+            </CollapsibleFormSection>
+
+            {/* Return Assumptions */}
+            <CollapsibleFormSection title="RETURN ASSUMPTIONS" defaultOpen={false}>
+              <div className="space-y-2 mb-4">
+                <Label className="text-zinc-300 text-xs">BTC Return Model</Label>
+                <Select 
+                  value={form.btc_return_model_override || ""} 
+                  onValueChange={(v) => setForm({ ...form, btc_return_model_override: v })}
+                >
+                  <SelectTrigger className="bg-zinc-800 border-zinc-700 text-zinc-200">
+                    <SelectValue placeholder="Use default from settings" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-zinc-900 border-zinc-700">
+                    <SelectItem value={null} className="text-zinc-200 focus:text-white">Use default from settings</SelectItem>
+                    <SelectItem value="custom" className="text-zinc-200 focus:text-white">Custom CAGR</SelectItem>
+                    <SelectItem value="powerlaw" className="text-zinc-200 focus:text-white">Power Law Model</SelectItem>
+                    <SelectItem value="saylor24" className="text-zinc-200 focus:text-white">Saylor Model</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+                {(!form.btc_return_model_override || form.btc_return_model_override === 'custom') && (
+                  <div className="space-y-2">
+                    <Label className="text-zinc-300 text-xs">BTC CAGR (%)</Label>
+                    <Input
+                      type="number"
+                      step="0.1"
+                      value={form.btc_cagr_override}
+                      onChange={(e) => setForm({ ...form, btc_cagr_override: e.target.value })}
+                      placeholder={String(settings.btc_cagr_assumption || 25)}
+                      className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
+                    />
+                  </div>
+                )}
                 <div className="space-y-2">
                   <Label className="text-zinc-300 text-xs">Stocks CAGR (%)</Label>
                   <Input
