@@ -272,6 +272,54 @@ export function runUnifiedProjection({
     };
   });
 
+  // Process hypothetical BTC loan if provided
+  if (hypothetical_btc_loan?.enabled) {
+    const loanStartAge = (hypothetical_btc_loan.start_age !== undefined && hypothetical_btc_loan.start_age !== null && hypothetical_btc_loan.start_age !== '')
+      ? parseInt(hypothetical_btc_loan.start_age) 
+      : currentAge;
+    
+    const hypotheticalLoanObj = {
+      id: 'hypothetical_btc_loan_' + Date.now(),
+      name: 'Hypothetical BTC Loan',
+      type: 'btc_collateralized',
+      current_balance: hypothetical_btc_loan.loan_amount || 0,
+      interest_rate: hypothetical_btc_loan.interest_rate || 12,
+      collateral_btc_amount: hypothetical_btc_loan.collateral_btc || 0,
+      liquidation_ltv: 80,
+      start_age: loanStartAge,
+      pay_off_age: (hypothetical_btc_loan.pay_off_age !== undefined && hypothetical_btc_loan.pay_off_age !== null && hypothetical_btc_loan.pay_off_age !== '') 
+        ? parseInt(hypothetical_btc_loan.pay_off_age) 
+        : null,
+      use_of_proceeds: hypothetical_btc_loan.use_of_proceeds || 'cash',
+      isHypothetical: true,
+      enabled: true,
+      paid_off: false,
+      entity_type: 'CollateralizedLoan',
+    };
+    
+    if (loanStartAge > currentAge) {
+      pendingHypotheticalLoans.push(hypotheticalLoanObj);
+    } else {
+      tempRunningCollateralizedLoans[hypotheticalLoanObj.id] = hypotheticalLoanObj;
+      const loanKey = `loan_${hypotheticalLoanObj.id}`;
+      if (hypotheticalLoanObj.collateral_btc_amount > 0) {
+        encumberedBtc[loanKey] = hypotheticalLoanObj.collateral_btc_amount;
+        releasedBtc[loanKey] = 0;
+      }
+      const proceeds = hypotheticalLoanObj.current_balance;
+      if (proceeds > 0) {
+        if (hypotheticalLoanObj.use_of_proceeds === 'btc') {
+          portfolio.taxable.btc += proceeds;
+        } else if (hypotheticalLoanObj.use_of_proceeds === 'stocks') {
+          portfolio.taxable.stocks += proceeds;
+        } else {
+          portfolio.taxable.cash += proceeds;
+        }
+        runningTaxableBasis += proceeds;
+      }
+    }
+  }
+
   // Initialize BTC collateral tracking
   const encumberedBtc = {};
   let releasedBtc = {};
