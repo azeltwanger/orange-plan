@@ -868,6 +868,22 @@ export default function FinancialPlan() {
 
   // Generate projection data using unified projection engine
   const projections = useMemo(() => {
+    console.log('=== TAX LOTS BREAKDOWN ===');
+    console.log('Total lots:', activeTaxLots?.length || 0);
+    console.log('Cost basis method:', costBasisMethod);
+
+    // Group by ticker to see what assets we have
+    const lotsByTicker = {};
+    activeTaxLots?.forEach(lot => {
+      const ticker = lot.asset_ticker || 'unknown';
+      if (!lotsByTicker[ticker]) {
+        lotsByTicker[ticker] = { count: 0, totalQty: 0 };
+      }
+      lotsByTicker[ticker].count++;
+      lotsByTicker[ticker].totalQty += (lot.remaining_quantity ?? lot.quantity) || 0;
+    });
+    console.log('Lots by ticker:', lotsByTicker);
+
     const result = runUnifiedProjection({
       holdings,
       accounts,
