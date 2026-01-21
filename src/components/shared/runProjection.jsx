@@ -111,6 +111,9 @@ export function runUnifiedProjection({
   hypothetical_btc_loan = null,
   DEBUG = false,
 }) {
+  console.log('=== runUnifiedProjection DEBUG ===');
+  console.log('hypothetical_btc_loan:', JSON.stringify(hypothetical_btc_loan, null, 2));
+  
   const results = [];
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth();
