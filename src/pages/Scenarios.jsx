@@ -961,6 +961,15 @@ export default function Scenarios() {
             savings_allocation_bonds_override: selectedScenario.savings_allocation_bonds_override,
             savings_allocation_cash_override: selectedScenario.savings_allocation_cash_override,
             savings_allocation_other_override: selectedScenario.savings_allocation_other_override,
+            // New fields for Monte Carlo
+            btc_return_model_override: selectedScenario.btc_return_model_override,
+            gross_annual_income_override: selectedScenario.gross_annual_income_override,
+            current_annual_spending_override: selectedScenario.current_annual_spending_override,
+            dividend_income_override: selectedScenario.dividend_income_override,
+            dividend_income_qualified: selectedScenario.dividend_income_qualified,
+            one_time_events: selectedScenario.one_time_events,
+            asset_reallocations: selectedScenario.asset_reallocations,
+            hypothetical_btc_loan: selectedScenario.hypothetical_btc_loan,
           };
           scenarioParams = buildProjectionParams(overrides);
         }
