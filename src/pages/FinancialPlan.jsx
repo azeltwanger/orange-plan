@@ -17,6 +17,7 @@ import {
   estimateSocialSecurityBenefit
 } from '@/components/tax/taxCalculations';
 import { runUnifiedProjection, getCustomReturnForYear } from '@/components/shared/runProjection';
+import { selectLots, getAvailableQuantity } from '../components/shared/lotSelectionHelpers';
 import { getRMDFactor } from '@/components/shared/taxData';
 import { get401kLimit, getRothIRALimit, getTraditionalIRALimit, getHSALimit, getTaxConfigForYear, getRothIRAIncomeLimit } from '@/components/shared/taxConfig';
 import { getStateOptions, getStateTaxSummary, STATE_TAX_CONFIG, calculateStateTaxOnRetirement, calculateStateCapitalGainsTax, calculateStateIncomeTax } from '@/components/shared/stateTaxConfig';
@@ -258,6 +259,27 @@ export default function FinancialPlan() {
       (t.remaining_quantity ?? t.quantity) > 0
     );
   }, [transactions]);
+
+  // TEMPORARY TEST - remove after verification
+  useEffect(() => {
+    if (activeTaxLots.length > 0) {
+      console.log('=== TESTING selectLots ===');
+      
+      // Test selling 1 BTC with each method
+      const testQty = 1;
+      
+      const fifoResult = selectLots(activeTaxLots, 'BTC', testQty, 'FIFO');
+      const lifoResult = selectLots(activeTaxLots, 'BTC', testQty, 'LIFO');
+      const hifoResult = selectLots(activeTaxLots, 'BTC', testQty, 'HIFO');
+      
+      console.log('Selling 1 BTC:');
+      console.log('FIFO - Cost Basis: $' + fifoResult.totalCostBasis.toFixed(2) + ', Lots used:', fifoResult.selectedLots.length);
+      console.log('LIFO - Cost Basis: $' + lifoResult.totalCostBasis.toFixed(2) + ', Lots used:', lifoResult.selectedLots.length);
+      console.log('HIFO - Cost Basis: $' + hifoResult.totalCostBasis.toFixed(2) + ', Lots used:', hifoResult.selectedLots.length);
+      
+      console.log('Available BTC:', getAvailableQuantity(activeTaxLots, 'BTC').toFixed(8));
+    }
+  }, [activeTaxLots]);
 
   // Check if critical data is loading (after all queries defined) - include BTC price
   const isLoadingData = !holdings || !accounts || !userSettings || !liabilities || !collateralizedLoans || !transactions || priceLoading || !btcPrice;
