@@ -2250,64 +2250,124 @@ export default function Scenarios() {
               
               {/* Loan details - only show if enabled */}
               {form.hypothetical_btc_loan?.enabled && (
-                <div className="grid grid-cols-2 gap-4 p-4 border border-zinc-700 rounded-lg">
-                  <div className="space-y-2">
-                    <Label className="text-zinc-300 text-xs">Loan Amount ($)</Label>
-                    <Input
-                      type="number"
-                      placeholder="100000"
-                      value={form.hypothetical_btc_loan?.loan_amount || ''}
-                      onChange={(e) => setForm({
-                        ...form,
-                        hypothetical_btc_loan: { ...form.hypothetical_btc_loan, loan_amount: e.target.value }
-                      })}
-                      className="bg-zinc-800 border-zinc-700 text-zinc-100"
-                    />
+                <div className="p-4 border border-zinc-700 rounded-lg space-y-4">
+                  {/* Row 1: Loan Amount, Interest Rate */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-zinc-300 text-xs">Loan Amount ($)</Label>
+                      <Input
+                        type="number"
+                        placeholder="100000"
+                        value={form.hypothetical_btc_loan?.loan_amount || ''}
+                        onChange={(e) => setForm({
+                          ...form,
+                          hypothetical_btc_loan: { ...form.hypothetical_btc_loan, loan_amount: e.target.value }
+                        })}
+                        className="bg-zinc-800 border-zinc-700 text-zinc-100"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-zinc-300 text-xs">Interest Rate (%)</Label>
+                      <Input
+                        type="number"
+                        placeholder="12"
+                        value={form.hypothetical_btc_loan?.interest_rate || ''}
+                        onChange={(e) => setForm({
+                          ...form,
+                          hypothetical_btc_loan: { ...form.hypothetical_btc_loan, interest_rate: e.target.value }
+                        })}
+                        className="bg-zinc-800 border-zinc-700 text-zinc-100"
+                      />
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-zinc-300 text-xs">Interest Rate (%)</Label>
-                    <Input
-                      type="number"
-                      placeholder="12"
-                      value={form.hypothetical_btc_loan?.interest_rate || ''}
-                      onChange={(e) => setForm({
-                        ...form,
-                        hypothetical_btc_loan: { ...form.hypothetical_btc_loan, interest_rate: e.target.value }
-                      })}
-                      className="bg-zinc-800 border-zinc-700 text-zinc-100"
-                    />
+
+                  {/* Row 2: Collateral BTC, Starting LTV */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-zinc-300 text-xs">Collateral BTC</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="2.0"
+                        value={form.hypothetical_btc_loan?.collateral_btc || ''}
+                        onChange={(e) => setForm({
+                          ...form,
+                          hypothetical_btc_loan: { ...form.hypothetical_btc_loan, collateral_btc: e.target.value }
+                        })}
+                        className="bg-zinc-800 border-zinc-700 text-zinc-100"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-zinc-300 text-xs">Starting LTV (%)</Label>
+                      <Input
+                        type="number"
+                        placeholder="50"
+                        value={form.hypothetical_btc_loan?.ltv || ''}
+                        onChange={(e) => setForm({
+                          ...form,
+                          hypothetical_btc_loan: { ...form.hypothetical_btc_loan, ltv: e.target.value }
+                        })}
+                        className="bg-zinc-800 border-zinc-700 text-zinc-100"
+                      />
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-zinc-300 text-xs">Collateral BTC</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      placeholder="2.0"
-                      value={form.hypothetical_btc_loan?.collateral_btc || ''}
-                      onChange={(e) => setForm({
-                        ...form,
-                        hypothetical_btc_loan: { ...form.hypothetical_btc_loan, collateral_btc: e.target.value }
-                      })}
-                      className="bg-zinc-800 border-zinc-700 text-zinc-100"
-                    />
+
+                  {/* Row 3: Take Loan at Age, Pay Off at Age */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-zinc-300 text-xs">Take Loan at Age</Label>
+                      <Input
+                        type="number"
+                        placeholder={String(settings?.current_age || "Current age")}
+                        value={form.hypothetical_btc_loan?.start_age || ''}
+                        onChange={(e) => setForm({
+                          ...form,
+                          hypothetical_btc_loan: { ...form.hypothetical_btc_loan, start_age: e.target.value }
+                        })}
+                        className="bg-zinc-800 border-zinc-700 text-zinc-100"
+                      />
+                      <p className="text-xs text-zinc-500">Leave blank to take loan immediately</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-zinc-300 text-xs">Pay Off at Age (Optional)</Label>
+                      <Input
+                        type="number"
+                        placeholder="Never (perpetual)"
+                        value={form.hypothetical_btc_loan?.pay_off_age || ''}
+                        onChange={(e) => setForm({
+                          ...form,
+                          hypothetical_btc_loan: { ...form.hypothetical_btc_loan, pay_off_age: e.target.value }
+                        })}
+                        className="bg-zinc-800 border-zinc-700 text-zinc-100"
+                      />
+                      <p className="text-xs text-zinc-500">Leave blank for perpetual loan</p>
+                    </div>
                   </div>
+
+                  {/* Row 4: Use of Proceeds (full width) */}
                   <div className="space-y-2">
-                    <Label className="text-zinc-300 text-xs">Starting LTV (%)</Label>
-                    <Input
-                      type="number"
-                      placeholder="50"
-                      value={form.hypothetical_btc_loan?.ltv || ''}
-                      onChange={(e) => setForm({
+                    <Label className="text-zinc-300 text-xs">Use of Proceeds</Label>
+                    <Select
+                      value={form.hypothetical_btc_loan?.use_of_proceeds || 'cash'}
+                      onValueChange={(v) => setForm({
                         ...form,
-                        hypothetical_btc_loan: { ...form.hypothetical_btc_loan, ltv: e.target.value }
+                        hypothetical_btc_loan: { ...form.hypothetical_btc_loan, use_of_proceeds: v }
                       })}
-                      className="bg-zinc-800 border-zinc-700 text-zinc-100"
-                    />
+                    >
+                      <SelectTrigger className="bg-zinc-800 border-zinc-700 text-zinc-200">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-zinc-900 border-zinc-700">
+                        <SelectItem value="cash" className="text-zinc-200 focus:text-white">Add to Cash (for spending)</SelectItem>
+                        <SelectItem value="btc" className="text-zinc-200 focus:text-white">Buy More BTC (leverage)</SelectItem>
+                        <SelectItem value="stocks" className="text-zinc-200 focus:text-white">Buy Stocks</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-                  
+
                   {/* LTV indicator */}
                   {form.hypothetical_btc_loan?.ltv && (
-                    <div className="col-span-2 mt-2">
+                    <div className="mt-2">
                       <div className={`text-xs px-2 py-1 rounded inline-block ${
                         parseFloat(form.hypothetical_btc_loan.ltv) <= 40 ? 'bg-emerald-900/50 text-emerald-400' :
                         parseFloat(form.hypothetical_btc_loan.ltv) <= 60 ? 'bg-amber-900/50 text-amber-400' :
