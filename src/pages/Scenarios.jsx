@@ -948,6 +948,31 @@ export default function Scenarios() {
     setScenarioMonteCarloResults(null);
   }, [selectedScenarioId]);
 
+  // Format currency helper (moved up for use in holdingsOptions)
+  const formatCurrency = (num) => {
+    if (num === null || num === undefined) return '-';
+    if (num >= 1e9) return `$${(num / 1e9).toFixed(1)}B`;
+    if (num >= 1e6) return `$${(num / 1e6).toFixed(1)}M`;
+    if (num >= 1e3) return `$${(num / 1e3).toFixed(0)}K`;
+    return `$${num.toLocaleString()}`;
+  };
+
+  // Holdings options for asset reallocation dropdown
+  const holdingsOptions = useMemo(() => {
+    return holdings.map(h => {
+      const price = h.asset_type === 'btc' ? (btcPrice || 0) : (h.current_price || 0);
+      const value = h.quantity * price;
+      return {
+        id: h.id,
+        label: `${h.asset_name}${h.ticker ? ` (${h.ticker})` : ''} - ${formatCurrency(value)}`,
+        assetType: h.asset_type,
+        quantity: h.quantity,
+        value: value,
+        costBasis: h.cost_basis_total || 0
+      };
+    }).filter(h => h.value > 0);
+  }, [holdings, btcPrice]);
+
   // Build comparison chart data
   const chartData = useMemo(() => {
     if (!baselineProjection?.yearByYear) return [];
@@ -1092,14 +1117,6 @@ export default function Scenarios() {
   };
 
   // Format helpers
-  const formatCurrency = (num) => {
-    if (num === null || num === undefined) return '-';
-    if (num >= 1e9) return `$${(num / 1e9).toFixed(1)}B`;
-    if (num >= 1e6) return `$${(num / 1e6).toFixed(1)}M`;
-    if (num >= 1e3) return `$${(num / 1e3).toFixed(0)}K`;
-    return `$${num.toLocaleString()}`;
-  };
-
   const formatDelta = (baseline, scenario) => {
     if (baseline === null || scenario === null) return '-';
     const diff = scenario - baseline;
@@ -1996,6 +2013,163 @@ export default function Scenarios() {
               </Button>
               
               <p className="text-xs text-zinc-500 mt-3">Use positive amounts for income (inheritance, bonus). Use negative amounts for expenses (-50000 for a large purchase).</p>
+            </CollapsibleFormSection>
+
+            {/* Asset Reallocation */}
+            <CollapsibleFormSection title="ASSET REALLOCATION" defaultOpen={false}>
+              <p className="text-xs text-zinc-500 mb-4">Model selling one asset to buy another. Tax implications are estimated based on your cost basis.</p>
+              
+              {/* List existing reallocations */}
+              {form.asset_reallocations && form.asset_reallocations.length > 0 && (
+                <div className="space-y-4 mb-4">
+                  {form.asset_reallocations.map((realloc) => {
+                    const selectedHolding = holdingsOptions.find(h => h.id === realloc.sell_holding_id);
+                    return (
+                      <div key={realloc.id} className="p-4 bg-zinc-800/50 rounded-lg border border-zinc-700">
+                        <div className="flex justify-between items-start mb-3">
+                          <span className="text-sm font-medium text-zinc-200">Reallocation</span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeAssetReallocation(realloc.id)}
+                            className="text-red-400 hover:text-red-300 hover:bg-red-900/20 h-6 w-6 p-0"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        
+                        {/* SELL Section */}
+                        <div className="mb-4">
+                          <Label className="text-orange-400 text-xs font-semibold mb-2 block">SELL</Label>
+                          <div className="grid grid-cols-3 gap-3">
+                            <div className="space-y-1">
+                              <Label className="text-zinc-400 text-xs">Asset to Sell</Label>
+                              <Select
+                                value={realloc.sell_holding_id}
+                                onValueChange={(v) => updateAssetReallocation(realloc.id, 'sell_holding_id', v)}
+                              >
+                                <SelectTrigger className="bg-zinc-800 border-zinc-700 h-9 text-sm text-zinc-200">
+                                  <SelectValue placeholder="Select holding" />
+                                </SelectTrigger>
+                                <SelectContent className="bg-zinc-900 border-zinc-700">
+                                  {holdingsOptions.map(h => (
+                                    <SelectItem key={h.id} value={h.id} className="text-zinc-200 focus:text-white">{h.label}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-zinc-400 text-xs">Amount to Sell ($)</Label>
+                              <Input
+                                type="number"
+                                placeholder="Amount"
+                                value={realloc.sell_amount}
+                                onChange={(e) => updateAssetReallocation(realloc.id, 'sell_amount', e.target.value)}
+                                className="bg-zinc-800 border-zinc-700 h-9 text-sm text-zinc-100"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-zinc-400 text-xs">Execution Year/Age</Label>
+                              <Input
+                                type="number"
+                                placeholder="Age"
+                                value={realloc.execution_year}
+                                onChange={(e) => updateAssetReallocation(realloc.id, 'execution_year', e.target.value)}
+                                className="bg-zinc-800 border-zinc-700 h-9 text-sm text-zinc-100"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* BUY Section */}
+                        <div>
+                          <Label className="text-emerald-400 text-xs font-semibold mb-2 block">BUY</Label>
+                          <div className="grid grid-cols-2 gap-3 mb-2">
+                            <div className="space-y-1">
+                              <Label className="text-zinc-400 text-xs">Asset Name</Label>
+                              <Input
+                                type="text"
+                                placeholder="e.g., Dividend ETF"
+                                value={realloc.buy_asset_name}
+                                onChange={(e) => updateAssetReallocation(realloc.id, 'buy_asset_name', e.target.value)}
+                                className="bg-zinc-800 border-zinc-700 h-9 text-sm text-zinc-100"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-zinc-400 text-xs">Asset Type</Label>
+                              <Select
+                                value={realloc.buy_asset_type}
+                                onValueChange={(v) => updateAssetReallocation(realloc.id, 'buy_asset_type', v)}
+                              >
+                                <SelectTrigger className="bg-zinc-800 border-zinc-700 h-9 text-sm text-zinc-200">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="bg-zinc-900 border-zinc-700">
+                                  <SelectItem value="stocks" className="text-zinc-200 focus:text-white">Stocks</SelectItem>
+                                  <SelectItem value="bonds" className="text-zinc-200 focus:text-white">Bonds</SelectItem>
+                                  <SelectItem value="real_estate" className="text-zinc-200 focus:text-white">Real Estate</SelectItem>
+                                  <SelectItem value="cash" className="text-zinc-200 focus:text-white">Cash</SelectItem>
+                                  <SelectItem value="other" className="text-zinc-200 focus:text-white">Other</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-3 gap-3">
+                            <div className="space-y-1">
+                              <Label className="text-zinc-400 text-xs">Expected CAGR (%)</Label>
+                              <Input
+                                type="number"
+                                placeholder="7"
+                                value={realloc.buy_cagr}
+                                onChange={(e) => updateAssetReallocation(realloc.id, 'buy_cagr', e.target.value)}
+                                className="bg-zinc-800 border-zinc-700 h-9 text-sm text-zinc-100"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-zinc-400 text-xs">Dividend Yield (%)</Label>
+                              <Input
+                                type="number"
+                                placeholder="0"
+                                value={realloc.buy_dividend_yield}
+                                onChange={(e) => updateAssetReallocation(realloc.id, 'buy_dividend_yield', e.target.value)}
+                                className="bg-zinc-800 border-zinc-700 h-9 text-sm text-zinc-100"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-zinc-400 text-xs">Qualified Dividends</Label>
+                              <Select
+                                value={realloc.buy_dividend_qualified ? "yes" : "no"}
+                                onValueChange={(v) => updateAssetReallocation(realloc.id, 'buy_dividend_qualified', v === "yes")}
+                              >
+                                <SelectTrigger className="bg-zinc-800 border-zinc-700 h-9 text-sm text-zinc-200">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="bg-zinc-900 border-zinc-700">
+                                  <SelectItem value="yes" className="text-zinc-200 focus:text-white">Yes</SelectItem>
+                                  <SelectItem value="no" className="text-zinc-200 focus:text-white">No</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              
+              {/* Add reallocation button */}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addAssetReallocation}
+                className="border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Reallocation
+              </Button>
             </CollapsibleFormSection>
 
             <div className="flex justify-end gap-3 pt-4 border-t border-zinc-800">
