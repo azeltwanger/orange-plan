@@ -109,6 +109,7 @@ export default function TaxCenter() {
   const [filingStatus, setFilingStatus] = useState('single');
   const [stateOfResidence, setStateOfResidence] = useState('TX');
   const [expectedFutureIncome, setExpectedFutureIncome] = useState(null); // Will be set from userSettings
+  const [costBasisMethod, setCostBasisMethod] = useState('HIFO');
 
   // Sale form state
   const [saleForm, setSaleForm] = useState({
@@ -236,6 +237,7 @@ export default function TaxCenter() {
       const settings = userSettings[0];
       if (settings.filing_status !== undefined) setFilingStatus(settings.filing_status);
       if (settings.state_of_residence !== undefined) setStateOfResidence(settings.state_of_residence);
+      if (settings.cost_basis_method !== undefined) setCostBasisMethod(settings.cost_basis_method);
       // Default expected future income to retirement spending (when user will likely sell)
       if (expectedFutureIncome === null) {
         setExpectedFutureIncome(settings.annual_retirement_spending || 80000);
@@ -263,10 +265,11 @@ export default function TaxCenter() {
       saveSettings.mutate({
         filing_status: filingStatus || 'single',
         state_of_residence: stateOfResidence || '',
+        cost_basis_method: costBasisMethod || 'HIFO',
       });
     }, 1000); // Debounce 1 second
     return () => clearTimeout(timeoutId);
-  }, [settingsLoaded, filingStatus, stateOfResidence]);
+  }, [settingsLoaded, filingStatus, stateOfResidence, costBasisMethod]);
 
   // Map account_type to tax_treatment
   const getTaxTreatment = (accountType) => {
@@ -1796,14 +1799,30 @@ export default function TaxCenter() {
             </div>
           </div>
 
-          {/* Lot Method Comparison */}
+          {/* Lot Method Comparison - Selectable */}
           <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
             <h3 className="font-semibold mb-2">Tax Lot Selection Methods</h3>
-            <p className="text-sm text-zinc-500 mb-4">Compare different methods to minimize your tax liability</p>
+            <p className="text-sm text-zinc-500 mb-4">Select your preferred method for projections and tax calculations</p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {Object.entries(LOT_METHODS).slice(0, 3).map(([key, method]) => (
-                <div key={key} className="p-4 rounded-xl bg-zinc-800/30 border border-zinc-700">
-                  <h4 className="font-semibold text-orange-400">{method.name}</h4>
+                <div 
+                  key={key} 
+                  onClick={() => setCostBasisMethod(key)}
+                  className={cn(
+                    "p-4 rounded-xl border cursor-pointer transition-all",
+                    costBasisMethod === key 
+                      ? "bg-orange-500/20 border-orange-500 ring-2 ring-orange-500/50" 
+                      : "bg-zinc-800/30 border-zinc-700 hover:border-zinc-600"
+                  )}
+                >
+                  <div className="flex items-center justify-between">
+                    <h4 className={cn("font-semibold", costBasisMethod === key ? "text-orange-400" : "text-zinc-300")}>
+                      {method.name}
+                    </h4>
+                    {costBasisMethod === key && (
+                      <CheckCircle className="w-5 h-5 text-orange-400" />
+                    )}
+                  </div>
                   <p className="text-sm text-zinc-500 mt-1">{method.description}</p>
                   {key === 'HIFO' && (
                     <Badge className="mt-2 bg-emerald-500/20 text-emerald-400">Recommended</Badge>
@@ -1811,6 +1830,7 @@ export default function TaxCenter() {
                 </div>
               ))}
             </div>
+            <p className="text-xs text-zinc-600 mt-4">This method will be used in retirement projections and scenario comparisons.</p>
           </div>
         </TabsContent>
 
