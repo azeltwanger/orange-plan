@@ -108,6 +108,7 @@ export function runUnifiedProjection({
   yearlyReturnOverrides = null, // { btc: number[], stocks: number[], bonds: number[], realEstate: number[], cash: number[], other: number[] }
   customReturnPeriods = {}, // { btc: [{startYear, endYear, rate}], stocks: [...], etc. }
   tickerReturns = {}, // { 'MSTR': 40, 'AAPL': 12 } - per-ticker overrides
+  hypothetical_btc_loan = null,
   DEBUG = false,
 }) {
   const results = [];
