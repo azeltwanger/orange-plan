@@ -142,9 +142,6 @@ export default function FinancialPlan() {
   // State tax settings
   const [stateOfResidence, setStateOfResidence] = useState('TX');
 
-  // Cost basis method
-  const [costBasisMethod, setCostBasisMethod] = useState('HIFO');
-
   // Settings loaded flag
   const [settingsLoaded, setSettingsLoaded] = useState(false);
 
@@ -341,7 +338,6 @@ export default function FinancialPlan() {
                   if (settings.hsa_family_coverage !== undefined) setHsaFamilyCoverage(settings.hsa_family_coverage);
                   if (settings.filing_status !== undefined) setFilingStatus(settings.filing_status);
                   if (settings.state_of_residence !== undefined) setStateOfResidence(settings.state_of_residence);
-                  if (settings.cost_basis_method !== undefined) setCostBasisMethod(settings.cost_basis_method);
                   if (settings.auto_top_up_btc_collateral !== undefined) setAutoTopUpBtcCollateral(settings.auto_top_up_btc_collateral);
                   if (settings.btc_top_up_trigger_ltv !== undefined) setBtcTopUpTriggerLtv(settings.btc_top_up_trigger_ltv);
                   if (settings.btc_top_up_target_ltv !== undefined) setBtcTopUpTargetLtv(settings.btc_top_up_target_ltv);
@@ -3539,7 +3535,7 @@ export default function FinancialPlan() {
           {/* Retirement Planning Settings */}
           <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
             <h3 className="font-semibold mb-6">Retirement Planning Settings</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label className="text-zinc-400">Current Age</Label>
                   <Input type="number" value={currentAge} onChange={(e) => setCurrentAge(parseInt(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
@@ -3584,30 +3580,6 @@ export default function FinancialPlan() {
                       {getStateTaxSummary(stateOfResidence).details.join(' • ')}
                     </p>
                   )}
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-zinc-400">Cost Basis Method</Label>
-                  <div className="mt-2 flex items-center gap-2">
-                    <span className={cn(
-                      "px-3 py-2 rounded-lg border text-sm font-medium",
-                      "bg-orange-500/10 border-orange-500/30 text-orange-400"
-                    )}>
-                      {costBasisMethod}
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-xs text-zinc-500 hover:text-orange-400"
-                      onClick={() => window.location.href = '/tax-strategy'}
-                    >
-                      Change →
-                    </Button>
-                  </div>
-                  <p className="text-xs text-zinc-500 mt-1">
-                    {costBasisMethod === 'HIFO' && 'Sells highest cost lots first'}
-                    {costBasisMethod === 'FIFO' && 'Sells oldest lots first'}
-                    {costBasisMethod === 'LIFO' && 'Sells newest lots first'}
-                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label className="text-zinc-400">Gross Income (Pre-Retirement)</Label>
