@@ -132,14 +132,6 @@ export default function Scenarios() {
     savings_allocation_bonds_override: '',
     savings_allocation_cash_override: '',
     savings_allocation_other_override: '',
-    btc_return_model_override: '',
-    gross_annual_income_override: '',
-    current_annual_spending_override: '',
-    dividend_income_override: '',
-    dividend_income_qualified: true,
-    one_time_events: [],
-    asset_reallocations: [],
-    hypothetical_btc_loan: { enabled: false, loan_amount: '', interest_rate: '', collateral_btc: '', ltv: '' },
   });
 
   const currentPrice = btcPrice || 97000;
@@ -923,78 +915,6 @@ export default function Scenarios() {
       savings_allocation_btc_override: '', savings_allocation_stocks_override: '',
       savings_allocation_bonds_override: '', savings_allocation_cash_override: '',
       savings_allocation_other_override: '',
-      btc_return_model_override: '',
-      gross_annual_income_override: '',
-      current_annual_spending_override: '',
-      dividend_income_override: '',
-      dividend_income_qualified: true,
-      one_time_events: [],
-      asset_reallocations: [],
-      hypothetical_btc_loan: { enabled: false, loan_amount: '', interest_rate: '', collateral_btc: '', ltv: '' },
-    });
-  };
-
-  // Array handlers for one_time_events
-  const addOneTimeEvent = () => {
-    setForm({
-      ...form,
-      one_time_events: [...(form.one_time_events || []), { 
-        id: Date.now().toString(), 
-        year: '', 
-        amount: '', 
-        description: '', 
-        event_type: 'windfall' 
-      }]
-    });
-  };
-
-  const removeOneTimeEvent = (id) => {
-    setForm({
-      ...form,
-      one_time_events: (form.one_time_events || []).filter(e => e.id !== id)
-    });
-  };
-
-  const updateOneTimeEvent = (id, field, value) => {
-    setForm({
-      ...form,
-      one_time_events: (form.one_time_events || []).map(e => 
-        e.id === id ? { ...e, [field]: value } : e
-      )
-    });
-  };
-
-  // Array handlers for asset_reallocations
-  const addAssetReallocation = () => {
-    setForm({
-      ...form,
-      asset_reallocations: [...(form.asset_reallocations || []), {
-        id: Date.now().toString(),
-        sell_holding_id: '',
-        sell_amount: '',
-        execution_year: '',
-        buy_asset_name: '',
-        buy_asset_type: 'stocks',
-        buy_cagr: '',
-        buy_dividend_yield: '',
-        buy_dividend_qualified: true
-      }]
-    });
-  };
-
-  const removeAssetReallocation = (id) => {
-    setForm({
-      ...form,
-      asset_reallocations: (form.asset_reallocations || []).filter(r => r.id !== id)
-    });
-  };
-
-  const updateAssetReallocation = (id, field, value) => {
-    setForm({
-      ...form,
-      asset_reallocations: (form.asset_reallocations || []).map(r =>
-        r.id === id ? { ...r, [field]: value } : r
-      )
     });
   };
 
@@ -1021,14 +941,6 @@ export default function Scenarios() {
       savings_allocation_bonds_override: form.savings_allocation_bonds_override !== '' ? parseFloat(form.savings_allocation_bonds_override) : null,
       savings_allocation_cash_override: form.savings_allocation_cash_override !== '' ? parseFloat(form.savings_allocation_cash_override) : null,
       savings_allocation_other_override: form.savings_allocation_other_override !== '' ? parseFloat(form.savings_allocation_other_override) : null,
-      btc_return_model_override: form.btc_return_model_override || null,
-      gross_annual_income_override: form.gross_annual_income_override !== '' ? parseFloat(form.gross_annual_income_override) : null,
-      current_annual_spending_override: form.current_annual_spending_override !== '' ? parseFloat(form.current_annual_spending_override) : null,
-      dividend_income_override: form.dividend_income_override !== '' ? parseFloat(form.dividend_income_override) : null,
-      dividend_income_qualified: form.dividend_income_qualified,
-      one_time_events: form.one_time_events || [],
-      asset_reallocations: form.asset_reallocations || [],
-      hypothetical_btc_loan: form.hypothetical_btc_loan || {},
     };
 
     if (editingScenario) {
@@ -1061,14 +973,6 @@ export default function Scenarios() {
       savings_allocation_bonds_override: scenario.savings_allocation_bonds_override ?? '',
       savings_allocation_cash_override: scenario.savings_allocation_cash_override ?? '',
       savings_allocation_other_override: scenario.savings_allocation_other_override ?? '',
-      btc_return_model_override: scenario.btc_return_model_override || '',
-      gross_annual_income_override: scenario.gross_annual_income_override ?? '',
-      current_annual_spending_override: scenario.current_annual_spending_override ?? '',
-      dividend_income_override: scenario.dividend_income_override ?? '',
-      dividend_income_qualified: scenario.dividend_income_qualified ?? true,
-      one_time_events: scenario.one_time_events || [],
-      asset_reallocations: scenario.asset_reallocations || [],
-      hypothetical_btc_loan: scenario.hypothetical_btc_loan || { enabled: false, loan_amount: '', interest_rate: '', collateral_btc: '', ltv: '' },
     });
     setFormOpen(true);
   };
