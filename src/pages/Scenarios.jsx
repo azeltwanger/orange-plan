@@ -1911,6 +1911,93 @@ export default function Scenarios() {
               <p className="text-xs text-zinc-400">Leave empty to use current allocation. Total should equal 100%.</p>
             </CollapsibleFormSection>
 
+            {/* One-Time Events */}
+            <CollapsibleFormSection title="ONE-TIME EVENTS" defaultOpen={false}>
+              <p className="text-xs text-zinc-500 mb-4">Model windfalls, large expenses, inheritance, or bonuses at specific ages.</p>
+              
+              {/* List existing events */}
+              {form.one_time_events && form.one_time_events.length > 0 && (
+                <div className="space-y-2 mb-4">
+                  {form.one_time_events.map((event) => (
+                    <div key={event.id} className="flex items-center gap-2 p-3 bg-zinc-800/50 rounded-lg">
+                      <div className="grid grid-cols-4 gap-2 flex-1">
+                        <div className="space-y-1">
+                          <Label className="text-zinc-400 text-xs">Year/Age</Label>
+                          <Input
+                            type="number"
+                            placeholder="Age"
+                            value={event.year}
+                            onChange={(e) => updateOneTimeEvent(event.id, 'year', e.target.value)}
+                            className="bg-zinc-800 border-zinc-700 h-8 text-sm text-zinc-100"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-zinc-400 text-xs">Amount ($)</Label>
+                          <Input
+                            type="number"
+                            placeholder="+/- amount"
+                            value={event.amount}
+                            onChange={(e) => updateOneTimeEvent(event.id, 'amount', e.target.value)}
+                            className="bg-zinc-800 border-zinc-700 h-8 text-sm text-zinc-100"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-zinc-400 text-xs">Type</Label>
+                          <Select
+                            value={event.event_type}
+                            onValueChange={(v) => updateOneTimeEvent(event.id, 'event_type', v)}
+                          >
+                            <SelectTrigger className="bg-zinc-800 border-zinc-700 h-8 text-sm text-zinc-200">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="bg-zinc-900 border-zinc-700">
+                              <SelectItem value="windfall" className="text-zinc-200 focus:text-white">Windfall</SelectItem>
+                              <SelectItem value="expense" className="text-zinc-200 focus:text-white">Expense</SelectItem>
+                              <SelectItem value="inheritance" className="text-zinc-200 focus:text-white">Inheritance</SelectItem>
+                              <SelectItem value="income" className="text-zinc-200 focus:text-white">Income</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-zinc-400 text-xs">Description</Label>
+                          <Input
+                            type="text"
+                            placeholder="Description"
+                            value={event.description}
+                            onChange={(e) => updateOneTimeEvent(event.id, 'description', e.target.value)}
+                            className="bg-zinc-800 border-zinc-700 h-8 text-sm text-zinc-100"
+                          />
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeOneTimeEvent(event.id)}
+                        className="text-red-400 hover:text-red-300 hover:bg-red-900/20 h-8 w-8 p-0"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              {/* Add event button */}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addOneTimeEvent}
+                className="border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Event
+              </Button>
+              
+              <p className="text-xs text-zinc-500 mt-3">Use positive amounts for income (inheritance, bonus). Use negative amounts for expenses (-50000 for a large purchase).</p>
+            </CollapsibleFormSection>
+
             <div className="flex justify-end gap-3 pt-4 border-t border-zinc-800">
               <Button type="button" variant="outline" onClick={() => setFormOpen(false)} className="border-zinc-600 bg-zinc-800 text-zinc-200 hover:bg-zinc-700 hover:text-white">
                 Cancel
