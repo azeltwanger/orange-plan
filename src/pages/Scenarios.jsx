@@ -445,7 +445,8 @@ export default function Scenarios() {
       tickerReturns: effectiveSettings.ticker_returns || {},
       dividendIncomeQualified,
       assetReallocations,
-    };
+      hypothetical_btc_loan: effectiveSettings.hypothetical_btc_loan || null,
+      };
   };
 
   // Run baseline projection
