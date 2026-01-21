@@ -488,6 +488,10 @@ export function runUnifiedProjection({
 
     // === HYPOTHETICAL LOAN ACTIVATION ===
     const loansToActivateThisYear = pendingHypotheticalLoans.filter(loan => age === loan.start_age);
+    if (loansToActivateThisYear.length > 0) {
+      console.log(`=== LOAN ACTIVATION at Age ${age} ===`);
+      console.log('Loans to activate:', loansToActivateThisYear);
+    }
     loansToActivateThisYear.forEach(newLoan => {
       const liquidBtcQuantity = portfolio.taxable.btc / cumulativeBtcPrice;
       const collateralNeeded = newLoan.collateral_btc_amount || 0;
