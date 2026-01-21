@@ -506,6 +506,8 @@ export function runUnifiedProjection({
       }
       
       tempRunningCollateralizedLoans[newLoan.id] = newLoan;
+      console.log('Loan added to active loans. Proceeds:', newLoan.current_balance, 'Use:', newLoan.use_of_proceeds);
+      console.log('Portfolio BEFORE proceeds - Cash:', portfolio.taxable.cash, 'BTC:', portfolio.taxable.btc, 'Stocks:', portfolio.taxable.stocks);
       const loanKey = `loan_${newLoan.id}`;
       
       if (collateralNeeded > 0) {
