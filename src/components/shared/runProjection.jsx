@@ -7,6 +7,7 @@ import {
 } from '@/components/tax/taxCalculations';
 import { calculateStateTaxOnRetirement, calculateStateIncomeTax } from '@/components/shared/stateTaxConfig';
 import { getTaxConfigForYear, get401kLimit, getRothIRALimit, getTraditionalIRALimit, getHSALimit, getRothIRAIncomeLimit } from '@/components/shared/taxConfig';
+import { selectLots } from '@/components/shared/lotSelectionHelpers';
 
 /**
  * Get custom return rate for a given asset type and year.
@@ -235,6 +236,155 @@ export function runUnifiedProjection({
     return actualWithdrawal;
   };
 
+  // Enhanced withdrawal from taxable account with BTC lot tracking
+  // Uses selectLots for BTC to get accurate cost basis, proportional for other assets
+  const withdrawFromTaxableWithLots = (amount, currentBtcPrice) => {
+    const total = getAccountTotal('taxable');
+    if (total <= 0 || amount <= 0) return { withdrawn: 0, btcCostBasis: 0, otherCostBasis: 0, totalCostBasis: 0 };
+    
+    const actualWithdrawal = Math.min(amount, total);
+    const acct = portfolio.taxable;
+    
+    let btcWithdrawn = 0;
+    let btcCostBasis = 0;
+    let otherWithdrawn = 0;
+    let otherCostBasis = 0;
+    
+    // Determine how much to withdraw from each asset based on strategy
+    let btcTarget = 0;
+    let stocksTarget = 0;
+    let bondsTarget = 0;
+    let cashTarget = 0;
+    let otherTarget = 0;
+    
+    if (assetWithdrawalStrategy === 'proportional') {
+      // Current behavior - withdraw proportionally from all assets
+      const ratio = actualWithdrawal / total;
+      btcTarget = acct.btc * ratio;
+      stocksTarget = acct.stocks * ratio;
+      bondsTarget = acct.bonds * ratio;
+      cashTarget = acct.cash * ratio;
+      otherTarget = acct.other * ratio;
+      
+    } else if (assetWithdrawalStrategy === 'priority') {
+      // Withdraw in priority order until amount is met
+      let remaining = actualWithdrawal;
+      for (const assetType of withdrawalPriorityOrder) {
+        if (remaining <= 0) break;
+        const available = acct[assetType] || 0;
+        const take = Math.min(remaining, available);
+        if (assetType === 'btc') btcTarget = take;
+        else if (assetType === 'stocks') stocksTarget = take;
+        else if (assetType === 'bonds') bondsTarget = take;
+        else if (assetType === 'cash') cashTarget = take;
+        else if (assetType === 'other') otherTarget = take;
+        remaining -= take;
+      }
+      
+    } else if (assetWithdrawalStrategy === 'blended') {
+      // Withdraw according to blend percentages
+      const totalPct = (withdrawalBlendPercentages.btc || 0) + 
+                       (withdrawalBlendPercentages.stocks || 0) + 
+                       (withdrawalBlendPercentages.bonds || 0) + 
+                       (withdrawalBlendPercentages.cash || 0) + 
+                       (withdrawalBlendPercentages.other || 0);
+      
+      if (totalPct > 0) {
+        btcTarget = Math.min(acct.btc, actualWithdrawal * (withdrawalBlendPercentages.btc || 0) / totalPct);
+        stocksTarget = Math.min(acct.stocks, actualWithdrawal * (withdrawalBlendPercentages.stocks || 0) / totalPct);
+        bondsTarget = Math.min(acct.bonds, actualWithdrawal * (withdrawalBlendPercentages.bonds || 0) / totalPct);
+        cashTarget = Math.min(acct.cash, actualWithdrawal * (withdrawalBlendPercentages.cash || 0) / totalPct);
+        otherTarget = Math.min(acct.other, actualWithdrawal * (withdrawalBlendPercentages.other || 0) / totalPct);
+        
+        // If blend doesn't cover full amount (due to min constraints), take remainder proportionally
+        const blendTotal = btcTarget + stocksTarget + bondsTarget + cashTarget + otherTarget;
+        if (blendTotal < actualWithdrawal) {
+          const shortfall = actualWithdrawal - blendTotal;
+          const remainingTotal = (acct.btc - btcTarget) + (acct.stocks - stocksTarget) + 
+                                  (acct.bonds - bondsTarget) + (acct.cash - cashTarget) + (acct.other - otherTarget);
+          if (remainingTotal > 0) {
+            const ratio = Math.min(1, shortfall / remainingTotal);
+            btcTarget += (acct.btc - btcTarget) * ratio;
+            stocksTarget += (acct.stocks - stocksTarget) * ratio;
+            bondsTarget += (acct.bonds - bondsTarget) * ratio;
+            cashTarget += (acct.cash - cashTarget) * ratio;
+            otherTarget += (acct.other - otherTarget) * ratio;
+          }
+        }
+      } else {
+        // Fallback to proportional if no percentages set
+        const ratio = actualWithdrawal / total;
+        btcTarget = acct.btc * ratio;
+        stocksTarget = acct.stocks * ratio;
+        bondsTarget = acct.bonds * ratio;
+        cashTarget = acct.cash * ratio;
+        otherTarget = acct.other * ratio;
+      }
+    }
+    
+    // === BTC: Use lot selection for accurate cost basis ===
+    if (btcTarget > 0 && currentBtcPrice > 0) {
+      const btcQuantityToSell = btcTarget / currentBtcPrice;
+      
+      // Filter lots to only taxable BTC lots
+      const taxableBtcLots = runningTaxLots.filter(lot => 
+        lot.asset_ticker === 'BTC' && 
+        (lot.account_type === 'taxable' || !lot.account_type)
+      );
+      
+      if (taxableBtcLots.length > 0 && btcQuantityToSell > 0) {
+        const lotResult = selectLots(taxableBtcLots, 'BTC', btcQuantityToSell, costBasisMethod);
+        
+        btcCostBasis = lotResult.totalCostBasis;
+        btcWithdrawn = lotResult.totalQuantitySold * currentBtcPrice;
+        
+        // Update running tax lots - reduce remaining quantities
+        for (const selected of lotResult.selectedLots) {
+          const lotIndex = runningTaxLots.findIndex(l => l.id === selected.lot.id || l.lot_id === selected.lot.lot_id);
+          if (lotIndex >= 0) {
+            const currentRemaining = runningTaxLots[lotIndex].remaining_quantity ?? runningTaxLots[lotIndex].quantity ?? 0;
+            runningTaxLots[lotIndex] = {
+              ...runningTaxLots[lotIndex],
+              remaining_quantity: Math.max(0, currentRemaining - selected.quantityFromLot)
+            };
+          }
+        }
+        
+        // Update portfolio
+        acct.btc = Math.max(0, acct.btc - btcWithdrawn);
+      } else {
+        // No lots available, fall back to proportional basis
+        btcWithdrawn = Math.min(btcTarget, acct.btc);
+        const basisRatio = runningTaxableBasis > 0 ? runningTaxableBasis / total : 0;
+        btcCostBasis = btcWithdrawn * basisRatio;
+        acct.btc = Math.max(0, acct.btc - btcWithdrawn);
+      }
+    }
+    
+    // === Other assets: Use proportional cost basis (no lot tracking) ===
+    const nonBtcWithdrawn = stocksTarget + bondsTarget + cashTarget + otherTarget;
+    if (nonBtcWithdrawn > 0) {
+      const nonBtcTotal = acct.stocks + acct.bonds + acct.cash + acct.other;
+      const basisRatio = (nonBtcTotal > 0 && runningTaxableBasis > 0) ? 
+        ((runningTaxableBasis - btcCostBasis) / nonBtcTotal) : 0;
+      
+      otherCostBasis = nonBtcWithdrawn * Math.min(1, basisRatio);
+      otherWithdrawn = nonBtcWithdrawn;
+      
+      acct.stocks = Math.max(0, acct.stocks - stocksTarget);
+      acct.bonds = Math.max(0, acct.bonds - bondsTarget);
+      acct.cash = Math.max(0, acct.cash - cashTarget);
+      acct.other = Math.max(0, acct.other - otherTarget);
+    }
+    
+    return {
+      withdrawn: btcWithdrawn + otherWithdrawn,
+      btcCostBasis,
+      otherCostBasis,
+      totalCostBasis: btcCostBasis + otherCostBasis
+    };
+  };
+
   const addToAccount = (accountKey, amount) => {
     const acct = portfolio[accountKey];
     const currentTotal = getAccountTotal(accountKey);
@@ -261,6 +411,9 @@ export function runUnifiedProjection({
   let cumulativeBtcPrice = currentPrice;
   let cumulativeSavings = 0;
   const liquidationEvents = [];
+  
+  // Create a mutable copy of tax lots for tracking remaining quantities through projection
+  let runningTaxLots = taxLots.map(lot => ({ ...lot }));
 
   // Initialize debt tracking
   const tempRunningDebt = {};
