@@ -333,6 +333,11 @@ export function runUnifiedProjection({
     if (btcTarget > 0 && currentBtcPrice > 0) {
       const btcQuantityToSell = btcTarget / currentBtcPrice;
       
+      // DEBUG: Log BTC execution attempt
+      if (debugYear !== null || amount > 10000) {
+        console.log(`[BTC EXECUTION] btcTarget: $${Math.round(btcTarget)}, currentBtcPrice: $${Math.round(currentBtcPrice)}, btcQuantityToSell: ${btcQuantityToSell.toFixed(6)}, acct.btc before: $${Math.round(acct.btc)}`);
+      }
+      
       // Filter lots to only taxable BTC lots
       const taxableBtcLots = runningTaxLots.filter(lot => 
         lot.asset_ticker === 'BTC' && 
