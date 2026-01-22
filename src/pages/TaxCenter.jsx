@@ -605,6 +605,108 @@ export default function TaxCenter() {
     }
   };
 
+  // Reconstruct historical buy lots from lots_used in sell transactions
+  const reconstructHistoricalLots = async () => {
+    setIsLoading(true);
+    try {
+      const allTxs = await base44.entities.Transaction.list();
+      const sellTransactions = allTxs.filter(t => t.type === 'sell' && t.lots_used?.length > 0);
+      const existingBuys = allTxs.filter(t => t.type === 'buy');
+      const existingLotIds = new Set(existingBuys.map(b => b.lot_id));
+      
+      // Collect unique lots from all lots_used arrays
+      const lotsMap = new Map();
+      
+      for (const sell of sellTransactions) {
+        for (const lotUsed of sell.lots_used) {
+          const lotId = lotUsed.lot_id;
+          
+          // Skip if this lot already exists as a buy transaction
+          if (existingLotIds.has(lotId)) {
+            continue;
+          }
+          
+          if (!lotsMap.has(lotId)) {
+            lotsMap.set(lotId, {
+              lot_id: lotId,
+              asset_ticker: sell.asset_ticker,
+              price_per_unit: lotUsed.price_per_unit,
+              purchase_date: lotUsed.purchase_date,
+              total_quantity_sold: lotUsed.quantity_sold,
+              total_cost_basis: lotUsed.cost_basis,
+              account_type: sell.account_type || 'taxable',
+              account_id: sell.account_id,
+              exchange_or_wallet: sell.exchange_or_wallet,
+            });
+          } else {
+            // Same lot used in multiple sells - accumulate sold quantities
+            const existing = lotsMap.get(lotId);
+            existing.total_quantity_sold += lotUsed.quantity_sold;
+            existing.total_cost_basis += lotUsed.cost_basis;
+          }
+        }
+      }
+      
+      let created = 0;
+      
+      for (const [lotId, lotData] of lotsMap) {
+        // Parse purchase date - handle various formats
+        let purchaseDate;
+        try {
+          if (lotData.purchase_date) {
+            // Handle MM/DD/YYYY format
+            if (lotData.purchase_date.includes('/')) {
+              const parts = lotData.purchase_date.split('/');
+              if (parts.length === 3) {
+                const [month, day, year] = parts;
+                purchaseDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+              }
+            } else {
+              purchaseDate = lotData.purchase_date.split('T')[0];
+            }
+          }
+        } catch {
+          purchaseDate = new Date().toISOString().split('T')[0];
+        }
+        
+        if (!purchaseDate) {
+          purchaseDate = new Date().toISOString().split('T')[0];
+        }
+        
+        // Original quantity = sold quantity (since fully sold)
+        // remaining_quantity = 0 (fully consumed by sells)
+        const originalQuantity = lotData.total_quantity_sold;
+        
+        const buyTx = {
+          type: 'buy',
+          asset_ticker: lotData.asset_ticker,
+          quantity: originalQuantity,
+          remaining_quantity: 0, // Fully consumed
+          price_per_unit: lotData.price_per_unit || 0,
+          total_value: lotData.total_cost_basis || (originalQuantity * (lotData.price_per_unit || 0)),
+          date: purchaseDate,
+          lot_id: lotId,
+          cost_basis: lotData.total_cost_basis || (originalQuantity * (lotData.price_per_unit || 0)),
+          account_type: lotData.account_type,
+          account_id: lotData.account_id,
+          exchange_or_wallet: lotData.exchange_or_wallet || '',
+          notes: `[Reconstructed from sell transaction lots_used]`,
+        };
+        
+        await base44.entities.Transaction.create(buyTx);
+        created++;
+      }
+      
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      alert(`Reconstructed ${created} historical buy lots from sell transaction records`);
+    } catch (error) {
+      console.error('Error reconstructing historical lots:', error);
+      alert('Error: ' + error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const resetForm = () => {
     setFormData({ type: 'buy', asset_ticker: 'BTC', quantity: '', price_per_unit: '', date: format(new Date(), 'yyyy-MM-dd'), exchange: '', account_id: '', trading_fee: '', notes: '' });
     setSaleForm({ account_id: '', asset_ticker: '', quantity: '', price_per_unit: '', date: format(new Date(), 'yyyy-MM-dd'), fee: '', lot_method: 'HIFO', selected_lots: [], exchange: '' });
