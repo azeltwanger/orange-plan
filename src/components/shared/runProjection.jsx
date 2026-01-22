@@ -320,6 +320,15 @@ export function runUnifiedProjection({
       }
     }
     
+    // DEBUG: Log withdrawal targets
+    if (debugYear !== null || amount > 10000) {
+      console.log(`[WITHDRAW DEBUG] Strategy: ${assetWithdrawalStrategy}`);
+      console.log(`[WITHDRAW DEBUG] Amount requested: $${Math.round(amount)}, Actual: $${Math.round(actualWithdrawal)}, Account total: $${Math.round(total)}`);
+      console.log(`[WITHDRAW DEBUG] Account balances - BTC: $${Math.round(acct.btc)}, Stocks: $${Math.round(acct.stocks)}, Bonds: $${Math.round(acct.bonds)}, Cash: $${Math.round(acct.cash)}, Other: $${Math.round(acct.other)}`);
+      console.log(`[WITHDRAW DEBUG] Targets - BTC: $${Math.round(btcTarget)}, Stocks: $${Math.round(stocksTarget)}, Bonds: $${Math.round(bondsTarget)}, Cash: $${Math.round(cashTarget)}, Other: $${Math.round(otherTarget)}`);
+      console.log(`[WITHDRAW DEBUG] Target total: $${Math.round(btcTarget + stocksTarget + bondsTarget + cashTarget + otherTarget)}`);
+    }
+    
     // === BTC: Use lot selection for accurate cost basis ===
     if (btcTarget > 0 && currentBtcPrice > 0) {
       const btcQuantityToSell = btcTarget / currentBtcPrice;
@@ -383,6 +392,12 @@ export function runUnifiedProjection({
     if (acct.bonds > 0 && acct.bonds < DUST_THRESHOLD) acct.bonds = 0;
     if (acct.cash > 0 && acct.cash < DUST_THRESHOLD) acct.cash = 0;
     if (acct.other > 0 && acct.other < DUST_THRESHOLD) acct.other = 0;
+    
+    // DEBUG: Log actual withdrawal result
+    if (debugYear !== null || amount > 10000) {
+      console.log(`[WITHDRAW RESULT] BTC withdrawn: $${Math.round(btcWithdrawn)}, Other withdrawn: $${Math.round(otherWithdrawn)}, Total: $${Math.round(btcWithdrawn + otherWithdrawn)}`);
+      console.log(`[WITHDRAW RESULT] Remaining balances - BTC: $${Math.round(acct.btc)}, Stocks: $${Math.round(acct.stocks)}, Bonds: $${Math.round(acct.bonds)}, Cash: $${Math.round(acct.cash)}, Other: $${Math.round(acct.other)}`);
+    }
     
     return {
       withdrawn: btcWithdrawn + otherWithdrawn,
