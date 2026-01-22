@@ -208,7 +208,7 @@ export default function CsvImportDialog({ open, onClose }) {
     for (const tx of sortedTransactions) {
       const txType = String(tx.type || '').toLowerCase().trim();
       const isSell = txType === 'sell' || txType.includes('sell') || txType.includes('sold') || txType === 'sale' || txType === 's';
-      const isBuy = !isSell;
+      const isBuy = txType === 'buy' || txType.includes('buy') || txType.includes('bought') || txType === 'purchase' || txType === 'b' || !isSell;
       
       if (isBuy) {
         stats.buys++;
