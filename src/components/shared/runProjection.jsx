@@ -1895,7 +1895,7 @@ export function runUnifiedProjection({
     const encumberedBtcValueThisYear = currentTotalEncumberedBtc * cumulativeBtcPrice;
     
     // End-of-year dust cleanup for all accounts to prevent compounding of near-zero balances
-    const DUST_THRESHOLD_EOY = 1;
+    const DUST_THRESHOLD_EOY = 10; // Increased threshold to catch more edge cases
     ['taxable', 'taxDeferred', 'taxFree'].forEach(accountKey => {
       const acct = portfolio[accountKey];
       if (acct.btc > 0 && acct.btc < DUST_THRESHOLD_EOY) acct.btc = 0;
@@ -1907,9 +1907,18 @@ export function runUnifiedProjection({
     if (portfolio.realEstate > 0 && portfolio.realEstate < DUST_THRESHOLD_EOY) portfolio.realEstate = 0;
     
     const liquidAssetsAfterYear = getTotalLiquid() + portfolio.realEstate;
-    if (liquidAssetsAfterYear <= 0 && firstDepletionAge === null) {
+    
+    // Check for depletion with a reasonable threshold (under $100 total is effectively depleted)
+    const DEPLETION_THRESHOLD = 100;
+    if (liquidAssetsAfterYear < DEPLETION_THRESHOLD && firstDepletionAge === null) {
       firstDepletionAge = age;
       ranOutOfMoneyThisYear = true;
+      
+      // Force zero all balances to prevent any future growth
+      portfolio.taxable = { btc: 0, stocks: 0, bonds: 0, cash: 0, other: 0 };
+      portfolio.taxDeferred = { btc: 0, stocks: 0, bonds: 0, cash: 0, other: 0 };
+      portfolio.taxFree = { btc: 0, stocks: 0, bonds: 0, cash: 0, other: 0 };
+      portfolio.realEstate = 0;
     }
     // Once depleted, stay depleted - don't reset firstDepletionAge
 
