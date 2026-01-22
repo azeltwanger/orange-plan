@@ -3710,7 +3710,7 @@ export default function FinancialPlan() {
                           </div>
                         ))}
                       </div>
-                      <div className="mt-3 flex items-center gap-2">
+                      <div className="mt-3 flex items-center gap-3">
                         <span className="text-xs text-zinc-500">Total:</span>
                         <span className={cn(
                           "text-sm font-medium",
@@ -3721,7 +3721,36 @@ export default function FinancialPlan() {
                           {Object.values(withdrawalBlendPercentages).reduce((a, b) => a + b, 0)}%
                         </span>
                         {Object.values(withdrawalBlendPercentages).reduce((a, b) => a + b, 0) !== 100 && (
-                          <span className="text-xs text-red-400">Must equal 100%</span>
+                          <>
+                            <span className="text-xs text-red-400">Must equal 100%</span>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="ml-2 text-xs bg-transparent border-zinc-600 hover:border-orange-500 text-zinc-400 hover:text-orange-400"
+                              onClick={() => {
+                                const total = Object.values(withdrawalBlendPercentages).reduce((a, b) => a + b, 0);
+                                if (total === 0) {
+                                  setWithdrawalBlendPercentages({ bonds: 25, stocks: 25, other: 25, btc: 25 });
+                                } else {
+                                  const factor = 100 / total;
+                                  const normalized = {};
+                                  let sum = 0;
+                                  const keys = ['bonds', 'stocks', 'other', 'btc'];
+                                  keys.forEach((key, i) => {
+                                    if (i === keys.length - 1) {
+                                      normalized[key] = 100 - sum;
+                                    } else {
+                                      normalized[key] = Math.round((withdrawalBlendPercentages[key] || 0) * factor);
+                                      sum += normalized[key];
+                                    }
+                                  });
+                                  setWithdrawalBlendPercentages(normalized);
+                                }
+                              }}
+                            >
+                              Normalize to 100%
+                            </Button>
+                          </>
                         )}
                       </div>
                     </div>
