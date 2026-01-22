@@ -262,22 +262,18 @@ export default function FinancialPlan() {
 
   // TEMPORARY TEST - remove after verification
   useEffect(() => {
-    if (activeTaxLots.length > 0) {
+    if (activeTaxLots && activeTaxLots.length > 0) {
       console.log('=== TESTING selectLots ===');
       
-      // Test selling 1 BTC with each method
-      const testQty = 1;
-      
-      const fifoResult = selectLots(activeTaxLots, 'BTC', testQty, 'FIFO');
-      const lifoResult = selectLots(activeTaxLots, 'BTC', testQty, 'LIFO');
-      const hifoResult = selectLots(activeTaxLots, 'BTC', testQty, 'HIFO');
+      const fifoResult = selectLots(activeTaxLots, 'BTC', 1, 'FIFO');
+      const lifoResult = selectLots(activeTaxLots, 'BTC', 1, 'LIFO');
+      const hifoResult = selectLots(activeTaxLots, 'BTC', 1, 'HIFO');
       
       console.log('Selling 1 BTC:');
-      console.log('FIFO - Cost Basis: $' + fifoResult.totalCostBasis.toFixed(2) + ', Lots used:', fifoResult.selectedLots.length);
-      console.log('LIFO - Cost Basis: $' + lifoResult.totalCostBasis.toFixed(2) + ', Lots used:', lifoResult.selectedLots.length);
-      console.log('HIFO - Cost Basis: $' + hifoResult.totalCostBasis.toFixed(2) + ', Lots used:', hifoResult.selectedLots.length);
-      
-      console.log('Available BTC:', getAvailableQuantity(activeTaxLots, 'BTC').toFixed(8));
+      console.log('FIFO - Cost Basis: $' + fifoResult.totalCostBasis.toFixed(2));
+      console.log('LIFO - Cost Basis: $' + lifoResult.totalCostBasis.toFixed(2));
+      console.log('HIFO - Cost Basis: $' + hifoResult.totalCostBasis.toFixed(2));
+      console.log('Available BTC:', getAvailableQuantity(activeTaxLots, 'BTC'));
     }
   }, [activeTaxLots]);
 
