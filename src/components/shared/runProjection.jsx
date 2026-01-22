@@ -353,6 +353,11 @@ export function runUnifiedProjection({
       if (taxableBtcLots.length > 0 && btcQuantityToSell > 0) {
         const lotResult = selectLots(taxableBtcLots, 'BTC', btcQuantityToSell, costBasisMethod);
         
+        // DEBUG: Log selectLots result
+        if (debugYear !== null || amount > 10000) {
+          console.log(`[BTC EXECUTION] selectLots result: totalQuantitySold=${lotResult.totalQuantitySold?.toFixed(6)}, totalCostBasis=$${Math.round(lotResult.totalCostBasis || 0)}, selectedLots=${lotResult.selectedLots?.length || 0}`);
+        }
+        
         btcCostBasis = lotResult.totalCostBasis;
         btcWithdrawn = lotResult.totalQuantitySold * currentBtcPrice;
         
