@@ -1843,9 +1843,8 @@ export function runUnifiedProjection({
     if (liquidAssetsAfterYear <= 0 && firstDepletionAge === null) {
       firstDepletionAge = age;
       ranOutOfMoneyThisYear = true;
-    } else if (liquidAssetsAfterYear > 0 && firstDepletionAge !== null) {
-      firstDepletionAge = null;
     }
+    // Once depleted, stay depleted - don't reset firstDepletionAge
 
     // Get asset totals
     const getAssetTotal = (assetKey) => {
