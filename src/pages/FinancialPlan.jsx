@@ -3636,26 +3636,20 @@ export default function FinancialPlan() {
                 </div>
                 <div className="space-y-2">
                   <Label className="text-zinc-400">Cost Basis Method</Label>
-                  <div className="mt-1 flex items-center gap-2">
-                    <span className={cn(
-                      "px-3 py-2 rounded-lg border text-sm font-medium",
-                      "bg-orange-500/10 border-orange-500/30 text-orange-400"
-                    )}>
-                      {costBasisMethod}
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-xs text-zinc-500 hover:text-orange-400"
-                      onClick={() => window.location.href = '/TaxCenter'}
-                    >
-                      Change →
-                    </Button>
-                  </div>
-                  <p className="text-xs text-zinc-500">
-                    {costBasisMethod === 'HIFO' && 'Sells highest cost lots first'}
+                  <Select value={costBasisMethod} onValueChange={setCostBasisMethod}>
+                    <SelectTrigger className="bg-zinc-900 border-zinc-800">
+                      <SelectValue placeholder="Select method" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-zinc-900 border-zinc-700">
+                      <SelectItem value="FIFO">FIFO - First in, first out</SelectItem>
+                      <SelectItem value="LIFO">LIFO - Last in, first out</SelectItem>
+                      <SelectItem value="HIFO">HIFO - Highest cost first</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-zinc-500 mt-1">
                     {costBasisMethod === 'FIFO' && 'Sells oldest lots first'}
                     {costBasisMethod === 'LIFO' && 'Sells newest lots first'}
+                    {costBasisMethod === 'HIFO' && 'Sells highest cost lots first'}
                   </p>
                 </div>
                 

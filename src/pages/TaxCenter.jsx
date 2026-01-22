@@ -1799,36 +1799,27 @@ export default function TaxCenter() {
             </div>
           </div>
 
-          {/* Lot Method Comparison - Selectable */}
+          {/* Lot Method Comparison - Dropdown */}
           <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
-            <h3 className="font-semibold mb-2">Tax Lot Selection Methods</h3>
+            <h3 className="font-semibold mb-2">Tax Lot Selection Method</h3>
             <p className="text-sm text-zinc-500 mb-4">Select your preferred method for projections and tax calculations</p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {Object.entries(LOT_METHODS).slice(0, 3).map(([key, method]) => (
-                <div 
-                  key={key} 
-                  onClick={() => setCostBasisMethod(key)}
-                  className={cn(
-                    "p-4 rounded-xl border cursor-pointer transition-all",
-                    costBasisMethod === key 
-                      ? "bg-orange-500/20 border-orange-500 ring-2 ring-orange-500/50" 
-                      : "bg-zinc-800/30 border-zinc-700 hover:border-zinc-600"
-                  )}
-                >
-                  <div className="flex items-center justify-between">
-                    <h4 className={cn("font-semibold", costBasisMethod === key ? "text-orange-400" : "text-zinc-300")}>
-                      {method.name}
-                    </h4>
-                    {costBasisMethod === key && (
-                      <CheckCircle className="w-5 h-5 text-orange-400" />
-                    )}
-                  </div>
-                  <p className="text-sm text-zinc-500 mt-1">{method.description}</p>
-                  {key === 'HIFO' && (
-                    <Badge className="mt-2 bg-emerald-500/20 text-emerald-400">Recommended</Badge>
-                  )}
-                </div>
-              ))}
+            <div className="space-y-2">
+              <Label className="text-zinc-400">Cost Basis Method</Label>
+              <Select value={costBasisMethod} onValueChange={setCostBasisMethod}>
+                <SelectTrigger className="bg-zinc-900 border-zinc-800">
+                  <SelectValue placeholder="Select method" />
+                </SelectTrigger>
+                <SelectContent className="bg-zinc-900 border-zinc-700">
+                  <SelectItem value="FIFO">FIFO - First in, first out</SelectItem>
+                  <SelectItem value="LIFO">LIFO - Last in, first out</SelectItem>
+                  <SelectItem value="HIFO">HIFO - Highest cost first (Recommended)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-zinc-500 mt-1">
+                {costBasisMethod === 'FIFO' && 'Sells oldest lots first'}
+                {costBasisMethod === 'LIFO' && 'Sells newest lots first'}
+                {costBasisMethod === 'HIFO' && 'Sells highest cost lots first - minimizes gains'}
+              </p>
             </div>
             <p className="text-xs text-zinc-600 mt-4">This method will be used in retirement projections and scenario comparisons.</p>
           </div>
