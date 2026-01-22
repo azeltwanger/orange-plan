@@ -1693,7 +1693,7 @@ export function runUnifiedProjection({
         taxFreeBalance,
         rothContributions: totalRothContributions,
         taxableGainPercent: estimatedCurrentGainRatio,
-        isLongTermGain: true,
+        isLongTermGain: true, // Legacy fallback - actual gains calculated from lots below
         filingStatus,
         age: age,
         otherIncome: totalOtherIncomeForTax,
@@ -1751,7 +1751,7 @@ export function runUnifiedProjection({
           taxFreeBalance: getAccountTotal('taxFree'),
           rothContributions: totalRothContributions,
           taxableGainPercent: estimatedCurrentGainRatio,
-          isLongTermGain: true,
+          isLongTermGain: true, // Legacy fallback
           filingStatus,
           age: age,
           otherIncome: totalOtherIncomeForTax,
