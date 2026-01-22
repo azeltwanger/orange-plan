@@ -320,24 +320,9 @@ export function runUnifiedProjection({
       }
     }
     
-    // DEBUG: Log withdrawal targets
-    if (debugYear !== null || amount > 10000) {
-      console.log(`[WITHDRAW DEBUG] Strategy: ${assetWithdrawalStrategy}`);
-      console.log(`[WITHDRAW DEBUG] Amount requested: $${Math.round(amount)}, Actual: $${Math.round(actualWithdrawal)}, Account total: $${Math.round(total)}`);
-      console.log(`[WITHDRAW DEBUG] Account balances - BTC: $${Math.round(acct.btc)}, Stocks: $${Math.round(acct.stocks)}, Bonds: $${Math.round(acct.bonds)}, Cash: $${Math.round(acct.cash)}, Other: $${Math.round(acct.other)}`);
-      console.log(`[WITHDRAW DEBUG] Targets - BTC: $${Math.round(btcTarget)}, Stocks: $${Math.round(stocksTarget)}, Bonds: $${Math.round(bondsTarget)}, Cash: $${Math.round(cashTarget)}, Other: $${Math.round(otherTarget)}`);
-      console.log(`[WITHDRAW DEBUG] Target total: $${Math.round(btcTarget + stocksTarget + bondsTarget + cashTarget + otherTarget)}`);
-    }
-    
     // === BTC: Use lot selection for accurate cost basis ===
     if (btcTarget > 0 && currentBtcPrice > 0) {
       const btcQuantityToSell = btcTarget / currentBtcPrice;
-      
-      // DEBUG: Log BTC execution attempt
-      if (debugYear !== null || amount > 10000) {
-        console.log(`[BTC EXECUTION] btcTarget: $${Math.round(btcTarget)}, currentBtcPrice: $${Math.round(currentBtcPrice)}, btcQuantityToSell: ${btcQuantityToSell.toFixed(6)}, acct.btc before: $${Math.round(acct.btc)}`);
-        console.log(`[BTC EXECUTION] runningTaxLots count: ${runningTaxLots.length}, sample lot:`, runningTaxLots[0]);
-      }
       
       // Filter lots to only taxable BTC lots
       const taxableBtcLots = runningTaxLots.filter(lot => 
@@ -345,18 +330,11 @@ export function runUnifiedProjection({
         (lot.account_type === 'taxable' || !lot.account_type)
       );
       
-      // DEBUG: Log filtered lots
-      if (debugYear !== null || amount > 10000) {
-        console.log(`[BTC EXECUTION] taxableBtcLots count: ${taxableBtcLots.length}, available qty: ${taxableBtcLots.reduce((sum, l) => sum + (l.remaining_quantity ?? l.quantity ?? 0), 0).toFixed(6)}`);
-      }
+      // Calculate available quantity from lots
+      const availableLotQty = taxableBtcLots.reduce((sum, lot) => sum + (lot.remaining_quantity ?? lot.quantity ?? 0), 0);
       
-      if (taxableBtcLots.length > 0 && btcQuantityToSell > 0) {
+      if (taxableBtcLots.length > 0 && availableLotQty > 0 && btcQuantityToSell > 0) {
         const lotResult = selectLots(taxableBtcLots, 'BTC', btcQuantityToSell, costBasisMethod);
-        
-        // DEBUG: Log selectLots result
-        if (debugYear !== null || amount > 10000) {
-          console.log(`[BTC EXECUTION] selectLots result: totalQuantitySold=${lotResult.totalQuantitySold?.toFixed(6)}, totalCostBasis=$${Math.round(lotResult.totalCostBasis || 0)}, selectedLots=${lotResult.selectedLots?.length || 0}`);
-        }
         
         btcCostBasis = lotResult.totalCostBasis;
         btcWithdrawn = lotResult.totalQuantitySold * currentBtcPrice;
@@ -409,12 +387,6 @@ export function runUnifiedProjection({
     if (acct.cash > 0 && acct.cash < DUST_THRESHOLD) acct.cash = 0;
     if (acct.other > 0 && acct.other < DUST_THRESHOLD) acct.other = 0;
     
-    // DEBUG: Log actual withdrawal result
-    if (debugYear !== null || amount > 10000) {
-      console.log(`[WITHDRAW RESULT] BTC withdrawn: $${Math.round(btcWithdrawn)}, Other withdrawn: $${Math.round(otherWithdrawn)}, Total: $${Math.round(btcWithdrawn + otherWithdrawn)}`);
-      console.log(`[WITHDRAW RESULT] Remaining balances - BTC: $${Math.round(acct.btc)}, Stocks: $${Math.round(acct.stocks)}, Bonds: $${Math.round(acct.bonds)}, Cash: $${Math.round(acct.cash)}, Other: $${Math.round(acct.other)}`);
-    }
-    
     return {
       withdrawn: btcWithdrawn + otherWithdrawn,
       btcCostBasis,
@@ -457,17 +429,6 @@ export function runUnifiedProjection({
     remaining_quantity: lot.remaining_quantity ?? lot.quantity ?? 0
   }));
   
-  // DEBUG: Verify tax lots initialization
-  const btcLotsWithQty = runningTaxLots.filter(l => l.asset_ticker === 'BTC' && l.remaining_quantity > 0);
-  if (DEBUG || taxLots.length > 0) {
-    console.log('[TAX LOTS INIT]', {
-      totalLots: runningTaxLots.length,
-      btcLots: runningTaxLots.filter(l => l.asset_ticker === 'BTC').length,
-      btcLotsWithQuantity: btcLotsWithQty.length,
-      totalBtcQuantity: btcLotsWithQty.reduce((sum, l) => sum + l.remaining_quantity, 0)
-    });
-  }
-
   // Initialize debt tracking
   const tempRunningDebt = {};
   liabilities.forEach(liability => {
@@ -1891,11 +1852,6 @@ export function runUnifiedProjection({
       if (acct.other > 0 && acct.other < DUST_THRESHOLD_EOY) acct.other = 0;
     });
     if (portfolio.realEstate > 0 && portfolio.realEstate < DUST_THRESHOLD_EOY) portfolio.realEstate = 0;
-    
-    // Debug: Log depletion check for ages 40-55
-    if (age >= 40 && age <= 55) {
-      console.log(`Age ${age}: liquid=${Math.round(getTotalLiquid())}, RE=${Math.round(portfolio.realEstate)}, depleted=${firstDepletionAge}`);
-    }
     
     const liquidAssetsAfterYear = getTotalLiquid() + portfolio.realEstate;
     if (liquidAssetsAfterYear <= 0 && firstDepletionAge === null) {
