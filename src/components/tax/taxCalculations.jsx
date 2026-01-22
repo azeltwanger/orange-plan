@@ -291,8 +291,10 @@ export const calculateWithdrawalTax = ({
  * @param {number} params.taxDeferredBalance - Available in traditional IRA/401k
  * @param {number} params.taxFreeBalance - Available in Roth/HSA
  * @param {number} params.rothContributions - Roth contribution basis (accessible penalty-free)
- * @param {number} params.taxableGainPercent - Portion of taxable that is gains (0-1)
- * @param {boolean} params.isLongTermGain - True if taxable gains held > 1 year
+ * @param {number} params.taxableGainPercent - Portion of taxable that is gains (0-1) - LEGACY, use shortTermGain/longTermGain
+ * @param {number} params.shortTermGain - Pre-calculated short-term capital gains (taxed as ordinary income)
+ * @param {number} params.longTermGain - Pre-calculated long-term capital gains (preferential rates)
+ * @param {boolean} params.isLongTermGain - True if taxable gains held > 1 year - LEGACY fallback
  * @param {string} params.filingStatus - 'single' or 'married'
  * @param {number} params.age - Current age (determines penalty)
  * @param {number} params.otherIncome - Other income this year (pension, SS, etc.)
@@ -306,8 +308,10 @@ export const estimateRetirementWithdrawalTaxes = ({
   taxDeferredBalance,
   taxFreeBalance,
   rothContributions = null, // Actual Roth contribution basis (accessible penalty-free)
-  taxableGainPercent = 0.5, // Portion of taxable account that is gains (dynamically calculated)
-  isLongTermGain = true,
+  taxableGainPercent = 0.5, // LEGACY: Portion of taxable account that is gains (dynamically calculated)
+  shortTermGain = null, // NEW: Pre-calculated short-term gain from lot selection
+  longTermGain = null, // NEW: Pre-calculated long-term gain from lot selection  
+  isLongTermGain = true, // LEGACY: Fallback when gain breakdown not provided
   filingStatus = 'single',
   age = 65,
   otherIncome = 0, // Social Security, pension, etc.
@@ -332,7 +336,7 @@ export const estimateRetirementWithdrawalTaxes = ({
     { max: Infinity, rate: 0.20 }
   ];
 
-  // Get inflation-adjusted income brackets for tax-deferred withdrawals
+  // Get inflation-adjusted income brackets for tax-deferred withdrawals AND short-term gains
   const incomeBracketsData = getFederalBrackets(year, normalizedStatus, inflationRate);
   const incomeBrackets = incomeBracketsData.map(b => ({
     max: b.max,
@@ -349,32 +353,85 @@ export const estimateRetirementWithdrawalTaxes = ({
     fromTaxFree: 0,
     taxOnTaxable: 0,
     taxOnTaxDeferred: 0,
+    taxOnShortTermGains: 0,
+    taxOnLongTermGains: 0,
     penalty: 0,
   };
   
   // Track cumulative taxable income for accurate bracket calculation
+  // Start with other income AFTER standard deduction
   let cumulativeTaxableIncome = Math.max(0, otherIncome - standardDeduction);
   
   // Optimal withdrawal order depends on age and tax situation
   if (canAccessPenaltyFree) {
     // After 59.5: Withdraw from taxable first (lower tax on gains), then tax-deferred, then tax-free last
     
-    // 1. Taxable first - capital gains taxed at preferential rates (0%, 15%, 20%)
+    // 1. Taxable first - capital gains taxed
     const fromTaxable = Math.min(remainingWithdrawal, taxableBalance);
     if (fromTaxable > 0) {
-      const gainPortion = fromTaxable * taxableGainPercent;
-      
-      // Calculate LTCG tax considering 0% bracket
       let taxOnTaxable = 0;
-      let remainingGain = gainPortion;
       
-      for (const bracket of ltcgBrackets) {
-        if (remainingGain <= 0) break;
-        const roomInBracket = Math.max(0, bracket.max - cumulativeTaxableIncome);
-        const gainInBracket = Math.min(remainingGain, roomInBracket);
-        taxOnTaxable += gainInBracket * bracket.rate;
-        cumulativeTaxableIncome += gainInBracket;
-        remainingGain -= gainInBracket;
+      // Check if we have pre-calculated gain breakdown (new method)
+      if (shortTermGain !== null || longTermGain !== null) {
+        const stGain = shortTermGain || 0;
+        const ltGain = longTermGain || 0;
+        
+        // Short-term gains are taxed as ordinary income
+        if (stGain > 0) {
+          let remainingStGain = stGain;
+          for (const bracket of incomeBrackets) {
+            if (remainingStGain <= 0) break;
+            const roomInBracket = Math.max(0, bracket.max - cumulativeTaxableIncome);
+            const gainInBracket = Math.min(remainingStGain, roomInBracket);
+            taxOnTaxable += gainInBracket * bracket.rate;
+            cumulativeTaxableIncome += gainInBracket;
+            remainingStGain -= gainInBracket;
+          }
+          withdrawalBreakdown.taxOnShortTermGains = taxOnTaxable;
+        }
+        
+        // Long-term gains use preferential LTCG rates, stacking on top of ordinary income
+        if (ltGain > 0) {
+          let ltcgTax = 0;
+          let remainingLtGain = ltGain;
+          for (const bracket of ltcgBrackets) {
+            if (remainingLtGain <= 0) break;
+            const roomInBracket = Math.max(0, bracket.max - cumulativeTaxableIncome);
+            const gainInBracket = Math.min(remainingLtGain, roomInBracket);
+            ltcgTax += gainInBracket * bracket.rate;
+            cumulativeTaxableIncome += gainInBracket;
+            remainingLtGain -= gainInBracket;
+          }
+          withdrawalBreakdown.taxOnLongTermGains = ltcgTax;
+          taxOnTaxable += ltcgTax;
+        }
+      } else {
+        // Legacy path: use taxableGainPercent and isLongTermGain
+        const gainPortion = fromTaxable * taxableGainPercent;
+        
+        if (isLongTermGain) {
+          // Calculate LTCG tax considering 0% bracket
+          let remainingGain = gainPortion;
+          for (const bracket of ltcgBrackets) {
+            if (remainingGain <= 0) break;
+            const roomInBracket = Math.max(0, bracket.max - cumulativeTaxableIncome);
+            const gainInBracket = Math.min(remainingGain, roomInBracket);
+            taxOnTaxable += gainInBracket * bracket.rate;
+            cumulativeTaxableIncome += gainInBracket;
+            remainingGain -= gainInBracket;
+          }
+        } else {
+          // Short-term: tax as ordinary income
+          let remainingGain = gainPortion;
+          for (const bracket of incomeBrackets) {
+            if (remainingGain <= 0) break;
+            const roomInBracket = Math.max(0, bracket.max - cumulativeTaxableIncome);
+            const gainInBracket = Math.min(remainingGain, roomInBracket);
+            taxOnTaxable += gainInBracket * bracket.rate;
+            cumulativeTaxableIncome += gainInBracket;
+            remainingGain -= gainInBracket;
+          }
+        }
       }
       
       withdrawalBreakdown.fromTaxable = fromTaxable;
@@ -416,19 +473,55 @@ export const estimateRetirementWithdrawalTaxes = ({
     // 1. Taxable first
     const fromTaxable = Math.min(remainingWithdrawal, taxableBalance);
     if (fromTaxable > 0) {
-      const gainPortion = fromTaxable * taxableGainPercent;
-      
-      // Calculate LTCG tax considering 0% bracket
       let taxOnTaxable = 0;
-      let remainingGain = gainPortion;
       
-      for (const bracket of ltcgBrackets) {
-        if (remainingGain <= 0) break;
-        const roomInBracket = Math.max(0, bracket.max - cumulativeTaxableIncome);
-        const gainInBracket = Math.min(remainingGain, roomInBracket);
-        taxOnTaxable += gainInBracket * bracket.rate;
-        cumulativeTaxableIncome += gainInBracket;
-        remainingGain -= gainInBracket;
+      // Check if we have pre-calculated gain breakdown (new method)
+      if (shortTermGain !== null || longTermGain !== null) {
+        const stGain = shortTermGain || 0;
+        const ltGain = longTermGain || 0;
+        
+        // Short-term gains are taxed as ordinary income
+        if (stGain > 0) {
+          let remainingStGain = stGain;
+          for (const bracket of incomeBrackets) {
+            if (remainingStGain <= 0) break;
+            const roomInBracket = Math.max(0, bracket.max - cumulativeTaxableIncome);
+            const gainInBracket = Math.min(remainingStGain, roomInBracket);
+            taxOnTaxable += gainInBracket * bracket.rate;
+            cumulativeTaxableIncome += gainInBracket;
+            remainingStGain -= gainInBracket;
+          }
+          withdrawalBreakdown.taxOnShortTermGains = taxOnTaxable;
+        }
+        
+        // Long-term gains use preferential LTCG rates
+        if (ltGain > 0) {
+          let ltcgTax = 0;
+          let remainingLtGain = ltGain;
+          for (const bracket of ltcgBrackets) {
+            if (remainingLtGain <= 0) break;
+            const roomInBracket = Math.max(0, bracket.max - cumulativeTaxableIncome);
+            const gainInBracket = Math.min(remainingLtGain, roomInBracket);
+            ltcgTax += gainInBracket * bracket.rate;
+            cumulativeTaxableIncome += gainInBracket;
+            remainingLtGain -= gainInBracket;
+          }
+          withdrawalBreakdown.taxOnLongTermGains = ltcgTax;
+          taxOnTaxable += ltcgTax;
+        }
+      } else {
+        // Legacy path
+        const gainPortion = fromTaxable * taxableGainPercent;
+        let remainingGain = gainPortion;
+        
+        for (const bracket of ltcgBrackets) {
+          if (remainingGain <= 0) break;
+          const roomInBracket = Math.max(0, bracket.max - cumulativeTaxableIncome);
+          const gainInBracket = Math.min(remainingGain, roomInBracket);
+          taxOnTaxable += gainInBracket * bracket.rate;
+          cumulativeTaxableIncome += gainInBracket;
+          remainingGain -= gainInBracket;
+        }
       }
       
       withdrawalBreakdown.fromTaxable = fromTaxable;
