@@ -3650,11 +3650,12 @@ export default function FinancialPlan() {
                 <div className="col-span-full mt-4 pt-4 border-t border-zinc-800">
                   <Label className="text-zinc-400 text-sm mb-3 block">Asset Withdrawal Strategy</Label>
                   <p className="text-xs text-zinc-500 mb-3">When you need cash in retirement, which assets should be sold first?</p>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {[
-                      { value: 'proportional', label: 'Proportional', desc: 'Sell all assets equally (maintains allocation)' },
-                      { value: 'preserve_btc', label: 'Preserve Bitcoin', desc: 'Cash → Bonds → Stocks → Other → BTC' },
-                      { value: 'preserve_growth', label: 'Preserve Growth', desc: 'Cash → Bonds → Other → Stocks → BTC' },
+                      { value: 'proportional', label: 'Proportional', desc: 'Sell all assets equally' },
+                      { value: 'preserve_btc', label: 'Preserve Bitcoin', desc: 'Cash → Bonds → Stocks → BTC' },
+                      { value: 'preserve_growth', label: 'Preserve Growth', desc: 'Cash → Bonds → Stocks → BTC' },
+                      { value: 'custom', label: 'Custom Order', desc: 'Set your own priority' },
                     ].map(strategy => (
                       <div
                         key={strategy.value}
