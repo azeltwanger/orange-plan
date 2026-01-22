@@ -3674,14 +3674,57 @@ export default function FinancialPlan() {
                           )}>
                             {strategy.label}
                           </span>
-                          {strategy.value === 'preserve_btc' && (
-                            <Badge className="text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0">Recommended</Badge>
-                          )}
                         </div>
                         <p className="text-xs text-zinc-500">{strategy.desc}</p>
                       </div>
                     ))}
                   </div>
+                  
+                  {assetWithdrawalStrategy === 'custom' && (
+                    <div className="mt-4 p-4 rounded-lg bg-zinc-800/50 border border-zinc-700">
+                      <Label className="text-zinc-400 text-sm mb-3 block">Custom Sell Order</Label>
+                      <div className="flex flex-wrap gap-2">
+                        {withdrawalPriorityOrder.map((asset, index) => (
+                          <div
+                            key={asset}
+                            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-700"
+                          >
+                            <span className="text-orange-400 font-bold text-sm">{index + 1}</span>
+                            <span className="text-zinc-300 text-sm capitalize">{asset === 'btc' ? 'Bitcoin' : asset}</span>
+                            <div className="flex flex-col ml-2">
+                              <button
+                                onClick={() => {
+                                  if (index > 0) {
+                                    const newOrder = [...withdrawalPriorityOrder];
+                                    [newOrder[index - 1], newOrder[index]] = [newOrder[index], newOrder[index - 1]];
+                                    setWithdrawalPriorityOrder(newOrder);
+                                  }
+                                }}
+                                disabled={index === 0}
+                                className="text-zinc-500 hover:text-orange-400 disabled:opacity-30 disabled:hover:text-zinc-500"
+                              >
+                                <ChevronUp className="w-3 h-3" />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  if (index < withdrawalPriorityOrder.length - 1) {
+                                    const newOrder = [...withdrawalPriorityOrder];
+                                    [newOrder[index], newOrder[index + 1]] = [newOrder[index + 1], newOrder[index]];
+                                    setWithdrawalPriorityOrder(newOrder);
+                                  }
+                                }}
+                                disabled={index === withdrawalPriorityOrder.length - 1}
+                                className="text-zinc-500 hover:text-orange-400 disabled:opacity-30 disabled:hover:text-zinc-500"
+                              >
+                                <ChevronDown className="w-3 h-3" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-xs text-zinc-500 mt-3">Assets sold in this order: #1 first, #5 last.</p>
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label className="text-zinc-400">Gross Income (Pre-Retirement)</Label>
