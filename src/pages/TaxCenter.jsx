@@ -101,6 +101,7 @@ export default function TaxCenter() {
   const [exportingYear, setExportingYear] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
   const queryClient = useQueryClient();
 
   // Tax planning settings
@@ -538,6 +539,69 @@ export default function TaxCenter() {
       setSelectedTxIds([]);
     } else {
       setSelectedTxIds(allTransactions.map(tx => tx.id));
+    }
+  };
+
+  const createBuyTransactionsFromHoldings = async () => {
+    setIsLoading(true);
+    try {
+      const currentHoldings = await base44.entities.Holding.list();
+      const allTxs = await base44.entities.Transaction.list();
+      
+      // Get existing buy transaction lot_ids to avoid duplicates
+      const existingBuyLotIds = new Set(
+        allTxs
+          .filter(t => t.type === 'buy')
+          .map(t => t.lot_id)
+      );
+      
+      let created = 0;
+      
+      for (const holding of currentHoldings) {
+        if ((holding.quantity || 0) > 0) {
+          // Create a unique lot_id for this holding
+          const lotId = `holding_${holding.id}`;
+          
+          // Skip if we already created a buy transaction for this holding
+          if (existingBuyLotIds.has(lotId)) {
+            continue;
+          }
+          
+          // Calculate price per unit from cost basis if available
+          const pricePerUnit = holding.cost_basis_total && holding.quantity > 0
+            ? holding.cost_basis_total / holding.quantity
+            : holding.current_price || 0;
+          
+          const buyTx = {
+            type: 'buy',
+            asset_ticker: holding.ticker || holding.asset_name?.toUpperCase() || 'BTC',
+            quantity: holding.quantity,
+            remaining_quantity: holding.quantity, // Full quantity available
+            price_per_unit: pricePerUnit,
+            total_value: holding.cost_basis_total || (holding.quantity * pricePerUnit),
+            date: new Date().toISOString().split('T')[0], // Use today if no date
+            lot_id: lotId,
+            cost_basis: holding.cost_basis_total || (holding.quantity * pricePerUnit),
+            account_type: holding.account_type || 'taxable',
+            account_id: holding.account_id,
+            exchange_or_wallet: holding.notes || '',
+            holding_id: holding.id,
+            notes: `[Created from Holding: ${holding.asset_name || holding.ticker}]`,
+          };
+          
+          await base44.entities.Transaction.create(buyTx);
+          created++;
+        }
+      }
+      
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['holdings'] });
+      alert(`Created ${created} buy transactions from your current holdings`);
+    } catch (error) {
+      console.error('Error creating buy transactions from holdings:', error);
+      alert('Error: ' + error.message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -1403,6 +1467,17 @@ export default function TaxCenter() {
           <Button variant="outline" size="sm" onClick={() => setCsvImportOpen(true)} className="bg-transparent border-zinc-700 text-sm">
             <Upload className="w-4 h-4 mr-1 sm:mr-2" />
             <span className="hidden sm:inline">Import</span>
+          </Button>
+          <Button 
+            onClick={createBuyTransactionsFromHoldings}
+            variant="outline"
+            size="sm"
+            disabled={isLoading}
+            className="bg-transparent border-emerald-600 text-emerald-400 hover:bg-emerald-500/10 text-sm"
+          >
+            {isLoading ? <Loader2 className="w-4 h-4 mr-1 sm:mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-1 sm:mr-2" />}
+            <span className="hidden sm:inline">Create Tax Lots</span>
+            <span className="sm:hidden">Lots</span>
           </Button>
           <Button onClick={() => setSaleFormOpen(true)} size="sm" className="brand-gradient text-white font-semibold shadow-lg shadow-orange-500/20 text-sm">
             <Calculator className="w-4 h-4 mr-1 sm:mr-2" />
