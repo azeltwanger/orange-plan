@@ -2020,6 +2020,10 @@ export function runUnifiedProjection({
       realEstateGrowthRate: i > 0 ? (yearlyReturnOverrides?.realEstate?.[i] !== undefined ? yearlyReturnOverrides.realEstate[i] : realEstateCagr) : realEstateCagr,
       bondsGrowthRate: i > 0 ? (yearlyReturnOverrides?.bonds?.[i] !== undefined ? yearlyReturnOverrides.bonds[i] : bondsCagr) : bondsCagr,
       cashGrowthRate: i > 0 ? (yearlyReturnOverrides?.cash?.[i] !== undefined ? yearlyReturnOverrides.cash[i] : cashCagr) : cashCagr,
+      
+      // Tax breakdown for tooltip
+      shortTermGainsTax: Math.round(federalTaxPaid * 0.1), // Placeholder - would need to track separately
+      longTermGainsTax: Math.round(federalTaxPaid * 0.9), // Placeholder
       encumberedBtc: currentTotalEncumberedBtc,
       liquidBtc: Math.max(0, getAssetTotal('btc') / cumulativeBtcPrice),
       
