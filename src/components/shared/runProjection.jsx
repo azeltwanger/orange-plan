@@ -239,13 +239,15 @@ export function runUnifiedProjection({
   // Uses selectLots for BTC to get accurate cost basis, proportional for other assets
   const withdrawFromTaxableWithLots = (amount, currentBtcPrice, debugYear = null) => {
     const total = getAccountTotal('taxable');
-    if (total <= 0 || amount <= 0) return { withdrawn: 0, btcCostBasis: 0, otherCostBasis: 0, totalCostBasis: 0 };
+    if (total <= 0 || amount <= 0) return { withdrawn: 0, btcCostBasis: 0, otherCostBasis: 0, totalCostBasis: 0, shortTermGain: 0, longTermGain: 0 };
     
     const actualWithdrawal = Math.min(amount, total);
     const acct = portfolio.taxable;
     
     let btcWithdrawn = 0;
     let btcCostBasis = 0;
+    let btcShortTermGain = 0;
+    let btcLongTermGain = 0;
     let otherWithdrawn = 0;
     let otherCostBasis = 0;
     
@@ -266,10 +268,12 @@ export function runUnifiedProjection({
       otherTarget = acct.other * ratio;
     } else if (assetWithdrawalStrategy === 'priority') {
       // Withdraw in priority order until amount is met
+      // CRITICAL FIX: Fully exhaust each asset before moving to the next
       let remaining = actualWithdrawal;
       for (const assetType of withdrawalPriorityOrder) {
         if (remaining <= 0) break;
         const available = acct[assetType] || 0;
+        if (available <= 0) continue; // Skip empty assets
         const take = Math.min(remaining, available);
         if (assetType === 'btc') btcTarget = take;
         else if (assetType === 'stocks') stocksTarget = take;
@@ -320,7 +324,7 @@ export function runUnifiedProjection({
       }
     }
     
-    // === BTC: Use lot selection for accurate cost basis ===
+    // === BTC: Use lot selection for accurate cost basis and holding period ===
     if (btcTarget > 0 && currentBtcPrice > 0) {
       const btcQuantityToSell = btcTarget / currentBtcPrice;
       
@@ -339,6 +343,26 @@ export function runUnifiedProjection({
         btcCostBasis = lotResult.totalCostBasis;
         btcWithdrawn = lotResult.totalQuantitySold * currentBtcPrice;
         
+        // Calculate short-term vs long-term gains based on lot holding periods
+        const currentDate = new Date();
+        const oneYearAgo = new Date(currentDate);
+        oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+        
+        for (const selected of lotResult.selectedLots) {
+          const lotPurchaseDate = selected.lot.date ? new Date(selected.lot.date) : null;
+          const saleProceeds = selected.quantityFromLot * currentBtcPrice;
+          const lotCostBasis = selected.quantityFromLot * (selected.lot.price_per_unit || 0);
+          const gain = Math.max(0, saleProceeds - lotCostBasis);
+          
+          // Holding period: > 1 year = long-term, <= 1 year = short-term
+          const isLongTerm = lotPurchaseDate && lotPurchaseDate <= oneYearAgo;
+          if (isLongTerm) {
+            btcLongTermGain += gain;
+          } else {
+            btcShortTermGain += gain;
+          }
+        }
+        
         // Update running tax lots - reduce remaining quantities
         for (const selected of lotResult.selectedLots) {
           const lotIndex = runningTaxLots.findIndex(l => l.id === selected.lot.id || l.lot_id === selected.lot.lot_id);
@@ -354,16 +378,19 @@ export function runUnifiedProjection({
         // Update portfolio
         acct.btc = Math.max(0, acct.btc - btcWithdrawn);
       } else {
-        // No lots available, fall back to proportional basis
+        // No lots available, fall back to proportional basis (assume long-term)
         btcWithdrawn = Math.min(btcTarget, acct.btc);
         const basisRatio = runningTaxableBasis > 0 ? runningTaxableBasis / total : 0;
         btcCostBasis = btcWithdrawn * basisRatio;
+        btcLongTermGain = Math.max(0, btcWithdrawn - btcCostBasis); // Assume long-term when no lot data
         acct.btc = Math.max(0, acct.btc - btcWithdrawn);
       }
     }
     
     // === Other assets: Use proportional cost basis (no lot tracking) ===
+    // Assume stocks/bonds/other are long-term holdings for simplicity
     const nonBtcWithdrawn = stocksTarget + bondsTarget + cashTarget + otherTarget;
+    let otherLongTermGain = 0;
     if (nonBtcWithdrawn > 0) {
       const nonBtcTotal = acct.stocks + acct.bonds + acct.cash + acct.other;
       const basisRatio = (nonBtcTotal > 0 && runningTaxableBasis > 0) ? 
@@ -371,6 +398,7 @@ export function runUnifiedProjection({
       
       otherCostBasis = nonBtcWithdrawn * Math.min(1, basisRatio);
       otherWithdrawn = nonBtcWithdrawn;
+      otherLongTermGain = Math.max(0, otherWithdrawn - otherCostBasis); // Assume long-term for non-BTC
       
       acct.stocks = Math.max(0, acct.stocks - stocksTarget);
       acct.bonds = Math.max(0, acct.bonds - bondsTarget);
@@ -391,7 +419,9 @@ export function runUnifiedProjection({
       withdrawn: btcWithdrawn + otherWithdrawn,
       btcCostBasis,
       otherCostBasis,
-      totalCostBasis: btcCostBasis + otherCostBasis
+      totalCostBasis: btcCostBasis + otherCostBasis,
+      shortTermGain: btcShortTermGain, // Short-term gains (taxed as ordinary income)
+      longTermGain: btcLongTermGain + otherLongTermGain, // Long-term gains (preferential rates)
     };
   };
 
