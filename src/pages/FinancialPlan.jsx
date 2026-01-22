@@ -3682,48 +3682,40 @@ export default function FinancialPlan() {
 
                   {/* Blended % Editor */}
                   {assetWithdrawalStrategy === 'blended' && (
-                    <div className="mt-4 p-4 rounded-lg bg-zinc-800/50 border border-zinc-700">
+                    <div 
+                      className="mt-4 p-4 rounded-lg bg-zinc-800/50 border border-zinc-700"
+                      onBlur={(e) => {
+                        if (!e.currentTarget.contains(e.relatedTarget)) {
+                          const total = Object.values(withdrawalBlendPercentages).reduce((a, b) => a + b, 0);
+                          if (total !== 100 && total > 0) {
+                            const factor = 100 / total;
+                            const keys = ['bonds', 'stocks', 'other', 'btc'];
+                            const normalized = {};
+                            let sum = 0;
+                            keys.forEach((key, i) => {
+                              if (i === keys.length - 1) {
+                                normalized[key] = 100 - sum;
+                              } else {
+                                normalized[key] = Math.round((withdrawalBlendPercentages[key] || 0) * factor);
+                                sum += normalized[key];
+                              }
+                            });
+                            setWithdrawalBlendPercentages(normalized);
+                          }
+                        }
+                      }}
+                      tabIndex={-1}
+                    >
                       <div className="flex items-center justify-between mb-4">
                         <Label className="text-zinc-400 text-sm">Withdrawal Split</Label>
-                        <div className="flex items-center gap-2">
-                          <span className={cn(
-                            "text-sm font-medium",
-                            Object.values(withdrawalBlendPercentages).reduce((a, b) => a + b, 0) === 100
-                              ? "text-emerald-400"
-                              : "text-amber-400"
-                          )}>
-                            {Object.values(withdrawalBlendPercentages).reduce((a, b) => a + b, 0)}%
-                          </span>
-                          {Object.values(withdrawalBlendPercentages).reduce((a, b) => a + b, 0) !== 100 && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-xs h-6 px-2 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
-                              onClick={() => {
-                                const total = Object.values(withdrawalBlendPercentages).reduce((a, b) => a + b, 0);
-                                if (total === 0) {
-                                  setWithdrawalBlendPercentages({ bonds: 25, stocks: 25, other: 25, btc: 25 });
-                                } else {
-                                  const factor = 100 / total;
-                                  const keys = ['bonds', 'stocks', 'other', 'btc'];
-                                  const normalized = {};
-                                  let sum = 0;
-                                  keys.forEach((key, i) => {
-                                    if (i === keys.length - 1) {
-                                      normalized[key] = 100 - sum;
-                                    } else {
-                                      normalized[key] = Math.round((withdrawalBlendPercentages[key] || 0) * factor);
-                                      sum += normalized[key];
-                                    }
-                                  });
-                                  setWithdrawalBlendPercentages(normalized);
-                                }
-                              }}
-                            >
-                              Balance
-                            </Button>
-                          )}
-                        </div>
+                        <span className={cn(
+                          "text-sm font-medium",
+                          Object.values(withdrawalBlendPercentages).reduce((a, b) => a + b, 0) === 100
+                            ? "text-emerald-400"
+                            : "text-amber-400"
+                        )}>
+                          {Object.values(withdrawalBlendPercentages).reduce((a, b) => a + b, 0)}%
+                        </span>
                       </div>
                       <div className="space-y-3">
                         {[
@@ -3758,19 +3750,19 @@ export default function FinancialPlan() {
                       {/* Visual bar */}
                       <div className="mt-4 h-2 rounded-full overflow-hidden flex bg-zinc-700">
                         {withdrawalBlendPercentages.bonds > 0 && (
-                          <div className="bg-purple-500 h-full transition-all" style={{ width: `${withdrawalBlendPercentages.bonds}%` }} />
+                          <div className="bg-purple-500 h-full transition-all" style={{ width: `${Math.min(withdrawalBlendPercentages.bonds, 100)}%` }} />
                         )}
                         {withdrawalBlendPercentages.stocks > 0 && (
-                          <div className="bg-blue-500 h-full transition-all" style={{ width: `${withdrawalBlendPercentages.stocks}%` }} />
+                          <div className="bg-blue-500 h-full transition-all" style={{ width: `${Math.min(withdrawalBlendPercentages.stocks, 100)}%` }} />
                         )}
                         {withdrawalBlendPercentages.other > 0 && (
-                          <div className="bg-zinc-500 h-full transition-all" style={{ width: `${withdrawalBlendPercentages.other}%` }} />
+                          <div className="bg-zinc-500 h-full transition-all" style={{ width: `${Math.min(withdrawalBlendPercentages.other, 100)}%` }} />
                         )}
                         {withdrawalBlendPercentages.btc > 0 && (
-                          <div className="bg-orange-500 h-full transition-all" style={{ width: `${withdrawalBlendPercentages.btc}%` }} />
+                          <div className="bg-orange-500 h-full transition-all" style={{ width: `${Math.min(withdrawalBlendPercentages.btc, 100)}%` }} />
                         )}
                       </div>
-                      <p className="text-xs text-zinc-500 mt-2">Set your preferred split, then click Balance if total isn't 100%.</p>
+                      <p className="text-xs text-zinc-500 mt-2">Drag sliders to set split. Auto-balances to 100% when you click away.</p>
                     </div>
                   )}
 
