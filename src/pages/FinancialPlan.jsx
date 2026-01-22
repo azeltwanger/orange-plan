@@ -928,6 +928,9 @@ export default function FinancialPlan() {
       customReturnPeriods,
       taxLots: activeTaxLots,
       costBasisMethod,
+      assetWithdrawalStrategy,
+      withdrawalPriorityOrder,
+      withdrawalBlendPercentages,
       DEBUG: false,
     });
     
@@ -939,7 +942,8 @@ export default function FinancialPlan() {
       getBtcGrowthRate, effectiveInflation, effectiveStocksCagr, bondsCagr, 
       realEstateCagr, cashCagr, otherCagr, savingsAllocationBtc, savingsAllocationStocks, savingsAllocationBonds,
       savingsAllocationCash, savingsAllocationOther, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv,
-      btcReleaseTriggerLtv, btcReleaseTargetLtv, goals, lifeEvents, getTaxTreatmentFromHolding, activeTaxLots, costBasisMethod]);
+      btcReleaseTriggerLtv, btcReleaseTargetLtv, goals, lifeEvents, getTaxTreatmentFromHolding, activeTaxLots, costBasisMethod,
+      assetWithdrawalStrategy, withdrawalPriorityOrder, withdrawalBlendPercentages]);
 
   // Calculate 90% safe spending using Monte Carlo binary search - OPTIMIZED
   const calculateSafeSpendingMonteCarlo = useCallback((numSimulations = 1000) => {

@@ -111,8 +111,20 @@ export function runUnifiedProjection({
   hypothetical_btc_loan = null,
   taxLots = [],
   costBasisMethod = 'HIFO',
+  assetWithdrawalStrategy = 'proportional',
+  withdrawalPriorityOrder = ['cash', 'bonds', 'stocks', 'other', 'btc'],
+  withdrawalBlendPercentages = { cash: 0, bonds: 25, stocks: 35, other: 10, btc: 30 },
   DEBUG = false,
 }) {
+  // Debug: Log withdrawal strategy params
+  if (DEBUG) {
+    console.log('=== WITHDRAWAL STRATEGY PARAMS ===');
+    console.log('assetWithdrawalStrategy:', assetWithdrawalStrategy);
+    console.log('withdrawalPriorityOrder:', withdrawalPriorityOrder);
+    console.log('withdrawalBlendPercentages:', withdrawalBlendPercentages);
+    console.log('costBasisMethod:', costBasisMethod);
+    console.log('taxLots count:', taxLots?.length || 0);
+  }
   const results = [];
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth();
