@@ -401,6 +401,15 @@ export function runUnifiedProjection({
       acct.other = Math.max(0, acct.other - otherTarget);
     }
     
+    // Clean up tiny residual values (less than $1) to prevent exponential growth from near-zero balances
+    // This fixes a bug where proportional/blended strategies leave tiny amounts that compound into millions
+    const DUST_THRESHOLD = 1; // $1
+    if (acct.btc > 0 && acct.btc < DUST_THRESHOLD) acct.btc = 0;
+    if (acct.stocks > 0 && acct.stocks < DUST_THRESHOLD) acct.stocks = 0;
+    if (acct.bonds > 0 && acct.bonds < DUST_THRESHOLD) acct.bonds = 0;
+    if (acct.cash > 0 && acct.cash < DUST_THRESHOLD) acct.cash = 0;
+    if (acct.other > 0 && acct.other < DUST_THRESHOLD) acct.other = 0;
+    
     return {
       withdrawn: btcWithdrawn + otherWithdrawn,
       btcCostBasis,
