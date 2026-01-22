@@ -257,17 +257,14 @@ export function runUnifiedProjection({
     let otherTarget = 0;
     
     if (assetWithdrawalStrategy === 'proportional') {
-      // Current behavior - withdraw proportionally from all assets
+      // Withdraw proportionally from all assets
       const ratio = actualWithdrawal / total;
       btcTarget = acct.btc * ratio;
       stocksTarget = acct.stocks * ratio;
       bondsTarget = acct.bonds * ratio;
       cashTarget = acct.cash * ratio;
       otherTarget = acct.other * ratio;
-      
-    }
-    
-    if (assetWithdrawalStrategy === 'priority') {
+    } else if (assetWithdrawalStrategy === 'priority') {
       // Withdraw in priority order until amount is met
       let remaining = actualWithdrawal;
       for (const assetType of withdrawalPriorityOrder) {
@@ -281,7 +278,6 @@ export function runUnifiedProjection({
         else if (assetType === 'other') otherTarget = take;
         remaining -= take;
       }
-      
     } else if (assetWithdrawalStrategy === 'blended') {
       // Withdraw according to blend percentages
       const totalPct = (withdrawalBlendPercentages.btc || 0) + 
