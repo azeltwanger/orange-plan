@@ -451,7 +451,22 @@ export function runUnifiedProjection({
   const liquidationEvents = [];
   
   // Create a mutable copy of tax lots for tracking remaining quantities through projection
-  let runningTaxLots = taxLots.map(lot => ({ ...lot }));
+  // Initialize remaining_quantity from quantity if not set (fixes null remaining_quantity bug)
+  let runningTaxLots = taxLots.map(lot => ({ 
+    ...lot,
+    remaining_quantity: lot.remaining_quantity ?? lot.quantity ?? 0
+  }));
+  
+  // DEBUG: Verify tax lots initialization
+  const btcLotsWithQty = runningTaxLots.filter(l => l.asset_ticker === 'BTC' && l.remaining_quantity > 0);
+  if (DEBUG || taxLots.length > 0) {
+    console.log('[TAX LOTS INIT]', {
+      totalLots: runningTaxLots.length,
+      btcLots: runningTaxLots.filter(l => l.asset_ticker === 'BTC').length,
+      btcLotsWithQuantity: btcLotsWithQty.length,
+      totalBtcQuantity: btcLotsWithQty.reduce((sum, l) => sum + l.remaining_quantity, 0)
+    });
+  }
 
   // Initialize debt tracking
   const tempRunningDebt = {};
