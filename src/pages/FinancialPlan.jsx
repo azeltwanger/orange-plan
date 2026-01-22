@@ -3779,9 +3779,9 @@ export default function FinancialPlan() {
                   {/* Priority Order Editor */}
                   {assetWithdrawalStrategy === 'priority' && (
                     <div className="mt-4 p-4 rounded-lg bg-zinc-800/50 border border-zinc-700">
-                      <Label className="text-zinc-400 text-sm mb-3 block">Sell Order (after cash is used)</Label>
+                      <Label className="text-zinc-400 text-sm mb-3 block">Sell Order</Label>
                       <div className="flex flex-wrap gap-2">
-                        {withdrawalPriorityOrder.map((asset, index) => (
+                        {withdrawalPriorityOrder.filter(a => a !== 'cash').map((asset, index) => (
                           <div
                             key={asset}
                             className="flex items-center gap-2 px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-700"
@@ -3791,8 +3791,9 @@ export default function FinancialPlan() {
                             <div className="flex flex-col ml-2">
                               <button
                                 onClick={() => {
+                                  const filteredOrder = withdrawalPriorityOrder.filter(a => a !== 'cash');
                                   if (index > 0) {
-                                    const newOrder = [...withdrawalPriorityOrder];
+                                    const newOrder = [...filteredOrder];
                                     [newOrder[index - 1], newOrder[index]] = [newOrder[index], newOrder[index - 1]];
                                     setWithdrawalPriorityOrder(newOrder);
                                   }
@@ -3804,13 +3805,14 @@ export default function FinancialPlan() {
                               </button>
                               <button
                                 onClick={() => {
-                                  if (index < withdrawalPriorityOrder.length - 1) {
-                                    const newOrder = [...withdrawalPriorityOrder];
+                                  const filteredOrder = withdrawalPriorityOrder.filter(a => a !== 'cash');
+                                  if (index < filteredOrder.length - 1) {
+                                    const newOrder = [...filteredOrder];
                                     [newOrder[index], newOrder[index + 1]] = [newOrder[index + 1], newOrder[index]];
                                     setWithdrawalPriorityOrder(newOrder);
                                   }
                                 }}
-                                disabled={index === withdrawalPriorityOrder.length - 1}
+                                disabled={index === withdrawalPriorityOrder.filter(a => a !== 'cash').length - 1}
                                 className="text-zinc-500 hover:text-orange-400 disabled:opacity-30"
                               >
                                 <ChevronDown className="w-3 h-3" />
@@ -3819,7 +3821,7 @@ export default function FinancialPlan() {
                           </div>
                         ))}
                       </div>
-                      <p className="text-xs text-zinc-500 mt-3">#1 is sold first until depleted, then #2, etc.</p>
+                      <p className="text-xs text-zinc-500 mt-3">Cash is used first, then assets are sold in this order.</p>
                     </div>
                   )}
                 </div>
