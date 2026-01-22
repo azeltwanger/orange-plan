@@ -1581,6 +1581,17 @@ export default function TaxCenter() {
             <span className="hidden sm:inline">Create Tax Lots</span>
             <span className="sm:hidden">Lots</span>
           </Button>
+          <Button 
+            onClick={reconstructHistoricalLots}
+            variant="outline"
+            size="sm"
+            disabled={isLoading}
+            className="bg-transparent border-amber-600 text-amber-400 hover:bg-amber-500/10 text-sm"
+          >
+            {isLoading ? <Loader2 className="w-4 h-4 mr-1 sm:mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-1 sm:mr-2" />}
+            <span className="hidden sm:inline">Rebuild History</span>
+            <span className="sm:hidden">Rebuild</span>
+          </Button>
           <Button onClick={() => setSaleFormOpen(true)} size="sm" className="brand-gradient text-white font-semibold shadow-lg shadow-orange-500/20 text-sm">
             <Calculator className="w-4 h-4 mr-1 sm:mr-2" />
             <span className="hidden sm:inline">Record Sale</span>
