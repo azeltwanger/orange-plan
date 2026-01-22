@@ -1450,7 +1450,7 @@ export function runUnifiedProjection({
         penaltyPaid = taxEstimate.totalPenalty || 0;
 
         // Use lot-aware withdrawal for taxable account
-        const taxableWithdrawResult = withdrawFromTaxableWithLots(taxEstimate.fromTaxable || 0, cumulativeBtcPrice);
+        const taxableWithdrawResult = withdrawFromTaxableWithLots(taxEstimate.fromTaxable || 0, cumulativeBtcPrice, year);
         withdrawFromTaxable = taxableWithdrawResult.withdrawn;
         // Update basis using actual lot cost basis, not proportional estimate
         runningTaxableBasis = Math.max(0, runningTaxableBasis - taxableWithdrawResult.totalCostBasis);
@@ -1471,7 +1471,7 @@ export function runUnifiedProjection({
           const taxableRemaining = getAccountTotal('taxable');
           if (taxableRemaining > 0) {
             const forceFromTaxable = Math.min(remainingShortfall, taxableRemaining);
-            const forceResult = withdrawFromTaxableWithLots(forceFromTaxable, cumulativeBtcPrice);
+            const forceResult = withdrawFromTaxableWithLots(forceFromTaxable, cumulativeBtcPrice, year);
             withdrawFromTaxable += forceResult.withdrawn;
             runningTaxableBasis = Math.max(0, runningTaxableBasis - forceResult.totalCostBasis);
             remainingShortfall -= forceResult.withdrawn;
@@ -1715,7 +1715,7 @@ export function runUnifiedProjection({
         const requestedFromTaxFree = totalTaxEstimate.fromTaxFree || 0;
 
         // Use lot-aware withdrawal for taxable account
-        const retirementTaxableResult = withdrawFromTaxableWithLots(requestedFromTaxable, cumulativeBtcPrice);
+        const retirementTaxableResult = withdrawFromTaxableWithLots(requestedFromTaxable, cumulativeBtcPrice, year);
         withdrawFromTaxable = retirementTaxableResult.withdrawn;
         // Update basis using actual lot cost basis
         runningTaxableBasis = Math.max(0, runningTaxableBasis - retirementTaxableResult.totalCostBasis);
@@ -1733,7 +1733,7 @@ export function runUnifiedProjection({
           const taxableRemaining = getAccountTotal('taxable');
           if (taxableRemaining > 0) {
             const forceFromTaxable = Math.min(remainingShortfall, taxableRemaining);
-            const forceRetirementResult = withdrawFromTaxableWithLots(forceFromTaxable, cumulativeBtcPrice);
+            const forceRetirementResult = withdrawFromTaxableWithLots(forceFromTaxable, cumulativeBtcPrice, year);
             withdrawFromTaxable += forceRetirementResult.withdrawn;
             runningTaxableBasis = Math.max(0, runningTaxableBasis - forceRetirementResult.totalCostBasis);
             totalWithdrawnFromAccounts += forceRetirementResult.withdrawn;
