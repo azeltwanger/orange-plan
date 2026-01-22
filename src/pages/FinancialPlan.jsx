@@ -781,6 +781,9 @@ export default function FinancialPlan() {
         tickerReturns,
         taxLots: activeTaxLots,
         costBasisMethod,
+        assetWithdrawalStrategy,
+        withdrawalPriorityOrder,
+        withdrawalBlendPercentages,
         DEBUG: false,
         });
 
@@ -863,6 +866,9 @@ export default function FinancialPlan() {
       customReturnPeriods,
       taxLots: activeTaxLots,
       costBasisMethod,
+      assetWithdrawalStrategy,
+      withdrawalPriorityOrder,
+      withdrawalBlendPercentages,
       DEBUG: false,
     });
     
