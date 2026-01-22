@@ -238,12 +238,25 @@ export function runUnifiedProjection({
 
   // Enhanced withdrawal from taxable account with BTC lot tracking
   // Uses selectLots for BTC to get accurate cost basis, proportional for other assets
-  const withdrawFromTaxableWithLots = (amount, currentBtcPrice) => {
+  const withdrawFromTaxableWithLots = (amount, currentBtcPrice, debugYear = null) => {
     const total = getAccountTotal('taxable');
     if (total <= 0 || amount <= 0) return { withdrawn: 0, btcCostBasis: 0, otherCostBasis: 0, totalCostBasis: 0 };
     
     const actualWithdrawal = Math.min(amount, total);
     const acct = portfolio.taxable;
+    
+    // Debug logging for first 5 years
+    const currentDebugYear = new Date().getFullYear();
+    if (debugYear && debugYear <= currentDebugYear + 5) {
+      console.log('=== withdrawFromTaxableWithLots ===');
+      console.log('Year:', debugYear);
+      console.log('Amount requested:', amount);
+      console.log('actualWithdrawal:', actualWithdrawal);
+      console.log('acct.btc (liquid):', acct.btc);
+      console.log('acct.stocks:', acct.stocks);
+      console.log('Strategy:', assetWithdrawalStrategy);
+      console.log('Blend %:', JSON.stringify(withdrawalBlendPercentages));
+    }
     
     let btcWithdrawn = 0;
     let btcCostBasis = 0;
@@ -298,6 +311,17 @@ export function runUnifiedProjection({
         
         // If blend doesn't cover full amount (due to min constraints), take remainder proportionally
         const blendTotal = btcTarget + stocksTarget + bondsTarget + cashTarget + otherTarget;
+        
+        // Debug logging for blended strategy
+        const currentDebugYear = new Date().getFullYear();
+        if (debugYear && debugYear <= currentDebugYear + 5) {
+          console.log('--- Blended Strategy ---');
+          console.log('btcTarget:', btcTarget);
+          console.log('stocksTarget:', stocksTarget);
+          console.log('blendTotal:', blendTotal);
+          console.log('shortfall:', actualWithdrawal - blendTotal);
+        }
+        
         if (blendTotal < actualWithdrawal) {
           const shortfall = actualWithdrawal - blendTotal;
           const remainingTotal = (acct.btc - btcTarget) + (acct.stocks - stocksTarget) + 
@@ -370,6 +394,12 @@ export function runUnifiedProjection({
       
       otherCostBasis = nonBtcWithdrawn * Math.min(1, basisRatio);
       otherWithdrawn = nonBtcWithdrawn;
+      
+      // Debug warning if selling stocks
+      const currentDebugYear2 = new Date().getFullYear();
+      if (debugYear && debugYear <= currentDebugYear2 + 5 && stocksTarget > 0) {
+        console.log('WARNING: Selling stocks! stocksTarget =', stocksTarget);
+      }
       
       acct.stocks = Math.max(0, acct.stocks - stocksTarget);
       acct.bonds = Math.max(0, acct.bonds - bondsTarget);
