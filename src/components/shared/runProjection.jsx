@@ -233,6 +233,14 @@ export function runUnifiedProjection({
     acct.cash = Math.max(0, acct.cash * (1 - ratio));
     acct.other = Math.max(0, acct.other * (1 - ratio));
     
+    // Clean up dust (values under $1) to prevent compounding of near-zero balances
+    const DUST_THRESHOLD = 1;
+    if (acct.btc > 0 && acct.btc < DUST_THRESHOLD) acct.btc = 0;
+    if (acct.stocks > 0 && acct.stocks < DUST_THRESHOLD) acct.stocks = 0;
+    if (acct.bonds > 0 && acct.bonds < DUST_THRESHOLD) acct.bonds = 0;
+    if (acct.cash > 0 && acct.cash < DUST_THRESHOLD) acct.cash = 0;
+    if (acct.other > 0 && acct.other < DUST_THRESHOLD) acct.other = 0;
+    
     return actualWithdrawal;
   };
 
@@ -1847,6 +1855,18 @@ export function runUnifiedProjection({
     // Calculate totals
     const currentTotalEncumberedBtc = Object.values(encumberedBtc).reduce((sum, amount) => sum + amount, 0);
     const encumberedBtcValueThisYear = currentTotalEncumberedBtc * cumulativeBtcPrice;
+    
+    // End-of-year dust cleanup for all accounts to prevent compounding of near-zero balances
+    const DUST_THRESHOLD_EOY = 1;
+    ['taxable', 'taxDeferred', 'taxFree'].forEach(accountKey => {
+      const acct = portfolio[accountKey];
+      if (acct.btc > 0 && acct.btc < DUST_THRESHOLD_EOY) acct.btc = 0;
+      if (acct.stocks > 0 && acct.stocks < DUST_THRESHOLD_EOY) acct.stocks = 0;
+      if (acct.bonds > 0 && acct.bonds < DUST_THRESHOLD_EOY) acct.bonds = 0;
+      if (acct.cash > 0 && acct.cash < DUST_THRESHOLD_EOY) acct.cash = 0;
+      if (acct.other > 0 && acct.other < DUST_THRESHOLD_EOY) acct.other = 0;
+    });
+    if (portfolio.realEstate > 0 && portfolio.realEstate < DUST_THRESHOLD_EOY) portfolio.realEstate = 0;
     
     const liquidAssetsAfterYear = getTotalLiquid() + portfolio.realEstate;
     if (liquidAssetsAfterYear <= 0 && firstDepletionAge === null) {
