@@ -1856,6 +1856,17 @@ export function runUnifiedProjection({
     const currentTotalEncumberedBtc = Object.values(encumberedBtc).reduce((sum, amount) => sum + amount, 0);
     const encumberedBtcValueThisYear = currentTotalEncumberedBtc * cumulativeBtcPrice;
     
+    // Debug logging for depletion check (only when portfolio is low)
+    if (getTotalLiquid() < 100000) {
+      console.log('=== END OF YEAR DEPLETION CHECK ===');
+      console.log('Age:', age);
+      console.log('BEFORE dust cleanup - getTotalLiquid():', getTotalLiquid());
+      console.log('BEFORE dust cleanup - portfolio.realEstate:', portfolio.realEstate);
+      console.log('BEFORE dust cleanup - taxable:', JSON.stringify(portfolio.taxable));
+      console.log('BEFORE dust cleanup - taxDeferred:', JSON.stringify(portfolio.taxDeferred));
+      console.log('BEFORE dust cleanup - taxFree:', JSON.stringify(portfolio.taxFree));
+    }
+    
     // End-of-year dust cleanup for all accounts to prevent compounding of near-zero balances
     const DUST_THRESHOLD_EOY = 1;
     ['taxable', 'taxDeferred', 'taxFree'].forEach(accountKey => {
@@ -1868,10 +1879,20 @@ export function runUnifiedProjection({
     });
     if (portfolio.realEstate > 0 && portfolio.realEstate < DUST_THRESHOLD_EOY) portfolio.realEstate = 0;
     
+    // Debug logging after dust cleanup
+    if (getTotalLiquid() < 100000 || (getTotalLiquid() === 0 && portfolio.realEstate === 0)) {
+      console.log('AFTER dust cleanup - getTotalLiquid():', getTotalLiquid());
+      console.log('AFTER dust cleanup - portfolio.realEstate:', portfolio.realEstate);
+      console.log('firstDepletionAge:', firstDepletionAge);
+      console.log('liquidAssetsAfterYear will be:', getTotalLiquid() + portfolio.realEstate);
+      console.log('Will set depletion?', (getTotalLiquid() + portfolio.realEstate) <= 0 && firstDepletionAge === null);
+    }
+    
     const liquidAssetsAfterYear = getTotalLiquid() + portfolio.realEstate;
     if (liquidAssetsAfterYear <= 0 && firstDepletionAge === null) {
       firstDepletionAge = age;
       ranOutOfMoneyThisYear = true;
+      console.log('*** DEPLETION TRIGGERED at age', age, '***');
     }
     // Once depleted, stay depleted - don't reset firstDepletionAge
 
