@@ -117,15 +117,6 @@ export function runUnifiedProjection({
   withdrawalBlendPercentages = { cash: 0, bonds: 25, stocks: 35, other: 10, btc: 30 },
   DEBUG = false,
 }) {
-  // Debug: Log withdrawal strategy params
-  if (DEBUG) {
-    console.log('=== WITHDRAWAL STRATEGY PARAMS ===');
-    console.log('assetWithdrawalStrategy:', assetWithdrawalStrategy);
-    console.log('withdrawalPriorityOrder:', withdrawalPriorityOrder);
-    console.log('withdrawalBlendPercentages:', withdrawalBlendPercentages);
-    console.log('costBasisMethod:', costBasisMethod);
-    console.log('taxLots count:', taxLots?.length || 0);
-  }
   const results = [];
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth();
@@ -1847,9 +1838,9 @@ export function runUnifiedProjection({
     });
     if (portfolio.realEstate > 0 && portfolio.realEstate < DUST_THRESHOLD_EOY) portfolio.realEstate = 0;
     
-    // Debug: Log depletion check for ages 40-50
-    if (DEBUG && age >= 40 && age <= 50) {
-      console.log(`Age ${age}: liquidAssets=${getTotalLiquid().toFixed(2)}, realEstate=${portfolio.realEstate.toFixed(2)}, firstDepletionAge=${firstDepletionAge}`);
+    // Debug: Log depletion check for ages 40-55
+    if (age >= 40 && age <= 55) {
+      console.log(`Age ${age}: liquid=${Math.round(getTotalLiquid())}, RE=${Math.round(portfolio.realEstate)}, depleted=${firstDepletionAge}`);
     }
     
     const liquidAssetsAfterYear = getTotalLiquid() + portfolio.realEstate;
