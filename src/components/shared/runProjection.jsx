@@ -546,13 +546,25 @@ export function runUnifiedProjection({
     const isRetired = age >= retirementAge;
     const yearsFromNow = i;
 
-    // If already depleted, skip all calculations and just record zero values
+    // EARLY EXIT: If already depleted, zero everything and skip all calculations
     if (firstDepletionAge !== null && age > firstDepletionAge) {
-      // Update BTC price for tracking purposes
-      const yearBtcGrowth = getBtcGrowthRate(yearsFromNow, effectiveInflation);
-      if (i > 0) {
-        cumulativeBtcPrice = cumulativeBtcPrice * (1 + yearBtcGrowth / 100);
-      }
+      // Zero all portfolio state to prevent any value from being added back
+      portfolio.taxable = { btc: 0, stocks: 0, bonds: 0, cash: 0, other: 0 };
+      portfolio.taxDeferred = { btc: 0, stocks: 0, bonds: 0, cash: 0, other: 0 };
+      portfolio.taxFree = { btc: 0, stocks: 0, bonds: 0, cash: 0, other: 0 };
+      portfolio.realEstate = 0;
+      runningTaxableBasis = 0;
+      encumberedBtcBasis = 0;
+      cumulativeSavings = 0;
+      
+      // Zero all encumbered BTC and released BTC to prevent collateral releases
+      Object.keys(encumberedBtc).forEach(key => { encumberedBtc[key] = 0; });
+      Object.keys(releasedBtc).forEach(key => { delete releasedBtc[key]; });
+      releasedBtc = {};
+      
+      // Mark all debts as paid off to stop processing
+      Object.values(tempRunningDebt).forEach(liab => { liab.current_balance = 0; liab.paid_off = true; });
+      Object.values(tempRunningCollateralizedLoans).forEach(loan => { loan.current_balance = 0; loan.paid_off = true; });
       
       results.push({
         year,
@@ -573,7 +585,7 @@ export function runUnifiedProjection({
         taxFree: 0,
         accountTotal: 0,
         totalDebt: 0,
-        savings: Math.round(cumulativeSavings),
+        savings: 0,
         netCashFlow: 0,
         yearGrossIncome: 0,
         yearSpending: 0,
@@ -603,8 +615,8 @@ export function runUnifiedProjection({
         loanPayoffs: [],
         debtPayoffs: [],
         liquidations: [],
-        btcPrice: Math.round(cumulativeBtcPrice),
-        btcGrowthRate: yearBtcGrowth,
+        btcPrice: 0,
+        btcGrowthRate: 0,
         encumberedBtc: 0,
         liquidBtc: 0,
         btcLoanDetails: [],
