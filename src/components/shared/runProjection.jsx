@@ -1419,12 +1419,11 @@ export function runUnifiedProjection({
         taxesPaid += (taxEstimate.totalTax || 0) + preRetireStateTax;
         penaltyPaid = taxEstimate.totalPenalty || 0;
 
-        if (taxEstimate.fromTaxable > 0 && taxableBalance > 0) {
-          const basisRatio = runningTaxableBasis / taxableBalance;
-          runningTaxableBasis = Math.max(0, runningTaxableBasis - (taxEstimate.fromTaxable * basisRatio));
-        }
-
-        withdrawFromTaxable = withdrawFromAccount('taxable', taxEstimate.fromTaxable || 0);
+        // Use lot-aware withdrawal for taxable account
+        const taxableWithdrawResult = withdrawFromTaxableWithLots(taxEstimate.fromTaxable || 0, cumulativeBtcPrice);
+        withdrawFromTaxable = taxableWithdrawResult.withdrawn;
+        // Update basis using actual lot cost basis, not proportional estimate
+        runningTaxableBasis = Math.max(0, runningTaxableBasis - taxableWithdrawResult.totalCostBasis);
         withdrawFromTaxDeferred = withdrawFromAccount('taxDeferred', taxEstimate.fromTaxDeferred || 0);
         withdrawFromTaxFree = withdrawFromAccount('taxFree', taxEstimate.fromTaxFree || 0);
 
@@ -1442,9 +1441,10 @@ export function runUnifiedProjection({
           const taxableRemaining = getAccountTotal('taxable');
           if (taxableRemaining > 0) {
             const forceFromTaxable = Math.min(remainingShortfall, taxableRemaining);
-            withdrawFromAccount('taxable', forceFromTaxable);
-            withdrawFromTaxable += forceFromTaxable;
-            remainingShortfall -= forceFromTaxable;
+            const forceResult = withdrawFromTaxableWithLots(forceFromTaxable, cumulativeBtcPrice);
+            withdrawFromTaxable += forceResult.withdrawn;
+            runningTaxableBasis = Math.max(0, runningTaxableBasis - forceResult.totalCostBasis);
+            remainingShortfall -= forceResult.withdrawn;
           }
           
           const taxDeferredRemaining = getAccountTotal('taxDeferred');
@@ -1684,12 +1684,11 @@ export function runUnifiedProjection({
         const requestedFromTaxDeferred = totalTaxEstimate.fromTaxDeferred || 0;
         const requestedFromTaxFree = totalTaxEstimate.fromTaxFree || 0;
 
-        if (requestedFromTaxable > 0 && getAccountTotal('taxable') > 0) {
-          const basisRatio = runningTaxableBasis / getAccountTotal('taxable');
-          runningTaxableBasis = Math.max(0, runningTaxableBasis - (requestedFromTaxable * basisRatio));
-        }
-
-        withdrawFromTaxable = withdrawFromAccount('taxable', requestedFromTaxable);
+        // Use lot-aware withdrawal for taxable account
+        const retirementTaxableResult = withdrawFromTaxableWithLots(requestedFromTaxable, cumulativeBtcPrice);
+        withdrawFromTaxable = retirementTaxableResult.withdrawn;
+        // Update basis using actual lot cost basis
+        runningTaxableBasis = Math.max(0, runningTaxableBasis - retirementTaxableResult.totalCostBasis);
         const actualFromTaxDeferred = withdrawFromAccount('taxDeferred', requestedFromTaxDeferred);
         withdrawFromTaxFree = withdrawFromAccount('taxFree', requestedFromTaxFree);
         withdrawFromTaxDeferred = rmdWithdrawn + actualFromTaxDeferred;
@@ -1704,10 +1703,11 @@ export function runUnifiedProjection({
           const taxableRemaining = getAccountTotal('taxable');
           if (taxableRemaining > 0) {
             const forceFromTaxable = Math.min(remainingShortfall, taxableRemaining);
-            withdrawFromAccount('taxable', forceFromTaxable);
-            withdrawFromTaxable += forceFromTaxable;
-            totalWithdrawnFromAccounts += forceFromTaxable;
-            remainingShortfall -= forceFromTaxable;
+            const forceRetirementResult = withdrawFromTaxableWithLots(forceFromTaxable, cumulativeBtcPrice);
+            withdrawFromTaxable += forceRetirementResult.withdrawn;
+            runningTaxableBasis = Math.max(0, runningTaxableBasis - forceRetirementResult.totalCostBasis);
+            totalWithdrawnFromAccounts += forceRetirementResult.withdrawn;
+            remainingShortfall -= forceRetirementResult.withdrawn;
           }
           
           const taxDeferredRemaining = getAccountTotal('taxDeferred');
