@@ -1317,22 +1317,23 @@ export function runUnifiedProjection({
       }
 
       // Apply growth only to balances above dust threshold to prevent compounding near-zero values
+      // CRITICAL: Only apply growth if the rate is non-zero (prevents cash from growing when cashCagr=0)
       const GROWTH_DUST_THRESHOLD = 1; // Don't apply growth to values under $1
       ['taxable', 'taxDeferred', 'taxFree'].forEach(accountKey => {
         const acct = portfolio[accountKey];
-        if (acct.btc >= GROWTH_DUST_THRESHOLD) acct.btc *= (1 + yearBtcGrowth / 100);
-        else acct.btc = 0;
-        if (acct.stocks >= GROWTH_DUST_THRESHOLD) acct.stocks *= (1 + effectiveStocksGrowthThisYear / 100);
-        else acct.stocks = 0;
-        if (acct.bonds >= GROWTH_DUST_THRESHOLD) acct.bonds *= (1 + yearBondsGrowth / 100);
-        else acct.bonds = 0;
-        if (acct.cash >= GROWTH_DUST_THRESHOLD) acct.cash *= (1 + yearCashGrowth / 100);
-        else acct.cash = 0;
-        if (acct.other >= GROWTH_DUST_THRESHOLD) acct.other *= (1 + yearOtherGrowth / 100);
-        else acct.other = 0;
+        if (acct.btc >= GROWTH_DUST_THRESHOLD && yearBtcGrowth !== 0) acct.btc *= (1 + yearBtcGrowth / 100);
+        else if (acct.btc < GROWTH_DUST_THRESHOLD) acct.btc = 0;
+        if (acct.stocks >= GROWTH_DUST_THRESHOLD && effectiveStocksGrowthThisYear !== 0) acct.stocks *= (1 + effectiveStocksGrowthThisYear / 100);
+        else if (acct.stocks < GROWTH_DUST_THRESHOLD) acct.stocks = 0;
+        if (acct.bonds >= GROWTH_DUST_THRESHOLD && yearBondsGrowth !== 0) acct.bonds *= (1 + yearBondsGrowth / 100);
+        else if (acct.bonds < GROWTH_DUST_THRESHOLD) acct.bonds = 0;
+        if (acct.cash >= GROWTH_DUST_THRESHOLD && yearCashGrowth !== 0) acct.cash *= (1 + yearCashGrowth / 100);
+        else if (acct.cash < GROWTH_DUST_THRESHOLD) acct.cash = 0;
+        if (acct.other >= GROWTH_DUST_THRESHOLD && yearOtherGrowth !== 0) acct.other *= (1 + yearOtherGrowth / 100);
+        else if (acct.other < GROWTH_DUST_THRESHOLD) acct.other = 0;
       });
-      if (portfolio.realEstate >= GROWTH_DUST_THRESHOLD) portfolio.realEstate *= (1 + yearRealEstateGrowth / 100);
-      else portfolio.realEstate = 0;
+      if (portfolio.realEstate >= GROWTH_DUST_THRESHOLD && yearRealEstateGrowth !== 0) portfolio.realEstate *= (1 + yearRealEstateGrowth / 100);
+      else if (portfolio.realEstate < GROWTH_DUST_THRESHOLD) portfolio.realEstate = 0;
     }
 
     // Roth contributions for accessible funds
