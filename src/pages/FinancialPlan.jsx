@@ -147,8 +147,9 @@ export default function FinancialPlan() {
   const [costBasisMethod, setCostBasisMethod] = useState('HIFO');
 
   // Asset withdrawal strategy
-  const [assetWithdrawalStrategy, setAssetWithdrawalStrategy] = useState('preserve_btc');
-  const [withdrawalPriorityOrder, setWithdrawalPriorityOrder] = useState(['cash', 'bonds', 'stocks', 'other', 'btc']);
+  const [assetWithdrawalStrategy, setAssetWithdrawalStrategy] = useState('proportional');
+  const [withdrawalPriorityOrder, setWithdrawalPriorityOrder] = useState(['bonds', 'stocks', 'other', 'btc']);
+  const [withdrawalBlendPercentages, setWithdrawalBlendPercentages] = useState({ bonds: 25, stocks: 35, other: 10, btc: 30 });
 
   // Settings loaded flag
   const [settingsLoaded, setSettingsLoaded] = useState(false);
@@ -363,6 +364,7 @@ export default function FinancialPlan() {
                   if (settings.cost_basis_method !== undefined) setCostBasisMethod(settings.cost_basis_method);
                   if (settings.asset_withdrawal_strategy !== undefined) setAssetWithdrawalStrategy(settings.asset_withdrawal_strategy);
                   if (settings.withdrawal_priority_order !== undefined) setWithdrawalPriorityOrder(settings.withdrawal_priority_order);
+                  if (settings.withdrawal_blend_percentages !== undefined) setWithdrawalBlendPercentages(settings.withdrawal_blend_percentages);
                   if (settings.auto_top_up_btc_collateral !== undefined) setAutoTopUpBtcCollateral(settings.auto_top_up_btc_collateral);
                   if (settings.btc_top_up_trigger_ltv !== undefined) setBtcTopUpTriggerLtv(settings.btc_top_up_trigger_ltv);
                   if (settings.btc_top_up_target_ltv !== undefined) setBtcTopUpTargetLtv(settings.btc_top_up_target_ltv);
@@ -431,10 +433,11 @@ export default function FinancialPlan() {
                       ticker_returns: tickerReturns,
                       asset_withdrawal_strategy: assetWithdrawalStrategy,
                       withdrawal_priority_order: withdrawalPriorityOrder,
+                      withdrawal_blend_percentages: withdrawalBlendPercentages,
                       });
                       }, 1000); // Debounce 1 second
                       return () => clearTimeout(timeoutId);
-                      }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, otherCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, useCustomSocialSecurity, grossAnnualIncome, contribution401k, employer401kMatch, contributionRothIRA, contributionTraditionalIRA, contributionHSA, hsaFamilyCoverage, filingStatus, stateOfResidence, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv, btcReleaseTriggerLtv, btcReleaseTargetLtv, savingsAllocationBtc, savingsAllocationStocks, savingsAllocationBonds, savingsAllocationCash, savingsAllocationOther, customReturnPeriods, tickerReturns, assetWithdrawalStrategy, withdrawalPriorityOrder, saveSettings]);
+                      }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, otherCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, useCustomSocialSecurity, grossAnnualIncome, contribution401k, employer401kMatch, contributionRothIRA, contributionTraditionalIRA, contributionHSA, hsaFamilyCoverage, filingStatus, stateOfResidence, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv, btcReleaseTriggerLtv, btcReleaseTargetLtv, savingsAllocationBtc, savingsAllocationStocks, savingsAllocationBonds, savingsAllocationCash, savingsAllocationOther, customReturnPeriods, tickerReturns, assetWithdrawalStrategy, withdrawalPriorityOrder, withdrawalBlendPercentages, saveSettings]);
 
   // Calculate accurate debt payments for current month
   const currentMonthForDebt = new Date().getMonth();
@@ -3649,13 +3652,12 @@ export default function FinancialPlan() {
                 {/* Asset Withdrawal Strategy */}
                 <div className="col-span-full mt-4 pt-4 border-t border-zinc-800">
                   <Label className="text-zinc-400 text-sm mb-3 block">Asset Withdrawal Strategy</Label>
-                  <p className="text-xs text-zinc-500 mb-3">When you need cash in retirement, which assets should be sold first?</p>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <p className="text-xs text-zinc-500 mb-3">When selling assets to fund retirement spending, how should they be sold? (Cash is always used first before selling assets)</p>
+                  <div className="grid grid-cols-3 gap-3">
                     {[
-                      { value: 'proportional', label: 'Proportional', desc: 'Sell all assets equally' },
-                      { value: 'preserve_btc', label: 'Preserve Bitcoin', desc: 'Cash → Bonds → Stocks → BTC' },
-                      { value: 'preserve_growth', label: 'Preserve Growth', desc: 'Cash → Bonds → Stocks → BTC' },
-                      { value: 'custom', label: 'Custom Order', desc: 'Set your own priority' },
+                      { value: 'proportional', label: 'Proportional', desc: 'Sell all assets based on current allocation' },
+                      { value: 'blended', label: 'Blended %', desc: 'Set exact percentage from each asset' },
+                      { value: 'priority', label: 'Priority Order', desc: 'Sell in sequence until depleted' },
                     ].map(strategy => (
                       <div
                         key={strategy.value}
@@ -3667,22 +3669,68 @@ export default function FinancialPlan() {
                             : "bg-zinc-800/30 border-zinc-700 hover:border-zinc-600"
                         )}
                       >
-                        <div className="flex items-center justify-between mb-1">
-                          <span className={cn(
-                            "font-medium text-sm",
-                            assetWithdrawalStrategy === strategy.value ? "text-orange-400" : "text-zinc-300"
-                          )}>
-                            {strategy.label}
-                          </span>
-                        </div>
-                        <p className="text-xs text-zinc-500">{strategy.desc}</p>
+                        <span className={cn(
+                          "font-medium text-sm",
+                          assetWithdrawalStrategy === strategy.value ? "text-orange-400" : "text-zinc-300"
+                        )}>
+                          {strategy.label}
+                        </span>
+                        <p className="text-xs text-zinc-500 mt-1">{strategy.desc}</p>
                       </div>
                     ))}
                   </div>
-                  
-                  {assetWithdrawalStrategy === 'custom' && (
+
+                  {/* Blended % Editor */}
+                  {assetWithdrawalStrategy === 'blended' && (
                     <div className="mt-4 p-4 rounded-lg bg-zinc-800/50 border border-zinc-700">
-                      <Label className="text-zinc-400 text-sm mb-3 block">Custom Sell Order</Label>
+                      <Label className="text-zinc-400 text-sm mb-3 block">Withdrawal Split (must total 100%)</Label>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        {[
+                          { key: 'bonds', label: 'Bonds' },
+                          { key: 'stocks', label: 'Stocks' },
+                          { key: 'other', label: 'Other' },
+                          { key: 'btc', label: 'Bitcoin' },
+                        ].map(asset => (
+                          <div key={asset.key}>
+                            <Label className="text-zinc-500 text-xs">{asset.label}</Label>
+                            <div className="flex items-center gap-1 mt-1">
+                              <Input
+                                type="number"
+                                min="0"
+                                max="100"
+                                value={withdrawalBlendPercentages[asset.key] || 0}
+                                onChange={(e) => setWithdrawalBlendPercentages(prev => ({
+                                  ...prev,
+                                  [asset.key]: Math.max(0, Math.min(100, parseInt(e.target.value) || 0))
+                                }))}
+                                className="bg-zinc-900 border-zinc-700 text-zinc-200 w-20"
+                              />
+                              <span className="text-zinc-500 text-sm">%</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="mt-3 flex items-center gap-2">
+                        <span className="text-xs text-zinc-500">Total:</span>
+                        <span className={cn(
+                          "text-sm font-medium",
+                          Object.values(withdrawalBlendPercentages).reduce((a, b) => a + b, 0) === 100
+                            ? "text-emerald-400"
+                            : "text-red-400"
+                        )}>
+                          {Object.values(withdrawalBlendPercentages).reduce((a, b) => a + b, 0)}%
+                        </span>
+                        {Object.values(withdrawalBlendPercentages).reduce((a, b) => a + b, 0) !== 100 && (
+                          <span className="text-xs text-red-400">Must equal 100%</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Priority Order Editor */}
+                  {assetWithdrawalStrategy === 'priority' && (
+                    <div className="mt-4 p-4 rounded-lg bg-zinc-800/50 border border-zinc-700">
+                      <Label className="text-zinc-400 text-sm mb-3 block">Sell Order (after cash is used)</Label>
                       <div className="flex flex-wrap gap-2">
                         {withdrawalPriorityOrder.map((asset, index) => (
                           <div
@@ -3690,7 +3738,7 @@ export default function FinancialPlan() {
                             className="flex items-center gap-2 px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-700"
                           >
                             <span className="text-orange-400 font-bold text-sm">{index + 1}</span>
-                            <span className="text-zinc-300 text-sm capitalize">{asset === 'btc' ? 'Bitcoin' : asset}</span>
+                            <span className="text-zinc-300 text-sm">{asset === 'btc' ? 'Bitcoin' : asset.charAt(0).toUpperCase() + asset.slice(1)}</span>
                             <div className="flex flex-col ml-2">
                               <button
                                 onClick={() => {
@@ -3701,7 +3749,7 @@ export default function FinancialPlan() {
                                   }
                                 }}
                                 disabled={index === 0}
-                                className="text-zinc-500 hover:text-orange-400 disabled:opacity-30 disabled:hover:text-zinc-500"
+                                className="text-zinc-500 hover:text-orange-400 disabled:opacity-30"
                               >
                                 <ChevronUp className="w-3 h-3" />
                               </button>
@@ -3714,7 +3762,7 @@ export default function FinancialPlan() {
                                   }
                                 }}
                                 disabled={index === withdrawalPriorityOrder.length - 1}
-                                className="text-zinc-500 hover:text-orange-400 disabled:opacity-30 disabled:hover:text-zinc-500"
+                                className="text-zinc-500 hover:text-orange-400 disabled:opacity-30"
                               >
                                 <ChevronDown className="w-3 h-3" />
                               </button>
@@ -3722,7 +3770,7 @@ export default function FinancialPlan() {
                           </div>
                         ))}
                       </div>
-                      <p className="text-xs text-zinc-500 mt-3">Assets sold in this order: #1 first, #5 last.</p>
+                      <p className="text-xs text-zinc-500 mt-3">#1 is sold first until depleted, then #2, etc.</p>
                     </div>
                   )}
                 </div>
