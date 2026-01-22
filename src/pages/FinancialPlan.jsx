@@ -146,10 +146,6 @@ export default function FinancialPlan() {
   // Cost basis method
   const [costBasisMethod, setCostBasisMethod] = useState('HIFO');
 
-  // Asset withdrawal strategy
-  const [assetWithdrawalStrategy, setAssetWithdrawalStrategy] = useState('preserve_btc');
-  const [withdrawalPriorityOrder, setWithdrawalPriorityOrder] = useState(['cash', 'bonds', 'stocks', 'other', 'btc']);
-
   // Settings loaded flag
   const [settingsLoaded, setSettingsLoaded] = useState(false);
 
@@ -361,8 +357,6 @@ export default function FinancialPlan() {
                   if (settings.filing_status !== undefined) setFilingStatus(settings.filing_status);
                   if (settings.state_of_residence !== undefined) setStateOfResidence(settings.state_of_residence);
                   if (settings.cost_basis_method !== undefined) setCostBasisMethod(settings.cost_basis_method);
-                  if (settings.asset_withdrawal_strategy !== undefined) setAssetWithdrawalStrategy(settings.asset_withdrawal_strategy);
-                  if (settings.withdrawal_priority_order !== undefined) setWithdrawalPriorityOrder(settings.withdrawal_priority_order);
                   if (settings.auto_top_up_btc_collateral !== undefined) setAutoTopUpBtcCollateral(settings.auto_top_up_btc_collateral);
                   if (settings.btc_top_up_trigger_ltv !== undefined) setBtcTopUpTriggerLtv(settings.btc_top_up_trigger_ltv);
                   if (settings.btc_top_up_target_ltv !== undefined) setBtcTopUpTargetLtv(settings.btc_top_up_target_ltv);
@@ -429,12 +423,10 @@ export default function FinancialPlan() {
                       btc_release_target_ltv: btcReleaseTargetLtv || 40,
                       custom_return_periods: customReturnPeriods,
                       ticker_returns: tickerReturns,
-                      asset_withdrawal_strategy: assetWithdrawalStrategy,
-                      withdrawal_priority_order: withdrawalPriorityOrder,
                       });
                       }, 1000); // Debounce 1 second
                       return () => clearTimeout(timeoutId);
-                      }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, otherCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, useCustomSocialSecurity, grossAnnualIncome, contribution401k, employer401kMatch, contributionRothIRA, contributionTraditionalIRA, contributionHSA, hsaFamilyCoverage, filingStatus, stateOfResidence, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv, btcReleaseTriggerLtv, btcReleaseTargetLtv, savingsAllocationBtc, savingsAllocationStocks, savingsAllocationBonds, savingsAllocationCash, savingsAllocationOther, customReturnPeriods, tickerReturns, assetWithdrawalStrategy, withdrawalPriorityOrder, saveSettings]);
+                      }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, otherCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, useCustomSocialSecurity, grossAnnualIncome, contribution401k, employer401kMatch, contributionRothIRA, contributionTraditionalIRA, contributionHSA, hsaFamilyCoverage, filingStatus, stateOfResidence, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv, btcReleaseTriggerLtv, btcReleaseTargetLtv, savingsAllocationBtc, savingsAllocationStocks, savingsAllocationBonds, savingsAllocationCash, savingsAllocationOther, customReturnPeriods, tickerReturns, saveSettings]);
 
   // Calculate accurate debt payments for current month
   const currentMonthForDebt = new Date().getMonth();
@@ -3644,43 +3636,6 @@ export default function FinancialPlan() {
                     {costBasisMethod === 'FIFO' && 'Sells oldest lots first'}
                     {costBasisMethod === 'LIFO' && 'Sells newest lots first'}
                   </p>
-                </div>
-                
-                {/* Asset Withdrawal Strategy */}
-                <div className="col-span-full mt-4 pt-4 border-t border-zinc-800">
-                  <Label className="text-zinc-400 text-sm mb-3 block">Asset Withdrawal Strategy</Label>
-                  <p className="text-xs text-zinc-500 mb-3">When you need cash in retirement, which assets should be sold first?</p>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    {[
-                      { value: 'proportional', label: 'Proportional', desc: 'Sell all assets equally (maintains allocation)' },
-                      { value: 'preserve_btc', label: 'Preserve Bitcoin', desc: 'Cash → Bonds → Stocks → Other → BTC' },
-                      { value: 'preserve_growth', label: 'Preserve Growth', desc: 'Cash → Bonds → Other → Stocks → BTC' },
-                    ].map(strategy => (
-                      <div
-                        key={strategy.value}
-                        onClick={() => setAssetWithdrawalStrategy(strategy.value)}
-                        className={cn(
-                          "p-3 rounded-lg border cursor-pointer transition-all",
-                          assetWithdrawalStrategy === strategy.value
-                            ? "bg-orange-500/20 border-orange-500/50 ring-1 ring-orange-500/30"
-                            : "bg-zinc-800/30 border-zinc-700 hover:border-zinc-600"
-                        )}
-                      >
-                        <div className="flex items-center justify-between mb-1">
-                          <span className={cn(
-                            "font-medium text-sm",
-                            assetWithdrawalStrategy === strategy.value ? "text-orange-400" : "text-zinc-300"
-                          )}>
-                            {strategy.label}
-                          </span>
-                          {strategy.value === 'preserve_btc' && (
-                            <Badge className="text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0">Recommended</Badge>
-                          )}
-                        </div>
-                        <p className="text-xs text-zinc-500">{strategy.desc}</p>
-                      </div>
-                    ))}
-                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label className="text-zinc-400">Gross Income (Pre-Retirement)</Label>
