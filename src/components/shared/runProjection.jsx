@@ -276,15 +276,6 @@ export function runUnifiedProjection({
       
     }
     
-    // Debug: Check which strategy branch we're entering
-    if (debugYear && debugYear <= 2031) {
-      console.log('=== STRATEGY CHECK ===');
-      console.log('assetWithdrawalStrategy:', assetWithdrawalStrategy);
-      console.log('Is proportional?', assetWithdrawalStrategy === 'proportional');
-      console.log('Is blended?', assetWithdrawalStrategy === 'blended');
-      console.log('Is priority?', assetWithdrawalStrategy === 'priority');
-    }
-    
     if (assetWithdrawalStrategy === 'priority') {
       // Withdraw in priority order until amount is met
       let remaining = actualWithdrawal;
@@ -307,18 +298,6 @@ export function runUnifiedProjection({
                        (withdrawalBlendPercentages.bonds || 0) + 
                        (withdrawalBlendPercentages.cash || 0) + 
                        (withdrawalBlendPercentages.other || 0);
-      
-      // Debug: Trace blended calculation
-      if (debugYear && debugYear <= 2031) {
-        console.log('=== BLENDED CALC ===');
-        console.log('totalPct:', totalPct);
-        console.log('withdrawalBlendPercentages:', JSON.stringify(withdrawalBlendPercentages));
-        console.log('withdrawalBlendPercentages.btc:', withdrawalBlendPercentages.btc);
-        console.log('actualWithdrawal:', actualWithdrawal);
-        console.log('acct.btc before calc:', acct.btc);
-        console.log('Calc: actualWithdrawal * (btc%) / totalPct =', actualWithdrawal * (withdrawalBlendPercentages.btc || 0) / totalPct);
-        console.log('Math.min result:', Math.min(acct.btc, actualWithdrawal * (withdrawalBlendPercentages.btc || 0) / totalPct));
-      }
       
       if (totalPct > 0) {
         btcTarget = Math.min(acct.btc, actualWithdrawal * (withdrawalBlendPercentages.btc || 0) / totalPct);
@@ -1856,17 +1835,6 @@ export function runUnifiedProjection({
     const currentTotalEncumberedBtc = Object.values(encumberedBtc).reduce((sum, amount) => sum + amount, 0);
     const encumberedBtcValueThisYear = currentTotalEncumberedBtc * cumulativeBtcPrice;
     
-    // Debug logging for depletion check (only when portfolio is low)
-    if (getTotalLiquid() < 100000) {
-      console.log('=== END OF YEAR DEPLETION CHECK ===');
-      console.log('Age:', age);
-      console.log('BEFORE dust cleanup - getTotalLiquid():', getTotalLiquid());
-      console.log('BEFORE dust cleanup - portfolio.realEstate:', portfolio.realEstate);
-      console.log('BEFORE dust cleanup - taxable:', JSON.stringify(portfolio.taxable));
-      console.log('BEFORE dust cleanup - taxDeferred:', JSON.stringify(portfolio.taxDeferred));
-      console.log('BEFORE dust cleanup - taxFree:', JSON.stringify(portfolio.taxFree));
-    }
-    
     // End-of-year dust cleanup for all accounts to prevent compounding of near-zero balances
     const DUST_THRESHOLD_EOY = 1;
     ['taxable', 'taxDeferred', 'taxFree'].forEach(accountKey => {
@@ -1879,20 +1847,15 @@ export function runUnifiedProjection({
     });
     if (portfolio.realEstate > 0 && portfolio.realEstate < DUST_THRESHOLD_EOY) portfolio.realEstate = 0;
     
-    // Debug logging after dust cleanup
-    if (getTotalLiquid() < 100000 || (getTotalLiquid() === 0 && portfolio.realEstate === 0)) {
-      console.log('AFTER dust cleanup - getTotalLiquid():', getTotalLiquid());
-      console.log('AFTER dust cleanup - portfolio.realEstate:', portfolio.realEstate);
-      console.log('firstDepletionAge:', firstDepletionAge);
-      console.log('liquidAssetsAfterYear will be:', getTotalLiquid() + portfolio.realEstate);
-      console.log('Will set depletion?', (getTotalLiquid() + portfolio.realEstate) <= 0 && firstDepletionAge === null);
+    // Debug: Log depletion check for ages 40-50
+    if (DEBUG && age >= 40 && age <= 50) {
+      console.log(`Age ${age}: liquidAssets=${getTotalLiquid().toFixed(2)}, realEstate=${portfolio.realEstate.toFixed(2)}, firstDepletionAge=${firstDepletionAge}`);
     }
     
     const liquidAssetsAfterYear = getTotalLiquid() + portfolio.realEstate;
     if (liquidAssetsAfterYear <= 0 && firstDepletionAge === null) {
       firstDepletionAge = age;
       ranOutOfMoneyThisYear = true;
-      console.log('*** DEPLETION TRIGGERED at age', age, '***');
     }
     // Once depleted, stay depleted - don't reset firstDepletionAge
 
