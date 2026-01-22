@@ -336,6 +336,7 @@ export function runUnifiedProjection({
       // DEBUG: Log BTC execution attempt
       if (debugYear !== null || amount > 10000) {
         console.log(`[BTC EXECUTION] btcTarget: $${Math.round(btcTarget)}, currentBtcPrice: $${Math.round(currentBtcPrice)}, btcQuantityToSell: ${btcQuantityToSell.toFixed(6)}, acct.btc before: $${Math.round(acct.btc)}`);
+        console.log(`[BTC EXECUTION] runningTaxLots count: ${runningTaxLots.length}, sample lot:`, runningTaxLots[0]);
       }
       
       // Filter lots to only taxable BTC lots
@@ -343,6 +344,11 @@ export function runUnifiedProjection({
         lot.asset_ticker === 'BTC' && 
         (lot.account_type === 'taxable' || !lot.account_type)
       );
+      
+      // DEBUG: Log filtered lots
+      if (debugYear !== null || amount > 10000) {
+        console.log(`[BTC EXECUTION] taxableBtcLots count: ${taxableBtcLots.length}, available qty: ${taxableBtcLots.reduce((sum, l) => sum + (l.remaining_quantity ?? l.quantity ?? 0), 0).toFixed(6)}`);
+      }
       
       if (taxableBtcLots.length > 0 && btcQuantityToSell > 0) {
         const lotResult = selectLots(taxableBtcLots, 'BTC', btcQuantityToSell, costBasisMethod);
