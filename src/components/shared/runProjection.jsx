@@ -113,15 +113,6 @@ export function runUnifiedProjection({
   costBasisMethod = 'HIFO',
   DEBUG = false,
 }) {
-  if (DEBUG) {
-    console.log('=== TAX LOT DATA ===');
-    console.log('Cost Basis Method:', costBasisMethod);
-    console.log('Tax Lots received:', taxLots.length);
-    if (taxLots.length > 0) {
-      console.log('Sample lot:', taxLots[0]);
-    }
-  }
-
   const results = [];
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth();
