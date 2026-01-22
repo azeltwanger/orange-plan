@@ -554,7 +554,11 @@ export function runUnifiedProjection({
     const yearsFromNow = i;
 
     // EARLY EXIT: If already depleted, zero everything and skip all calculations
-    if (firstDepletionAge !== null && age > firstDepletionAge) {
+    // Also check if total liquid assets are essentially zero (under $100) to catch edge cases
+    const totalLiquidCheck = getAccountTotal('taxable') + getAccountTotal('taxDeferred') + getAccountTotal('taxFree') + portfolio.realEstate;
+    const isEffectivelyDepleted = (firstDepletionAge !== null && age > firstDepletionAge) || (firstDepletionAge !== null && totalLiquidCheck < 100);
+    
+    if (isEffectivelyDepleted) {
       // Zero all portfolio state to prevent any value from being added back
       portfolio.taxable = { btc: 0, stocks: 0, bonds: 0, cash: 0, other: 0 };
       portfolio.taxDeferred = { btc: 0, stocks: 0, bonds: 0, cash: 0, other: 0 };
@@ -1282,14 +1286,23 @@ export function runUnifiedProjection({
         }
       }
 
+      // Apply growth only to balances above dust threshold to prevent compounding near-zero values
+      const GROWTH_DUST_THRESHOLD = 1; // Don't apply growth to values under $1
       ['taxable', 'taxDeferred', 'taxFree'].forEach(accountKey => {
-        portfolio[accountKey].btc *= (1 + yearBtcGrowth / 100);
-        portfolio[accountKey].stocks *= (1 + effectiveStocksGrowthThisYear / 100);
-        portfolio[accountKey].bonds *= (1 + yearBondsGrowth / 100);
-        portfolio[accountKey].cash *= (1 + yearCashGrowth / 100);
-        portfolio[accountKey].other *= (1 + yearOtherGrowth / 100);
+        const acct = portfolio[accountKey];
+        if (acct.btc >= GROWTH_DUST_THRESHOLD) acct.btc *= (1 + yearBtcGrowth / 100);
+        else acct.btc = 0;
+        if (acct.stocks >= GROWTH_DUST_THRESHOLD) acct.stocks *= (1 + effectiveStocksGrowthThisYear / 100);
+        else acct.stocks = 0;
+        if (acct.bonds >= GROWTH_DUST_THRESHOLD) acct.bonds *= (1 + yearBondsGrowth / 100);
+        else acct.bonds = 0;
+        if (acct.cash >= GROWTH_DUST_THRESHOLD) acct.cash *= (1 + yearCashGrowth / 100);
+        else acct.cash = 0;
+        if (acct.other >= GROWTH_DUST_THRESHOLD) acct.other *= (1 + yearOtherGrowth / 100);
+        else acct.other = 0;
       });
-      portfolio.realEstate *= (1 + yearRealEstateGrowth / 100);
+      if (portfolio.realEstate >= GROWTH_DUST_THRESHOLD) portfolio.realEstate *= (1 + yearRealEstateGrowth / 100);
+      else portfolio.realEstate = 0;
     }
 
     // Roth contributions for accessible funds
@@ -1680,9 +1693,19 @@ export function runUnifiedProjection({
       // Positive = surplus, Negative = deficit
       retirementNetCashFlow = (totalRetirementIncome + rmdWithdrawn) - (desiredWithdrawal + taxesPaid + penaltyPaid + yearGoalWithdrawal);
 
-      // Handle retirement income surplus - reinvest excess into taxable cash
+      // Handle retirement income surplus - reinvest excess into taxable account per savings allocation
+      // This allows income surplus to go into growth assets rather than just cash
       if (retirementNetCashFlow > 0) {
-        portfolio.taxable.cash += retirementNetCashFlow;
+        const totalAllocation = savingsAllocationBtc + savingsAllocationStocks + savingsAllocationBonds + savingsAllocationCash + savingsAllocationOther;
+        if (totalAllocation > 0) {
+          portfolio.taxable.btc += retirementNetCashFlow * (savingsAllocationBtc / totalAllocation);
+          portfolio.taxable.stocks += retirementNetCashFlow * (savingsAllocationStocks / totalAllocation);
+          portfolio.taxable.bonds += retirementNetCashFlow * (savingsAllocationBonds / totalAllocation);
+          portfolio.taxable.cash += retirementNetCashFlow * (savingsAllocationCash / totalAllocation);
+          portfolio.taxable.other += retirementNetCashFlow * (savingsAllocationOther / totalAllocation);
+        } else {
+          portfolio.taxable.cash += retirementNetCashFlow;
+        }
         runningTaxableBasis += retirementNetCashFlow;
       }
 
