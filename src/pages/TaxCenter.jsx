@@ -101,7 +101,6 @@ export default function TaxCenter() {
   const [exportingYear, setExportingYear] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null);
-  const [isReconstructing, setIsReconstructing] = useState(false);
   const queryClient = useQueryClient();
 
   // Tax planning settings
@@ -546,84 +545,6 @@ export default function TaxCenter() {
     setFormData({ type: 'buy', asset_ticker: 'BTC', quantity: '', price_per_unit: '', date: format(new Date(), 'yyyy-MM-dd'), exchange: '', account_id: '', trading_fee: '', notes: '' });
     setSaleForm({ account_id: '', asset_ticker: '', quantity: '', price_per_unit: '', date: format(new Date(), 'yyyy-MM-dd'), fee: '', lot_method: 'HIFO', selected_lots: [], exchange: '' });
     setSpecificLotQuantities({});
-  };
-
-  const reconstructBuyTransactions = async () => {
-    setIsReconstructing(true);
-    try {
-      const allTransactions = await base44.entities.Transaction.list();
-      const sellTransactions = allTransactions.filter(t => t.type === 'sell' && t.lots_used?.length > 0);
-      
-      // Collect all unique lots from lots_used
-      const lotsMap = new Map();
-      
-      for (const sell of sellTransactions) {
-        for (const lotUsed of sell.lots_used) {
-          const lotId = lotUsed.lot_id;
-          
-          if (!lotsMap.has(lotId)) {
-            // Create new lot entry
-            lotsMap.set(lotId, {
-              lot_id: lotId,
-              asset_ticker: sell.asset_ticker,
-              price_per_unit: lotUsed.price_per_unit,
-              cost_basis_per_unit: lotUsed.price_per_unit,
-              purchase_date: lotUsed.purchase_date,
-              total_quantity_sold: lotUsed.quantity_sold,
-              account_type: sell.account_type || 'taxable',
-              account_id: sell.account_id,
-              exchange_or_wallet: sell.exchange_or_wallet,
-            });
-          } else {
-            // Add to existing lot's sold quantity
-            const existing = lotsMap.get(lotId);
-            existing.total_quantity_sold += lotUsed.quantity_sold;
-          }
-        }
-      }
-      
-      // Check which lots already exist as buy transactions
-      const existingBuys = allTransactions.filter(t => t.type === 'buy');
-      const existingLotIds = new Set(existingBuys.map(b => b.lot_id));
-      
-      // Create missing buy transactions
-      let created = 0;
-      for (const [lotId, lotData] of lotsMap) {
-        if (!existingLotIds.has(lotId)) {
-          // We know at least this much was sold (lots are now fully used)
-          const buyTx = {
-            type: 'buy',
-            asset_ticker: lotData.asset_ticker,
-            quantity: lotData.total_quantity_sold,
-            remaining_quantity: 0, // Already sold
-            price_per_unit: lotData.price_per_unit,
-            total_value: lotData.total_quantity_sold * lotData.price_per_unit,
-            date: lotData.purchase_date,
-            lot_id: lotId,
-            cost_basis: lotData.total_quantity_sold * lotData.price_per_unit,
-            account_type: lotData.account_type,
-            account_id: lotData.account_id,
-            exchange_or_wallet: lotData.exchange_or_wallet,
-            notes: '[Reconstructed from sell transaction lots_used]',
-          };
-          
-          await base44.entities.Transaction.create(buyTx);
-          created++;
-        }
-      }
-      
-      console.log(`Created ${created} buy transactions from lots_used data`);
-      alert(`Successfully reconstructed ${created} buy transactions from sell history`);
-      
-      // Refresh transactions
-      queryClient.invalidateQueries({ queryKey: ['transactions'] });
-      queryClient.invalidateQueries({ queryKey: ['holdings'] });
-    } catch (error) {
-      console.error('Error reconstructing buy transactions:', error);
-      alert('Error: ' + error.message);
-    } finally {
-      setIsReconstructing(false);
-    }
   };
 
   useEffect(() => {
@@ -1482,17 +1403,6 @@ export default function TaxCenter() {
           <Button variant="outline" size="sm" onClick={() => setCsvImportOpen(true)} className="bg-transparent border-zinc-700 text-sm">
             <Upload className="w-4 h-4 mr-1 sm:mr-2" />
             <span className="hidden sm:inline">Import</span>
-          </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={reconstructBuyTransactions}
-            disabled={isReconstructing}
-            className="bg-transparent border-zinc-700 text-sm"
-          >
-            {isReconstructing ? <Loader2 className="w-4 h-4 mr-1 sm:mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-1 sm:mr-2" />}
-            <span className="hidden sm:inline">{isReconstructing ? 'Reconstructing...' : 'Reconstruct Buys'}</span>
-            <span className="sm:hidden">Fix</span>
           </Button>
           <Button onClick={() => setSaleFormOpen(true)} size="sm" className="brand-gradient text-white font-semibold shadow-lg shadow-orange-500/20 text-sm">
             <Calculator className="w-4 h-4 mr-1 sm:mr-2" />
