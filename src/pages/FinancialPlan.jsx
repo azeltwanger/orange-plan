@@ -3683,61 +3683,96 @@ export default function FinancialPlan() {
                   {/* Blended % Editor */}
                   {assetWithdrawalStrategy === 'blended' && (
                     <div className="mt-4 p-4 rounded-lg bg-zinc-800/50 border border-zinc-700">
-                      <Label className="text-zinc-400 text-sm mb-3 block">Withdrawal Split</Label>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="flex items-center justify-between mb-4">
+                        <Label className="text-zinc-400 text-sm">Withdrawal Split</Label>
+                        <span className="text-xs text-zinc-500">Drag sliders to adjust</span>
+                      </div>
+                      <div className="space-y-4">
                         {[
-                          { key: 'bonds', label: 'Bonds' },
-                          { key: 'stocks', label: 'Stocks' },
-                          { key: 'other', label: 'Other' },
-                          { key: 'btc', label: 'Bitcoin' },
-                        ].map((asset, index, arr) => (
-                          <div key={asset.key}>
-                            <Label className="text-zinc-500 text-xs">{asset.label}</Label>
-                            <div className="flex items-center gap-1 mt-1">
-                              <Input
-                                type="number"
-                                min="0"
-                                max="100"
-                                value={withdrawalBlendPercentages[asset.key] || 0}
-                                onChange={(e) => {
-                                  const newValue = Math.max(0, Math.min(100, parseInt(e.target.value) || 0));
+                          { key: 'bonds', label: 'Bonds', color: 'bg-purple-500' },
+                          { key: 'stocks', label: 'Stocks', color: 'bg-blue-500' },
+                          { key: 'other', label: 'Other', color: 'bg-zinc-500' },
+                          { key: 'btc', label: 'Bitcoin', color: 'bg-orange-500' },
+                        ].map((asset) => (
+                          <div key={asset.key} className="flex items-center gap-4">
+                            <div className="w-16 text-sm text-zinc-400">{asset.label}</div>
+                            <div className="flex-1">
+                              <Slider
+                                value={[withdrawalBlendPercentages[asset.key] || 0]}
+                                onValueChange={([newValue]) => {
                                   const currentKey = asset.key;
                                   const otherKeys = ['bonds', 'stocks', 'other', 'btc'].filter(k => k !== currentKey);
-                                  const otherTotal = otherKeys.reduce((sum, k) => sum + (withdrawalBlendPercentages[k] || 0), 0);
+                                  const oldValue = withdrawalBlendPercentages[currentKey] || 0;
+                                  const diff = newValue - oldValue;
                                   
-                                  // If new value would exceed 100, cap it
-                                  const cappedValue = Math.min(newValue, 100);
-                                  const remaining = 100 - cappedValue;
+                                  if (diff === 0) return;
                                   
-                                  // Distribute remaining among other assets proportionally
-                                  const newPercentages = { [currentKey]: cappedValue };
-                                  if (otherTotal > 0) {
-                                    otherKeys.forEach(k => {
-                                      newPercentages[k] = Math.round((withdrawalBlendPercentages[k] / otherTotal) * remaining);
-                                    });
-                                    // Fix rounding errors by adjusting the last non-current key
-                                    const sum = Object.values(newPercentages).reduce((a, b) => a + b, 0);
-                                    if (sum !== 100) {
-                                      const lastKey = otherKeys[otherKeys.length - 1];
-                                      newPercentages[lastKey] += (100 - sum);
+                                  // Get other values that can be adjusted (> 0 if reducing them, or any if increasing them)
+                                  const adjustableKeys = diff > 0 
+                                    ? otherKeys.filter(k => (withdrawalBlendPercentages[k] || 0) > 0)
+                                    : otherKeys;
+                                  
+                                  if (adjustableKeys.length === 0) return;
+                                  
+                                  const otherTotal = adjustableKeys.reduce((sum, k) => sum + (withdrawalBlendPercentages[k] || 0), 0);
+                                  
+                                  const newPercentages = { ...withdrawalBlendPercentages, [currentKey]: newValue };
+                                  
+                                  // Distribute the difference proportionally among adjustable keys
+                                  let distributed = 0;
+                                  adjustableKeys.forEach((k, i) => {
+                                    if (i === adjustableKeys.length - 1) {
+                                      // Last one gets the remainder to ensure sum = 100
+                                      newPercentages[k] = Math.max(0, (withdrawalBlendPercentages[k] || 0) - (diff - distributed));
+                                    } else {
+                                      const proportion = otherTotal > 0 ? (withdrawalBlendPercentages[k] || 0) / otherTotal : 1 / adjustableKeys.length;
+                                      const reduction = Math.round(diff * proportion);
+                                      newPercentages[k] = Math.max(0, (withdrawalBlendPercentages[k] || 0) - reduction);
+                                      distributed += reduction;
                                     }
-                                  } else {
-                                    // If all others are 0, put remaining in the next asset
-                                    const nextKey = otherKeys[0];
-                                    otherKeys.forEach(k => newPercentages[k] = 0);
-                                    newPercentages[nextKey] = remaining;
+                                  });
+                                  
+                                  // Ensure total is exactly 100
+                                  const total = Object.values(newPercentages).reduce((a, b) => a + b, 0);
+                                  if (total !== 100 && adjustableKeys.length > 0) {
+                                    newPercentages[adjustableKeys[adjustableKeys.length - 1]] += (100 - total);
                                   }
                                   
                                   setWithdrawalBlendPercentages(newPercentages);
                                 }}
-                                className="bg-zinc-900 border-zinc-700 text-zinc-200 w-20"
+                                max={100}
+                                min={0}
+                                step={5}
+                                className="flex-1"
                               />
-                              <span className="text-zinc-500 text-sm">%</span>
+                            </div>
+                            <div className={cn(
+                              "w-12 text-right font-medium text-sm",
+                              asset.key === 'btc' ? "text-orange-400" : 
+                              asset.key === 'stocks' ? "text-blue-400" : 
+                              asset.key === 'bonds' ? "text-purple-400" : "text-zinc-400"
+                            )}>
+                              {withdrawalBlendPercentages[asset.key] || 0}%
                             </div>
                           </div>
                         ))}
                       </div>
-                      <p className="text-xs text-zinc-500 mt-3">Adjusting one value automatically rebalances the others.</p>
+                      
+                      {/* Visual bar showing allocation */}
+                      <div className="mt-4 h-3 rounded-full overflow-hidden flex">
+                        {withdrawalBlendPercentages.bonds > 0 && (
+                          <div className="bg-purple-500 h-full" style={{ width: `${withdrawalBlendPercentages.bonds}%` }} />
+                        )}
+                        {withdrawalBlendPercentages.stocks > 0 && (
+                          <div className="bg-blue-500 h-full" style={{ width: `${withdrawalBlendPercentages.stocks}%` }} />
+                        )}
+                        {withdrawalBlendPercentages.other > 0 && (
+                          <div className="bg-zinc-500 h-full" style={{ width: `${withdrawalBlendPercentages.other}%` }} />
+                        )}
+                        {withdrawalBlendPercentages.btc > 0 && (
+                          <div className="bg-orange-500 h-full" style={{ width: `${withdrawalBlendPercentages.btc}%` }} />
+                        )}
+                      </div>
                     </div>
                   )}
 
