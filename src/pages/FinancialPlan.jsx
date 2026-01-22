@@ -260,23 +260,6 @@ export default function FinancialPlan() {
     );
   }, [transactions]);
 
-  // TEMPORARY TEST - remove after verification
-  useEffect(() => {
-    if (activeTaxLots && activeTaxLots.length > 0) {
-      console.log('=== TESTING selectLots ===');
-      
-      const fifoResult = selectLots(activeTaxLots, 'BTC', 1, 'FIFO');
-      const lifoResult = selectLots(activeTaxLots, 'BTC', 1, 'LIFO');
-      const hifoResult = selectLots(activeTaxLots, 'BTC', 1, 'HIFO');
-      
-      console.log('Selling 1 BTC:');
-      console.log('FIFO - Cost Basis: $' + fifoResult.totalCostBasis.toFixed(2));
-      console.log('LIFO - Cost Basis: $' + lifoResult.totalCostBasis.toFixed(2));
-      console.log('HIFO - Cost Basis: $' + hifoResult.totalCostBasis.toFixed(2));
-      console.log('Available BTC:', getAvailableQuantity(activeTaxLots, 'BTC'));
-    }
-  }, [activeTaxLots]);
-
   // Check if critical data is loading (after all queries defined) - include BTC price
   const isLoadingData = !holdings || !accounts || !userSettings || !liabilities || !collateralizedLoans || !transactions || priceLoading || !btcPrice;
 
