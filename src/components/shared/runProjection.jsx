@@ -266,7 +266,18 @@ export function runUnifiedProjection({
       cashTarget = acct.cash * ratio;
       otherTarget = acct.other * ratio;
       
-    } else if (assetWithdrawalStrategy === 'priority') {
+    }
+    
+    // Debug: Check which strategy branch we're entering
+    if (debugYear && debugYear <= 2031) {
+      console.log('=== STRATEGY CHECK ===');
+      console.log('assetWithdrawalStrategy:', assetWithdrawalStrategy);
+      console.log('Is proportional?', assetWithdrawalStrategy === 'proportional');
+      console.log('Is blended?', assetWithdrawalStrategy === 'blended');
+      console.log('Is priority?', assetWithdrawalStrategy === 'priority');
+    }
+    
+    if (assetWithdrawalStrategy === 'priority') {
       // Withdraw in priority order until amount is met
       let remaining = actualWithdrawal;
       for (const assetType of withdrawalPriorityOrder) {
@@ -288,6 +299,18 @@ export function runUnifiedProjection({
                        (withdrawalBlendPercentages.bonds || 0) + 
                        (withdrawalBlendPercentages.cash || 0) + 
                        (withdrawalBlendPercentages.other || 0);
+      
+      // Debug: Trace blended calculation
+      if (debugYear && debugYear <= 2031) {
+        console.log('=== BLENDED CALC ===');
+        console.log('totalPct:', totalPct);
+        console.log('withdrawalBlendPercentages:', JSON.stringify(withdrawalBlendPercentages));
+        console.log('withdrawalBlendPercentages.btc:', withdrawalBlendPercentages.btc);
+        console.log('actualWithdrawal:', actualWithdrawal);
+        console.log('acct.btc before calc:', acct.btc);
+        console.log('Calc: actualWithdrawal * (btc%) / totalPct =', actualWithdrawal * (withdrawalBlendPercentages.btc || 0) / totalPct);
+        console.log('Math.min result:', Math.min(acct.btc, actualWithdrawal * (withdrawalBlendPercentages.btc || 0) / totalPct));
+      }
       
       if (totalPct > 0) {
         btcTarget = Math.min(acct.btc, actualWithdrawal * (withdrawalBlendPercentages.btc || 0) / totalPct);
