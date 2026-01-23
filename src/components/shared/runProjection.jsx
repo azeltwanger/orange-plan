@@ -342,6 +342,8 @@ export function runUnifiedProjection({
     }
     
     // === BTC: Use lot selection for accurate cost basis and holding period ===
+    // Capture pre-withdrawal BTC value for holdingValues reduction
+    const preWithdrawalBtc = acct.btc;
     if (btcTarget > 0 && currentBtcPrice > 0) {
       const btcQuantityToSell = btcTarget / currentBtcPrice;
       
@@ -394,6 +396,9 @@ export function runUnifiedProjection({
         
         // Update portfolio
         acct.btc = Math.max(0, acct.btc - btcWithdrawn);
+        
+        // Reduce holdingValues for BTC proportionally
+        reduceHoldingValuesForWithdrawal('btc', 'taxable', btcWithdrawn, preWithdrawalBtc);
       } else {
         // No lots available, fall back to proportional basis (assume long-term)
         btcWithdrawn = Math.min(btcTarget, acct.btc);
@@ -401,6 +406,9 @@ export function runUnifiedProjection({
         btcCostBasis = btcWithdrawn * basisRatio;
         btcLongTermGain = Math.max(0, btcWithdrawn - btcCostBasis); // Assume long-term when no lot data
         acct.btc = Math.max(0, acct.btc - btcWithdrawn);
+        
+        // Reduce holdingValues for BTC proportionally
+        reduceHoldingValuesForWithdrawal('btc', 'taxable', btcWithdrawn, preWithdrawalBtc);
       }
     }
     
