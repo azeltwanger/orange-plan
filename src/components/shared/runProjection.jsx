@@ -1346,50 +1346,37 @@ export function runUnifiedProjection({
         ? yearlyReturnOverrides.realEstate[i] 
         : getCustomReturnForYear('realEstate', i, customReturnPeriods, realEstateCagr);
 
-      // Calculate weighted average growth for stocks based on ticker-level overrides
-      let effectiveStocksGrowthThisYear = yearStocksGrowth;
-      if (Object.keys(tickerReturns).length > 0 && i === 1) {
-        // For first year, calculate weighted average based on current holdings
-        const stockHoldings = holdings.filter(h => {
-          const cat = getAssetCategory(h.asset_type, h.ticker);
-          return cat === 'stocks';
+      // Calculate weighted average growth for stocks by account type based on holdingValues
+      // This ensures portfolio aggregate growth matches individual holding growth rates
+      const calculateWeightedStocksGrowth = (taxTreatmentFilter) => {
+        let totalValue = 0;
+        let weightedGrowth = 0;
+        
+        holdingValues.forEach(hv => {
+          if (hv.assetCategory === 'stocks' && hv.taxTreatment === taxTreatmentFilter && hv.currentValue > 0) {
+            const tickerRate = getTickerReturnRate(hv.ticker, null);
+            const holdingGrowthRate = tickerRate !== null ? tickerRate : yearStocksGrowth;
+            totalValue += hv.currentValue;
+            weightedGrowth += hv.currentValue * holdingGrowthRate;
+          }
         });
         
-        if (stockHoldings.length > 0) {
-          const totalStocksValue = stockHoldings.reduce((sum, h) => 
-            sum + (h.quantity * (h.current_price || 0)), 0);
-          
-          if (totalStocksValue > 0) {
-            let weightedReturn = 0;
-            stockHoldings.forEach(h => {
-              const holdingValue = h.quantity * (h.current_price || 0);
-              const weight = holdingValue / totalStocksValue;
-              const tickerUpper = h.ticker?.toUpperCase();
-              // Handle both legacy number and new object format for tickerReturns
-              let rate = yearStocksGrowth;
-              if (tickerUpper && tickerReturns[tickerUpper] !== undefined) {
-                const config = tickerReturns[tickerUpper];
-                if (typeof config === 'number') {
-                  rate = config;
-                } else if (typeof config === 'object' && config.rate !== undefined) {
-                  rate = config.rate;
-                }
-              }
-              weightedReturn += weight * rate;
-            });
-            effectiveStocksGrowthThisYear = weightedReturn;
-          }
-        }
-      }
+        return totalValue > 0 ? weightedGrowth / totalValue : yearStocksGrowth;
+      };
+      
+      const effectiveTaxableStocksGrowth = calculateWeightedStocksGrowth('taxable');
+      const effectiveTaxDeferredStocksGrowth = calculateWeightedStocksGrowth('tax_deferred');
+      const effectiveTaxFreeStocksGrowth = calculateWeightedStocksGrowth('tax_free');
 
       // Apply growth only to balances above dust threshold to prevent compounding near-zero values
       // CRITICAL: Only apply growth if the rate is non-zero (prevents cash from growing when cashCagr=0)
       const GROWTH_DUST_THRESHOLD = 1; // Don't apply growth to values under $1
-      ['taxable', 'taxDeferred', 'taxFree'].forEach(accountKey => {
-        const acct = portfolio[accountKey];
+      
+      // Apply growth to each account type with appropriate weighted stocks growth
+      const applyGrowth = (acct, stocksGrowthRate) => {
         if (acct.btc >= GROWTH_DUST_THRESHOLD && yearBtcGrowth !== 0) acct.btc *= (1 + yearBtcGrowth / 100);
         else if (acct.btc < GROWTH_DUST_THRESHOLD) acct.btc = 0;
-        if (acct.stocks >= GROWTH_DUST_THRESHOLD && effectiveStocksGrowthThisYear !== 0) acct.stocks *= (1 + effectiveStocksGrowthThisYear / 100);
+        if (acct.stocks >= GROWTH_DUST_THRESHOLD && stocksGrowthRate !== 0) acct.stocks *= (1 + stocksGrowthRate / 100);
         else if (acct.stocks < GROWTH_DUST_THRESHOLD) acct.stocks = 0;
         if (acct.bonds >= GROWTH_DUST_THRESHOLD && yearBondsGrowth !== 0) acct.bonds *= (1 + yearBondsGrowth / 100);
         else if (acct.bonds < GROWTH_DUST_THRESHOLD) acct.bonds = 0;
@@ -1397,7 +1384,12 @@ export function runUnifiedProjection({
         else if (acct.cash < GROWTH_DUST_THRESHOLD) acct.cash = 0;
         if (acct.other >= GROWTH_DUST_THRESHOLD && yearOtherGrowth !== 0) acct.other *= (1 + yearOtherGrowth / 100);
         else if (acct.other < GROWTH_DUST_THRESHOLD) acct.other = 0;
-      });
+      };
+      
+      applyGrowth(portfolio.taxable, effectiveTaxableStocksGrowth);
+      applyGrowth(portfolio.taxDeferred, effectiveTaxDeferredStocksGrowth);
+      applyGrowth(portfolio.taxFree, effectiveTaxFreeStocksGrowth);
+      
       if (portfolio.realEstate >= GROWTH_DUST_THRESHOLD && yearRealEstateGrowth !== 0) portfolio.realEstate *= (1 + yearRealEstateGrowth / 100);
       else if (portfolio.realEstate < GROWTH_DUST_THRESHOLD) portfolio.realEstate = 0;
       
