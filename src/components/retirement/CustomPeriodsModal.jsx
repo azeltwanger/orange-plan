@@ -387,15 +387,19 @@ export default function CustomPeriodsModal({
                 <div className="space-y-2">
                   {/* Header row */}
                   <div className="grid grid-cols-12 gap-2 px-3 text-xs text-zinc-500">
-                    <div className="col-span-3">Ticker</div>
+                    <div className="col-span-3">Holding</div>
                     <div className="col-span-2">Return %</div>
-                    <div className="col-span-3">Dividend %</div>
+                    <div className="col-span-3">Income %</div>
                     <div className="col-span-2">Qualified</div>
                     <div className="col-span-2"></div>
                   </div>
                   {Object.entries(localTickerReturns).map(([ticker, data]) => {
-                    const holding = holdings.find(h => h.ticker?.toUpperCase() === ticker);
+                    const holding = holdings.find(h => 
+                      h.ticker?.toUpperCase() === ticker || 
+                      h.asset_name?.toUpperCase().replace(/\s+/g, '_') === ticker
+                    );
                     const assetType = holding?.asset_type || 'stocks';
+                    const incomeLabel = assetType === 'real_estate' ? 'Rental' : assetType === 'bonds' ? 'Interest' : 'Dividend';
                     const { rate = 0, dividendYield = 0, dividendQualified = true } = data;
                     return (
                       <div key={ticker} className="p-3 rounded-lg bg-zinc-800/50 border border-zinc-700">
@@ -419,22 +423,27 @@ export default function CustomPeriodsModal({
                             />
                           </div>
                           <div className="col-span-3">
-                            <Input
-                              type="number"
-                              value={dividendYield}
-                              onChange={(e) => updateTickerReturn(ticker, 'dividendYield', parseFloat(e.target.value) || 0)}
-                              className="bg-zinc-900 border-zinc-700 text-sm"
-                              step="0.1"
-                              min={0}
-                              max={50}
-                              placeholder="0"
-                            />
+                            <div className="flex items-center gap-1">
+                              <Input
+                                type="number"
+                                value={dividendYield}
+                                onChange={(e) => updateTickerReturn(ticker, 'dividendYield', parseFloat(e.target.value) || 0)}
+                                className="bg-zinc-900 border-zinc-700 text-sm"
+                                step="0.1"
+                                min={0}
+                                max={50}
+                                placeholder="0"
+                              />
+                              <span className="text-xs text-zinc-500 whitespace-nowrap">{incomeLabel}</span>
+                            </div>
                           </div>
                           <div className="col-span-2 flex items-center justify-center">
                             <Checkbox
                               checked={dividendQualified}
                               onCheckedChange={(checked) => updateTickerReturn(ticker, 'dividendQualified', checked)}
                               className="border-zinc-600 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
+                              disabled={assetType === 'real_estate'}
+                              title={assetType === 'real_estate' ? 'Rental income is always non-qualified' : ''}
                             />
                           </div>
                           <div className="col-span-2 flex justify-end">
@@ -551,7 +560,7 @@ export default function CustomPeriodsModal({
         ) : (
           <div className="mt-4 p-3 rounded-lg bg-zinc-800/30 border border-zinc-700">
             <p className="text-xs text-zinc-400">
-              💡 Set custom returns and dividends for specific holdings. For example, a dividend ETF might have 8% growth + 3% dividend yield. Check 'Qualified' for most stock dividends (lower tax rate). Uncheck for REITs and MLPs (taxed as regular income).
+              💡 Set custom returns and income for specific holdings. Examples: a dividend ETF with 8% growth + 3% dividends, rental property with 4% appreciation + 6% rental income, or bonds with 5% return + 3% interest. Check 'Qualified' for most stock dividends (lower tax rate). REITs, MLPs, and rental income are always non-qualified.
             </p>
           </div>
         )}
