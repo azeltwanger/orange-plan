@@ -633,6 +633,58 @@ export default function FinancialPlan() {
   const BTC_SKEW_PARAM = 1.15;  // Positive skew (>1 = more upside outcomes)
   const BTC_DEGREES_OF_FREEDOM = 5;  // Fat tails (lower = fatter, 5 is typical for crypto)
 
+  // Asset correlation matrix based on historical data (2018-2024)
+  // Order: [BTC, Stocks, Bonds, RealEstate, Cash, Other]
+  // Conservative estimates to avoid overfitting
+  const ASSET_CORRELATIONS = [
+    [1.00,  0.40, -0.10,  0.20,  0.00,  0.30],  // BTC
+    [0.40,  1.00, -0.20,  0.50,  0.00,  0.60],  // Stocks
+    [-0.10, -0.20, 1.00, -0.10,  0.30, -0.10],  // Bonds
+    [0.20,  0.50, -0.10,  1.00,  0.00,  0.40],  // Real Estate
+    [0.00,  0.00,  0.30,  0.00,  1.00,  0.00],  // Cash
+    [0.30,  0.60, -0.10,  0.40,  0.00,  1.00],  // Other
+  ];
+
+  // Cholesky decomposition for generating correlated random numbers
+  // Returns lower triangular matrix L where L * L^T = correlation matrix
+  const choleskyDecomposition = (matrix) => {
+    const n = matrix.length;
+    const L = Array(n).fill(null).map(() => Array(n).fill(0));
+    
+    for (let i = 0; i < n; i++) {
+      for (let j = 0; j <= i; j++) {
+        let sum = 0;
+        for (let k = 0; k < j; k++) {
+          sum += L[i][k] * L[j][k];
+        }
+        if (i === j) {
+          L[i][j] = Math.sqrt(Math.max(0, matrix[i][i] - sum));
+        } else {
+          L[i][j] = (matrix[i][j] - sum) / (L[j][j] || 1);
+        }
+      }
+    }
+    return L;
+  };
+
+  // Pre-compute Cholesky matrix once (it's constant)
+  const CHOLESKY_L = choleskyDecomposition(ASSET_CORRELATIONS);
+
+  // Generate correlated random numbers from independent ones
+  // independentZ = [z1, z2, z3, z4, z5, z6] (independent standard normals)
+  // Returns correlated values in same order: [btc, stocks, bonds, realEstate, cash, other]
+  const generateCorrelatedReturns = (independentZ) => {
+    const correlated = [];
+    for (let i = 0; i < independentZ.length; i++) {
+      let sum = 0;
+      for (let j = 0; j <= i; j++) {
+        sum += CHOLESKY_L[i][j] * independentZ[j];
+      }
+      correlated.push(sum);
+    }
+    return correlated;
+  };
+
   // Monte Carlo simulation - now uses runUnifiedProjection for consistency
   const runMonteCarloSimulation = useCallback((numSimulations = 1000) => {
     const projectionYears = lifeExpectancy - currentAge + 1;
@@ -691,36 +743,42 @@ export default function FinancialPlan() {
       };
 
       for (let year = 0; year <= projectionYears; year++) {
-        // Use Skewed Student-t for BTC to model positive skew and fat tails
-        // Based on academic research: Bitcoin has +2.8 skewness and kurtosis ~105
-        const z1 = randomSkewedStudentT(BTC_DEGREES_OF_FREEDOM, BTC_SKEW_PARAM);
-        const z2 = randomNormal();
-        const z3 = randomNormal();
-        const z4 = randomNormal();
-        const z5 = randomNormal();
-        const z6 = randomNormal();
+        // Generate independent random numbers
+        // Use Skewed Student-t for BTC (fat tails + positive skew), normal for others
+        const independentZ = [
+          randomSkewedStudentT(BTC_DEGREES_OF_FREEDOM, BTC_SKEW_PARAM), // BTC
+          randomNormal(), // Stocks
+          randomNormal(), // Bonds
+          randomNormal(), // Real Estate
+          randomNormal(), // Cash
+          randomNormal(), // Other
+        ];
+        
+        // Apply correlation matrix to generate correlated shocks
+        const correlatedZ = generateCorrelatedReturns(independentZ);
+        const [zBtc, zStocks, zBonds, zRealEstate, zCash, zOther] = correlatedZ;
 
         // BTC: Use getBtcGrowthRate as expected return, add volatility
         const expectedBtcReturn = getBtcGrowthRate(year, effectiveInflation);
         const btcVolatility = getBtcVolatilityForMonteCarlo(year);
         // Expanded caps: -75% (worst year was -73%), +250% (allow fat tail upside)
-        const btcReturn = Math.max(-75, Math.min(250, expectedBtcReturn + btcVolatility * z1));
+        const btcReturn = Math.max(-75, Math.min(250, expectedBtcReturn + btcVolatility * zBtc));
 
         // Stocks: Use effectiveStocksCagr as expected, add volatility
         const stocksVolatilityVal = 18;
-        const stocksReturn = Math.max(-40, Math.min(50, effectiveStocksCagr + stocksVolatilityVal * z2));
+        const stocksReturn = Math.max(-40, Math.min(50, effectiveStocksCagr + stocksVolatilityVal * zStocks));
 
         // Real Estate: Add +/- 5% randomness
-        const realEstateReturn = realEstateCagr + 5 * z3;
+        const realEstateReturn = realEstateCagr + 5 * zRealEstate;
 
         // Bonds: Add +/- 2% randomness
-        const bondsReturn = bondsCagr + 2 * z4;
+        const bondsReturn = bondsCagr + 2 * zBonds;
 
         // Cash: Add +/- 1% randomness
-        const cashReturn = cashCagr + 1 * z5;
+        const cashReturn = cashCagr + 1 * zCash;
 
         // Other: Add +/- 3% randomness
-        const otherReturn = otherCagr + 3 * z6;
+        const otherReturn = otherCagr + 3 * zOther;
 
         yearlyReturnOverrides.btc.push(btcReturn);
         yearlyReturnOverrides.stocks.push(stocksReturn);
@@ -1003,21 +1061,28 @@ export default function FinancialPlan() {
       };
       
       for (let year = 0; year <= projectionYears; year++) {
-        const z1 = randomSkewedStudentT(BTC_DEGREES_OF_FREEDOM, BTC_SKEW_PARAM);
-        const z2 = randomNormal();
-        const z3 = randomNormal();
-        const z4 = randomNormal();
-        const z5 = randomNormal();
-        const z6 = randomNormal();
+        // Generate independent random numbers
+        const independentZ = [
+          randomSkewedStudentT(BTC_DEGREES_OF_FREEDOM, BTC_SKEW_PARAM),
+          randomNormal(),
+          randomNormal(),
+          randomNormal(),
+          randomNormal(),
+          randomNormal(),
+        ];
+        
+        // Apply correlation matrix
+        const correlatedZ = generateCorrelatedReturns(independentZ);
+        const [zBtc, zStocks, zBonds, zRealEstate, zCash, zOther] = correlatedZ;
 
         const expectedBtcReturn = getBtcGrowthRate(year, effectiveInflation);
         const btcVolatility = getBtcVolatilityForMonteCarlo(year);
-        const btcReturn = Math.max(-75, Math.min(250, expectedBtcReturn + btcVolatility * z1));
-        const stocksReturn = Math.max(-40, Math.min(50, effectiveStocksCagr + 18 * z2));
-        const realEstateReturn = realEstateCagr + 5 * z3;
-        const bondsReturn = bondsCagr + 2 * z4;
-        const cashReturn = cashCagr + 1 * z5;
-        const otherReturn = otherCagr + 3 * z6;
+        const btcReturn = Math.max(-75, Math.min(250, expectedBtcReturn + btcVolatility * zBtc));
+        const stocksReturn = Math.max(-40, Math.min(50, effectiveStocksCagr + 18 * zStocks));
+        const realEstateReturn = realEstateCagr + 5 * zRealEstate;
+        const bondsReturn = bondsCagr + 2 * zBonds;
+        const cashReturn = cashCagr + 1 * zCash;
+        const otherReturn = otherCagr + 3 * zOther;
 
         yearlyReturnOverrides.btc.push(btcReturn);
         yearlyReturnOverrides.stocks.push(stocksReturn);
