@@ -635,7 +635,15 @@ export function runUnifiedProjection({
     // Also check if total liquid assets are essentially zero (under $100) to catch edge cases
     const totalLiquidCheck = getAccountTotal('taxable') + getAccountTotal('taxDeferred') + getAccountTotal('taxFree') + portfolio.realEstate;
     const isEffectivelyDepleted = (firstDepletionAge !== null && age > firstDepletionAge) || (firstDepletionAge !== null && totalLiquidCheck < 100);
-    
+
+    if (i === 0) {
+      console.log('Year 0 dividend totals:', {
+        yearQualifiedDividends,
+        yearNonQualifiedDividends,
+        totalDividendIncome
+      });
+    }
+
     if (isEffectivelyDepleted) {
       // Zero all portfolio state to prevent any value from being added back
       portfolio.taxable = { btc: 0, stocks: 0, bonds: 0, cash: 0, other: 0 };
@@ -1431,7 +1439,17 @@ export function runUnifiedProjection({
 
     // Calculate dividend income from holdings (only taxable accounts generate taxable dividends)
     // Tax-deferred and tax-free accounts reinvest dividends without immediate tax
+    console.log('=== DIVIDEND CALC DEBUG ===');
+    console.log('Total holdingValues:', holdingValues.length);
     holdingValues.forEach(hv => {
+      if (hv.ticker === 'MTPLF') {
+        console.log('MTPLF in dividend calc:', {
+          dividendYield: hv.dividendYield,
+          currentValue: hv.currentValue,
+          taxTreatment: hv.taxTreatment,
+          wouldQualify: hv.dividendYield > 0 && hv.currentValue > 0 && hv.taxTreatment === 'taxable'
+        });
+      }
       if (hv.dividendYield > 0 && hv.currentValue > 0 && hv.taxTreatment === 'taxable') {
         const annualDividend = hv.currentValue * (hv.dividendYield / 100);
         if (hv.dividendQualified) {
