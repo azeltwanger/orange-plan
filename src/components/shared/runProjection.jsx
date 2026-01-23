@@ -1456,14 +1456,22 @@ export function runUnifiedProjection({
         const effectiveRunningTaxableBasis = Math.min(taxableBalance, runningTaxableBasis);
         const estimatedCurrentGainRatio = taxableBalance > 0 ? Math.max(0, (taxableBalance - effectiveRunningTaxableBasis) / taxableBalance) : 0;
 
+        // First, simulate withdrawal to get accurate gain breakdown from lots
+        const prelimTaxableWithdraw = withdrawFromTaxableWithLots(
+          Math.min(deficit, taxableBalance), 
+          cumulativeBtcPrice, 
+          year
+        );
+        
+        // Now calculate taxes with accurate short-term vs long-term gains
         const taxEstimate = estimateRetirementWithdrawalTaxes({
           withdrawalNeeded: deficit,
-          taxableBalance,
+          taxableBalance: prelimTaxableWithdraw.withdrawn,
           taxDeferredBalance,
           taxFreeBalance,
           rothContributions: totalRothContributions,
-          taxableGainPercent: estimatedCurrentGainRatio,
-          isLongTermGain: true, // Assume long-term for pre-retirement deficits
+          shortTermGain: prelimTaxableWithdraw.shortTermGain,
+          longTermGain: prelimTaxableWithdraw.longTermGain,
           filingStatus,
           age: age,
           otherIncome: 0,
@@ -1478,8 +1486,8 @@ export function runUnifiedProjection({
           totalAGI: deficit,
           socialSecurityIncome: 0,
           taxDeferredWithdrawal: taxEstimate.fromTaxDeferred || 0,
-          taxableWithdrawal: taxEstimate.fromTaxable || 0,
-          taxableGainPortion: (taxEstimate.fromTaxable || 0) * estimatedCurrentGainRatio,
+          taxableWithdrawal: prelimTaxableWithdraw.withdrawn,
+          taxableGainPortion: prelimTaxableWithdraw.shortTermGain + prelimTaxableWithdraw.longTermGain,
           pensionIncome: 0,
           year: year,
         });
@@ -1489,11 +1497,9 @@ export function runUnifiedProjection({
         taxesPaid += (taxEstimate.totalTax || 0) + preRetireStateTax;
         penaltyPaid = taxEstimate.totalPenalty || 0;
 
-        // Use lot-aware withdrawal for taxable account
-        const taxableWithdrawResult = withdrawFromTaxableWithLots(taxEstimate.fromTaxable || 0, cumulativeBtcPrice, year);
-        withdrawFromTaxable = taxableWithdrawResult.withdrawn;
-        // Update basis using actual lot cost basis, not proportional estimate
-        runningTaxableBasis = Math.max(0, runningTaxableBasis - taxableWithdrawResult.totalCostBasis);
+        // Use results from the preliminary withdrawal (lots already updated)
+        withdrawFromTaxable = prelimTaxableWithdraw.withdrawn;
+        runningTaxableBasis = Math.max(0, runningTaxableBasis - prelimTaxableWithdraw.totalCostBasis);
         withdrawFromTaxDeferred = withdrawFromAccount('taxDeferred', taxEstimate.fromTaxDeferred || 0);
         withdrawFromTaxFree = withdrawFromAccount('taxFree', taxEstimate.fromTaxFree || 0);
 
@@ -1687,14 +1693,21 @@ export function runUnifiedProjection({
       const effectiveRunningTaxableBasis = Math.min(taxableBalance, runningTaxableBasis);
       const estimatedCurrentGainRatio = taxableBalance > 0 ? Math.max(0, (taxableBalance - effectiveRunningTaxableBasis) / taxableBalance) : 0;
 
+      // Simulate taxable withdrawal first to get accurate gain breakdown
+      const prelimRetirementTaxable = withdrawFromTaxableWithLots(
+        Math.min(cappedWithdrawal, taxableBalance),
+        cumulativeBtcPrice,
+        year
+      );
+
       const taxEstimate = estimateRetirementWithdrawalTaxes({
         withdrawalNeeded: cappedWithdrawal,
-        taxableBalance,
+        taxableBalance: prelimRetirementTaxable.withdrawn,
         taxDeferredBalance,
         taxFreeBalance,
         rothContributions: totalRothContributions,
-        taxableGainPercent: estimatedCurrentGainRatio,
-        isLongTermGain: true, // Assume long-term gains in retirement
+        shortTermGain: prelimRetirementTaxable.shortTermGain,
+        longTermGain: prelimRetirementTaxable.longTermGain,
         filingStatus,
         age: age,
         otherIncome: totalOtherIncomeForTax,
@@ -1709,8 +1722,8 @@ export function runUnifiedProjection({
         totalAGI: totalOtherIncomeForTax + cappedWithdrawal,
         socialSecurityIncome: socialSecurityIncome,
         taxDeferredWithdrawal: taxEstimate.fromTaxDeferred || 0,
-        taxableWithdrawal: taxEstimate.fromTaxable || 0,
-        taxableGainPortion: (taxEstimate.fromTaxable || 0) * estimatedCurrentGainRatio,
+        taxableWithdrawal: prelimRetirementTaxable.withdrawn,
+        taxableGainPortion: prelimRetirementTaxable.shortTermGain + prelimRetirementTaxable.longTermGain,
         pensionIncome: otherRetirementIncome,
         year: year,
       });
@@ -1745,30 +1758,14 @@ export function runUnifiedProjection({
       
       // Only process withdrawals if there's actually a deficit
       if (totalNeededFromAccounts > 0) {
-        const totalTaxEstimate = estimateRetirementWithdrawalTaxes({
-          withdrawalNeeded: totalNeededFromAccounts,
-          taxableBalance: getAccountTotal('taxable'),
-          taxDeferredBalance: getAccountTotal('taxDeferred'),
-          taxFreeBalance: getAccountTotal('taxFree'),
-          rothContributions: totalRothContributions,
-          taxableGainPercent: estimatedCurrentGainRatio,
-          isLongTermGain: true, // Assume long-term gains
-          filingStatus,
-          age: age,
-          otherIncome: totalOtherIncomeForTax,
-          year: year,
-          inflationRate: effectiveInflation / 100,
-        });
+        // Use the preliminary withdrawal results we already calculated
+        // (prelimRetirementTaxable already updated lots and portfolio)
+        withdrawFromTaxable = prelimRetirementTaxable.withdrawn;
+        runningTaxableBasis = Math.max(0, runningTaxableBasis - prelimRetirementTaxable.totalCostBasis);
+        
+        const requestedFromTaxDeferred = taxEstimate.fromTaxDeferred || 0;
+        const requestedFromTaxFree = taxEstimate.fromTaxFree || 0;
 
-        const requestedFromTaxable = totalTaxEstimate.fromTaxable || 0;
-        const requestedFromTaxDeferred = totalTaxEstimate.fromTaxDeferred || 0;
-        const requestedFromTaxFree = totalTaxEstimate.fromTaxFree || 0;
-
-        // Use lot-aware withdrawal for taxable account
-        const retirementTaxableResult = withdrawFromTaxableWithLots(requestedFromTaxable, cumulativeBtcPrice, year);
-        withdrawFromTaxable = retirementTaxableResult.withdrawn;
-        // Update basis using actual lot cost basis
-        runningTaxableBasis = Math.max(0, runningTaxableBasis - retirementTaxableResult.totalCostBasis);
         const actualFromTaxDeferred = withdrawFromAccount('taxDeferred', requestedFromTaxDeferred);
         withdrawFromTaxFree = withdrawFromAccount('taxFree', requestedFromTaxFree);
         withdrawFromTaxDeferred = rmdWithdrawn + actualFromTaxDeferred;
