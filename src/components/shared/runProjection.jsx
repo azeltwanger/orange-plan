@@ -453,10 +453,10 @@ export function runUnifiedProjection({
   const liquidationEvents = [];
   
   // Create a mutable copy of tax lots for tracking remaining quantities through projection
-  // Initialize remaining_quantity from quantity if not set (fixes null remaining_quantity bug)
+  // Always use original quantity for projections - remaining_quantity is only for tracking within this projection run
   let runningTaxLots = taxLots.map(lot => ({ 
     ...lot,
-    remaining_quantity: lot.remaining_quantity ?? lot.quantity ?? 0
+    remaining_quantity: lot.quantity ?? 0
   }));
   
   // Initialize debt tracking
