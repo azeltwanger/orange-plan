@@ -60,8 +60,11 @@ export default function CustomPeriodsModal({
   const [tickerDividendQualifiedInput, setTickerDividendQualifiedInput] = useState(true);
 
   useEffect(() => {
-    setLocalPeriods(customReturnPeriods || {});
-    setLocalTickerReturns(normalizeTickerReturns(tickerReturns));
+    // Only sync from parent when modal opens, not when it closes
+    if (open) {
+      setLocalPeriods(customReturnPeriods || {});
+      setLocalTickerReturns(normalizeTickerReturns(tickerReturns));
+    }
   }, [customReturnPeriods, tickerReturns, open]);
 
   // Get available tickers for dropdown
