@@ -1456,23 +1456,14 @@ export function runUnifiedProjection({
         const effectiveRunningTaxableBasis = Math.min(taxableBalance, runningTaxableBasis);
         const estimatedCurrentGainRatio = taxableBalance > 0 ? Math.max(0, (taxableBalance - effectiveRunningTaxableBasis) / taxableBalance) : 0;
 
-        // First, do a preliminary withdrawal to get accurate short/long term gains from lots
-        const preliminaryTaxableWithdraw = withdrawFromTaxableWithLots(
-          Math.min(deficit, taxableBalance), 
-          cumulativeBtcPrice, 
-          year
-        );
-        // Restore the withdrawal (we just wanted to calculate the gains)
-        portfolio.taxable.btc += preliminaryTaxableWithdraw.withdrawn * (portfolio.taxable.btc / (getAccountTotal('taxable') || 1));
-        
         const taxEstimate = estimateRetirementWithdrawalTaxes({
           withdrawalNeeded: deficit,
           taxableBalance,
           taxDeferredBalance,
           taxFreeBalance,
           rothContributions: totalRothContributions,
-          shortTermGain: preliminaryTaxableWithdraw.shortTermGain,
-          longTermGain: preliminaryTaxableWithdraw.longTermGain,
+          taxableGainPercent: estimatedCurrentGainRatio,
+          isLongTermGain: true, // Assume long-term for pre-retirement deficits
           filingStatus,
           age: age,
           otherIncome: 0,
