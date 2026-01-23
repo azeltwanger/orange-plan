@@ -613,13 +613,6 @@ export function runUnifiedProjection({
   // Track executed asset reallocations (for scenario reallocations with dividend-producing assets)
   const executedReallocations = [];
 
-  // DEBUG: Log initialized holdingValues and tickerReturns
-  console.log('=== DIVIDEND DEBUG: holdingValues initialization ===');
-  console.log('tickerReturns received:', JSON.stringify(tickerReturns, null, 2));
-  holdingValues.forEach(hv => {
-    console.log(`Initialized: ${hv.ticker} - dividendYield: ${hv.dividendYield}, dividendQualified: ${hv.dividendQualified}, taxTreatment: ${hv.taxTreatment}, currentValue: ${hv.currentValue}`);
-  });
-
   // Helper to get ticker return rate (handles both legacy number and new object format)
   const getTickerReturnRate = (ticker, defaultRate) => {
     const tickerUpper = ticker?.toUpperCase();
@@ -1437,18 +1430,6 @@ export function runUnifiedProjection({
 
     // Calculate dividend income from holdings (only taxable accounts generate taxable dividends)
     // Tax-deferred and tax-free accounts reinvest dividends without immediate tax
-    if (i === 0) {
-      console.log('=== DIVIDEND DEBUG: Year 0 calculation ===');
-      holdingValues.forEach(hv => {
-        console.log(`Checking: ${hv.ticker} - dividendYield: ${hv.dividendYield}, currentValue: ${hv.currentValue}, taxTreatment: ${hv.taxTreatment}`);
-        if (hv.dividendYield > 0 && hv.currentValue > 0 && hv.taxTreatment === 'taxable') {
-          console.log(`  -> QUALIFIES for dividend calculation!`);
-        } else {
-          console.log(`  -> Does NOT qualify. Reasons: yield=${hv.dividendYield}, value=${hv.currentValue}, tax=${hv.taxTreatment}`);
-        }
-      });
-    }
-
     holdingValues.forEach(hv => {
       if (hv.dividendYield > 0 && hv.currentValue > 0 && hv.taxTreatment === 'taxable') {
         const annualDividend = hv.currentValue * (hv.dividendYield / 100);

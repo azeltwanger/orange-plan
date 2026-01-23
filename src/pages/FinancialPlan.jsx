@@ -439,12 +439,6 @@ export default function FinancialPlan() {
                       return () => clearTimeout(timeoutId);
                       }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, otherCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, useCustomSocialSecurity, grossAnnualIncome, contribution401k, employer401kMatch, contributionRothIRA, contributionTraditionalIRA, contributionHSA, hsaFamilyCoverage, filingStatus, stateOfResidence, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv, btcReleaseTriggerLtv, btcReleaseTargetLtv, savingsAllocationBtc, savingsAllocationStocks, savingsAllocationBonds, savingsAllocationCash, savingsAllocationOther, customReturnPeriods, tickerReturns, assetWithdrawalStrategy, withdrawalPriorityOrder, withdrawalBlendPercentages, saveSettings]);
 
-                      // Debug: Log tickerReturns state changes
-                      useEffect(() => {
-                      console.log('=== TICKER RETURNS STATE CHANGED ===');
-                      console.log('tickerReturns:', JSON.stringify(tickerReturns, null, 2));
-                      }, [tickerReturns]);
-
                       // Calculate accurate debt payments for current month
   const currentMonthForDebt = new Date().getMonth();
   const currentYearForDebt = new Date().getFullYear();
@@ -950,7 +944,6 @@ export default function FinancialPlan() {
 
   // Generate projection data using unified projection engine
   const projections = useMemo(() => {
-    console.log('=== PROJECTIONS MEMO: tickerReturns being passed ===', JSON.stringify(tickerReturns, null, 2));
     const result = runUnifiedProjection({
       holdings,
       accounts,
