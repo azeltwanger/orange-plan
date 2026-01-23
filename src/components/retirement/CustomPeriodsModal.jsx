@@ -461,12 +461,12 @@ export default function CustomPeriodsModal({
                     <div className="col-span-3">
                       <Label className="text-xs text-zinc-500 mb-1 block">Ticker</Label>
                       <Select value={selectedTicker} onValueChange={setSelectedTicker}>
-                        <SelectTrigger className="bg-zinc-900 border-zinc-700">
+                        <SelectTrigger className="bg-zinc-900 border-zinc-700 text-zinc-100">
                           <SelectValue placeholder="Select..." />
                         </SelectTrigger>
                         <SelectContent className="bg-zinc-900 border-zinc-700">
                           {availableTickers.map(t => (
-                            <SelectItem key={t.ticker} value={t.ticker}>
+                            <SelectItem key={t.ticker} value={t.ticker} className="text-zinc-100">
                               {t.ticker} ({t.assetType})
                             </SelectItem>
                           ))}
