@@ -67,20 +67,22 @@ export default function CustomPeriodsModal({
     }
   }, [customReturnPeriods, tickerReturns, open]);
 
-  // Get available tickers for dropdown
+  // Get available tickers for dropdown (includes holdings without tickers using asset_name)
   const availableTickers = useMemo(() => {
     if (!holdings || holdings.length === 0) return [];
     
-    const allTickers = holdings
-      .filter(h => h.ticker && h.ticker.toUpperCase() !== 'BTC')
+    const allHoldings = holdings
+      .filter(h => (h.ticker || h.asset_name) && h.ticker?.toUpperCase() !== 'BTC')
       .map(h => ({
-        ticker: h.ticker.toUpperCase(),
+        // Use ticker if available, otherwise use asset_name as identifier
+        ticker: h.ticker ? h.ticker.toUpperCase() : h.asset_name?.toUpperCase().replace(/\s+/g, '_'),
         assetType: h.asset_type || 'stocks',
-        assetName: h.asset_name || h.ticker
+        assetName: h.asset_name || h.ticker,
+        originalTicker: h.ticker, // Keep track of whether it had a real ticker
       }));
     
     // Remove duplicates
-    const unique = [...new Map(allTickers.map(t => [t.ticker, t])).values()];
+    const unique = [...new Map(allHoldings.map(t => [t.ticker, t])).values()];
     
     // Filter out already-defined overrides
     return unique.filter(t => !localTickerReturns[t.ticker]);
