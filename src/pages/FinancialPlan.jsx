@@ -922,6 +922,7 @@ export default function FinancialPlan() {
       lifeEvents,
       getTaxTreatmentFromHolding,
       customReturnPeriods,
+      tickerReturns,
       taxLots: activeTaxLots,
       costBasisMethod,
       assetWithdrawalStrategy,
@@ -931,7 +932,7 @@ export default function FinancialPlan() {
     });
     
     return result;
-  }, [holdings, accounts, liabilities, collateralizedLoans, currentPrice, currentAge, lifeExpectancy, customReturnPeriods, 
+  }, [holdings, accounts, liabilities, collateralizedLoans, currentPrice, currentAge, lifeExpectancy, customReturnPeriods, tickerReturns, 
       retirementAnnualSpending, effectiveSocialSecurity, socialSecurityStartAge, otherRetirementIncome,
       annualSavings, incomeGrowth, grossAnnualIncome, currentAnnualSpending, filingStatus, stateOfResidence,
       contribution401k, employer401kMatch, contributionRothIRA, contributionTraditionalIRA, contributionHSA, hsaFamilyCoverage,
@@ -1446,6 +1447,7 @@ export default function FinancialPlan() {
         lifeEvents,
         getTaxTreatmentFromHolding,
         customReturnPeriods,
+        tickerReturns,
         taxLots: activeTaxLots,
         costBasisMethod,
         DEBUG: false,
