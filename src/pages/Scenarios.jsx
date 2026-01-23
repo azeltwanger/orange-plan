@@ -809,6 +809,7 @@ export default function Scenarios() {
       const baseResult = runUnifiedProjection({
         ...baselineParams,
         yearlyReturnOverrides: paths[i],
+        taxLots: [], // Use aggregate basis for Monte Carlo speed
         DEBUG: false,
       });
 
@@ -828,6 +829,7 @@ export default function Scenarios() {
         const scenResult = runUnifiedProjection({
           ...scenarioParams,
           yearlyReturnOverrides: scenarioOverrides,
+          taxLots: [], // Use aggregate basis for Monte Carlo speed
           DEBUG: false,
         });
 
@@ -871,6 +873,7 @@ export default function Scenarios() {
         const result = runUnifiedProjection({
           ...testParams,
           yearlyReturnOverrides: paths[i],
+          taxLots: [], // Use aggregate basis for Monte Carlo speed
           DEBUG: false,
         });
         if (result.survives) successCount++;
