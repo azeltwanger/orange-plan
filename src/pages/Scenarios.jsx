@@ -855,14 +855,15 @@ export default function Scenarios() {
   }, [generateRandomPaths, regenerateReturnsForParams]);
 
   // Binary search for max sustainable spending with shared paths
-  const findMaxSustainableSpendingWithPaths = useCallback((baseParams, numSimulations = 200) => {
+  // If sharedPaths is provided, use those instead of generating new ones
+  const findMaxSustainableSpendingWithPaths = useCallback((baseParams, numSimulations = 200, sharedPaths = null) => {
     let low = 10000;
     let high = 500000;
     let maxSpending = low;
 
-    // Generate paths once for all iterations
+    // Use shared paths if provided, otherwise generate new ones
     const projectionYears = baseParams.lifeExpectancy - baseParams.currentAge + 1;
-    const paths = generateRandomPaths(numSimulations, projectionYears, baseParams);
+    const paths = sharedPaths || generateRandomPaths(numSimulations, projectionYears, baseParams);
 
     for (let iteration = 0; iteration < 15; iteration++) {
       const testSpending = Math.round((low + high) / 2);
@@ -942,8 +943,16 @@ export default function Scenarios() {
         // Run comparison with shared random paths (500 simulations)
         const mcResults = runMonteCarloComparison(baselineParams, scenarioParams, 500);
 
-        // Find max sustainable spending for baseline
-        const baselineMaxSpending = findMaxSustainableSpendingWithPaths(baselineParams, 500);
+        // Generate shared paths ONCE for 90% safe spending calculations
+        // This ensures both baseline and scenario use identical random market paths
+        const projectionYears = Math.max(
+          baselineParams.lifeExpectancy - baselineParams.currentAge + 1,
+          scenarioParams ? scenarioParams.lifeExpectancy - scenarioParams.currentAge + 1 : 0
+        );
+        const sharedSafeSpendingPaths = generateRandomPaths(500, projectionYears, baselineParams);
+
+        // Find max sustainable spending for baseline using shared paths
+        const baselineMaxSpending = findMaxSustainableSpendingWithPaths(baselineParams, 500, sharedSafeSpendingPaths);
         
         // Check if liquidation difference is meaningful
         const liquidationAffected = scenarioAffectsLiquidation(selectedScenario);
@@ -956,8 +965,8 @@ export default function Scenarios() {
         });
 
         if (scenarioParams) {
-          // Find max sustainable spending for scenario
-          const scenarioMaxSpending = findMaxSustainableSpendingWithPaths(scenarioParams, 500);
+          // Find max sustainable spending for scenario using SAME shared paths
+          const scenarioMaxSpending = findMaxSustainableSpendingWithPaths(scenarioParams, 500, sharedSafeSpendingPaths);
           
           setScenarioMonteCarloResults({
             successRate: mcResults.scenarioSuccessRate,
