@@ -5,8 +5,30 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Trash2, TrendingUp } from 'lucide-react';
 import { cn } from "@/lib/utils";
+
+// Helper to normalize ticker returns to new structure
+// Converts legacy { TICKER: number } to { TICKER: { rate, dividendYield, dividendQualified } }
+const normalizeTickerReturns = (tickerReturns) => {
+  if (!tickerReturns) return {};
+  const normalized = {};
+  Object.entries(tickerReturns).forEach(([ticker, value]) => {
+    if (typeof value === 'number') {
+      // Legacy format: just the rate
+      normalized[ticker] = { rate: value, dividendYield: 0, dividendQualified: true };
+    } else if (typeof value === 'object' && value !== null) {
+      // New format: full object
+      normalized[ticker] = {
+        rate: value.rate ?? 0,
+        dividendYield: value.dividendYield ?? 0,
+        dividendQualified: value.dividendQualified ?? true
+      };
+    }
+  });
+  return normalized;
+};
 
 const ASSET_CLASSES = [
   { key: 'btc', label: 'Bitcoin', color: 'text-orange-400' },
@@ -31,13 +53,15 @@ export default function CustomPeriodsModal({
   const [selectedTab, setSelectedTab] = useState('btc');
   const [selectedAsset, setSelectedAsset] = useState('btc');
   const [localPeriods, setLocalPeriods] = useState(customReturnPeriods || {});
-  const [localTickerReturns, setLocalTickerReturns] = useState(tickerReturns || {});
+  const [localTickerReturns, setLocalTickerReturns] = useState(() => normalizeTickerReturns(tickerReturns));
   const [selectedTicker, setSelectedTicker] = useState('');
   const [tickerReturnInput, setTickerReturnInput] = useState('');
+  const [tickerDividendYieldInput, setTickerDividendYieldInput] = useState('');
+  const [tickerDividendQualifiedInput, setTickerDividendQualifiedInput] = useState(true);
 
   useEffect(() => {
     setLocalPeriods(customReturnPeriods || {});
-    setLocalTickerReturns(tickerReturns || {});
+    setLocalTickerReturns(normalizeTickerReturns(tickerReturns));
   }, [customReturnPeriods, tickerReturns, open]);
 
   // Get available tickers for dropdown
@@ -94,15 +118,31 @@ export default function CustomPeriodsModal({
   };
 
   const addTickerReturn = () => {
-    if (!selectedTicker || tickerReturnInput === '') return;
+    if (!selectedTicker) return;
     
     setLocalTickerReturns({
       ...localTickerReturns,
-      [selectedTicker]: parseFloat(tickerReturnInput)
+      [selectedTicker]: {
+        rate: parseFloat(tickerReturnInput) || 0,
+        dividendYield: parseFloat(tickerDividendYieldInput) || 0,
+        dividendQualified: tickerDividendQualifiedInput
+      }
     });
     
     setSelectedTicker('');
     setTickerReturnInput('');
+    setTickerDividendYieldInput('');
+    setTickerDividendQualifiedInput(true);
+  };
+
+  const updateTickerReturn = (ticker, field, value) => {
+    setLocalTickerReturns({
+      ...localTickerReturns,
+      [ticker]: {
+        ...localTickerReturns[ticker],
+        [field]: value
+      }
+    });
   };
 
   const removeTickerReturn = (ticker) => {
@@ -340,32 +380,56 @@ export default function CustomPeriodsModal({
               {/* Existing ticker overrides */}
               {Object.keys(localTickerReturns).length > 0 ? (
                 <div className="space-y-2">
-                  {Object.entries(localTickerReturns).map(([ticker, rate]) => {
+                  {/* Header row */}
+                  <div className="grid grid-cols-12 gap-2 px-3 text-xs text-zinc-500">
+                    <div className="col-span-3">Ticker</div>
+                    <div className="col-span-2">Return %</div>
+                    <div className="col-span-3">Dividend %</div>
+                    <div className="col-span-2">Qualified</div>
+                    <div className="col-span-2"></div>
+                  </div>
+                  {Object.entries(localTickerReturns).map(([ticker, data]) => {
                     const holding = holdings.find(h => h.ticker?.toUpperCase() === ticker);
                     const assetType = holding?.asset_type || 'stocks';
+                    const { rate = 0, dividendYield = 0, dividendQualified = true } = data;
                     return (
                       <div key={ticker} className="p-3 rounded-lg bg-zinc-800/50 border border-zinc-700">
-                        <div className="grid grid-cols-12 gap-3 items-center">
-                          <div className="col-span-6">
+                        <div className="grid grid-cols-12 gap-2 items-center">
+                          <div className="col-span-3">
                             <p className="text-sm font-medium text-zinc-200">
                               {ticker}
-                              <span className="text-zinc-500 text-xs ml-2">({assetType})</span>
+                              <span className="text-zinc-500 text-xs ml-1">({assetType})</span>
                             </p>
                           </div>
-                          <div className="col-span-4">
+                          <div className="col-span-2">
                             <Input
                               type="number"
                               value={rate}
-                              onChange={(e) => {
-                                setLocalTickerReturns({
-                                  ...localTickerReturns,
-                                  [ticker]: parseFloat(e.target.value) || 0
-                                });
-                              }}
+                              onChange={(e) => updateTickerReturn(ticker, 'rate', parseFloat(e.target.value) || 0)}
                               className="bg-zinc-900 border-zinc-700 text-sm"
                               step="0.5"
                               min={-50}
                               max={200}
+                              placeholder="0"
+                            />
+                          </div>
+                          <div className="col-span-3">
+                            <Input
+                              type="number"
+                              value={dividendYield}
+                              onChange={(e) => updateTickerReturn(ticker, 'dividendYield', parseFloat(e.target.value) || 0)}
+                              className="bg-zinc-900 border-zinc-700 text-sm"
+                              step="0.1"
+                              min={0}
+                              max={50}
+                              placeholder="0"
+                            />
+                          </div>
+                          <div className="col-span-2 flex items-center justify-center">
+                            <Checkbox
+                              checked={dividendQualified}
+                              onCheckedChange={(checked) => updateTickerReturn(ticker, 'dividendQualified', checked)}
+                              className="border-zinc-600 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
                             />
                           </div>
                           <div className="col-span-2 flex justify-end">
@@ -385,7 +449,7 @@ export default function CustomPeriodsModal({
                 </div>
               ) : (
                 <div className="text-center py-8 text-zinc-500 text-sm border border-zinc-700/50 rounded-lg bg-zinc-800/30">
-                  No per-holding returns defined. All holdings use their asset class defaults.
+                  No per-holding overrides defined. All holdings use their asset class defaults.
                 </div>
               )}
 
@@ -393,11 +457,12 @@ export default function CustomPeriodsModal({
               {availableTickers.length > 0 ? (
                 <div className="p-4 rounded-lg bg-zinc-800/30 border border-zinc-700">
                   <Label className="text-zinc-300 text-sm mb-3 block">Add Holding Override</Label>
-                  <div className="grid grid-cols-12 gap-3">
-                    <div className="col-span-6">
+                  <div className="grid grid-cols-12 gap-2 items-end">
+                    <div className="col-span-3">
+                      <Label className="text-xs text-zinc-500 mb-1 block">Ticker</Label>
                       <Select value={selectedTicker} onValueChange={setSelectedTicker}>
                         <SelectTrigger className="bg-zinc-900 border-zinc-700">
-                          <SelectValue placeholder="Select holding..." />
+                          <SelectValue placeholder="Select..." />
                         </SelectTrigger>
                         <SelectContent className="bg-zinc-900 border-zinc-700">
                           {availableTickers.map(t => (
@@ -408,12 +473,13 @@ export default function CustomPeriodsModal({
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="col-span-4">
+                    <div className="col-span-2">
+                      <Label className="text-xs text-zinc-500 mb-1 block">Return %</Label>
                       <Input
                         type="number"
                         value={tickerReturnInput}
                         onChange={(e) => setTickerReturnInput(e.target.value)}
-                        placeholder="Return %"
+                        placeholder="0"
                         className="bg-zinc-900 border-zinc-700"
                         step="0.5"
                         min={-50}
@@ -421,11 +487,36 @@ export default function CustomPeriodsModal({
                         disabled={!selectedTicker}
                       />
                     </div>
+                    <div className="col-span-3">
+                      <Label className="text-xs text-zinc-500 mb-1 block">Dividend %</Label>
+                      <Input
+                        type="number"
+                        value={tickerDividendYieldInput}
+                        onChange={(e) => setTickerDividendYieldInput(e.target.value)}
+                        placeholder="0"
+                        className="bg-zinc-900 border-zinc-700"
+                        step="0.1"
+                        min={0}
+                        max={50}
+                        disabled={!selectedTicker}
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <Label className="text-xs text-zinc-500 mb-1 block">Qualified</Label>
+                      <div className="h-10 flex items-center justify-center">
+                        <Checkbox
+                          checked={tickerDividendQualifiedInput}
+                          onCheckedChange={setTickerDividendQualifiedInput}
+                          disabled={!selectedTicker}
+                          className="border-zinc-600 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
+                        />
+                      </div>
+                    </div>
                     <div className="col-span-2">
                       <Button
                         onClick={addTickerReturn}
                         className="w-full bg-zinc-800 border-zinc-700 hover:bg-zinc-700"
-                        disabled={!selectedTicker || tickerReturnInput === ''}
+                        disabled={!selectedTicker}
                       >
                         <Plus className="w-4 h-4" />
                       </Button>
@@ -435,7 +526,7 @@ export default function CustomPeriodsModal({
               ) : (
                 <div className="p-4 rounded-lg bg-zinc-800/30 border border-zinc-700 text-center">
                   <p className="text-sm text-zinc-400">
-                    All holdings have custom returns defined.
+                    All holdings have custom overrides defined.
                   </p>
                 </div>
               )}
@@ -454,8 +545,8 @@ export default function CustomPeriodsModal({
         ) : (
           <div className="mt-4 p-3 rounded-lg bg-zinc-800/30 border border-zinc-700">
             <p className="text-xs text-zinc-400">
-              💡 <strong>Example:</strong> If you own MSTR and expect 40%/year but other stocks default to 10%/year, add "MSTR: 40%" here. 
-              Per-holding rates override asset class defaults for that specific ticker.
+              💡 <strong>Example:</strong> SCHD with 3.5% qualified dividends, or a REIT like O with 5% non-qualified dividends. 
+              Qualified dividends are taxed at LTCG rates (0/15/20%), non-qualified at ordinary income rates.
             </p>
           </div>
         )}
