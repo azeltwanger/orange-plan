@@ -117,6 +117,7 @@ export function runUnifiedProjection({
   withdrawalBlendPercentages = { cash: 0, bonds: 25, stocks: 35, other: 10, btc: 30 },
   DEBUG = false,
 }) {
+  console.log('INSIDE runUnifiedProjection: tickerReturns =', JSON.stringify(tickerReturns));
   const results = [];
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth();
