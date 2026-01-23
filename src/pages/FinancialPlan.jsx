@@ -944,6 +944,7 @@ export default function FinancialPlan() {
 
   // Generate projection data using unified projection engine
   const projections = useMemo(() => {
+    console.log('PROJECTIONS: tickerReturns =', JSON.stringify(tickerReturns));
     const result = runUnifiedProjection({
       holdings,
       accounts,
