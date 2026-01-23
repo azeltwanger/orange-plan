@@ -991,6 +991,7 @@ export default function FinancialPlan() {
       lifeEvents,
       getTaxTreatmentFromHolding,
       customReturnPeriods,
+      tickerReturns,
       taxLots: activeTaxLots,
       costBasisMethod,
       assetWithdrawalStrategy,
