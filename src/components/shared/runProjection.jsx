@@ -414,6 +414,12 @@ export function runUnifiedProjection({
     
     // === Other assets: Use proportional cost basis (no lot tracking) ===
     // Assume stocks/bonds/other are long-term holdings for simplicity
+    // Capture pre-withdrawal values for holdingValues reduction
+    const preWithdrawalStocks = acct.stocks;
+    const preWithdrawalBonds = acct.bonds;
+    const preWithdrawalCash = acct.cash;
+    const preWithdrawalOther = acct.other;
+    
     const nonBtcWithdrawn = stocksTarget + bondsTarget + cashTarget + otherTarget;
     let otherLongTermGain = 0;
     if (nonBtcWithdrawn > 0) {
@@ -429,6 +435,20 @@ export function runUnifiedProjection({
       acct.bonds = Math.max(0, acct.bonds - bondsTarget);
       acct.cash = Math.max(0, acct.cash - cashTarget);
       acct.other = Math.max(0, acct.other - otherTarget);
+      
+      // Reduce holdingValues proportionally for each asset category withdrawn
+      if (stocksTarget > 0) {
+        reduceHoldingValuesForWithdrawal('stocks', 'taxable', stocksTarget, preWithdrawalStocks);
+      }
+      if (bondsTarget > 0) {
+        reduceHoldingValuesForWithdrawal('bonds', 'taxable', bondsTarget, preWithdrawalBonds);
+      }
+      if (cashTarget > 0) {
+        reduceHoldingValuesForWithdrawal('cash', 'taxable', cashTarget, preWithdrawalCash);
+      }
+      if (otherTarget > 0) {
+        reduceHoldingValuesForWithdrawal('other', 'taxable', otherTarget, preWithdrawalOther);
+      }
     }
     
     // Clean up tiny residual values (less than $1) to prevent exponential growth from near-zero balances
