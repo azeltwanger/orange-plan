@@ -2061,8 +2061,8 @@ export function runUnifiedProjection({
       cashGrowthRate: i > 0 ? (yearlyReturnOverrides?.cash?.[i] !== undefined ? yearlyReturnOverrides.cash[i] : cashCagr) : cashCagr,
       
       // Tax breakdown for tooltip
-      shortTermGainsTax: Math.round(federalTaxPaid * 0.1), // Placeholder - would need to track separately
-      longTermGainsTax: Math.round(federalTaxPaid * 0.9), // Placeholder
+      shortTermGainsTax: Math.round(taxEstimate?.taxOnShortTermGains || 0),
+      longTermGainsTax: Math.round(taxEstimate?.taxOnLongTermGains || 0),
       encumberedBtc: currentTotalEncumberedBtc,
       liquidBtc: Math.max(0, getAssetTotal('btc') / cumulativeBtcPrice),
       
