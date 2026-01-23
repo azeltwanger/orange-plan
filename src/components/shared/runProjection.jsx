@@ -1751,8 +1751,8 @@ export function runUnifiedProjection({
           taxDeferredBalance: getAccountTotal('taxDeferred'),
           taxFreeBalance: getAccountTotal('taxFree'),
           rothContributions: totalRothContributions,
-          shortTermGain: preliminaryRetirementWithdraw.shortTermGain,
-          longTermGain: preliminaryRetirementWithdraw.longTermGain,
+          taxableGainPercent: estimatedCurrentGainRatio,
+          isLongTermGain: true, // Assume long-term gains
           filingStatus,
           age: age,
           otherIncome: totalOtherIncomeForTax,
