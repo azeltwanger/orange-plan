@@ -141,10 +141,12 @@ export function runUnifiedProjection({
       return yearlyOverride;
     }
     
-    // Priority 2: Per-ticker override
+    // Priority 2: Per-ticker override (handle both legacy number and new object format)
     const tickerUpper = ticker?.toUpperCase();
     if (tickerUpper && tickerReturns && tickerReturns[tickerUpper] !== undefined) {
-      return tickerReturns[tickerUpper];
+      const config = tickerReturns[tickerUpper];
+      if (typeof config === 'number') return config;
+      if (typeof config === 'object' && config.rate !== undefined) return config.rate;
     }
     
     // Priority 3: Custom period for asset class
@@ -576,6 +578,51 @@ export function runUnifiedProjection({
   const standardDeductions = taxConfigForYear?.standardDeduction || { single: 15000, married: 30000 };
   const currentStandardDeduction = standardDeductions[filingStatus] || standardDeductions.single;
 
+  // Track individual holding values for dividend calculations
+  // We need to track values through the projection since dividends are based on current value
+  const holdingValues = holdings.map(h => {
+    const initialValue = h.ticker === 'BTC' ? h.quantity * currentPrice : h.quantity * (h.current_price || 0);
+    const taxTreatment = getTaxTreatmentFromHolding(h);
+    const assetCategory = getAssetCategory(h.asset_type, h.ticker);
+    const tickerUpper = h.ticker?.toUpperCase();
+    
+    // Get dividend config: priority is tickerReturns override > holding default
+    let dividendYield = h.dividend_yield || 0;
+    let dividendQualified = h.dividend_qualified !== false; // default true
+    
+    if (tickerUpper && tickerReturns && tickerReturns[tickerUpper]) {
+      const override = tickerReturns[tickerUpper];
+      if (typeof override === 'object') {
+        // New format with dividend info
+        if (override.dividendYield !== undefined) dividendYield = override.dividendYield;
+        if (override.dividendQualified !== undefined) dividendQualified = override.dividendQualified;
+      }
+    }
+    
+    return {
+      ticker: tickerUpper,
+      assetType: h.asset_type,
+      assetCategory,
+      taxTreatment,
+      currentValue: initialValue,
+      dividendYield,
+      dividendQualified,
+    };
+  });
+
+  // Track executed asset reallocations (for scenario reallocations with dividend-producing assets)
+  const executedReallocations = [];
+
+  // Helper to get ticker return rate (handles both legacy number and new object format)
+  const getTickerReturnRate = (ticker, defaultRate) => {
+    const tickerUpper = ticker?.toUpperCase();
+    if (!tickerUpper || !tickerReturns || !tickerReturns[tickerUpper]) return defaultRate;
+    const config = tickerReturns[tickerUpper];
+    if (typeof config === 'number') return config;
+    if (typeof config === 'object' && config.rate !== undefined) return config.rate;
+    return defaultRate;
+  };
+
   // Main projection loop
   for (let i = 0; i <= lifeExpectancy - currentAge; i++) {
     const year = currentYear + i;
@@ -698,6 +745,8 @@ export function runUnifiedProjection({
     let yearEmployerMatch = 0;
     let retirementNetCashFlow = 0;
     let preRetireNetCashFlow = 0;
+    let yearQualifiedDividends = 0;
+    let yearNonQualifiedDividends = 0;
 
     // BTC growth and price tracking - priority: Monte Carlo > Custom Periods > Power Law/model
     const customBtcRate = getCustomReturnForYear('btc', i, customReturnPeriods, null);
@@ -1306,9 +1355,16 @@ export function runUnifiedProjection({
               const holdingValue = h.quantity * (h.current_price || 0);
               const weight = holdingValue / totalStocksValue;
               const tickerUpper = h.ticker?.toUpperCase();
-              const rate = (tickerUpper && tickerReturns[tickerUpper] !== undefined) 
-                ? tickerReturns[tickerUpper] 
-                : yearStocksGrowth;
+              // Handle both legacy number and new object format for tickerReturns
+              let rate = yearStocksGrowth;
+              if (tickerUpper && tickerReturns[tickerUpper] !== undefined) {
+                const config = tickerReturns[tickerUpper];
+                if (typeof config === 'number') {
+                  rate = config;
+                } else if (typeof config === 'object' && config.rate !== undefined) {
+                  rate = config.rate;
+                }
+              }
               weightedReturn += weight * rate;
             });
             effectiveStocksGrowthThisYear = weightedReturn;
@@ -1334,7 +1390,70 @@ export function runUnifiedProjection({
       });
       if (portfolio.realEstate >= GROWTH_DUST_THRESHOLD && yearRealEstateGrowth !== 0) portfolio.realEstate *= (1 + yearRealEstateGrowth / 100);
       else if (portfolio.realEstate < GROWTH_DUST_THRESHOLD) portfolio.realEstate = 0;
+      
+      // Update tracked holding values for dividend calculations
+      holdingValues.forEach(hv => {
+        if (hv.currentValue < 1) {
+          hv.currentValue = 0;
+          return;
+        }
+        // Get growth rate for this holding
+        let growthRate;
+        if (hv.assetCategory === 'btc') {
+          growthRate = yearBtcGrowth;
+        } else {
+          const tickerRate = getTickerReturnRate(hv.ticker, null);
+          if (tickerRate !== null) {
+            growthRate = tickerRate;
+          } else if (hv.assetCategory === 'stocks') {
+            growthRate = effectiveStocksGrowthThisYear;
+          } else if (hv.assetCategory === 'bonds') {
+            growthRate = yearBondsGrowth;
+          } else if (hv.assetCategory === 'cash') {
+            growthRate = yearCashGrowth;
+          } else {
+            growthRate = yearOtherGrowth;
+          }
+        }
+        hv.currentValue *= (1 + growthRate / 100);
+      });
+      
+      // Update executed reallocation values
+      executedReallocations.forEach(realloc => {
+        if (realloc.currentValue < 1) {
+          realloc.currentValue = 0;
+          return;
+        }
+        realloc.currentValue *= (1 + (realloc.buy_cagr || effectiveStocksGrowthThisYear) / 100);
+      });
     }
+
+    // Calculate dividend income from holdings (only taxable accounts generate taxable dividends)
+    // Tax-deferred and tax-free accounts reinvest dividends without immediate tax
+    holdingValues.forEach(hv => {
+      if (hv.dividendYield > 0 && hv.currentValue > 0 && hv.taxTreatment === 'taxable') {
+        const annualDividend = hv.currentValue * (hv.dividendYield / 100);
+        if (hv.dividendQualified) {
+          yearQualifiedDividends += annualDividend;
+        } else {
+          yearNonQualifiedDividends += annualDividend;
+        }
+      }
+    });
+    
+    // Calculate dividend income from executed asset reallocations
+    executedReallocations.forEach(realloc => {
+      if (realloc.buy_dividend_yield > 0 && realloc.currentValue > 0) {
+        const annualDividend = realloc.currentValue * (realloc.buy_dividend_yield / 100);
+        if (realloc.buy_dividend_qualified !== false) {
+          yearQualifiedDividends += annualDividend;
+        } else {
+          yearNonQualifiedDividends += annualDividend;
+        }
+      }
+    });
+    
+    const totalDividendIncome = yearQualifiedDividends + yearNonQualifiedDividends;
 
     // Roth contributions for accessible funds
     const totalRothContributions = accounts
@@ -1408,7 +1527,8 @@ export function runUnifiedProjection({
       stateTaxPaid = yearStateTax;
       taxesPaid = yearFederalTax + yearStateTax;
       // Net income = gross - taxes - pre-tax contributions (401k, Traditional IRA, HSA come from paycheck)
-      const yearNetIncome = yearGrossIncome - taxesPaid - year401k - yearTraditionalIRA - yearHSA;
+      // Add dividend income (dividends are received as cash, taxed separately)
+      const yearNetIncome = yearGrossIncome - taxesPaid - year401k - yearTraditionalIRA - yearHSA + totalDividendIncome;
 
       const baseYearSpending = (currentAnnualSpending * Math.pow(1 + effectiveInflation / 100, i)) + activeExpenseAdjustment;
       yearSpending = i === 0 ? baseYearSpending * currentYearProRataFactor : baseYearSpending;
@@ -1471,6 +1591,8 @@ export function runUnifiedProjection({
           rothContributions: totalRothContributions,
           shortTermGain: prelimTaxableWithdraw.shortTermGain,
           longTermGain: prelimTaxableWithdraw.longTermGain,
+          qualifiedDividends: yearQualifiedDividends,
+          nonQualifiedDividends: yearNonQualifiedDividends,
           filingStatus,
           age: age,
           otherIncome: 0,
@@ -1668,7 +1790,8 @@ export function runUnifiedProjection({
       }
 
       // Social Security is now calculated earlier (before retirement/pre-retirement split)
-      const totalRetirementIncome = otherRetirementIncome + socialSecurityIncome;
+      // In retirement, dividend income adds to available income to fund spending
+      const totalRetirementIncome = otherRetirementIncome + socialSecurityIncome + totalDividendIncome;
       const taxableSocialSecurity = calculateTaxableSocialSecurity(socialSecurityIncome, otherRetirementIncome + desiredWithdrawal, filingStatus);
       const totalOtherIncomeForTax = otherRetirementIncome + taxableSocialSecurity + rmdWithdrawn;
 
@@ -1707,6 +1830,8 @@ export function runUnifiedProjection({
         rothContributions: totalRothContributions,
         shortTermGain: prelimRetirementTaxable.shortTermGain,
         longTermGain: prelimRetirementTaxable.longTermGain,
+        qualifiedDividends: yearQualifiedDividends,
+        nonQualifiedDividends: yearNonQualifiedDividends,
         filingStatus,
         age: age,
         otherIncome: totalOtherIncomeForTax,
@@ -2056,6 +2181,11 @@ export function runUnifiedProjection({
       goalFunding: Math.round(yearGoalWithdrawal),
       lifeEventIncome: Math.round(yearLifeEventIncome),
       lifeEventExpense: Math.round(yearLifeEventExpense),
+      
+      // Dividend income
+      qualifiedDividends: Math.round(yearQualifiedDividends),
+      nonQualifiedDividends: Math.round(yearNonQualifiedDividends),
+      totalDividendIncome: Math.round(totalDividendIncome),
       
       // Retirement contributions (pre-retirement only)
       year401kContribution: !isRetired ? Math.round(year401k || 0) : 0,
