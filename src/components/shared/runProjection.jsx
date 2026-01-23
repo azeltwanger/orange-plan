@@ -344,9 +344,9 @@ export function runUnifiedProjection({
         btcWithdrawn = lotResult.totalQuantitySold * currentBtcPrice;
         
         // Calculate short-term vs long-term gains based on lot holding periods
-        const currentDate = new Date();
-        const oneYearAgo = new Date(currentDate);
-        oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+        // Use projection year (debugYear) instead of today's date for accurate future projections
+        const currentDate = new Date(debugYear, 11, 31); // End of projection year
+        const oneYearAgo = new Date(debugYear - 1, 11, 31); // One year before
         
         for (const selected of lotResult.selectedLots) {
           const lotPurchaseDate = selected.lot.date ? new Date(selected.lot.date) : null;
