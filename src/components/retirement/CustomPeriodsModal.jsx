@@ -120,13 +120,19 @@ export default function CustomPeriodsModal({
   const addTickerReturn = () => {
     if (!selectedTicker) return;
     
+    const newEntry = {
+      rate: parseFloat(tickerReturnInput) || 0,
+      dividendYield: parseFloat(tickerDividendYieldInput) || 0,
+      dividendQualified: tickerDividendQualifiedInput
+    };
+    
+    console.log('=== ADDING TICKER RETURN ===');
+    console.log('Ticker:', selectedTicker);
+    console.log('New entry:', JSON.stringify(newEntry, null, 2));
+    
     setLocalTickerReturns({
       ...localTickerReturns,
-      [selectedTicker]: {
-        rate: parseFloat(tickerReturnInput) || 0,
-        dividendYield: parseFloat(tickerDividendYieldInput) || 0,
-        dividendQualified: tickerDividendQualifiedInput
-      }
+      [selectedTicker]: newEntry
     });
     
     setSelectedTicker('');
@@ -152,8 +158,12 @@ export default function CustomPeriodsModal({
   };
 
   const handleSave = () => {
+    console.log('=== MODAL SAVE TRIGGERED ===');
+    console.log('localTickerReturns being saved:', JSON.stringify(localTickerReturns, null, 2));
+    
     onSave(localPeriods);
     if (onTickerReturnsSave) {
+      console.log('Calling onTickerReturnsSave with:', JSON.stringify(localTickerReturns, null, 2));
       onTickerReturnsSave(localTickerReturns);
     }
     onOpenChange(false);
