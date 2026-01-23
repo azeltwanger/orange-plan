@@ -239,6 +239,19 @@ export function runUnifiedProjection({
     return actualWithdrawal;
   };
 
+  // Helper function to reduce holdingValues proportionally when withdrawals occur
+  // This ensures dividend calculations reflect actual post-withdrawal values
+  const reduceHoldingValuesForWithdrawal = (assetCategory, taxTreatment, withdrawalAmount, preWithdrawalTotal) => {
+    if (withdrawalAmount <= 0 || preWithdrawalTotal <= 0) return;
+    const reductionRatio = Math.min(1, withdrawalAmount / preWithdrawalTotal);
+    holdingValues.forEach(hv => {
+      if (hv.assetCategory === assetCategory && hv.taxTreatment === taxTreatment && hv.currentValue > 0) {
+        hv.currentValue *= (1 - reductionRatio);
+        if (hv.currentValue < 1) hv.currentValue = 0; // Clean up dust
+      }
+    });
+  };
+
   // Enhanced withdrawal from taxable account with BTC lot tracking
   // Uses selectLots for BTC to get accurate cost basis, proportional for other assets
   const withdrawFromTaxableWithLots = (amount, currentBtcPrice, debugYear = null) => {
