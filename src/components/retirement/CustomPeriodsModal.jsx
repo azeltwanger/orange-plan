@@ -545,8 +545,7 @@ export default function CustomPeriodsModal({
         ) : (
           <div className="mt-4 p-3 rounded-lg bg-zinc-800/30 border border-zinc-700">
             <p className="text-xs text-zinc-400">
-              💡 <strong>Example:</strong> SCHD with 3.5% qualified dividends, or a REIT like O with 5% non-qualified dividends. 
-              Qualified dividends are taxed at LTCG rates (0/15/20%), non-qualified at ordinary income rates.
+              💡 Set custom returns and dividends for specific holdings. For example, a dividend ETF might have 8% growth + 3% dividend yield. Check 'Qualified' for most stock dividends (lower tax rate). Uncheck for REITs and MLPs (taxed as regular income).
             </p>
           </div>
         )}
