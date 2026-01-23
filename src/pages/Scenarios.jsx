@@ -299,6 +299,14 @@ export default function Scenarios() {
     staleTime: 5 * 60 * 1000,
   });
 
+  // Filter for active tax lots (buys with remaining quantity)
+  const activeTaxLots = useMemo(() => {
+    return (transactions || []).filter(t => 
+      t.type === 'buy' && 
+      (t.remaining_quantity ?? t.quantity) > 0
+    );
+  }, [transactions]);
+
   const isLoading = holdingsLoading || accountsLoading || liabilitiesLoading || goalsLoading || eventsLoading || settingsLoading || scenariosLoading || priceLoading;
 
   const settings = userSettings[0] || {};
@@ -453,7 +461,7 @@ export default function Scenarios() {
       assetReallocations,
       hypothetical_btc_loan: effectiveSettings.hypothetical_btc_loan || null,
       // Tax lots for lot-level cost basis tracking
-      taxLots: transactions || [],
+      taxLots: activeTaxLots,
       // Withdrawal strategy parameters from user settings
       assetWithdrawalStrategy: effectiveSettings.asset_withdrawal_strategy || 'proportional',
       withdrawalPriorityOrder: effectiveSettings.withdrawal_priority_order || ['cash', 'bonds', 'stocks', 'other', 'btc'],
