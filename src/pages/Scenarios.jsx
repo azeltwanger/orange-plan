@@ -293,6 +293,12 @@ export default function Scenarios() {
     staleTime: 5 * 60 * 1000,
   });
 
+  const { data: transactions = [] } = useQuery({
+    queryKey: ['transactions'],
+    queryFn: () => base44.entities.Transaction.filter({ type: 'buy' }),
+    staleTime: 5 * 60 * 1000,
+  });
+
   const isLoading = holdingsLoading || accountsLoading || liabilitiesLoading || goalsLoading || eventsLoading || settingsLoading || scenariosLoading || priceLoading;
 
   const settings = userSettings[0] || {};
@@ -446,7 +452,14 @@ export default function Scenarios() {
       dividendIncomeQualified,
       assetReallocations,
       hypothetical_btc_loan: effectiveSettings.hypothetical_btc_loan || null,
-      };
+      // Tax lots for lot-level cost basis tracking
+      taxLots: transactions || [],
+      // Withdrawal strategy parameters from user settings
+      assetWithdrawalStrategy: effectiveSettings.asset_withdrawal_strategy || 'proportional',
+      withdrawalPriorityOrder: effectiveSettings.withdrawal_priority_order || ['cash', 'bonds', 'stocks', 'other', 'btc'],
+      withdrawalBlendPercentages: effectiveSettings.withdrawal_blend_percentages || { cash: 0, bonds: 25, stocks: 35, other: 10, btc: 30 },
+      costBasisMethod: effectiveSettings.cost_basis_method || 'HIFO',
+    };
   };
 
   // Run baseline projection
