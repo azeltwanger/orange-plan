@@ -945,7 +945,6 @@ export default function FinancialPlan() {
 
   // Generate projection data using unified projection engine
   const projections = useMemo(() => {
-    console.log('PROJECTIONS: tickerReturns =', JSON.stringify(tickerReturns));
     const result = runUnifiedProjection({
       holdings,
       accounts,
@@ -999,15 +998,6 @@ export default function FinancialPlan() {
       withdrawalBlendPercentages,
       DEBUG: false,
     });
-    
-    // Debug: Check if dividend income is in results
-    if (result.yearByYear && result.yearByYear.length > 0) {
-      console.log('Projection Year 0 dividends:', {
-        totalDividendIncome: result.yearByYear[0].totalDividendIncome,
-        qualifiedDividends: result.yearByYear[0].qualifiedDividends,
-        nonQualifiedDividends: result.yearByYear[0].nonQualifiedDividends
-      });
-    }
     
     return result.yearByYear;
   }, [holdings, accounts, liabilities, collateralizedLoans, currentPrice, currentAge, retirementAge, lifeExpectancy, customReturnPeriods, tickerReturns,

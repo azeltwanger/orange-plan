@@ -1417,12 +1417,6 @@ export function runUnifiedProjection({
           }
         }
         
-        // Debug MTPLF growth rate
-        if (hv.ticker?.toUpperCase() === 'MTPLF' && i <= 2) {
-          const tickerRate = getTickerReturnRate(hv.ticker, null);
-          console.log('MTPLF Year', i, '| tickerRate:', tickerRate, '| growthRate used:', growthRate, '| value:', hv.currentValue);
-        }
-        
         hv.currentValue *= (1 + growthRate / 100);
       });
       
@@ -1434,6 +1428,17 @@ export function runUnifiedProjection({
         }
         realloc.currentValue *= (1 + (realloc.buy_cagr || effectiveStocksGrowthThisYear) / 100);
       });
+    }
+
+    // Debug dividend calculation for Year 0
+    if (i === 0) {
+      console.log('YEAR 0 DIVIDEND DEBUG:', holdingValues.map(hv => ({
+        ticker: hv.ticker,
+        dividendYield: hv.dividendYield,
+        currentValue: Math.round(hv.currentValue),
+        taxTreatment: hv.taxTreatment,
+        qualifies: hv.dividendYield > 0 && hv.currentValue > 0 && hv.taxTreatment === 'taxable'
+      })));
     }
 
     // Calculate dividend income from holdings (only taxable accounts generate taxable dividends)
