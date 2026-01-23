@@ -936,11 +936,11 @@ export default function Scenarios() {
           scenarioParams = buildProjectionParams(overrides);
         }
 
-        // Run comparison with shared random paths (1000 simulations)
-        const mcResults = runMonteCarloComparison(baselineParams, scenarioParams, 1000);
+        // Run comparison with shared random paths (500 simulations)
+        const mcResults = runMonteCarloComparison(baselineParams, scenarioParams, 500);
 
         // Find max sustainable spending for baseline
-        const baselineMaxSpending = findMaxSustainableSpendingWithPaths(baselineParams, 1000);
+        const baselineMaxSpending = findMaxSustainableSpendingWithPaths(baselineParams, 500);
         
         // Check if liquidation difference is meaningful
         const liquidationAffected = scenarioAffectsLiquidation(selectedScenario);
@@ -954,7 +954,7 @@ export default function Scenarios() {
 
         if (scenarioParams) {
           // Find max sustainable spending for scenario
-          const scenarioMaxSpending = findMaxSustainableSpendingWithPaths(scenarioParams, 1000);
+          const scenarioMaxSpending = findMaxSustainableSpendingWithPaths(scenarioParams, 500);
           
           setScenarioMonteCarloResults({
             successRate: mcResults.scenarioSuccessRate,
@@ -1478,7 +1478,7 @@ export default function Scenarios() {
 
             {/* Section 3: PLAN CONFIDENCE */}
             {baselineMonteCarloResults && (
-              <CollapsibleSection title={`PLAN CONFIDENCE (${baselineMonteCarloResults?.numSimulations?.toLocaleString() || '1,000'} scenarios)`} defaultOpen={true}>
+              <CollapsibleSection title={`PLAN CONFIDENCE (${baselineMonteCarloResults?.numSimulations?.toLocaleString() || '500'} scenarios)`} defaultOpen={true}>
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
@@ -1607,7 +1607,7 @@ export default function Scenarios() {
                         <td className="py-3 px-4 text-zinc-200">
                           <div className="flex items-center gap-1">
                             90% Safe Spending at Retirement
-                            <span className="text-zinc-500 cursor-help" title="The maximum annual spending (in today's dollars) where your plan succeeds in at least 90% of simulated market scenarios. Based on 1,000 market scenarios reflecting Bitcoin's volatility patterns.">
+                            <span className="text-zinc-500 cursor-help" title="The maximum annual spending (in today's dollars) where your plan succeeds in at least 90% of simulated market scenarios. Based on 500 market scenarios reflecting Bitcoin's volatility patterns.">
                               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                               </svg>
