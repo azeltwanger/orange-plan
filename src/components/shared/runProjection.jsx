@@ -1430,17 +1430,6 @@ export function runUnifiedProjection({
       });
     }
 
-    // Debug dividend calculation for Year 0
-    if (i === 0) {
-      console.log('YEAR 0 DIVIDEND DEBUG:', holdingValues.map(hv => ({
-        ticker: hv.ticker,
-        dividendYield: hv.dividendYield,
-        currentValue: Math.round(hv.currentValue),
-        taxTreatment: hv.taxTreatment,
-        qualifies: hv.dividendYield > 0 && hv.currentValue > 0 && hv.taxTreatment === 'taxable'
-      })));
-    }
-
     // Calculate dividend income from holdings (only taxable accounts generate taxable dividends)
     // Tax-deferred and tax-free accounts reinvest dividends without immediate tax
     holdingValues.forEach(hv => {

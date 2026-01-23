@@ -2123,6 +2123,12 @@ export default function FinancialPlan() {
                         // Normal hover behavior when not locked
                         if (!active || !payload?.length) return null;
                         const p = payload[0]?.payload;
+                        console.log('TOOLTIP DATA:', { 
+                          totalDividendIncome: p?.totalDividendIncome,
+                          isRetired: p?.isRetired,
+                          isWithdrawing: p?.isWithdrawing,
+                          age: p?.age
+                        });
                         if (!p) return null;
                         const hasLiquidation = p.liquidations && p.liquidations.length > 0;
 
