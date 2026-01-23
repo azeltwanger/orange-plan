@@ -1696,14 +1696,34 @@ export function runUnifiedProjection({
       const effectiveRunningTaxableBasis = Math.min(taxableBalance, runningTaxableBasis);
       const estimatedCurrentGainRatio = taxableBalance > 0 ? Math.max(0, (taxableBalance - effectiveRunningTaxableBasis) / taxableBalance) : 0;
 
+      // Get accurate short/long term gains from lot selection for tax calculation
+      const preliminaryRetirementWithdraw = withdrawFromTaxableWithLots(
+        Math.min(cappedWithdrawal, taxableBalance),
+        cumulativeBtcPrice,
+        year
+      );
+      // Restore the withdrawal (we just wanted to calculate the gains)
+      if (preliminaryRetirementWithdraw.withdrawn > 0) {
+        const acct = portfolio.taxable;
+        const total = getAccountTotal('taxable');
+        if (total > 0) {
+          const ratio = preliminaryRetirementWithdraw.withdrawn / total;
+          acct.btc += preliminaryRetirementWithdraw.withdrawn * (acct.btc / total);
+          acct.stocks += preliminaryRetirementWithdraw.withdrawn * (acct.stocks / total);
+          acct.bonds += preliminaryRetirementWithdraw.withdrawn * (acct.bonds / total);
+          acct.cash += preliminaryRetirementWithdraw.withdrawn * (acct.cash / total);
+          acct.other += preliminaryRetirementWithdraw.withdrawn * (acct.other / total);
+        }
+      }
+      
       const taxEstimate = estimateRetirementWithdrawalTaxes({
         withdrawalNeeded: cappedWithdrawal,
         taxableBalance,
         taxDeferredBalance,
         taxFreeBalance,
         rothContributions: totalRothContributions,
-        taxableGainPercent: estimatedCurrentGainRatio,
-        isLongTermGain: true, // Legacy fallback - actual gains calculated from lots below
+        shortTermGain: preliminaryRetirementWithdraw.shortTermGain,
+        longTermGain: preliminaryRetirementWithdraw.longTermGain,
         filingStatus,
         age: age,
         otherIncome: totalOtherIncomeForTax,
