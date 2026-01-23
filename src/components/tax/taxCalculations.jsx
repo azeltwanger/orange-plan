@@ -158,6 +158,53 @@ export {
   getTaxDataForYear
 };
 
+/**
+ * Calculate Net Investment Income Tax (NIIT) - 3.8% surtax on investment income.
+ * 
+ * NIIT applies when MAGI exceeds thresholds:
+ * - Single: $200,000
+ * - Married Filing Jointly: $250,000
+ * - Married Filing Separately: $125,000
+ * 
+ * Tax is 3.8% of the LESSER of:
+ * 1. Net Investment Income (NII), OR
+ * 2. MAGI exceeding the threshold
+ * 
+ * Net Investment Income includes:
+ * - Capital gains (short-term and long-term)
+ * - Dividends (qualified and non-qualified)
+ * - Interest income (not from tax-exempt bonds)
+ * - Rental and royalty income
+ * - Passive business income
+ * 
+ * @param {number} netInvestmentIncome - Total NII (gains + dividends + investment interest)
+ * @param {number} magi - Modified Adjusted Gross Income
+ * @param {string} filingStatus - 'single', 'married', or 'married_filing_jointly'
+ * @returns {number} - NIIT amount owed
+ */
+export const calculateNIIT = (netInvestmentIncome, magi, filingStatus) => {
+  // NIIT thresholds (these are statutory and NOT inflation-adjusted)
+  const thresholds = {
+    single: 200000,
+    married: 250000,
+    married_filing_jointly: 250000,
+    married_filing_separately: 125000,
+    head_of_household: 200000,
+  };
+  
+  const normalizedStatus = filingStatus === 'married' ? 'married_filing_jointly' : filingStatus;
+  const threshold = thresholds[normalizedStatus] || thresholds.single;
+  
+  // No NIIT if MAGI is at or below threshold
+  if (magi <= threshold) return 0;
+  
+  // NIIT is 3.8% of the lesser of NII or excess MAGI
+  const excessMagi = magi - threshold;
+  const niitableAmount = Math.min(netInvestmentIncome, excessMagi);
+  
+  return Math.max(0, niitableAmount * 0.038);
+};
+
 // Backward compatibility
 export const STANDARD_DEDUCTION_2024 = { single: 14600, married: 29200 };
 export const STANDARD_DEDUCTION_2025 = { single: 15000, married: 30000 };
@@ -285,6 +332,11 @@ export const calculateWithdrawalTax = ({
  * 2. Tax-free (Roth contributions accessible penalty-free)
  * 3. Tax-deferred (ordinary income + 10% penalty - avoid if possible)
  * 
+ * Dividend Tax Treatment:
+ * - Qualified dividends: Taxed at LTCG rates (0%, 15%, 20%) - stacks on top of ordinary income
+ * - Non-qualified dividends: Taxed as ordinary income (10%-37%)
+ * - NIIT (3.8%): Applies to NII (gains + dividends) when MAGI > threshold
+ * 
  * @param {Object} params - Withdrawal scenario parameters
  * @param {number} params.withdrawalNeeded - Total amount needed (pre-tax)
  * @param {number} params.taxableBalance - Available in taxable accounts
@@ -295,6 +347,8 @@ export const calculateWithdrawalTax = ({
  * @param {number} params.shortTermGain - Pre-calculated short-term capital gains (taxed as ordinary income)
  * @param {number} params.longTermGain - Pre-calculated long-term capital gains (preferential rates)
  * @param {boolean} params.isLongTermGain - True if taxable gains held > 1 year - LEGACY fallback
+ * @param {number} params.qualifiedDividends - Qualified dividend income (taxed at LTCG rates)
+ * @param {number} params.nonQualifiedDividends - Non-qualified dividend income (taxed as ordinary income)
  * @param {string} params.filingStatus - 'single' or 'married'
  * @param {number} params.age - Current age (determines penalty)
  * @param {number} params.otherIncome - Other income this year (pension, SS, etc.)
@@ -312,6 +366,8 @@ export const estimateRetirementWithdrawalTaxes = ({
   shortTermGain = null, // NEW: Pre-calculated short-term gain from lot selection
   longTermGain = null, // NEW: Pre-calculated long-term gain from lot selection  
   isLongTermGain = true, // LEGACY: Fallback when gain breakdown not provided
+  qualifiedDividends = 0, // Qualified dividends - taxed at LTCG rates
+  nonQualifiedDividends = 0, // Non-qualified dividends - taxed as ordinary income (REITs, MLPs)
   filingStatus = 'single',
   age = 65,
   otherIncome = 0, // Social Security, pension, etc.
@@ -355,12 +411,37 @@ export const estimateRetirementWithdrawalTaxes = ({
     taxOnTaxDeferred: 0,
     taxOnShortTermGains: 0,
     taxOnLongTermGains: 0,
+    taxOnQualifiedDividends: 0,
+    taxOnNonQualifiedDividends: 0,
+    niitTax: 0,
     penalty: 0,
   };
   
   // Track cumulative taxable income for accurate bracket calculation
-  // Start with other income AFTER standard deduction
-  let cumulativeTaxableIncome = Math.max(0, otherIncome - standardDeduction);
+  // Start with other income + non-qualified dividends AFTER standard deduction
+  // Non-qualified dividends are taxed as ordinary income
+  const totalOrdinaryIncome = otherIncome + nonQualifiedDividends;
+  let cumulativeTaxableIncome = Math.max(0, totalOrdinaryIncome - standardDeduction);
+  
+  // Tax non-qualified dividends as ordinary income
+  if (nonQualifiedDividends > 0) {
+    let nonQualDivTax = 0;
+    let remainingNonQualDiv = nonQualifiedDividends;
+    // Calculate tax on non-qualified dividends at ordinary income rates
+    // They fill brackets after other income
+    const incomeBeforeDividends = Math.max(0, otherIncome - standardDeduction);
+    let tempIncome = incomeBeforeDividends;
+    for (const bracket of incomeBrackets) {
+      if (remainingNonQualDiv <= 0) break;
+      const roomInBracket = Math.max(0, bracket.max - tempIncome);
+      const divInBracket = Math.min(remainingNonQualDiv, roomInBracket);
+      nonQualDivTax += divInBracket * bracket.rate;
+      tempIncome += divInBracket;
+      remainingNonQualDiv -= divInBracket;
+    }
+    withdrawalBreakdown.taxOnNonQualifiedDividends = nonQualDivTax;
+    totalTax += nonQualDivTax;
+  }
   
   // Optimal withdrawal order depends on age and tax situation
   if (canAccessPenaltyFree) {
@@ -568,6 +649,32 @@ export const estimateRetirementWithdrawalTaxes = ({
     }
   }
   
+  // Tax qualified dividends at LTCG rates (stacks on top of ordinary income)
+  if (qualifiedDividends > 0) {
+    let qualDivTax = 0;
+    let remainingQualDiv = qualifiedDividends;
+    // Qualified dividends use LTCG brackets, stacking on top of all ordinary income
+    for (const bracket of ltcgBrackets) {
+      if (remainingQualDiv <= 0) break;
+      const roomInBracket = Math.max(0, bracket.max - cumulativeTaxableIncome);
+      const divInBracket = Math.min(remainingQualDiv, roomInBracket);
+      qualDivTax += divInBracket * bracket.rate;
+      cumulativeTaxableIncome += divInBracket;
+      remainingQualDiv -= divInBracket;
+    }
+    withdrawalBreakdown.taxOnQualifiedDividends = qualDivTax;
+    totalTax += qualDivTax;
+  }
+  
+  // Calculate NIIT (Net Investment Income Tax) - 3.8% surtax
+  // NII includes: capital gains + all dividends
+  const netInvestmentIncome = (shortTermGain || 0) + (longTermGain || 0) + qualifiedDividends + nonQualifiedDividends;
+  // MAGI for NIIT purposes includes all income
+  const magiForNIIT = otherIncome + (withdrawalBreakdown.fromTaxDeferred || 0) + netInvestmentIncome;
+  const niitTax = calculateNIIT(netInvestmentIncome, magiForNIIT, filingStatus);
+  withdrawalBreakdown.niitTax = niitTax;
+  totalTax += niitTax;
+
   return {
     ...withdrawalBreakdown,
     totalTax,
