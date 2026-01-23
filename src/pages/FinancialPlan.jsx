@@ -1000,6 +1000,15 @@ export default function FinancialPlan() {
       DEBUG: false,
     });
     
+    // Debug: Check if dividend income is in results
+    if (result.yearByYear && result.yearByYear.length > 0) {
+      console.log('Projection Year 0 dividends:', {
+        totalDividendIncome: result.yearByYear[0].totalDividendIncome,
+        qualifiedDividends: result.yearByYear[0].qualifiedDividends,
+        nonQualifiedDividends: result.yearByYear[0].nonQualifiedDividends
+      });
+    }
+    
     return result.yearByYear;
   }, [holdings, accounts, liabilities, collateralizedLoans, currentPrice, currentAge, retirementAge, lifeExpectancy, customReturnPeriods, 
       retirementAnnualSpending, effectiveSocialSecurity, socialSecurityStartAge, otherRetirementIncome,
