@@ -117,6 +117,8 @@ export function runUnifiedProjection({
   withdrawalBlendPercentages = { cash: 0, bonds: 25, stocks: 35, other: 10, btc: 30 },
   DEBUG = false,
 }) {
+  console.log('runUnifiedProjection CALLED with tickerReturns:', Object.keys(tickerReturns || {}).length > 0 ? 'HAS DATA' : 'EMPTY', tickerReturns);
+
   const results = [];
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth();
@@ -695,6 +697,14 @@ export function runUnifiedProjection({
       Object.values(tempRunningDebt).forEach(liab => { liab.current_balance = 0; liab.paid_off = true; });
       Object.values(tempRunningCollateralizedLoans).forEach(loan => { loan.current_balance = 0; loan.paid_off = true; });
       
+      if (i === 0) {
+        console.log('RESULTS PUSH Year 0:', {
+          totalDividendIncome: Math.round(totalDividendIncome),
+          qualifiedDividends: Math.round(yearQualifiedDividends),
+          nonQualifiedDividends: Math.round(yearNonQualifiedDividends)
+        });
+      }
+
       results.push({
         year,
         age,
@@ -1467,6 +1477,17 @@ export function runUnifiedProjection({
       });
     }
 
+    // Debug dividend calculation for Year 0
+    if (i === 0) {
+      console.log('YEAR 0 DIVIDEND DEBUG:', holdingValues.map(hv => ({
+        ticker: hv.ticker,
+        dividendYield: hv.dividendYield,
+        currentValue: Math.round(hv.currentValue),
+        taxTreatment: hv.taxTreatment,
+        qualifies: hv.dividendYield > 0 && hv.currentValue > 0 && hv.taxTreatment === 'taxable'
+      })));
+    }
+
     // Calculate dividend income from holdings (only taxable accounts generate taxable dividends)
     // Tax-deferred and tax-free accounts reinvest dividends without immediate tax
     // Real estate income (rental/REITs) is included and treated as non-qualified (ordinary income)
@@ -1496,6 +1517,12 @@ export function runUnifiedProjection({
     });
     
     const totalDividendIncome = yearQualifiedDividends + yearNonQualifiedDividends;
+
+    if (i === 0) {
+      console.log('DIVIDEND CALC RESULT:', { yearQualifiedDividends, yearNonQualifiedDividends, totalDividendIncome });
+    }
+
+
 
     // Roth contributions for accessible funds
     const totalRothContributions = accounts
