@@ -515,10 +515,11 @@ export default function CustomPeriodsModal({
                     <div className="col-span-2">
                       <Button
                         onClick={addTickerReturn}
-                        className="w-full bg-zinc-800 border-zinc-700 hover:bg-zinc-700"
+                        className="w-full bg-orange-600 hover:bg-orange-700 text-white"
                         disabled={!selectedTicker}
                       >
-                        <Plus className="w-4 h-4" />
+                        <Plus className="w-4 h-4 mr-1" />
+                        Add
                       </Button>
                     </div>
                   </div>
