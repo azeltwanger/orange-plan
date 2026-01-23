@@ -1449,10 +1449,13 @@ export function runUnifiedProjection({
 
     // Calculate dividend income from holdings (only taxable accounts generate taxable dividends)
     // Tax-deferred and tax-free accounts reinvest dividends without immediate tax
+    // Real estate income (rental/REITs) is included and treated as non-qualified (ordinary income)
     holdingValues.forEach(hv => {
-      if (hv.dividendYield > 0 && hv.currentValue > 0 && hv.taxTreatment === 'taxable') {
+      if (hv.dividendYield > 0 && hv.currentValue > 0 && (hv.taxTreatment === 'taxable' || hv.taxTreatment === 'real_estate')) {
         const annualDividend = hv.currentValue * (hv.dividendYield / 100);
-        if (hv.dividendQualified) {
+        // Real estate income (rental/REITs) is typically non-qualified (taxed as ordinary income)
+        const isQualified = hv.taxTreatment === 'real_estate' ? false : hv.dividendQualified;
+        if (isQualified) {
           yearQualifiedDividends += annualDividend;
         } else {
           yearNonQualifiedDividends += annualDividend;
