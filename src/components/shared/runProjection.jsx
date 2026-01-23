@@ -1796,12 +1796,16 @@ export function runUnifiedProjection({
           
           // Last resort: Real Estate
           if (remainingShortfall > 0 && portfolio.realEstate > 0) {
+            const preWithdrawalRealEstate = portfolio.realEstate;
             realEstateSaleProceeds = portfolio.realEstate;
             portfolio.realEstate = 0;
             withdrawFromRealEstate = Math.min(remainingShortfall, realEstateSaleProceeds);
             const excessProceeds = realEstateSaleProceeds - withdrawFromRealEstate;
             if (excessProceeds > 0) portfolio.taxable.cash += excessProceeds;
             remainingShortfall -= withdrawFromRealEstate;
+            
+            // Reduce holdingValues for real estate (sells entirely)
+            reduceHoldingValuesForWithdrawal('other', 'real_estate', preWithdrawalRealEstate, preWithdrawalRealEstate);
           }
           
           // Only mark depleted if significant shortfall remains
