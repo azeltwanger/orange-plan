@@ -1118,6 +1118,26 @@ export default function Scenarios() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    
+    // Clean up hypothetical_btc_loan - only include if actually enabled and has valid loan_amount
+    let cleanedHypotheticalLoan = null;
+    if (form.hypothetical_btc_loan?.enabled && form.hypothetical_btc_loan?.loan_amount) {
+      cleanedHypotheticalLoan = {
+        enabled: true,
+        loan_amount: parseFloat(form.hypothetical_btc_loan.loan_amount) || null,
+        interest_rate: parseFloat(form.hypothetical_btc_loan.interest_rate) || 12,
+        collateral_btc: parseFloat(form.hypothetical_btc_loan.collateral_btc) || null,
+        ltv: parseFloat(form.hypothetical_btc_loan.ltv) || 50,
+        start_age: form.hypothetical_btc_loan.start_age !== '' && form.hypothetical_btc_loan.start_age !== null 
+          ? parseFloat(form.hypothetical_btc_loan.start_age) 
+          : null,
+        pay_off_age: form.hypothetical_btc_loan.pay_off_age !== '' && form.hypothetical_btc_loan.pay_off_age !== null 
+          ? parseFloat(form.hypothetical_btc_loan.pay_off_age) 
+          : null,
+        use_of_proceeds: form.hypothetical_btc_loan.use_of_proceeds || 'cash',
+      };
+    }
+    
     const data = {
       name: form.name,
       description: form.description,
@@ -1146,7 +1166,7 @@ export default function Scenarios() {
       dividend_income_qualified: form.dividend_income_qualified,
       one_time_events: form.one_time_events || [],
       asset_reallocations: form.asset_reallocations || [],
-      hypothetical_btc_loan: form.hypothetical_btc_loan || null,
+      hypothetical_btc_loan: cleanedHypotheticalLoan,
     };
 
     if (editingScenario) {
