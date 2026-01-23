@@ -1464,6 +1464,12 @@ export function runUnifiedProjection({
         );
         
         // Now calculate taxes with accurate short-term vs long-term gains
+        console.log(`=== TAX DEBUG Year ${year} (Pre-Retirement Deficit) ===`);
+        console.log(`Withdrawal from taxable: $${prelimTaxableWithdraw.withdrawn?.toFixed(2)}`);
+        console.log(`Short-term gain: $${prelimTaxableWithdraw.shortTermGain?.toFixed(2)}`);
+        console.log(`Long-term gain: $${prelimTaxableWithdraw.longTermGain?.toFixed(2)}`);
+        console.log(`Cost basis used: $${prelimTaxableWithdraw.totalCostBasis?.toFixed(2)}`);
+
         const taxEstimate = estimateRetirementWithdrawalTaxes({
           withdrawalNeeded: deficit,
           taxableBalance: prelimTaxableWithdraw.withdrawn,
@@ -1491,7 +1497,11 @@ export function runUnifiedProjection({
           pensionIncome: 0,
           year: year,
         });
-        
+
+        console.log(`Federal tax: $${taxEstimate.totalTax?.toFixed(2)}`);
+        console.log(`State tax: $${preRetireStateTax?.toFixed(2)}`);
+        console.log(`=== END TAX DEBUG ===`);
+
         federalTaxPaid += (taxEstimate.totalTax || 0);
         stateTaxPaid += preRetireStateTax;
         taxesPaid += (taxEstimate.totalTax || 0) + preRetireStateTax;
@@ -1700,6 +1710,13 @@ export function runUnifiedProjection({
         year
       );
 
+      console.log(`=== TAX DEBUG Year ${year} (Retirement) ===`);
+      console.log(`Withdrawal from taxable: $${prelimRetirementTaxable.withdrawn?.toFixed(2)}`);
+      console.log(`Short-term gain: $${prelimRetirementTaxable.shortTermGain?.toFixed(2)}`);
+      console.log(`Long-term gain: $${prelimRetirementTaxable.longTermGain?.toFixed(2)}`);
+      console.log(`Cost basis used: $${prelimRetirementTaxable.totalCostBasis?.toFixed(2)}`);
+      console.log(`Other income for tax: $${totalOtherIncomeForTax?.toFixed(2)}`);
+
       const taxEstimate = estimateRetirementWithdrawalTaxes({
         withdrawalNeeded: cappedWithdrawal,
         taxableBalance: prelimRetirementTaxable.withdrawn,
@@ -1727,6 +1744,12 @@ export function runUnifiedProjection({
         pensionIncome: otherRetirementIncome,
         year: year,
       });
+
+      console.log(`Federal tax on withdrawal: $${taxEstimate.totalTax?.toFixed(2)}`);
+      console.log(`Federal tax on other income: $${federalTaxOnOtherIncome?.toFixed(2)}`);
+      console.log(`State tax (${stateOfResidence}): $${stateTax?.toFixed(2)}`);
+      console.log(`Tax estimate breakdown:`, taxEstimate);
+      console.log(`=== END TAX DEBUG ===`);
 
       federalTaxPaid = federalTaxOnOtherIncome + (taxEstimate.totalTax || 0);
       stateTaxPaid = stateTax;
