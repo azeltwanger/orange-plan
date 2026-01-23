@@ -3,7 +3,7 @@ import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { runUnifiedProjection } from '@/components/shared/runProjection';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine, Area, ComposedChart } from 'recharts';
-import { Plus, Pencil, Trash2, Target, TrendingUp, TrendingDown, ArrowRight, RefreshCw, ChevronDown, ChevronUp, Sparkles, DollarSign, Calendar, MapPin, PiggyBank, Loader2, Play } from 'lucide-react';
+import { Plus, Pencil, Trash2, Target, TrendingUp, TrendingDown, ArrowRight, RefreshCw, ChevronDown, ChevronUp, Sparkles, DollarSign, Calendar, MapPin, PiggyBank, Loader2, Play, Settings2 } from 'lucide-react';
 import { getPowerLawCAGR } from '@/components/shared/bitcoinPowerLaw';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,7 @@ import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { LoadingSkeleton } from '@/components/ui/LoadingSkeleton';
 import { useBtcPrice } from '@/components/shared/useBtcPrice';
+import CustomPeriodsModal from '@/components/retirement/CustomPeriodsModal';
 import { 
   calculateComprehensiveAnnualSavings, 
   deriveEffectiveSocialSecurity, 
@@ -152,6 +153,8 @@ export default function Scenarios() {
     savings_allocation_cash_override: '',
     savings_allocation_other_override: '',
     btc_return_model_override: '',
+    custom_return_periods_override: {},
+    ticker_returns_override: {},
     gross_annual_income_override: '',
     current_annual_spending_override: '',
     dividend_income_override: '',
@@ -160,6 +163,9 @@ export default function Scenarios() {
     asset_reallocations: [],
     hypothetical_btc_loan: { enabled: false, loan_amount: '', interest_rate: '', collateral_btc: '', ltv: '' }
   });
+
+  // State for Custom Periods Modal
+  const [customPeriodsModalOpen, setCustomPeriodsModalOpen] = useState(false);
 
   // Array handlers for one-time events
   const addOneTimeEvent = () => {
@@ -404,10 +410,12 @@ export default function Scenarios() {
     });
 
     // Use shared helper for BTC growth rate function (EXACT match with FinancialPlan.jsx)
+    // Scenario custom_return_periods_override takes precedence over global settings
+    const effectiveCustomReturnPeriods = effectiveSettings.custom_return_periods_override || effectiveSettings.custom_return_periods || {};
     const getBtcGrowthRate = createBtcGrowthRateFunction(
       btcReturnModel, 
       btcCagr, 
-      effectiveSettings.custom_return_periods || {}
+      effectiveCustomReturnPeriods
     );
 
     return {
@@ -455,8 +463,8 @@ export default function Scenarios() {
       goals: goals || [],
       lifeEvents: combinedLifeEvents,
       getTaxTreatmentFromHolding: (holding) => sharedGetTaxTreatment(holding, accounts),
-      customReturnPeriods: effectiveSettings.custom_return_periods || {},
-      tickerReturns: effectiveSettings.ticker_returns || {},
+      customReturnPeriods: effectiveSettings.custom_return_periods_override || effectiveSettings.custom_return_periods || {},
+      tickerReturns: effectiveSettings.ticker_returns_override || effectiveSettings.ticker_returns || {},
       dividendIncomeQualified,
       assetReallocations,
       hypothetical_btc_loan: effectiveSettings.hypothetical_btc_loan || null,
@@ -510,6 +518,8 @@ export default function Scenarios() {
         savings_allocation_other_override: selectedScenario.savings_allocation_other_override,
         // New fields
         btc_return_model_override: selectedScenario.btc_return_model_override,
+        custom_return_periods_override: selectedScenario.custom_return_periods_override,
+        ticker_returns_override: selectedScenario.ticker_returns_override,
         gross_annual_income_override: selectedScenario.gross_annual_income_override,
         current_annual_spending_override: selectedScenario.current_annual_spending_override,
         dividend_income_override: selectedScenario.dividend_income_override,
@@ -992,6 +1002,8 @@ export default function Scenarios() {
             savings_allocation_other_override: selectedScenario.savings_allocation_other_override,
             // New fields for Monte Carlo
             btc_return_model_override: selectedScenario.btc_return_model_override,
+            custom_return_periods_override: selectedScenario.custom_return_periods_override,
+            ticker_returns_override: selectedScenario.ticker_returns_override,
             gross_annual_income_override: selectedScenario.gross_annual_income_override,
             current_annual_spending_override: selectedScenario.current_annual_spending_override,
             dividend_income_override: selectedScenario.dividend_income_override,
@@ -1131,6 +1143,8 @@ export default function Scenarios() {
       savings_allocation_bonds_override: '', savings_allocation_cash_override: '',
       savings_allocation_other_override: '',
       btc_return_model_override: '',
+      custom_return_periods_override: {},
+      ticker_returns_override: {},
       gross_annual_income_override: '',
       current_annual_spending_override: '',
       dividend_income_override: '',
@@ -1185,6 +1199,8 @@ export default function Scenarios() {
       savings_allocation_cash_override: form.savings_allocation_cash_override !== '' ? parseFloat(form.savings_allocation_cash_override) : null,
       savings_allocation_other_override: form.savings_allocation_other_override !== '' ? parseFloat(form.savings_allocation_other_override) : null,
       btc_return_model_override: form.btc_return_model_override || null,
+      custom_return_periods_override: (form.custom_return_periods_override && Object.keys(form.custom_return_periods_override).length > 0) ? form.custom_return_periods_override : null,
+      ticker_returns_override: (form.ticker_returns_override && Object.keys(form.ticker_returns_override).length > 0) ? form.ticker_returns_override : null,
       gross_annual_income_override: form.gross_annual_income_override !== '' ? parseFloat(form.gross_annual_income_override) : null,
       current_annual_spending_override: form.current_annual_spending_override !== '' ? parseFloat(form.current_annual_spending_override) : null,
       dividend_income_override: form.dividend_income_override !== '' ? parseFloat(form.dividend_income_override) : null,
@@ -1225,6 +1241,8 @@ export default function Scenarios() {
       savings_allocation_cash_override: scenario.savings_allocation_cash_override ?? '',
       savings_allocation_other_override: scenario.savings_allocation_other_override ?? '',
       btc_return_model_override: scenario.btc_return_model_override || '',
+      custom_return_periods_override: scenario.custom_return_periods_override || {},
+      ticker_returns_override: scenario.ticker_returns_override || {},
       gross_annual_income_override: scenario.gross_annual_income_override ?? '',
       current_annual_spending_override: scenario.current_annual_spending_override ?? '',
       dividend_income_override: scenario.dividend_income_override ?? '',
@@ -1722,6 +1740,19 @@ export default function Scenarios() {
         </div>
       )}
 
+      {/* Custom Periods Modal */}
+      <CustomPeriodsModal
+        open={customPeriodsModalOpen}
+        onOpenChange={setCustomPeriodsModalOpen}
+        customReturnPeriods={form.custom_return_periods_override || {}}
+        onSave={(periods) => setForm({ ...form, custom_return_periods_override: periods })}
+        currentAge={settings.current_age || 35}
+        lifeExpectancy={settings.life_expectancy || 90}
+        holdings={holdings}
+        tickerReturns={form.ticker_returns_override || {}}
+        onTickerReturnsSave={(tickerReturns) => setForm({ ...form, ticker_returns_override: tickerReturns })}
+      />
+
       {/* Create/Edit Scenario Dialog */}
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
         <DialogContent className="bg-zinc-900 border-zinc-800 max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -1875,26 +1906,37 @@ export default function Scenarios() {
             {/* Return Assumptions */}
             <CollapsibleFormSection title="RETURN ASSUMPTIONS" defaultOpen={false}>
               <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label className="text-zinc-300 text-xs">BTC Return Model</Label>
-                  <Select 
-                    value={form.btc_return_model_override || ""} 
-                    onValueChange={(v) => setForm({ ...form, btc_return_model_override: v })}
-                  >
-                    <SelectTrigger className="bg-zinc-800 border-zinc-700 text-zinc-200">
-                      <SelectValue placeholder="Use default from settings" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-zinc-900 border-zinc-700">
-                      <SelectItem value={null} className="text-zinc-200 focus:text-white">Use default from settings</SelectItem>
-                      <SelectItem value="custom" className="text-zinc-200 focus:text-white">Custom CAGR</SelectItem>
-                      <SelectItem value="powerlaw" className="text-zinc-200 focus:text-white">Power Law Model</SelectItem>
-                      <SelectItem value="saylor24" className="text-zinc-200 focus:text-white">Saylor Model</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-                  {(!form.btc_return_model_override || form.btc_return_model_override === 'custom') && (
-                    <div className="space-y-2">
+                {/* BTC Return Model Section */}
+                <div className="space-y-3">
+                  <Label className="text-zinc-300 text-sm font-medium">Bitcoin Return Model</Label>
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                    {[
+                      { value: '', label: 'Use Default', desc: 'From settings' },
+                      { value: 'custom', label: 'Custom %', desc: 'Set fixed CAGR' },
+                      { value: 'saylor24', label: 'Saylor Model', desc: '50%→20%' },
+                      { value: 'powerlaw', label: 'Power Law', desc: '40%→24%' },
+                      { value: 'custom_periods', label: 'Custom Periods', desc: 'Time-based' },
+                    ].map(option => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => setForm({ ...form, btc_return_model_override: option.value })}
+                        className={cn(
+                          "p-3 rounded-lg border text-left transition-all",
+                          form.btc_return_model_override === option.value
+                            ? "border-orange-500 bg-orange-500/10"
+                            : "border-zinc-700 bg-zinc-800/50 hover:border-zinc-600"
+                        )}
+                      >
+                        <p className="text-sm font-medium text-zinc-200">{option.label}</p>
+                        <p className="text-xs text-zinc-500">{option.desc}</p>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Custom CAGR input - only show for 'custom' model */}
+                  {form.btc_return_model_override === 'custom' && (
+                    <div className="p-3 rounded-lg bg-zinc-800/50 border border-zinc-700">
                       <Label className="text-zinc-300 text-xs">BTC CAGR (%)</Label>
                       <Input
                         type="number"
@@ -1902,66 +1944,123 @@ export default function Scenarios() {
                         value={form.btc_cagr_override}
                         onChange={(e) => setForm({ ...form, btc_cagr_override: e.target.value })}
                         placeholder={String(settings.btc_cagr_assumption || 25)}
-                        className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
+                        className="bg-zinc-900 border-zinc-700 text-zinc-100 placeholder:text-zinc-500 mt-1"
                       />
                     </div>
                   )}
-                  <div className="space-y-2">
-                    <Label className="text-zinc-300 text-xs">Stocks CAGR (%)</Label>
-                    <Input
-                      type="number"
-                      step="0.1"
-                      value={form.stocks_cagr_override}
-                      onChange={(e) => setForm({ ...form, stocks_cagr_override: e.target.value })}
-                      placeholder={String(settings.stocks_cagr || 7)}
-                      className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-zinc-300 text-xs">Bonds CAGR (%)</Label>
-                    <Input
-                      type="number"
-                      step="0.1"
-                      value={form.bonds_cagr_override}
-                      onChange={(e) => setForm({ ...form, bonds_cagr_override: e.target.value })}
-                      placeholder={String(settings.bonds_cagr || 3)}
-                      className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-zinc-300 text-xs">Real Estate CAGR (%)</Label>
-                    <Input
-                      type="number"
-                      step="0.1"
-                      value={form.real_estate_cagr_override}
-                      onChange={(e) => setForm({ ...form, real_estate_cagr_override: e.target.value })}
-                      placeholder={String(settings.real_estate_cagr || 4)}
-                      className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-zinc-300 text-xs">Cash CAGR (%)</Label>
-                    <Input
-                      type="number"
-                      step="0.1"
-                      value={form.cash_cagr_override}
-                      onChange={(e) => setForm({ ...form, cash_cagr_override: e.target.value })}
-                      placeholder={String(settings.cash_cagr || 0)}
-                      className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-zinc-300 text-xs">Inflation Rate (%)</Label>
-                    <Input
-                      type="number"
-                      step="0.1"
-                      value={form.inflation_override}
-                      onChange={(e) => setForm({ ...form, inflation_override: e.target.value })}
-                      placeholder={String(settings.inflation_rate || 3)}
-                      className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
-                    />
+
+                  {/* Custom Periods - show configure button */}
+                  {form.btc_return_model_override === 'custom_periods' && (
+                    <div className="p-3 rounded-lg bg-zinc-800/50 border border-zinc-700">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-zinc-200">Custom Return Periods</p>
+                          <p className="text-xs text-zinc-500">
+                            {Object.keys(form.custom_return_periods_override || {}).length > 0 
+                              ? `${Object.values(form.custom_return_periods_override || {}).reduce((sum, periods) => sum + (periods?.length || 0), 0)} periods defined`
+                              : 'No periods configured yet'}
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          onClick={() => setCustomPeriodsModalOpen(true)}
+                          size="sm"
+                          className="bg-orange-500/20 border border-orange-500/30 text-orange-400 hover:bg-orange-500/30"
+                        >
+                          <Settings2 className="w-4 h-4 mr-2" />
+                          Configure
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Other Asset Returns */}
+                <div className="pt-3 border-t border-zinc-800">
+                  <Label className="text-zinc-300 text-sm font-medium mb-3 block">Other Asset Returns</Label>
+                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-zinc-300 text-xs">Stocks CAGR (%)</Label>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        value={form.stocks_cagr_override}
+                        onChange={(e) => setForm({ ...form, stocks_cagr_override: e.target.value })}
+                        placeholder={String(settings.stocks_cagr || 7)}
+                        className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-zinc-300 text-xs">Bonds CAGR (%)</Label>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        value={form.bonds_cagr_override}
+                        onChange={(e) => setForm({ ...form, bonds_cagr_override: e.target.value })}
+                        placeholder={String(settings.bonds_cagr || 3)}
+                        className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-zinc-300 text-xs">Real Estate CAGR (%)</Label>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        value={form.real_estate_cagr_override}
+                        onChange={(e) => setForm({ ...form, real_estate_cagr_override: e.target.value })}
+                        placeholder={String(settings.real_estate_cagr || 4)}
+                        className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-zinc-300 text-xs">Cash CAGR (%)</Label>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        value={form.cash_cagr_override}
+                        onChange={(e) => setForm({ ...form, cash_cagr_override: e.target.value })}
+                        placeholder={String(settings.cash_cagr || 0)}
+                        className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-zinc-300 text-xs">Inflation Rate (%)</Label>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        value={form.inflation_override}
+                        onChange={(e) => setForm({ ...form, inflation_override: e.target.value })}
+                        placeholder={String(settings.inflation_rate || 3)}
+                        className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
+                      />
+                    </div>
                   </div>
                 </div>
+
+                {/* Per-Holding Returns (quick access) */}
+                {Object.keys(form.ticker_returns_override || {}).length > 0 && (
+                  <div className="pt-3 border-t border-zinc-800">
+                    <div className="flex items-center justify-between mb-2">
+                      <Label className="text-zinc-300 text-sm font-medium">Per-Holding Overrides</Label>
+                      <Button
+                        type="button"
+                        onClick={() => setCustomPeriodsModalOpen(true)}
+                        size="sm"
+                        variant="ghost"
+                        className="text-zinc-400 hover:text-zinc-200"
+                      >
+                        Edit
+                      </Button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {Object.entries(form.ticker_returns_override || {}).map(([ticker, rate]) => (
+                        <Badge key={ticker} variant="outline" className="border-zinc-600 text-zinc-300">
+                          {ticker}: {rate}%
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </CollapsibleFormSection>
 
