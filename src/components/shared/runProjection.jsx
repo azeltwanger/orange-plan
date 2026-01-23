@@ -1326,6 +1326,11 @@ export function runUnifiedProjection({
       }
     });
 
+    // Initialize weighted stocks growth rates (will be calculated each year)
+    let effectiveTaxableStocksGrowth = effectiveStocksCagr;
+    let effectiveTaxDeferredStocksGrowth = effectiveStocksCagr;
+    let effectiveTaxFreeStocksGrowth = effectiveStocksCagr;
+
     // Apply growth AFTER collateral management
     // NOTE: We're applying blanket growth rates here because portfolio structure aggregates by asset category
     // Per-ticker returns would require tracking individual holdings through projection (future enhancement)
@@ -1364,9 +1369,9 @@ export function runUnifiedProjection({
         return totalValue > 0 ? weightedGrowth / totalValue : yearStocksGrowth;
       };
       
-      const effectiveTaxableStocksGrowth = calculateWeightedStocksGrowth('taxable');
-      const effectiveTaxDeferredStocksGrowth = calculateWeightedStocksGrowth('tax_deferred');
-      const effectiveTaxFreeStocksGrowth = calculateWeightedStocksGrowth('tax_free');
+      effectiveTaxableStocksGrowth = calculateWeightedStocksGrowth('taxable');
+      effectiveTaxDeferredStocksGrowth = calculateWeightedStocksGrowth('tax_deferred');
+      effectiveTaxFreeStocksGrowth = calculateWeightedStocksGrowth('tax_free');
 
       // Apply growth only to balances above dust threshold to prevent compounding near-zero values
       // CRITICAL: Only apply growth if the rate is non-zero (prevents cash from growing when cashCagr=0)
