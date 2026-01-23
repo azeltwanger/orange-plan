@@ -656,6 +656,14 @@ export function runUnifiedProjection({
       Object.values(tempRunningDebt).forEach(liab => { liab.current_balance = 0; liab.paid_off = true; });
       Object.values(tempRunningCollateralizedLoans).forEach(loan => { loan.current_balance = 0; loan.paid_off = true; });
       
+      if (i === 0) {
+        console.log('RESULTS PUSH Year 0:', {
+          totalDividendIncome: Math.round(totalDividendIncome),
+          qualifiedDividends: Math.round(yearQualifiedDividends),
+          nonQualifiedDividends: Math.round(yearNonQualifiedDividends)
+        });
+      }
+
       results.push({
         year,
         age,
