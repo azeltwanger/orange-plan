@@ -812,52 +812,6 @@ export default function Scenarios() {
         DEBUG: false,
       });
 
-      // Debug first 3 simulations only
-      if (i < 3) {
-        console.log(`\n=== MONTE CARLO SIM ${i} ===`);
-
-        // Check if collateralizedLoans has data
-        console.log('Collateralized loans passed:', baselineParams.collateralizedLoans?.length || 0, 'loans');
-        console.log('Top-up enabled:', baselineParams.autoTopUpBtcCollateral);
-        console.log('Top-up trigger:', baselineParams.btcTopUpTriggerLtv, '% -> target:', baselineParams.btcTopUpTargetLtv, '%');
-
-        // Get all liquidation events
-        const allEvents = baseResult.yearByYear?.flatMap(y => 
-          (y.liquidations || []).map(l => ({ 
-            year: y.year, 
-            type: l.type, 
-            name: l.liabilityName,
-            msg: l.message?.substring(0, 80) 
-          }))
-        ) || [];
-
-        console.log('Total liquidation events:', allEvents.length);
-        console.log('By type:', {
-          topUp: allEvents.filter(e => e.type === 'top_up').length,
-          release: allEvents.filter(e => e.type === 'release').length,
-          fullLiquidation: allEvents.filter(e => e.type === 'full_liquidation').length,
-          partialLiquidation: allEvents.filter(e => e.type === 'partial_liquidation').length,
-          other: allEvents.filter(e => !['top_up', 'release', 'full_liquidation', 'partial_liquidation'].includes(e.type)).length
-        });
-
-        // Show first few actual liquidations
-        const actualLiqs = allEvents.filter(e => e.type !== 'top_up' && e.type !== 'release');
-        if (actualLiqs.length > 0) {
-          console.log('First 3 actual liquidations:', actualLiqs.slice(0, 3));
-        }
-
-        // Show BTC price in early years
-        const earlyPrices = baseResult.yearByYear?.slice(0, 10).map(y => ({
-          yr: y.year,
-          age: y.age,
-          btc: '$' + Math.round(y.btcPrice).toLocaleString(),
-          growth: (y.btcGrowthRate || 0).toFixed(1) + '%',
-          liqBtc: (y.liquidBtc || 0).toFixed(2),
-          encBtc: (y.encumberedBtc || 0).toFixed(2)
-        }));
-        console.log('First 10 years BTC data:', earlyPrices);
-      }
-
       if (baseResult.survives) baselineSuccess++;
       
       // Check for liquidation events (excluding top_up and release)
