@@ -117,6 +117,7 @@ export function runUnifiedProjection({
   withdrawalBlendPercentages = { cash: 0, bonds: 25, stocks: 35, other: 10, btc: 30 },
   DEBUG = false,
 }) {
+  console.log('runUnifiedProjection CALLED with tickerReturns:', Object.keys(tickerReturns || {}).length > 0 ? 'HAS DATA' : 'EMPTY', tickerReturns);
 
   const results = [];
   const currentYear = new Date().getFullYear();
@@ -1467,7 +1468,7 @@ export function runUnifiedProjection({
     });
     
     const totalDividendIncome = yearQualifiedDividends + yearNonQualifiedDividends;
-    
+
     if (i === 0) {
       console.log('DIVIDEND CALC RESULT:', { yearQualifiedDividends, yearNonQualifiedDividends, totalDividendIncome });
     }
