@@ -117,7 +117,7 @@ export function runUnifiedProjection({
   withdrawalBlendPercentages = { cash: 0, bonds: 25, stocks: 35, other: 10, btc: 30 },
   DEBUG = false,
 }) {
-  console.log('INSIDE runUnifiedProjection: tickerReturns =', JSON.stringify(tickerReturns));
+
   const results = [];
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth();
@@ -1416,6 +1416,13 @@ export function runUnifiedProjection({
             growthRate = yearOtherGrowth;
           }
         }
+        
+        // Debug MTPLF growth rate
+        if (hv.ticker?.toUpperCase() === 'MTPLF' && i <= 2) {
+          const tickerRate = getTickerReturnRate(hv.ticker, null);
+          console.log('MTPLF Year', i, '| tickerRate:', tickerRate, '| growthRate used:', growthRate, '| value:', hv.currentValue);
+        }
+        
         hv.currentValue *= (1 + growthRate / 100);
       });
       
@@ -1434,7 +1441,6 @@ export function runUnifiedProjection({
     holdingValues.forEach(hv => {
       if (hv.dividendYield > 0 && hv.currentValue > 0 && hv.taxTreatment === 'taxable') {
         const annualDividend = hv.currentValue * (hv.dividendYield / 100);
-        console.log('Dividend from', hv.ticker, ':', annualDividend, 'yield:', hv.dividendYield, '%');
         if (hv.dividendQualified) {
           yearQualifiedDividends += annualDividend;
         } else {
@@ -1457,11 +1463,7 @@ export function runUnifiedProjection({
     
     const totalDividendIncome = yearQualifiedDividends + yearNonQualifiedDividends;
 
-    console.log('=== DIVIDEND TOTALS (Year ' + i + ') ===', {
-      yearQualifiedDividends,
-      yearNonQualifiedDividends,
-      totalDividendIncome: yearQualifiedDividends + yearNonQualifiedDividends
-    });
+
 
     // Roth contributions for accessible funds
     const totalRothContributions = accounts
