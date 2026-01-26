@@ -949,24 +949,14 @@ export default function Scenarios() {
   };
 
   // Holdings options for asset reallocation dropdown
+  // Each Holding record is already tied to a specific account, so BTC in taxable vs BTC in IRA are separate entries
   const holdingsOptions = useMemo(() => {
-    console.log('=== HOLDINGS OPTIONS DEBUG ===');
-    console.log('All holdings:', holdings.map(h => ({ 
-      name: h.asset_name, 
-      type: h.asset_type, 
-      quantity: h.quantity,
-      account_id: h.account_id 
-    })));
-    console.log('btcPrice:', btcPrice);
-    
     return holdings.map(h => {
       const price = h.asset_type === 'btc' ? (btcPrice || 0) : (h.current_price || 0);
       const value = h.quantity * price;
-      // Find the associated account
+      // Find the associated account to show tax treatment
       const account = accounts.find(a => a.id === h.account_id);
       const accountLabel = account ? ` [${account.name || account.account_type}]` : '';
-      
-      console.log(`Holding: ${h.asset_name}, type: ${h.asset_type}, price: ${price}, value: ${value}`);
       
       return {
         id: h.id,
@@ -974,7 +964,8 @@ export default function Scenarios() {
         assetType: h.asset_type,
         quantity: h.quantity,
         value: value,
-        costBasis: h.cost_basis_total || 0
+        costBasis: h.cost_basis_total || 0,
+        accountType: account?.account_type || 'taxable'
       };
     }).filter(h => h.value > 0);
   }, [holdings, accounts, btcPrice]);
