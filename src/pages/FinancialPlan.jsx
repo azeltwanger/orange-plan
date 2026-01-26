@@ -1021,6 +1021,24 @@ export default function FinancialPlan() {
           DEBUG: false,
         });
         
+        // Detailed logging for $25K spending test to compare retirement ages
+        if (mid >= 25000 && mid <= 26000 && sim < 3) {
+          const retIdx = retirementAge - currentAge;
+          const portfolioAtRet = result.yearByYear?.[retIdx]?.total || 0;
+          const finalTotal = result.yearByYear?.[result.yearByYear.length - 1]?.total || 0;
+          
+          // Find when portfolio went to 0
+          let depletionYear = 'Never';
+          for (let y = 0; y < result.yearByYear.length; y++) {
+            if ((result.yearByYear[y]?.total || 0) <= 0) {
+              depletionYear = `Year ${y} (Age ${currentAge + y})`;
+              break;
+            }
+          }
+          
+          console.log(`Retire ${retirementAge} | Sim ${sim} | Portfolio@Ret: $${(portfolioAtRet/1000).toFixed(0)}K | Final: $${(finalTotal/1000).toFixed(0)}K | Depletes: ${depletionYear} | Survives: ${result.survives}`);
+        }
+        
         if (result.survives) {
           successes++;
         }
