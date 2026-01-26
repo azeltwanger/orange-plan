@@ -736,6 +736,15 @@ export default function Scenarios() {
   // Binary search for max sustainable spending with shared paths
   // If sharedPaths is provided, use those instead of generating new ones
   const findMaxSustainableSpendingWithPaths = useCallback((baseParams, numSimulations = 200, sharedPaths = null) => {
+    console.log('Safe Spending Calculation - baseParams:', {
+      currentAge: baseParams.currentAge,
+      retirementAge: baseParams.retirementAge,
+      lifeExpectancy: baseParams.lifeExpectancy,
+      retirementAnnualSpending: baseParams.retirementAnnualSpending,
+      yearsInRetirement: baseParams.lifeExpectancy - baseParams.retirementAge,
+      yearsToAccumulate: baseParams.retirementAge - baseParams.currentAge
+    });
+    
     let low = 10000;
     let high = 500000;
     let maxSpending = low;
