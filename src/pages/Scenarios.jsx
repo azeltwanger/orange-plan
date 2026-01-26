@@ -964,7 +964,7 @@ export default function Scenarios() {
             ...baseDebugParams,
             yearlyReturnOverrides: sharedSafeSpendingPaths[0],
             taxLots: [],
-            DEBUG: false,
+            DEBUG: true, // Enable detailed logging for first 2 years
           });
 
           const scenDebugParams = { ...scenarioParams, retirementAnnualSpending: debugSpending };
