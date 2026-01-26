@@ -4048,11 +4048,32 @@ export default function FinancialPlan() {
                         <span className="text-zinc-400">/ month</span>
                       </div>
                     )}
-                    <p className="text-xs text-zinc-500">
-                      {investmentMode === 'all_surplus' 
-                        ? 'All income surplus after expenses will be invested according to the allocation below.'
-                        : `$${monthlyInvestmentAmount.toLocaleString()}/month ($${(monthlyInvestmentAmount * 12).toLocaleString()}/year) will be invested. Remaining surplus stays as cash.`}
-                    </p>
+                    
+                    {investmentMode === 'custom' && (
+                      <div className="space-y-1 mt-2">
+                        <p className="text-xs text-zinc-500">
+                          ${monthlyInvestmentAmount.toLocaleString()}/month (${(monthlyInvestmentAmount * 12).toLocaleString()}/year) will be invested. Remaining surplus stays as cash.
+                        </p>
+                        {annualSavings > 0 && monthlyInvestmentAmount > Math.round(annualSavings / 12) && (
+                          <p className="text-xs text-orange-400 flex items-center gap-1">
+                            <span>⚠️</span>
+                            <span>Amount exceeds your current monthly surplus of ${Math.round(annualSavings / 12).toLocaleString()}. Investment will be capped at available surplus.</span>
+                          </p>
+                        )}
+                        {annualSavings <= 0 && (
+                          <p className="text-xs text-orange-400 flex items-center gap-1">
+                            <span>⚠️</span>
+                            <span>You have no surplus to invest (expenses ≥ income).</span>
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    
+                    {investmentMode === 'all_surplus' && (
+                      <p className="text-xs text-zinc-500 mt-2">
+                        All income surplus after expenses will be invested according to the allocation below.
+                      </p>
+                    )}
                   </div>
                   
                   <p className="text-xs text-zinc-500">How to invest new savings (must total 100%)</p>
