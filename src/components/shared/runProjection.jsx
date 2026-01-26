@@ -1850,7 +1850,8 @@ export function runUnifiedProjection({
 
       // Social Security is now calculated earlier (before retirement/pre-retirement split)
       // In retirement, dividend income adds to available income to fund spending
-      const totalRetirementIncome = otherRetirementIncome + socialSecurityIncome + totalDividendIncome;
+      // Use estimatedDividendIncome here (calculated before withdrawals) to properly reduce withdrawal needs
+      const totalRetirementIncome = otherRetirementIncome + socialSecurityIncome + estimatedDividendIncome;
       const taxableSocialSecurity = calculateTaxableSocialSecurity(socialSecurityIncome, otherRetirementIncome + desiredWithdrawal, filingStatus);
       const totalOtherIncomeForTax = otherRetirementIncome + taxableSocialSecurity + rmdWithdrawn;
 
