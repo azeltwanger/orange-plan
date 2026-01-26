@@ -1479,7 +1479,7 @@ export function runUnifiedProjection({
       });
       
       // Capture beginning-of-year values for reallocation dividends (Average Balance Method)
-      const beginningReallocValues = executedReallocations.map(r => ({
+      beginningReallocValues = executedReallocations.map(r => ({
         id: r.id,
         beginningValue: r.currentValue
       }));
