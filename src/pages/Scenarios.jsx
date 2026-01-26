@@ -2239,6 +2239,7 @@ export default function Scenarios() {
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent className="bg-zinc-900 border-zinc-700">
+                                  <SelectItem value="btc" className="text-zinc-200 focus:text-white">BTC / Crypto</SelectItem>
                                   <SelectItem value="stocks" className="text-zinc-200 focus:text-white">Stocks</SelectItem>
                                   <SelectItem value="bonds" className="text-zinc-200 focus:text-white">Bonds</SelectItem>
                                   <SelectItem value="real_estate" className="text-zinc-200 focus:text-white">Real Estate</SelectItem>
