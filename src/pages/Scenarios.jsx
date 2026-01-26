@@ -745,7 +745,24 @@ export default function Scenarios() {
     if (sharedPaths) {
       paths = sharedPaths;
     } else {
-      const seed = generateMonteCarloSeed(baseParams, null, holdings, liabilities, accounts, currentPrice);
+      // Format settings object with correct key names for generateMonteCarloSeed
+      const seedSettingsLocal = {
+        current_age: baseParams.currentAge,
+        retirement_age: baseParams.retirementAge,
+        life_expectancy: baseParams.lifeExpectancy,
+        annual_retirement_spending: baseParams.retirementAnnualSpending,
+        gross_annual_income: baseParams.grossAnnualIncome,
+        filing_status: baseParams.filingStatus,
+        state_of_residence: baseParams.stateOfResidence,
+        btc_cagr_assumption: settings?.btc_cagr_assumption ?? 25,
+        stocks_cagr: baseParams.effectiveStocksCagr,
+        income_growth_rate: baseParams.incomeGrowth,
+        inflation_rate: baseParams.effectiveInflation,
+        btc_return_model: settings?.btc_return_model || 'powerlaw',
+        asset_withdrawal_strategy: baseParams.assetWithdrawalStrategy,
+        cost_basis_method: baseParams.costBasisMethod,
+      };
+      const seed = generateMonteCarloSeed(seedSettingsLocal, null, holdings, liabilities, accounts, currentPrice);
       const seededRandom = createSeededRNG(seed);
       paths = generateRandomPaths(numSimulations, projectionYears, baseParams, seededRandom);
     }
