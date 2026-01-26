@@ -972,7 +972,7 @@ export default function Scenarios() {
             ...scenDebugParams,
             yearlyReturnOverrides: scenarioSafeSpendingPaths[0],
             taxLots: [],
-            DEBUG: false,
+            DEBUG: true, // Enable detailed logging for first 2 years
           });
 
           console.log('BASELINE (retire ' + baselineParams.retirementAge + ') - Sim 0 at $40K:');
