@@ -51,6 +51,16 @@ export function generateMonteCarloSeed(
   hashString += `ASM${settings.asset_withdrawal_strategy || ''}`;
   hashString += `CBM${settings.cost_basis_method || ''}`;
 
+  // Include custom return periods in hash (affects BTC growth when btc_return_model is 'custom_periods')
+  if (settings.custom_return_periods) {
+    hashString += `CRP${JSON.stringify(settings.custom_return_periods)}`;
+  }
+
+  // Include ticker returns in hash (affects per-holding growth rates)
+  if (settings.ticker_returns) {
+    hashString += `TR${JSON.stringify(settings.ticker_returns)}`;
+  }
+
   // Scenario-specific overrides
   if (scenario) {
     hashString += `SN${scenario.name || ''}`;
