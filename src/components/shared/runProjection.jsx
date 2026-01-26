@@ -792,6 +792,7 @@ export function runUnifiedProjection({
     let preRetireNetCashFlow = 0;
     let yearQualifiedDividends = 0;
     let yearNonQualifiedDividends = 0;
+    let totalDividendIncome = 0;
 
     // BTC growth and price tracking - priority: Monte Carlo > Custom Periods > Power Law/model
     const customBtcRate = getCustomReturnForYear('btc', i, customReturnPeriods, null);
