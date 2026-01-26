@@ -1434,7 +1434,7 @@ export function runUnifiedProjection({
       else if (portfolio.realEstate < GROWTH_DUST_THRESHOLD) portfolio.realEstate = 0;
       
       // Capture beginning-of-year values for dividend calculation (Average Balance Method)
-      const beginningYearValues = holdingValues.map(hv => ({
+      beginningYearValues = holdingValues.map(hv => ({
         ticker: hv.ticker,
         beginningValue: hv.currentValue
       }));
