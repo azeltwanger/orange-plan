@@ -686,7 +686,7 @@ export default function FinancialPlan() {
   };
 
   // Monte Carlo simulation - now uses runUnifiedProjection for consistency
-  const runMonteCarloSimulation = useCallback((numSimulations = 1000) => {
+  const runMonteCarloSimulation = useCallback((numSimulations = 500) => {
     const projectionYears = lifeExpectancy - currentAge + 1;
     const paths = [];
     const successResults = [];
@@ -837,7 +837,7 @@ export default function FinancialPlan() {
         yearlyReturnOverrides,
         customReturnPeriods,
         tickerReturns,
-        taxLots: activeTaxLots,
+        taxLots: [], // Use aggregate basis for Monte Carlo speed (avoid processing 433 lots × 500 sims)
         costBasisMethod,
         assetWithdrawalStrategy,
         withdrawalPriorityOrder,
@@ -1012,7 +1012,7 @@ export default function FinancialPlan() {
       assetWithdrawalStrategy, withdrawalPriorityOrder, withdrawalBlendPercentages]);
 
   // Calculate 90% safe spending using Monte Carlo binary search - OPTIMIZED
-  const calculateSafeSpendingMonteCarlo = useCallback((numSimulations = 1000) => {
+  const calculateSafeSpendingMonteCarlo = useCallback((numSimulations = 500) => {
     let low = 0;
     let high = 500000;
     let safeSpending = 0;
@@ -1150,7 +1150,7 @@ export default function FinancialPlan() {
           yearlyReturnOverrides: paths[sim],
           customReturnPeriods,
           tickerReturns,
-          taxLots: activeTaxLots,
+          taxLots: [], // Use aggregate basis for Monte Carlo speed (avoid processing 433 lots × 500 sims)
           costBasisMethod,
           DEBUG: false,
         });
@@ -1187,40 +1187,43 @@ export default function FinancialPlan() {
 
   // Run Monte Carlo when button clicked
   const handleRunSimulation = () => {
-    const { paths: simulations, successResults, withdrawalPaths } = runMonteCarloSimulation(1000);
+    // Use setTimeout to prevent UI freezing during heavy computation
+    setTimeout(() => {
+      const { paths: simulations, successResults, withdrawalPaths } = runMonteCarloSimulation(500);
 
-    const percentiles = calculatePercentiles(simulations);
+      const percentiles = calculatePercentiles(simulations);
 
-    // Calculate median withdrawal per year from simulations
-    const medianWithdrawals = [];
-    const years = Math.max(1, lifeExpectancy - currentAge);
-    for (let i = 0; i <= years; i++) {
-      const yearWithdrawals = withdrawalPaths.map(path => path[i] || 0).sort((a, b) => a - b);
-      const medianIndex = Math.floor(yearWithdrawals.length / 2);
-      medianWithdrawals.push(yearWithdrawals[medianIndex] || 0);
-    }
+      // Calculate median withdrawal per year from simulations
+      const medianWithdrawals = [];
+      const years = Math.max(1, lifeExpectancy - currentAge);
+      for (let i = 0; i <= years; i++) {
+        const yearWithdrawals = withdrawalPaths.map(path => path[i] || 0).sort((a, b) => a - b);
+        const medianIndex = Math.floor(yearWithdrawals.length / 2);
+        medianWithdrawals.push(yearWithdrawals[medianIndex] || 0);
+      }
 
-    // Calculate success probability - did you NOT run out of money through life expectancy?
-    const probability = calculateSuccessProbability(successResults);
-    setSuccessProbability(probability);
-    
-    // Calculate 90% safe spending
-    const safeSpendingResult = calculateSafeSpendingMonteCarlo(1000);
-    setSafeSpending90(safeSpendingResult);
+      // Calculate success probability - did you NOT run out of money through life expectancy?
+      const probability = calculateSuccessProbability(successResults);
+      setSuccessProbability(probability);
+      
+      // Calculate 90% safe spending
+      const safeSpendingResult = calculateSafeSpendingMonteCarlo(500);
+      setSafeSpending90(safeSpendingResult);
 
-    const chartData = percentiles.map((p, i) => ({
-      age: currentAge + i,
-      year: new Date().getFullYear() + i,
-      p10: Math.round(p.p10 || 0),
-      p25: Math.round(p.p25 || 0),
-      p50: Math.round(p.p50 || 0),
-      p75: Math.round(p.p75 || 0),
-      p90: Math.round(p.p90 || 0),
-      withdrawal: Math.round(medianWithdrawals[i] || 0),
-      isRetired: i >= (retirementAge - currentAge),
-    }));
+      const chartData = percentiles.map((p, i) => ({
+        age: currentAge + i,
+        year: new Date().getFullYear() + i,
+        p10: Math.round(p.p10 || 0),
+        p25: Math.round(p.p25 || 0),
+        p50: Math.round(p.p50 || 0),
+        p75: Math.round(p.p75 || 0),
+        p90: Math.round(p.p90 || 0),
+        withdrawal: Math.round(medianWithdrawals[i] || 0),
+        isRetired: i >= (retirementAge - currentAge),
+      }));
 
-    setSimulationResults(chartData);
+      setSimulationResults(chartData);
+    }, 50);
   };
 
   const retirementYearIndex = Math.max(0, retirementAge - currentAge);
