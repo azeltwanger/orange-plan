@@ -784,6 +784,13 @@ export default function Scenarios() {
     for (let iteration = 0; iteration < 15; iteration++) {
       const testSpending = Math.round((low + high) / 2);
       const testParams = { ...baseParams, retirementAnnualSpending: testSpending };
+
+      console.log('testParams spending check:', {
+        currentAnnualSpending: testParams.currentAnnualSpending,
+        retirementAnnualSpending: testParams.retirementAnnualSpending,
+        testSpending: testSpending,
+        retirementAge: testParams.retirementAge
+      });
       
       let successCount = 0;
       for (let i = 0; i < paths.length; i++) {
