@@ -59,6 +59,18 @@ export default function CustomPeriodsModal({
   const [tickerDividendYieldInput, setTickerDividendYieldInput] = useState('');
   const [tickerDividendQualifiedInput, setTickerDividendQualifiedInput] = useState(true);
 
+  const selectedAssetType = useMemo(() => {
+    if (!selectedTicker) return 'stocks';
+    const found = availableTickers.find(t => t.ticker === selectedTicker);
+    return found?.assetType || 'stocks';
+  }, [selectedTicker, availableTickers]);
+
+  const selectedIncomeLabel = useMemo(() => {
+    if (selectedAssetType === 'real_estate') return 'Rental';
+    if (selectedAssetType === 'bonds') return 'Interest';
+    return 'Dividend';
+  }, [selectedAssetType]);
+
   useEffect(() => {
     // Only sync from parent when modal opens, not when it closes
     if (open) {
@@ -474,7 +486,13 @@ export default function CustomPeriodsModal({
                   <div className="grid grid-cols-12 gap-2 items-end">
                     <div className="col-span-3">
                       <Label className="text-xs text-zinc-500 mb-1 block">Ticker</Label>
-                      <Select value={selectedTicker} onValueChange={setSelectedTicker}>
+                      <Select value={selectedTicker} onValueChange={(val) => {
+                        setSelectedTicker(val);
+                        const found = availableTickers.find(t => t.ticker === val);
+                        if (found?.assetType === 'real_estate') {
+                          setTickerDividendQualifiedInput(false);
+                        }
+                      }}>
                         <SelectTrigger className="bg-zinc-900 border-zinc-700 text-zinc-100">
                           <SelectValue placeholder="Select..." />
                         </SelectTrigger>
@@ -502,7 +520,7 @@ export default function CustomPeriodsModal({
                       />
                     </div>
                     <div className="col-span-3">
-                      <Label className="text-xs text-zinc-500 mb-1 block">Dividend %</Label>
+                      <Label className="text-xs text-zinc-500 mb-1 block">{selectedIncomeLabel} %</Label>
                       <Input
                         type="number"
                         value={tickerDividendYieldInput}
@@ -521,7 +539,8 @@ export default function CustomPeriodsModal({
                         <Checkbox
                           checked={tickerDividendQualifiedInput}
                           onCheckedChange={setTickerDividendQualifiedInput}
-                          disabled={!selectedTicker}
+                          disabled={!selectedTicker || selectedAssetType === 'real_estate'}
+                          title={selectedAssetType === 'real_estate' ? 'Rental income is always non-qualified' : ''}
                           className="border-zinc-600 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
                         />
                       </div>
