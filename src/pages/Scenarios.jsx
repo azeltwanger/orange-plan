@@ -833,7 +833,24 @@ export default function Scenarios() {
         // Generate shared paths ONCE for 90% safe spending calculations with seeded RNG
         const safeSpendingSimulations = 500;
         const projectionYearsForSafeSpending = baselineParams.lifeExpectancy - baselineParams.currentAge + 1;
-        const safeSpendingSeed = generateMonteCarloSeed(baselineParams, null, holdings, liabilities, accounts, currentPrice);
+        // Use same seedSettings format for safe spending seed
+        const safeSpendingSeedSettings = {
+          current_age: baselineParams.currentAge,
+          retirement_age: baselineParams.retirementAge,
+          life_expectancy: baselineParams.lifeExpectancy,
+          annual_retirement_spending: baselineParams.retirementAnnualSpending,
+          gross_annual_income: baselineParams.grossAnnualIncome,
+          filing_status: baselineParams.filingStatus,
+          state_of_residence: baselineParams.stateOfResidence,
+          btc_cagr_assumption: settings?.btc_cagr_assumption ?? 25,
+          stocks_cagr: baselineParams.effectiveStocksCagr,
+          income_growth_rate: baselineParams.incomeGrowth,
+          inflation_rate: baselineParams.effectiveInflation,
+          btc_return_model: settings?.btc_return_model || 'powerlaw',
+          asset_withdrawal_strategy: baselineParams.assetWithdrawalStrategy,
+          cost_basis_method: baselineParams.costBasisMethod,
+        };
+        const safeSpendingSeed = generateMonteCarloSeed(safeSpendingSeedSettings, null, holdings, liabilities, accounts, currentPrice);
         const safeSpendingRandom = createSeededRNG(safeSpendingSeed);
         const sharedSafeSpendingPaths = generateRandomPaths(safeSpendingSimulations, projectionYearsForSafeSpending, baselineParams, safeSpendingRandom);
 
