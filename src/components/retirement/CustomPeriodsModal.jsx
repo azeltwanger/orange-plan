@@ -59,18 +59,6 @@ export default function CustomPeriodsModal({
   const [tickerDividendYieldInput, setTickerDividendYieldInput] = useState('');
   const [tickerDividendQualifiedInput, setTickerDividendQualifiedInput] = useState(true);
 
-  const selectedAssetType = useMemo(() => {
-    if (!selectedTicker) return 'stocks';
-    const found = availableTickers.find(t => t.ticker === selectedTicker);
-    return found?.assetType || 'stocks';
-  }, [selectedTicker, availableTickers]);
-
-  const selectedIncomeLabel = useMemo(() => {
-    if (selectedAssetType === 'real_estate') return 'Rental';
-    if (selectedAssetType === 'bonds') return 'Interest';
-    return 'Dividend';
-  }, [selectedAssetType]);
-
   useEffect(() => {
     // Only sync from parent when modal opens, not when it closes
     if (open) {
@@ -99,6 +87,18 @@ export default function CustomPeriodsModal({
     // Filter out already-defined overrides
     return unique.filter(t => !localTickerReturns[t.ticker]);
   }, [holdings, localTickerReturns]);
+
+  const selectedAssetType = useMemo(() => {
+    if (!selectedTicker) return 'stocks';
+    const found = availableTickers.find(t => t.ticker === selectedTicker);
+    return found?.assetType || 'stocks';
+  }, [selectedTicker, availableTickers]);
+
+  const selectedIncomeLabel = useMemo(() => {
+    if (selectedAssetType === 'real_estate') return 'Rental';
+    if (selectedAssetType === 'bonds') return 'Interest';
+    return 'Dividend';
+  }, [selectedAssetType]);
 
   const periods = localPeriods[selectedAsset] || [];
 
