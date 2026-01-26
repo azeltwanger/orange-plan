@@ -2255,7 +2255,7 @@ export function runUnifiedProjection({
 
         totalDividendIncome = yearQualifiedDividends + yearNonQualifiedDividends;
 
-    // Debug: Log BTC lot tracking at end of year
+    // Debug: Log BTC lot tracking at end of year (disabled - only runs when DEBUG is true)
     if (DEBUG && i <= 2) {
       const totalBtcInLots = runningTaxLots.reduce((sum, lot) => sum + (lot.remaining_quantity || 0), 0);
       const totalBtcValue = portfolio.taxable.btc + portfolio.taxDeferred.btc + portfolio.taxFree.btc;
