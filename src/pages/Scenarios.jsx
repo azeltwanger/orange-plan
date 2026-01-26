@@ -292,7 +292,7 @@ export default function Scenarios() {
   const { data: userSettings = [], isLoading: settingsLoading } = useQuery({
     queryKey: ['userSettings'],
     queryFn: () => base44.entities.UserSettings.list(),
-    staleTime: 5 * 60 * 1000,
+    staleTime: 30 * 1000,
   });
 
   const { data: scenarios = [], isLoading: scenariosLoading } = useQuery({
@@ -818,6 +818,9 @@ export default function Scenarios() {
     setMonteCarloRunning(true);
     setBaselineMonteCarloResults(null);
     setScenarioMonteCarloResults(null);
+
+    // Ensure we have fresh settings before running Monte Carlo
+    await queryClient.invalidateQueries({ queryKey: ['userSettings'] });
 
     // Use setTimeout to allow UI to update before heavy computation
     setTimeout(() => {
