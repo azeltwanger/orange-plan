@@ -1021,13 +1021,13 @@ export default function FinancialPlan() {
           DEBUG: false,
         });
         
-        // Detailed logging for $25K spending test to compare retirement ages
+        // Detailed logging for safe spending comparison
         if (mid >= 25000 && mid <= 26000 && sim < 3) {
           const retIdx = retirementAge - currentAge;
           const portfolioAtRet = result.yearByYear?.[retIdx]?.total || 0;
           const finalTotal = result.yearByYear?.[result.yearByYear.length - 1]?.total || 0;
           
-          // Find when portfolio went to 0
+          // Find depletion year
           let depletionYear = 'Never';
           for (let y = 0; y < result.yearByYear.length; y++) {
             if ((result.yearByYear[y]?.total || 0) <= 0) {
