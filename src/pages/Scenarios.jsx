@@ -908,34 +908,6 @@ export default function Scenarios() {
 
         // Run comparison with shared random paths (500 simulations)
         const mcResults = runMonteCarloComparison(baselineParams, scenarioParams, 500);
-
-        // Generate shared paths ONCE for 90% safe spending calculations with seeded RNG
-        const safeSpendingSimulations = 500;
-        const projectionYearsForSafeSpending = baselineParams.lifeExpectancy - baselineParams.currentAge + 1;
-        // Use same seedSettings format for safe spending seed
-        const safeSpendingSeedSettings = {
-          current_age: baselineParams.currentAge,
-          retirement_age: baselineParams.retirementAge,
-          life_expectancy: baselineParams.lifeExpectancy,
-          annual_retirement_spending: baselineParams.retirementAnnualSpending,
-          gross_annual_income: baselineParams.grossAnnualIncome,
-          filing_status: baselineParams.filingStatus,
-          state_of_residence: baselineParams.stateOfResidence,
-          btc_cagr_assumption: settings?.btc_cagr_assumption ?? 25,
-          stocks_cagr: baselineParams.effectiveStocksCagr,
-          income_growth_rate: baselineParams.incomeGrowth,
-          inflation_rate: baselineParams.effectiveInflation,
-          btc_return_model: settings?.btc_return_model || 'powerlaw',
-          asset_withdrawal_strategy: baselineParams.assetWithdrawalStrategy,
-          cost_basis_method: baselineParams.costBasisMethod,
-          custom_return_periods: settings?.custom_return_periods || {},
-          ticker_returns: settings?.ticker_returns || {},
-        };
-        const safeSpendingSeed = generateMonteCarloSeed(safeSpendingSeedSettings, null, holdings, liabilities, accounts, currentPrice);
-        const safeSpendingRandom = createSeededRNG(safeSpendingSeed);
-        const sharedSafeSpendingPaths = generateRandomPaths(safeSpendingSimulations, projectionYearsForSafeSpending, baselineParams, safeSpendingRandom);
-
-        const baselineMaxSpending = findMaxSustainableSpendingWithPaths(baselineParams, safeSpendingSimulations, sharedSafeSpendingPaths);
         
         // Check if liquidation difference is meaningful
         const liquidationAffected = scenarioAffectsLiquidation(selectedScenario);
@@ -943,65 +915,15 @@ export default function Scenarios() {
         setBaselineMonteCarloResults({
           successRate: mcResults.baselineSuccessRate,
           liquidationRisk: mcResults.baselineLiquidationRisk,
-          maxSustainableSpending: baselineMaxSpending,
           numSimulations: mcResults.numSimulations,
         });
 
         if (scenarioParams) {
-          // Regenerate paths for scenario parameters (different expected returns based on retirement age, etc.)
-          const scenarioSafeSpendingPaths = sharedSafeSpendingPaths.map(path => 
-            regenerateReturnsForParams(path, scenarioParams)
-          );
-          
-          console.log('Baseline path[0] BTC returns (first 5 years):', sharedSafeSpendingPaths[0]?.btc?.slice(0, 5));
-          console.log('Scenario path[0] BTC returns (first 5 years):', scenarioSafeSpendingPaths[0]?.btc?.slice(0, 5));
-          console.log('Baseline retirementAge:', baselineParams.retirementAge);
-          console.log('Scenario retirementAge:', scenarioParams.retirementAge);
-          
-          const scenarioMaxSpending = findMaxSustainableSpendingWithPaths(scenarioParams, safeSpendingSimulations, scenarioSafeSpendingPaths);
-          
-          // Debug: Run sim 0 at $40K for BOTH and compare year-by-year
-          console.log('\n=== DIRECT COMPARISON: Sim 0 at $40K spending ===');
-          const debugSpending = 40000;
-
-          const baseDebugParams = { ...baselineParams, retirementAnnualSpending: debugSpending };
-          const baseResult = runUnifiedProjection({
-            ...baseDebugParams,
-            yearlyReturnOverrides: sharedSafeSpendingPaths[0],
-            taxLots: [],
-            DEBUG: true, // Enable detailed logging for first 2 years
-          });
-
-          const scenDebugParams = { ...scenarioParams, retirementAnnualSpending: debugSpending };
-          const scenResult = runUnifiedProjection({
-            ...scenDebugParams,
-            yearlyReturnOverrides: scenarioSafeSpendingPaths[0],
-            taxLots: [],
-            DEBUG: true, // Enable detailed logging for first 2 years
-          });
-
-          console.log('BASELINE (retire ' + baselineParams.retirementAge + ') - Sim 0 at $40K:');
-          baseResult.yearByYear.slice(0, 15).forEach((yr, y) => {
-            const age = baselineParams.currentAge + y;
-            const isRet = age >= baselineParams.retirementAge;
-            console.log(`  Y${y} Age${age}: $${((yr?.total || 0)/1000).toFixed(0)}K ${isRet ? 'RET' : 'pre'}`);
-          });
-          console.log(`  SURVIVES: ${baseResult.survives}`);
-
-          console.log('SCENARIO (retire ' + scenarioParams.retirementAge + ') - Sim 0 at $40K:');
-          scenResult.yearByYear.slice(0, 15).forEach((yr, y) => {
-            const age = scenarioParams.currentAge + y;
-            const isRet = age >= scenarioParams.retirementAge;
-            console.log(`  Y${y} Age${age}: $${((yr?.total || 0)/1000).toFixed(0)}K ${isRet ? 'RET' : 'pre'}`);
-          });
-          console.log(`  SURVIVES: ${scenResult.survives}`);
-
           setScenarioMonteCarloResults({
             successRate: mcResults.scenarioSuccessRate,
             liquidationRisk: mcResults.scenarioLiquidationRisk,
-            maxSustainableSpending: scenarioMaxSpending,
             numSimulations: mcResults.numSimulations,
-            liquidationAffected, // Flag to indicate if liquidation comparison is meaningful
+            liquidationAffected,
           });
         }
       } catch (error) {
@@ -1649,45 +1571,7 @@ export default function Scenarios() {
                           {maxDrawdownSurvived === null ? '—' : '≈ same'}
                         </td>
                       </tr>
-                      <tr>
-                        <td className="py-3 px-4 text-zinc-200">
-                          <div className="flex items-center gap-1">
-                            90% Safe Spending at Retirement
-                            <span className="text-zinc-500 cursor-help" title="The maximum annual spending (in today's dollars) where your plan succeeds in at least 90% of simulated market scenarios. Based on 500 market scenarios reflecting Bitcoin's volatility patterns.">
-                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                              </svg>
-                            </span>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4 text-right font-mono text-zinc-200">
-                          {monteCarloRunning && !baselineMonteCarloResults ? (
-                            <Loader2 className="w-4 h-4 animate-spin inline" />
-                          ) : baselineMonteCarloResults ? (
-                            formatCurrency(baselineMonteCarloResults.maxSustainableSpending) + '/yr'
-                          ) : '—'}
-                        </td>
-                        <td className="py-3 px-4 text-right font-mono text-zinc-200">
-                          {monteCarloRunning && !scenarioMonteCarloResults ? (
-                            <Loader2 className="w-4 h-4 animate-spin inline" />
-                          ) : scenarioMonteCarloResults ? (
-                            formatCurrency(scenarioMonteCarloResults.maxSustainableSpending) + '/yr'
-                          ) : '—'}
-                        </td>
-                        <td className="py-3 px-4 text-right font-mono">
-                          {baselineMonteCarloResults && scenarioMonteCarloResults ? (() => {
-                            const diff = scenarioMonteCarloResults.maxSustainableSpending - baselineMonteCarloResults.maxSustainableSpending;
-                            if (Math.abs(diff) <= 5000) {
-                              return <span className="text-zinc-500">≈ same</span>;
-                            }
-                            return (
-                              <span className={diff >= 0 ? "text-emerald-400" : "text-rose-400"}>
-                                {diff >= 0 ? '▲' : '▼'} {formatCurrency(Math.abs(diff))}
-                              </span>
-                            );
-                          })() : '—'}
-                        </td>
-                      </tr>
+
                     </tbody>
                   </table>
                 </div>
