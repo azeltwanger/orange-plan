@@ -2100,8 +2100,6 @@ export function runUnifiedProjection({
       }
     });
     
-    totalDividendIncome = yearQualifiedDividends + yearNonQualifiedDividends;
-
     // Calculate totals
     const currentTotalEncumberedBtc = Object.values(encumberedBtc).reduce((sum, amount) => sum + amount, 0);
     const encumberedBtcValueThisYear = currentTotalEncumberedBtc * cumulativeBtcPrice;
