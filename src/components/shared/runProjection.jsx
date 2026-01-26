@@ -1582,8 +1582,8 @@ export function runUnifiedProjection({
       stateTaxPaid = yearStateTax;
       taxesPaid = yearFederalTax + yearStateTax;
       // Net income = gross - taxes - pre-tax contributions (401k, Traditional IRA, HSA come from paycheck)
-      // Add dividend income (dividends are received as cash, taxed separately)
-      const yearNetIncome = yearGrossIncome - taxesPaid - year401k - yearTraditionalIRA - yearHSA + totalDividendIncome;
+      // Add estimated dividend income (calculated before withdrawals) for cash flow decisions
+      const yearNetIncome = yearGrossIncome - taxesPaid - year401k - yearTraditionalIRA - yearHSA + estimatedDividendIncome;
 
       const baseYearSpending = (currentAnnualSpending * Math.pow(1 + effectiveInflation / 100, i)) + activeExpenseAdjustment;
       yearSpending = i === 0 ? baseYearSpending * currentYearProRataFactor : baseYearSpending;
