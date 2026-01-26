@@ -652,8 +652,25 @@ export default function Scenarios() {
       scenarioParams ? scenarioParams.lifeExpectancy - scenarioParams.currentAge + 1 : 0
     );
 
-    // Generate seed for reproducible results
-    const seed = generateMonteCarloSeed(baselineParams, scenarioParams, holdings, liabilities, accounts, currentPrice);
+    // Format settings object with correct key names for generateMonteCarloSeed
+    // generateMonteCarloSeed expects snake_case keys, but buildProjectionParams returns camelCase
+    const seedSettings = {
+      current_age: baselineParams.currentAge,
+      retirement_age: baselineParams.retirementAge,
+      life_expectancy: baselineParams.lifeExpectancy,
+      annual_retirement_spending: baselineParams.retirementAnnualSpending,
+      gross_annual_income: baselineParams.grossAnnualIncome,
+      filing_status: baselineParams.filingStatus,
+      state_of_residence: baselineParams.stateOfResidence,
+      btc_cagr_assumption: settings?.btc_cagr_assumption ?? 25,
+      stocks_cagr: baselineParams.effectiveStocksCagr,
+      income_growth_rate: baselineParams.incomeGrowth,
+      inflation_rate: baselineParams.effectiveInflation,
+      btc_return_model: settings?.btc_return_model || 'powerlaw',
+      asset_withdrawal_strategy: baselineParams.assetWithdrawalStrategy,
+      cost_basis_method: baselineParams.costBasisMethod,
+    };
+    const seed = generateMonteCarloSeed(seedSettings, scenarioParams, holdings, liabilities, accounts, currentPrice);
     const seededRandom = createSeededRNG(seed);
     
     // Generate paths once using baseline params with seeded RNG
