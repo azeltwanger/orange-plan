@@ -1494,6 +1494,22 @@ export function runUnifiedProjection({
       });
     }
 
+    // ESTIMATED DIVIDEND INCOME (calculated early, before withdrawals)
+    // This estimate reduces how much we need to withdraw from the portfolio
+    // Uses current holding values (post-growth, pre-withdrawal) as approximation
+    // Final accurate dividend will be calculated later using Average Balance Method
+    let estimatedDividendIncome = 0;
+    holdingValues.forEach(hv => {
+      if (hv.dividendYield > 0 && (hv.taxTreatment === 'taxable' || hv.taxTreatment === 'real_estate') && hv.currentValue > 0) {
+        estimatedDividendIncome += hv.currentValue * (hv.dividendYield / 100);
+      }
+    });
+    executedReallocations.forEach(realloc => {
+      if (realloc.buy_dividend_yield > 0 && realloc.currentValue > 0) {
+        estimatedDividendIncome += realloc.currentValue * (realloc.buy_dividend_yield / 100);
+      }
+    });
+
     // Roth contributions for accessible funds
     const totalRothContributions = accounts
       .filter(a => ['401k_roth', 'ira_roth', 'hsa'].includes(a.account_type))
