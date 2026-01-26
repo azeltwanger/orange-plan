@@ -914,8 +914,11 @@ export default function Scenarios() {
         });
 
         if (scenarioParams) {
-          // Find max sustainable spending for scenario using SAME shared paths
-          const scenarioMaxSpending = findMaxSustainableSpendingWithPaths(scenarioParams, safeSpendingSimulations, sharedSafeSpendingPaths);
+          // Regenerate paths for scenario parameters (different expected returns based on retirement age, etc.)
+          const scenarioSafeSpendingPaths = sharedSafeSpendingPaths.map(path => 
+            regenerateReturnsForParams(path, scenarioParams)
+          );
+          const scenarioMaxSpending = findMaxSustainableSpendingWithPaths(scenarioParams, safeSpendingSimulations, scenarioSafeSpendingPaths);
           
           setScenarioMonteCarloResults({
             successRate: mcResults.scenarioSuccessRate,
