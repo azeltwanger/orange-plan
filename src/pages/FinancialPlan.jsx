@@ -4071,10 +4071,15 @@ export default function FinancialPlan() {
                     
                     {investmentMode === 'all_surplus' && (
                       <p className="text-xs text-zinc-500 mt-2">
-                        {annualSavings > 0 
-                          ? `All surplus ($${Math.round(annualSavings / 12).toLocaleString()}/month or $${Math.round(annualSavings).toLocaleString()}/year) will be invested according to the allocation below.`
-                          : `You currently have no surplus to invest (expenses ≥ income).`
-                        }
+                        {(() => {
+                          const firstYearCashFlow = projections?.[0]?.netCashFlow ?? annualSavings;
+                          const monthlySurplus = Math.max(0, Math.round(firstYearCashFlow / 12));
+                          const yearlySurplus = Math.max(0, Math.round(firstYearCashFlow));
+                          
+                          return yearlySurplus > 0
+                            ? `All surplus ($${monthlySurplus.toLocaleString()}/month or $${yearlySurplus.toLocaleString()}/year) will be invested according to the allocation below.`
+                            : `No surplus available to invest ($0/month). Increase income or reduce expenses to invest.`;
+                        })()}
                       </p>
                     )}
                   </div>
