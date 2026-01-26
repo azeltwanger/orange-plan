@@ -1851,6 +1851,18 @@ export function runUnifiedProjection({
           investableAmount = Math.min(yearSavings, effectiveCustomInvestment);
           cashRemains = yearSavings - investableAmount;
         }
+
+        if (DEBUG) {
+          const totalAlloc = savingsAllocationBtc + savingsAllocationStocks + savingsAllocationBonds + savingsAllocationCash + savingsAllocationOther;
+          console.log(`Year ${i} (Age ${age}) - Investment Mode Debug:`);
+          console.log(`  investmentMode: ${investmentMode}`);
+          console.log(`  monthlyInvestmentAmount: ${monthlyInvestmentAmount}`);
+          console.log(`  yearSavings (surplus): $${Math.round(yearSavings).toLocaleString()}`);
+          console.log(`  investableAmount: $${Math.round(investableAmount).toLocaleString()}`);
+          console.log(`  cashRemains: $${Math.round(cashRemains).toLocaleString()}`);
+          console.log(`  BTC allocation: ${savingsAllocationBtc}%`);
+          console.log(`  Amount to BTC: $${Math.round(totalAlloc > 0 ? investableAmount * (savingsAllocationBtc / totalAlloc) : 0).toLocaleString()}`);
+        }
         
         // Invest the determined amount according to allocation
         if (investableAmount > 0) {
