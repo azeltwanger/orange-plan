@@ -756,6 +756,11 @@ export default function Scenarios() {
     let paths;
     if (sharedPaths) {
       paths = sharedPaths;
+      console.log('=== SCENARIOS SAFE SPENDING DEBUG (using shared paths) ===');
+      console.log('baseParams.retirementAge:', baseParams.retirementAge);
+      console.log('baseParams.currentAnnualSpending:', baseParams.currentAnnualSpending);
+      console.log('baseParams.annualSavings:', baseParams.annualSavings);
+      console.log('First path BTC returns (years 0-4):', paths[0]?.btc?.slice(0, 5));
     } else {
       // Format settings object with correct key names for generateMonteCarloSeed
       const seedSettingsLocal = {
