@@ -955,6 +955,46 @@ export default function Scenarios() {
           
           const scenarioMaxSpending = findMaxSustainableSpendingWithPaths(scenarioParams, safeSpendingSimulations, scenarioSafeSpendingPaths);
           
+          // Debug: Run sim 0 at $40K for BOTH and compare year-by-year
+          console.log('\n=== DIRECT COMPARISON: Sim 0 at $40K ===');
+          const debugSpending = 40000;
+
+          // Baseline sim 0
+          const baseDebugParams = { ...baselineParams, retirementAnnualSpending: debugSpending };
+          const baseResult = runUnifiedProjection({
+            ...baseDebugParams,
+            yearlyReturnOverrides: sharedSafeSpendingPaths[0],
+            taxLots: [],
+            DEBUG: false,
+          });
+
+          // Scenario sim 0  
+          const scenDebugParams = { ...scenarioParams, retirementAnnualSpending: debugSpending };
+          const scenResult = runUnifiedProjection({
+            ...scenDebugParams,
+            yearlyReturnOverrides: scenarioSafeSpendingPaths[0],
+            taxLots: [],
+            DEBUG: false,
+          });
+
+          console.log('Baseline (retire', baselineParams.retirementAge, '):');
+          for (let y = 0; y <= 10; y++) {
+            const yr = baseResult.yearByYear[y];
+            const age = baselineParams.currentAge + y;
+            const isRet = age >= baselineParams.retirementAge;
+            console.log(`  Year ${y} Age ${age}: $${((yr?.total || 0)/1000).toFixed(0)}K ${isRet ? 'RET' : 'pre'}`);
+          }
+          console.log(`  Survives: ${baseResult.survives}`);
+
+          console.log('Scenario (retire', scenarioParams.retirementAge, '):');
+          for (let y = 0; y <= 10; y++) {
+            const yr = scenResult.yearByYear[y];
+            const age = scenarioParams.currentAge + y;
+            const isRet = age >= scenarioParams.retirementAge;
+            console.log(`  Year ${y} Age ${age}: $${((yr?.total || 0)/1000).toFixed(0)}K ${isRet ? 'RET' : 'pre'}`);
+          }
+          console.log(`  Survives: ${scenResult.survives}`);
+
           setScenarioMonteCarloResults({
             successRate: mcResults.scenarioSuccessRate,
             liquidationRisk: mcResults.scenarioLiquidationRisk,
