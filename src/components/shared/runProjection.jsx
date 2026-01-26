@@ -1853,6 +1853,27 @@ export function runUnifiedProjection({
         // yearSavings === 0, no deficit or surplus
         preRetireNetCashFlow = 0;
       }
+
+      // DEBUG: Log AFTER pre-retirement processing
+      if (i <= 1 && DEBUG) {
+        console.log('POST PRE-RETIREMENT PROCESSING:');
+        console.log('yearSpending:', Math.round(yearSpending));
+        console.log('yearSavings:', Math.round(yearSavings));
+        console.log('withdrawFromTaxable:', Math.round(withdrawFromTaxable));
+        console.log('withdrawFromTaxDeferred:', Math.round(withdrawFromTaxDeferred));
+        console.log('withdrawFromTaxFree:', Math.round(withdrawFromTaxFree));
+        console.log('taxesPaid:', Math.round(taxesPaid));
+        console.log('Portfolio AFTER year processing:', JSON.stringify({
+          taxableBtc: Math.round(portfolio.taxable?.btc || 0),
+          taxableStocks: Math.round(portfolio.taxable?.stocks || 0),
+          taxableCash: Math.round(portfolio.taxable?.cash || 0),
+          taxableTotal: Math.round(getAccountTotal('taxable')),
+          taxDeferredTotal: Math.round(getAccountTotal('taxDeferred')),
+          taxFreeTotal: Math.round(getAccountTotal('taxFree')),
+          realEstate: Math.round(portfolio.realEstate || 0),
+          grandTotal: Math.round(getPortfolioTotal())
+        }));
+      }
     } else {
       // RETIREMENT
       const nominalSpendingAtRetirement = retirementAnnualSpending * Math.pow(1 + effectiveInflation / 100, Math.max(0, retirementAge - currentAge));
