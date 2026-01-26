@@ -746,13 +746,13 @@ export default function FinancialPlan() {
         yearlyReturnOverrides,
         customReturnPeriods,
         tickerReturns,
-        taxLots: [], // Use aggregate basis for Monte Carlo speed (avoid processing 433 lots × 500 sims)
+        taxLots: [],
         costBasisMethod,
         assetWithdrawalStrategy,
         withdrawalPriorityOrder,
         withdrawalBlendPercentages,
         DEBUG: false,
-        });
+      });
 
         // Extract path data from result
       const path = result.yearByYear.map(yearData => yearData.total || 0);
@@ -822,6 +822,8 @@ export default function FinancialPlan() {
       savingsAllocationBonds,
       savingsAllocationCash,
       savingsAllocationOther,
+      investmentMode,
+      monthlyInvestmentAmount,
       autoTopUpBtcCollateral,
       btcTopUpTriggerLtv,
       btcTopUpTargetLtv,
@@ -891,6 +893,8 @@ export default function FinancialPlan() {
       savingsAllocationBonds,
       savingsAllocationCash,
       savingsAllocationOther,
+      investmentMode,
+      monthlyInvestmentAmount,
       autoTopUpBtcCollateral,
       btcTopUpTriggerLtv,
       btcTopUpTargetLtv,
@@ -1023,6 +1027,8 @@ export default function FinancialPlan() {
           savingsAllocationBonds,
           savingsAllocationCash,
           savingsAllocationOther,
+          investmentMode,
+          monthlyInvestmentAmount,
           autoTopUpBtcCollateral,
           btcTopUpTriggerLtv,
           btcTopUpTargetLtv,
@@ -1034,7 +1040,7 @@ export default function FinancialPlan() {
           yearlyReturnOverrides: paths[sim],
           customReturnPeriods,
           tickerReturns,
-          taxLots: [], // Use aggregate basis for Monte Carlo speed (avoid processing 433 lots × 500 sims)
+          taxLots: [],
           costBasisMethod,
           DEBUG: false,
         });
@@ -1516,6 +1522,9 @@ export default function FinancialPlan() {
         tickerReturns,
         taxLots: activeTaxLots,
         costBasisMethod,
+        assetWithdrawalStrategy,
+        withdrawalPriorityOrder,
+        withdrawalBlendPercentages,
         DEBUG: false,
       });
       
