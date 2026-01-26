@@ -138,6 +138,10 @@ export default function FinancialPlan() {
   const [savingsAllocationCash, setSavingsAllocationCash] = useState(0);
   const [savingsAllocationOther, setSavingsAllocationOther] = useState(0);
 
+  // Investment mode settings
+  const [investmentMode, setInvestmentMode] = useState('all_surplus');
+  const [monthlyInvestmentAmount, setMonthlyInvestmentAmount] = useState(0);
+
   // Retirement savings allocation
   const [contribution401k, setContribution401k] = useState(0);
   const [employer401kMatch, setEmployer401kMatch] = useState(0);
@@ -365,6 +369,8 @@ export default function FinancialPlan() {
                   if (settings.savings_allocation_bonds !== undefined) setSavingsAllocationBonds(settings.savings_allocation_bonds);
                   if (settings.savings_allocation_cash !== undefined) setSavingsAllocationCash(settings.savings_allocation_cash);
                   if (settings.savings_allocation_other !== undefined) setSavingsAllocationOther(settings.savings_allocation_other);
+                  if (settings.investment_mode !== undefined) setInvestmentMode(settings.investment_mode);
+                  if (settings.monthly_investment_amount !== undefined) setMonthlyInvestmentAmount(settings.monthly_investment_amount);
                   if (settings.gross_annual_income !== undefined && settings.gross_annual_income !== null) setGrossAnnualIncome(settings.gross_annual_income);
                   if (settings.contribution_401k !== undefined) setContribution401k(settings.contribution_401k);
                   if (settings.employer_401k_match !== undefined) setEmployer401kMatch(settings.employer_401k_match);
@@ -428,6 +434,8 @@ export default function FinancialPlan() {
                       savings_allocation_bonds: savingsAllocationBonds,
                       savings_allocation_cash: savingsAllocationCash,
                       savings_allocation_other: savingsAllocationOther,
+                      investment_mode: investmentMode,
+                      monthly_investment_amount: monthlyInvestmentAmount,
                       gross_annual_income: grossAnnualIncome,
                       contribution_401k: contribution401k || 0,
                       employer_401k_match: employer401kMatch || 0,
@@ -450,7 +458,7 @@ export default function FinancialPlan() {
                       });
                       }, 1000); // Debounce 1 second
                       return () => clearTimeout(timeoutId);
-                      }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, otherCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, useCustomSocialSecurity, grossAnnualIncome, contribution401k, employer401kMatch, contributionRothIRA, contributionTraditionalIRA, contributionHSA, hsaFamilyCoverage, filingStatus, stateOfResidence, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv, btcReleaseTriggerLtv, btcReleaseTargetLtv, savingsAllocationBtc, savingsAllocationStocks, savingsAllocationBonds, savingsAllocationCash, savingsAllocationOther, customReturnPeriods, tickerReturns, assetWithdrawalStrategy, withdrawalPriorityOrder, withdrawalBlendPercentages, saveSettings]);
+                      }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, otherCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, useCustomSocialSecurity, grossAnnualIncome, contribution401k, employer401kMatch, contributionRothIRA, contributionTraditionalIRA, contributionHSA, hsaFamilyCoverage, filingStatus, stateOfResidence, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv, btcReleaseTriggerLtv, btcReleaseTargetLtv, savingsAllocationBtc, savingsAllocationStocks, savingsAllocationBonds, savingsAllocationCash, savingsAllocationOther, investmentMode, monthlyInvestmentAmount, customReturnPeriods, tickerReturns, assetWithdrawalStrategy, withdrawalPriorityOrder, withdrawalBlendPercentages, saveSettings]);
 
                       // Calculate accurate debt payments for current month
   const currentMonthForDebt = new Date().getMonth();
@@ -725,6 +733,8 @@ export default function FinancialPlan() {
         savingsAllocationBonds,
         savingsAllocationCash,
         savingsAllocationOther,
+        investmentMode,
+        monthlyInvestmentAmount,
         autoTopUpBtcCollateral,
         btcTopUpTriggerLtv,
         btcTopUpTargetLtv,
@@ -1492,6 +1502,8 @@ export default function FinancialPlan() {
         savingsAllocationBonds,
         savingsAllocationCash,
         savingsAllocationOther,
+        investmentMode,
+        monthlyInvestmentAmount,
         autoTopUpBtcCollateral,
         btcTopUpTriggerLtv,
         btcTopUpTargetLtv,
@@ -3995,6 +4007,54 @@ export default function FinancialPlan() {
               <div className="mt-6 pt-6 border-t border-zinc-800">
                 <div className="space-y-3 mb-6">
                   <h4 className="font-semibold text-zinc-300">New Savings Allocation</h4>
+                  
+                  {/* Investment Mode Controls */}
+                  <div className="space-y-4 mb-6 p-4 rounded-lg bg-zinc-800/30 border border-zinc-700">
+                    <Label className="text-zinc-300">Monthly Investment Amount</Label>
+                    <div className="flex gap-4">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="investmentMode"
+                          value="all_surplus"
+                          checked={investmentMode === 'all_surplus'}
+                          onChange={() => setInvestmentMode('all_surplus')}
+                          className="text-orange-500"
+                        />
+                        <span className="text-zinc-300">Invest All Surplus</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="investmentMode"
+                          value="custom"
+                          checked={investmentMode === 'custom'}
+                          onChange={() => setInvestmentMode('custom')}
+                          className="text-orange-500"
+                        />
+                        <span className="text-zinc-300">Custom Amount</span>
+                      </label>
+                    </div>
+                    {investmentMode === 'custom' && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-zinc-400">$</span>
+                        <Input
+                          type="number"
+                          value={monthlyInvestmentAmount}
+                          onChange={(e) => setMonthlyInvestmentAmount(Number(e.target.value) || 0)}
+                          className="bg-zinc-800 border-zinc-700 text-zinc-100 w-32"
+                          placeholder="500"
+                        />
+                        <span className="text-zinc-400">/ month</span>
+                      </div>
+                    )}
+                    <p className="text-xs text-zinc-500">
+                      {investmentMode === 'all_surplus' 
+                        ? 'All income surplus after expenses will be invested according to the allocation below.'
+                        : `$${monthlyInvestmentAmount.toLocaleString()}/month ($${(monthlyInvestmentAmount * 12).toLocaleString()}/year) will be invested. Remaining surplus stays as cash.`}
+                    </p>
+                  </div>
+                  
                   <p className="text-xs text-zinc-500">How to invest new savings (must total 100%)</p>
                   
                   <div className="grid grid-cols-5 gap-2">
