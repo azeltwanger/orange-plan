@@ -813,7 +813,8 @@ export default function Scenarios() {
           result.yearByYear?.slice(0, 10).forEach((year, idx) => {
             const age = baseParams.currentAge + idx;
             const isRetired = age >= baseParams.retirementAge;
-            console.log(`Year ${idx} (Age ${age}): Total $${((year.total || 0)/1000).toFixed(0)}K, Spending $${((year.totalSpending || 0)/1000).toFixed(0)}K, ${isRetired ? 'RETIRED' : 'pre-ret'}`);
+            const spending = isRetired ? (year.retirementSpendingOnly || 0) : (year.yearSpending || 0);
+            console.log(`Year ${idx} (Age ${age}): Total $${((year.total || 0)/1000).toFixed(0)}K, Spending $${(spending/1000).toFixed(0)}K, ${isRetired ? 'RETIRED' : 'pre-ret'}`);
           });
 
           // Show last 5 years
