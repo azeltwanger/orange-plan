@@ -211,20 +211,30 @@ export default function Scenarios() {
   const getDestinationOptions = (sourceAccountType) => {
     const source = sourceAccountType?.toLowerCase() || 'taxable';
     
-    if (source.includes('roth')) {
+    if (source.includes('roth') || source === 'tax_free') {
       return [
+        { value: 'tax_free', label: 'Roth IRA (No Tax)' },
         { value: 'taxable', label: 'Taxable (Early Withdrawal)' }
       ];
     } else if (source.includes('traditional') || source.includes('ira') || source.includes('401k') || source === 'tax_deferred') {
       return [
-        { value: 'taxable', label: 'Taxable (Withdrawal)' },
-        { value: 'tax_free', label: 'Roth IRA (Conversion)' }
+        { value: 'tax_deferred', label: 'Same Account (No Tax)' },
+        { value: 'tax_free', label: 'Roth IRA (Conversion)' },
+        { value: 'taxable', label: 'Taxable (Withdrawal)' }
       ];
     } else {
       return [
         { value: 'taxable', label: 'Taxable' }
       ];
     }
+  };
+
+  // Helper to get default destination account type based on source
+  const getDefaultDestination = (sourceAccountType) => {
+    const source = sourceAccountType?.toLowerCase() || 'taxable';
+    if (source.includes('roth') || source === 'tax_free') return 'tax_free';
+    if (source.includes('traditional') || source.includes('ira') || source.includes('401k') || source === 'tax_deferred') return 'tax_deferred';
+    return 'taxable';
   };
 
   // Array handlers for asset reallocations
@@ -2201,7 +2211,12 @@ export default function Scenarios() {
                               <Label className="text-zinc-400 text-xs">Asset to Sell</Label>
                               <Select
                                 value={realloc.sell_holding_id}
-                                onValueChange={(v) => updateAssetReallocation(realloc.id, 'sell_holding_id', v)}
+                                onValueChange={(v) => {
+                                  const selectedHolding = holdingsOptions.find(h => h.id === v);
+                                  const defaultDest = getDefaultDestination(selectedHolding?.accountType);
+                                  updateAssetReallocation(realloc.id, 'sell_holding_id', v);
+                                  updateAssetReallocation(realloc.id, 'destination_account_type', defaultDest);
+                                }}
                               >
                                 <SelectTrigger className="bg-zinc-800 border-zinc-700 h-9 text-sm text-zinc-200">
                                   <SelectValue placeholder="Select holding" />
