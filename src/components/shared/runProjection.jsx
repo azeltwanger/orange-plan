@@ -2058,6 +2058,49 @@ export function runUnifiedProjection({
       if (getTotalPortfolio() <= 0) ranOutOfMoneyThisYear = true;
     }
 
+    // Calculate dividend income using Average Balance Method (AFTER all withdrawals)
+    // Dividends = (Beginning Value + Ending Value) / 2 × Yield
+    // This approximates receiving dividends throughout the year
+    // For year 0, use currentValue as both beginning and ending (no growth yet)
+    holdingValues.forEach((hv, index) => {
+      if (hv.dividendYield > 0 && (hv.taxTreatment === 'taxable' || hv.taxTreatment === 'real_estate')) {
+        const beginningValue = i > 0 ? (beginningYearValues[index]?.beginningValue || 0) : hv.currentValue;
+        const endingValue = hv.currentValue; // Now this is the TRUE end-of-year value after withdrawals
+        const averageValue = (beginningValue + endingValue) / 2;
+        
+        if (averageValue > 0) {
+          const annualDividend = averageValue * (hv.dividendYield / 100);
+          // Real estate income (rental/REITs) is typically non-qualified (taxed as ordinary income)
+          const isQualified = hv.taxTreatment === 'real_estate' ? false : hv.dividendQualified;
+          if (isQualified) {
+            yearQualifiedDividends += annualDividend;
+          } else {
+            yearNonQualifiedDividends += annualDividend;
+          }
+        }
+      }
+    });
+    
+    // Calculate dividend income from executed asset reallocations
+    executedReallocations.forEach((realloc, index) => {
+      if (realloc.buy_dividend_yield > 0 && realloc.currentValue > 0) {
+        const beginningValue = i > 0 ? (beginningReallocValues[index]?.beginningValue || 0) : realloc.currentValue;
+        const endingValue = realloc.currentValue;
+        const averageValue = (beginningValue + endingValue) / 2;
+        
+        if (averageValue > 0) {
+          const annualDividend = averageValue * (realloc.buy_dividend_yield / 100);
+          if (realloc.buy_dividend_qualified !== false) {
+            yearQualifiedDividends += annualDividend;
+          } else {
+            yearNonQualifiedDividends += annualDividend;
+          }
+        }
+      }
+    });
+    
+    const totalDividendIncome = yearQualifiedDividends + yearNonQualifiedDividends;
+
     // Calculate totals
     const currentTotalEncumberedBtc = Object.values(encumberedBtc).reduce((sum, amount) => sum + amount, 0);
     const encumberedBtcValueThisYear = currentTotalEncumberedBtc * cumulativeBtcPrice;
