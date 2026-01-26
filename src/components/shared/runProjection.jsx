@@ -2120,6 +2120,28 @@ export function runUnifiedProjection({
       }
 
       if (getTotalPortfolio() <= 0) ranOutOfMoneyThisYear = true;
+
+      // DEBUG: Log AFTER retirement processing
+      if (i <= 1 && DEBUG) {
+        console.log('POST RETIREMENT PROCESSING:');
+        console.log('desiredWithdrawal:', Math.round(desiredWithdrawal));
+        console.log('yearSpending:', Math.round(yearSpending));
+        console.log('withdrawFromTaxable:', Math.round(withdrawFromTaxable));
+        console.log('withdrawFromTaxDeferred:', Math.round(withdrawFromTaxDeferred));
+        console.log('withdrawFromTaxFree:', Math.round(withdrawFromTaxFree));
+        console.log('taxesPaid:', Math.round(taxesPaid));
+        console.log('retirementNetCashFlow:', Math.round(retirementNetCashFlow));
+        console.log('Portfolio AFTER year processing:', JSON.stringify({
+          taxableBtc: Math.round(portfolio.taxable?.btc || 0),
+          taxableStocks: Math.round(portfolio.taxable?.stocks || 0),
+          taxableCash: Math.round(portfolio.taxable?.cash || 0),
+          taxableTotal: Math.round(getAccountTotal('taxable')),
+          taxDeferredTotal: Math.round(getAccountTotal('taxDeferred')),
+          taxFreeTotal: Math.round(getAccountTotal('taxFree')),
+          realEstate: Math.round(portfolio.realEstate || 0),
+          grandTotal: Math.round(getPortfolioTotal())
+        }));
+      }
     }
 
     // Calculate dividend income using Average Balance Method (AFTER all withdrawals)
