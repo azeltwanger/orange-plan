@@ -1125,6 +1125,15 @@ export default function Scenarios() {
         use_of_proceeds: form.hypothetical_btc_loan.use_of_proceeds || 'cash',
       };
     }
+
+    // Process asset reallocations - convert empty strings to null for numeric fields
+    const processedReallocations = (form.asset_reallocations || []).map(r => ({
+      ...r,
+      sell_amount: r.sell_amount !== '' && r.sell_amount !== undefined ? Number(r.sell_amount) : null,
+      execution_year: r.execution_year !== '' && r.execution_year !== undefined ? Number(r.execution_year) : null,
+      buy_cagr: r.buy_cagr !== '' && r.buy_cagr !== undefined ? Number(r.buy_cagr) : null,
+      buy_dividend_yield: r.buy_dividend_yield !== '' && r.buy_dividend_yield !== undefined ? Number(r.buy_dividend_yield) : null,
+    }));
     
     const data = {
       name: form.name,
@@ -1157,7 +1166,7 @@ export default function Scenarios() {
       dividend_income_override: form.dividend_income_override !== '' ? parseFloat(form.dividend_income_override) : null,
       dividend_income_qualified: form.dividend_income_qualified,
       one_time_events: form.one_time_events || [],
-      asset_reallocations: form.asset_reallocations || [],
+      asset_reallocations: processedReallocations,
       hypothetical_btc_loan: cleanedHypotheticalLoan,
     };
 
