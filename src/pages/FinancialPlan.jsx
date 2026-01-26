@@ -658,6 +658,8 @@ export default function FinancialPlan() {
         btc_return_model: btcReturnModel,
         asset_withdrawal_strategy: assetWithdrawalStrategy,
         cost_basis_method: costBasisMethod,
+        custom_return_periods: customReturnPeriods,
+        ticker_returns: tickerReturns,
       },
       null, // no scenario
       holdings,
@@ -933,6 +935,8 @@ export default function FinancialPlan() {
         btc_return_model: btcReturnModel,
         asset_withdrawal_strategy: assetWithdrawalStrategy,
         cost_basis_method: costBasisMethod,
+        custom_return_periods: customReturnPeriods,
+        ticker_returns: tickerReturns,
       },
       null,
       holdings,

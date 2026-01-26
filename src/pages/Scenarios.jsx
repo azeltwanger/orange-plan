@@ -669,6 +669,8 @@ export default function Scenarios() {
       btc_return_model: settings?.btc_return_model || 'powerlaw',
       asset_withdrawal_strategy: baselineParams.assetWithdrawalStrategy,
       cost_basis_method: baselineParams.costBasisMethod,
+      custom_return_periods: settings?.custom_return_periods || {},
+      ticker_returns: settings?.ticker_returns || {},
     };
     const seed = generateMonteCarloSeed(seedSettings, scenarioParams, holdings, liabilities, accounts, currentPrice);
     const seededRandom = createSeededRNG(seed);
@@ -761,6 +763,8 @@ export default function Scenarios() {
         btc_return_model: settings?.btc_return_model || 'powerlaw',
         asset_withdrawal_strategy: baseParams.assetWithdrawalStrategy,
         cost_basis_method: baseParams.costBasisMethod,
+        custom_return_periods: settings?.custom_return_periods || {},
+        ticker_returns: settings?.ticker_returns || {},
       };
       const seed = generateMonteCarloSeed(seedSettingsLocal, null, holdings, liabilities, accounts, currentPrice);
       const seededRandom = createSeededRNG(seed);
@@ -866,6 +870,8 @@ export default function Scenarios() {
           btc_return_model: settings?.btc_return_model || 'powerlaw',
           asset_withdrawal_strategy: baselineParams.assetWithdrawalStrategy,
           cost_basis_method: baselineParams.costBasisMethod,
+          custom_return_periods: settings?.custom_return_periods || {},
+          ticker_returns: settings?.ticker_returns || {},
         };
         const safeSpendingSeed = generateMonteCarloSeed(safeSpendingSeedSettings, null, holdings, liabilities, accounts, currentPrice);
         const safeSpendingRandom = createSeededRNG(safeSpendingSeed);
