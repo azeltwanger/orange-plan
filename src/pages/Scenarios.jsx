@@ -672,6 +672,8 @@ export default function Scenarios() {
       custom_return_periods: settings?.custom_return_periods || {},
       ticker_returns: settings?.ticker_returns || {},
     };
+    console.log('SC custom_return_periods:', JSON.stringify(settings?.custom_return_periods));
+    console.log('SC ticker_returns:', JSON.stringify(settings?.ticker_returns));
     const seed = generateMonteCarloSeed(seedSettings, scenarioParams, holdings, liabilities, accounts, currentPrice);
     const seededRandom = createSeededRNG(seed);
     
