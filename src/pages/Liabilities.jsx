@@ -408,7 +408,7 @@ export default function Liabilities() {
 
               <div className="p-4 rounded-xl bg-zinc-800/20 border border-zinc-700/50">
                 <h4 className="text-sm font-medium text-zinc-300 mb-2">How it works in projections:</h4>
-                <p className="text-xs text-zinc-500 mb-3 italic">Based on Ledn loan terms</p>
+                <p className="text-xs text-zinc-500 mb-3 italic">Based on lender loan terms</p>
                 <ul className="text-xs text-zinc-500 space-y-1.5">
                   {autoTopUp ? (
                     <>
