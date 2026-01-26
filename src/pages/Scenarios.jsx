@@ -2239,7 +2239,7 @@ export default function Scenarios() {
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent className="bg-zinc-900 border-zinc-700">
-                                  <SelectItem value="btc" className="text-zinc-200 focus:text-white">BTC</SelectItem>
+                                  <SelectItem value="btc" className="text-zinc-200 focus:text-white">BTC / Crypto</SelectItem>
                                   <SelectItem value="stocks" className="text-zinc-200 focus:text-white">Stocks</SelectItem>
                                   <SelectItem value="bonds" className="text-zinc-200 focus:text-white">Bonds</SelectItem>
                                   <SelectItem value="real_estate" className="text-zinc-200 focus:text-white">Real Estate</SelectItem>
@@ -2249,43 +2249,53 @@ export default function Scenarios() {
                               </Select>
                             </div>
                           </div>
-                          <div className="grid grid-cols-3 gap-3">
-                            <div className="space-y-1">
-                              <Label className="text-zinc-400 text-xs">Expected CAGR (%)</Label>
-                              <Input
-                                type="number"
-                                placeholder="7"
-                                value={realloc.buy_cagr}
-                                onChange={(e) => updateAssetReallocation(realloc.id, 'buy_cagr', e.target.value)}
-                                className="bg-zinc-800 border-zinc-700 h-9 text-sm text-zinc-100"
-                              />
+                          {realloc.buy_asset_type !== 'btc' && realloc.buy_asset_type !== 'cash' && (
+                            <div className="grid grid-cols-3 gap-3">
+                              <div className="space-y-1">
+                                <Label className="text-zinc-400 text-xs">Expected CAGR (%)</Label>
+                                <Input
+                                  type="number"
+                                  placeholder={realloc.buy_asset_type === 'stocks' ? String(settings.stocks_cagr || 7) : 
+                                               realloc.buy_asset_type === 'bonds' ? String(settings.bonds_cagr || 4) :
+                                               realloc.buy_asset_type === 'real_estate' ? String(settings.real_estate_cagr || 5) : '7'}
+                                  value={realloc.buy_cagr}
+                                  onChange={(e) => updateAssetReallocation(realloc.id, 'buy_cagr', e.target.value)}
+                                  className="bg-zinc-800 border-zinc-700 h-9 text-sm text-zinc-100"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-zinc-400 text-xs">Dividend Yield (%)</Label>
+                                <Input
+                                  type="number"
+                                  placeholder="0"
+                                  value={realloc.buy_dividend_yield}
+                                  onChange={(e) => updateAssetReallocation(realloc.id, 'buy_dividend_yield', e.target.value)}
+                                  className="bg-zinc-800 border-zinc-700 h-9 text-sm text-zinc-100"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-zinc-400 text-xs">Qualified Dividends</Label>
+                                <Select
+                                  value={realloc.buy_dividend_qualified ? "yes" : "no"}
+                                  onValueChange={(v) => updateAssetReallocation(realloc.id, 'buy_dividend_qualified', v === "yes")}
+                                >
+                                  <SelectTrigger className="bg-zinc-800 border-zinc-700 h-9 text-sm text-zinc-200">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent className="bg-zinc-900 border-zinc-700">
+                                    <SelectItem value="yes" className="text-zinc-200 focus:text-white">Yes</SelectItem>
+                                    <SelectItem value="no" className="text-zinc-200 focus:text-white">No</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
                             </div>
-                            <div className="space-y-1">
-                              <Label className="text-zinc-400 text-xs">Dividend Yield (%)</Label>
-                              <Input
-                                type="number"
-                                placeholder="0"
-                                value={realloc.buy_dividend_yield}
-                                onChange={(e) => updateAssetReallocation(realloc.id, 'buy_dividend_yield', e.target.value)}
-                                className="bg-zinc-800 border-zinc-700 h-9 text-sm text-zinc-100"
-                              />
-                            </div>
-                            <div className="space-y-1">
-                              <Label className="text-zinc-400 text-xs">Qualified Dividends</Label>
-                              <Select
-                                value={realloc.buy_dividend_qualified ? "yes" : "no"}
-                                onValueChange={(v) => updateAssetReallocation(realloc.id, 'buy_dividend_qualified', v === "yes")}
-                              >
-                                <SelectTrigger className="bg-zinc-800 border-zinc-700 h-9 text-sm text-zinc-200">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent className="bg-zinc-900 border-zinc-700">
-                                  <SelectItem value="yes" className="text-zinc-200 focus:text-white">Yes</SelectItem>
-                                  <SelectItem value="no" className="text-zinc-200 focus:text-white">No</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          </div>
+                          )}
+                          {realloc.buy_asset_type === 'btc' && (
+                            <p className="text-xs text-zinc-500">BTC will use your return model settings (Power Law, Custom %, etc.)</p>
+                          )}
+                          {realloc.buy_asset_type === 'cash' && (
+                            <p className="text-xs text-zinc-500">Cash will use your cash return rate from settings.</p>
+                          )}
                         </div>
                       </div>
                     );
