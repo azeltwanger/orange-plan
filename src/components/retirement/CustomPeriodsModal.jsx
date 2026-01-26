@@ -95,7 +95,7 @@ export default function CustomPeriodsModal({
   }, [selectedTicker, availableTickers]);
 
   const selectedIncomeLabel = useMemo(() => {
-    if (selectedAssetType === 'real_estate') return 'Rental';
+    if (selectedAssetType === 'real_estate') return 'Rental Income';
     if (selectedAssetType === 'bonds') return 'Interest';
     return 'Dividend';
   }, [selectedAssetType]);
