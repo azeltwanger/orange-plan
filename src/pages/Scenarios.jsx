@@ -2285,8 +2285,14 @@ export default function Scenarios() {
                               </Select>
                             </div>
                             {(() => {
-                              const selectedHolding = holdingsOptions.find(h => h.id === realloc.sell_holding_id);
+                              console.log('realloc object:', realloc);
+                              console.log('realloc.sell_holding_id:', realloc.sell_holding_id);
+                              console.log('realloc.holding_id:', realloc.holding_id);
+                              const selectedHolding = holdingsOptions.find(h => h.id === realloc.sell_holding_id || h.id === realloc.holding_id);
+                              console.log('selectedHolding:', selectedHolding);
+                              console.log('selectedHolding?.accountType:', selectedHolding?.accountType);
                               const destinationOptions = getDestinationOptions(selectedHolding?.accountType);
+                              console.log('destinationOptions:', destinationOptions);
                               
                               return (
                                 <div className="space-y-1">
