@@ -948,6 +948,12 @@ export default function FinancialPlan() {
     // Create seeded RNG
     const seededRandom = createSeededRNG(seed);
     
+    console.log('=== FINANCIAL PLAN SAFE SPENDING DEBUG ===');
+    console.log('Seed value:', seed);
+    console.log('retirementAge:', retirementAge);
+    console.log('currentAnnualSpending:', currentAnnualSpending);
+    console.log('annualSavings:', annualSavings);
+    
     // Generate base parameters
     const baseParams = {
       getBtcGrowthRate,
@@ -961,6 +967,8 @@ export default function FinancialPlan() {
     
     // STEP 1: Generate all random paths ONCE at the start using seeded RNG
     const paths = generateRandomPaths(numSimulations, projectionYears, baseParams, seededRandom);
+    
+    console.log('First path BTC returns (years 0-4):', paths[0]?.btc?.slice(0, 5));
     
     // STEP 2: Binary search using the SAME paths for each spending level test
     for (let iteration = 0; iteration < 15; iteration++) {
