@@ -115,6 +115,8 @@ export function runUnifiedProjection({
   assetWithdrawalStrategy = 'proportional',
   withdrawalPriorityOrder = ['cash', 'bonds', 'stocks', 'other', 'btc'],
   withdrawalBlendPercentages = { cash: 0, bonds: 25, stocks: 35, other: 10, btc: 30 },
+  investmentMode = 'all_surplus',
+  monthlyInvestmentAmount = 0,
   DEBUG = false,
 }) {
   const results = [];
@@ -1838,17 +1840,37 @@ export function runUnifiedProjection({
         // Surplus - set preRetireNetCashFlow to positive yearSavings
         preRetireNetCashFlow = yearSavings;
         
-        const totalAllocation = savingsAllocationBtc + savingsAllocationStocks + savingsAllocationBonds + savingsAllocationCash + savingsAllocationOther;
-        if (totalAllocation > 0) {
-          portfolio.taxable.btc += yearSavings * (savingsAllocationBtc / totalAllocation);
-          portfolio.taxable.stocks += yearSavings * (savingsAllocationStocks / totalAllocation);
-          portfolio.taxable.bonds += yearSavings * (savingsAllocationBonds / totalAllocation);
-          portfolio.taxable.cash += yearSavings * (savingsAllocationCash / totalAllocation);
-          portfolio.taxable.other += yearSavings * (savingsAllocationOther / totalAllocation);
-        } else {
-          portfolio.taxable.btc += yearSavings;
+        // Determine how much to actually invest based on investment mode
+        let investableAmount = yearSavings;
+        let cashRemains = 0;
+
+        if (investmentMode === 'custom' && monthlyInvestmentAmount > 0) {
+          const customAnnualInvestment = monthlyInvestmentAmount * 12;
+          // Pro-rate for first year if needed
+          const effectiveCustomInvestment = i === 0 ? customAnnualInvestment * currentYearProRataFactor : customAnnualInvestment;
+          investableAmount = Math.min(yearSavings, effectiveCustomInvestment);
+          cashRemains = yearSavings - investableAmount;
         }
-        runningTaxableBasis += yearSavings;
+        
+        // Invest the determined amount according to allocation
+        if (investableAmount > 0) {
+          const totalAllocation = savingsAllocationBtc + savingsAllocationStocks + savingsAllocationBonds + savingsAllocationCash + savingsAllocationOther;
+          if (totalAllocation > 0) {
+            portfolio.taxable.btc += investableAmount * (savingsAllocationBtc / totalAllocation);
+            portfolio.taxable.stocks += investableAmount * (savingsAllocationStocks / totalAllocation);
+            portfolio.taxable.bonds += investableAmount * (savingsAllocationBonds / totalAllocation);
+            portfolio.taxable.cash += investableAmount * (savingsAllocationCash / totalAllocation);
+            portfolio.taxable.other += investableAmount * (savingsAllocationOther / totalAllocation);
+          } else {
+            portfolio.taxable.cash += investableAmount;
+          }
+          runningTaxableBasis += investableAmount;
+        }
+
+        // Add any remaining surplus to cash (not invested)
+        if (cashRemains > 0) {
+          portfolio.taxable.cash += cashRemains;
+        }
       } else {
         // yearSavings === 0, no deficit or surplus
         preRetireNetCashFlow = 0;
