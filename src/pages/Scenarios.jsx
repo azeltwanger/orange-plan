@@ -744,6 +744,7 @@ export default function Scenarios() {
       yearsInRetirement: baseParams.lifeExpectancy - baseParams.retirementAge,
       yearsToAccumulate: baseParams.retirementAge - baseParams.currentAge
     });
+    console.log('Starting safe spending search for retirement age:', baseParams.retirementAge);
     
     let low = 10000;
     let high = 500000;
@@ -796,6 +797,7 @@ export default function Scenarios() {
       }
       
       const successRate = (successCount / numSimulations) * 100;
+      console.log(`Retire ${baseParams.retirementAge}: Testing $${testSpending}/yr - Success: ${successRate.toFixed(1)}% - ${successRate >= 90 ? 'PASS' : 'FAIL'}`);
 
       if (successRate >= 90) {
         maxSpending = testSpending;
@@ -807,6 +809,7 @@ export default function Scenarios() {
       if (high - low <= 5000) break;
     }
 
+    console.log(`Retire ${baseParams.retirementAge}: Final safe spending: $${maxSpending}/yr`);
     return maxSpending;
   }, [holdings, liabilities, accounts, currentPrice]);
 
