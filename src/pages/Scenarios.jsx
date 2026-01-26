@@ -918,6 +918,12 @@ export default function Scenarios() {
           const scenarioSafeSpendingPaths = sharedSafeSpendingPaths.map(path => 
             regenerateReturnsForParams(path, scenarioParams)
           );
+          
+          console.log('Baseline path[0] BTC returns (first 5 years):', sharedSafeSpendingPaths[0]?.btc?.slice(0, 5));
+          console.log('Scenario path[0] BTC returns (first 5 years):', scenarioSafeSpendingPaths[0]?.btc?.slice(0, 5));
+          console.log('Baseline retirementAge:', baselineParams.retirementAge);
+          console.log('Scenario retirementAge:', scenarioParams.retirementAge);
+          
           const scenarioMaxSpending = findMaxSustainableSpendingWithPaths(scenarioParams, safeSpendingSimulations, scenarioSafeSpendingPaths);
           
           setScenarioMonteCarloResults({
