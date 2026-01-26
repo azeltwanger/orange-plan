@@ -666,7 +666,7 @@ export default function Scenarios() {
       stocks_cagr: baselineParams.effectiveStocksCagr,
       income_growth_rate: baselineParams.incomeGrowth,
       inflation_rate: baselineParams.effectiveInflation,
-      btc_return_model: settings?.btc_return_model || 'custom',
+      btc_return_model: settings?.btc_return_model || 'powerlaw',
       asset_withdrawal_strategy: baselineParams.assetWithdrawalStrategy,
       cost_basis_method: baselineParams.costBasisMethod,
     };
@@ -758,7 +758,7 @@ export default function Scenarios() {
         stocks_cagr: baseParams.effectiveStocksCagr,
         income_growth_rate: baseParams.incomeGrowth,
         inflation_rate: baseParams.effectiveInflation,
-        btc_return_model: settings?.btc_return_model || 'custom',
+        btc_return_model: settings?.btc_return_model || 'powerlaw',
         asset_withdrawal_strategy: baseParams.assetWithdrawalStrategy,
         cost_basis_method: baseParams.costBasisMethod,
       };
@@ -863,7 +863,7 @@ export default function Scenarios() {
           stocks_cagr: baselineParams.effectiveStocksCagr,
           income_growth_rate: baselineParams.incomeGrowth,
           inflation_rate: baselineParams.effectiveInflation,
-          btc_return_model: settings?.btc_return_model || 'custom',
+          btc_return_model: settings?.btc_return_model || 'powerlaw',
           asset_withdrawal_strategy: baselineParams.assetWithdrawalStrategy,
           cost_basis_method: baselineParams.costBasisMethod,
         };
