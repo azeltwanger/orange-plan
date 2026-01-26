@@ -1386,6 +1386,17 @@ export function runUnifiedProjection({
         ? yearlyReturnOverrides.realEstate[i] 
         : getCustomReturnForYear('realEstate', i, customReturnPeriods, realEstateCagr);
 
+      // CRITICAL: Capture beginning-of-year values BEFORE applying growth (for Average Balance Method dividends)
+      beginningYearValues = holdingValues.map(hv => ({
+        ticker: hv.ticker,
+        beginningValue: hv.currentValue
+      }));
+      
+      beginningReallocValues = executedReallocations.map(r => ({
+        id: r.id,
+        beginningValue: r.currentValue
+      }));
+
       // Calculate weighted average growth for stocks by account type based on holdingValues
       // This ensures portfolio aggregate growth matches individual holding growth rates
       const calculateWeightedStocksGrowth = (taxTreatmentFilter) => {
@@ -1433,13 +1444,7 @@ export function runUnifiedProjection({
       if (portfolio.realEstate >= GROWTH_DUST_THRESHOLD && yearRealEstateGrowth !== 0) portfolio.realEstate *= (1 + yearRealEstateGrowth / 100);
       else if (portfolio.realEstate < GROWTH_DUST_THRESHOLD) portfolio.realEstate = 0;
       
-      // Capture beginning-of-year values for dividend calculation (Average Balance Method)
-      beginningYearValues = holdingValues.map(hv => ({
-        ticker: hv.ticker,
-        beginningValue: hv.currentValue
-      }));
-      
-      // Update tracked holding values for dividend calculations
+      // Update tracked holding values for dividend calculations (AFTER capturing beginning values)
       holdingValues.forEach(hv => {
         if (hv.currentValue < 1) {
           hv.currentValue = 0;
@@ -1478,12 +1483,6 @@ export function runUnifiedProjection({
         hv.currentValue *= (1 + growthRate / 100);
       });
       
-      // Capture beginning-of-year values for reallocation dividends (Average Balance Method)
-      beginningReallocValues = executedReallocations.map(r => ({
-        id: r.id,
-        beginningValue: r.currentValue
-      }));
-      
       // Update executed reallocation values
       executedReallocations.forEach(realloc => {
         if (realloc.currentValue < 1) {
@@ -1493,48 +1492,6 @@ export function runUnifiedProjection({
         realloc.currentValue *= (1 + (realloc.buy_cagr || effectiveTaxableStocksGrowth) / 100);
       });
     }
-
-    // Calculate dividend income using Average Balance Method
-    // Dividends = (Beginning Value + Ending Value) / 2 × Yield
-    // This approximates receiving dividends throughout the year (matches Fidelity/Schwab)
-    holdingValues.forEach((hv, index) => {
-      if (hv.dividendYield > 0 && (hv.taxTreatment === 'taxable' || hv.taxTreatment === 'real_estate')) {
-        const beginningValue = i > 0 ? (beginningYearValues[index]?.beginningValue || 0) : hv.currentValue;
-        const endingValue = hv.currentValue;
-        const averageValue = (beginningValue + endingValue) / 2;
-        
-        if (averageValue > 0) {
-          const annualDividend = averageValue * (hv.dividendYield / 100);
-          // Real estate income (rental/REITs) is typically non-qualified (taxed as ordinary income)
-          const isQualified = hv.taxTreatment === 'real_estate' ? false : hv.dividendQualified;
-          if (isQualified) {
-            yearQualifiedDividends += annualDividend;
-          } else {
-            yearNonQualifiedDividends += annualDividend;
-          }
-        }
-      }
-    });
-    
-    // Calculate dividend income from executed asset reallocations (Average Balance Method)
-    executedReallocations.forEach((realloc, index) => {
-      if (realloc.buy_dividend_yield > 0) {
-        const beginningValue = i > 0 ? (beginningReallocValues[index]?.beginningValue || 0) : realloc.currentValue;
-        const endingValue = realloc.currentValue;
-        const averageValue = (beginningValue + endingValue) / 2;
-        
-        if (averageValue > 0) {
-          const annualDividend = averageValue * (realloc.buy_dividend_yield / 100);
-          if (realloc.buy_dividend_qualified !== false) {
-            yearQualifiedDividends += annualDividend;
-          } else {
-            yearNonQualifiedDividends += annualDividend;
-          }
-        }
-      }
-    });
-    
-    const totalDividendIncome = yearQualifiedDividends + yearNonQualifiedDividends;
 
     // Roth contributions for accessible funds
     const totalRothContributions = accounts
