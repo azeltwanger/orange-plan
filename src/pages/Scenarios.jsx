@@ -674,6 +674,8 @@ export default function Scenarios() {
     };
     console.log('SC custom_return_periods:', JSON.stringify(settings?.custom_return_periods));
     console.log('SC ticker_returns:', JSON.stringify(settings?.ticker_returns));
+    console.log('SC btc_cagr_assumption:', settings?.btc_cagr_assumption);
+    console.log('SC btc_return_model:', settings?.btc_return_model);
     const seed = generateMonteCarloSeed(seedSettings, scenarioParams, holdings, liabilities, accounts, currentPrice);
     const seededRandom = createSeededRNG(seed);
     
