@@ -1444,11 +1444,22 @@ export function runUnifiedProjection({
           if (tickerRate !== null) {
             growthRate = tickerRate;
           } else if (hv.assetCategory === 'stocks') {
-            growthRate = effectiveStocksGrowthThisYear;
+            // Use the weighted growth rate based on tax treatment
+            if (hv.taxTreatment === 'taxable') {
+              growthRate = effectiveTaxableStocksGrowth;
+            } else if (hv.taxTreatment === 'tax_deferred') {
+              growthRate = effectiveTaxDeferredStocksGrowth;
+            } else if (hv.taxTreatment === 'tax_free') {
+              growthRate = effectiveTaxFreeStocksGrowth;
+            } else {
+              growthRate = yearStocksGrowth;
+            }
           } else if (hv.assetCategory === 'bonds') {
             growthRate = yearBondsGrowth;
           } else if (hv.assetCategory === 'cash') {
             growthRate = yearCashGrowth;
+          } else if (hv.assetCategory === 'realEstate') {
+            growthRate = yearRealEstateGrowth;
           } else {
             growthRate = yearOtherGrowth;
           }
@@ -1465,17 +1476,6 @@ export function runUnifiedProjection({
         }
         realloc.currentValue *= (1 + (realloc.buy_cagr || effectiveStocksGrowthThisYear) / 100);
       });
-    }
-
-    // Debug dividend calculation for Year 0
-    if (i === 0) {
-      console.log('YEAR 0 DIVIDEND DEBUG:', holdingValues.map(hv => ({
-        ticker: hv.ticker,
-        dividendYield: hv.dividendYield,
-        currentValue: Math.round(hv.currentValue),
-        taxTreatment: hv.taxTreatment,
-        qualifies: hv.dividendYield > 0 && hv.currentValue > 0 && hv.taxTreatment === 'taxable'
-      })));
     }
 
     // Calculate dividend income from holdings (only taxable accounts generate taxable dividends)
