@@ -642,10 +642,6 @@ export default function FinancialPlan() {
     const withdrawalPaths = [];
 
     // Generate seed from current state
-    console.log('FP customReturnPeriods:', JSON.stringify(customReturnPeriods));
-    console.log('FP tickerReturns:', JSON.stringify(tickerReturns));
-    console.log('FP btc_cagr_assumption:', btcCagr);
-    console.log('FP btc_return_model:', btcReturnModel);
     const seed = generateMonteCarloSeed(
       {
         current_age: currentAge,
