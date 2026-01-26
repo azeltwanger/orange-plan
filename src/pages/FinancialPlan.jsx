@@ -4071,7 +4071,10 @@ export default function FinancialPlan() {
                     
                     {investmentMode === 'all_surplus' && (
                       <p className="text-xs text-zinc-500 mt-2">
-                        All income surplus after expenses will be invested according to the allocation below.
+                        {annualSavings > 0 
+                          ? `All surplus ($${Math.round(annualSavings / 12).toLocaleString()}/month or $${Math.round(annualSavings).toLocaleString()}/year) will be invested according to the allocation below.`
+                          : `You currently have no surplus to invest (expenses ≥ income).`
+                        }
                       </p>
                     )}
                   </div>
