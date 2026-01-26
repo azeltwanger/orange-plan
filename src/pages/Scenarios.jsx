@@ -793,6 +793,15 @@ export default function Scenarios() {
           taxLots: [], // Use aggregate basis for Monte Carlo speed
           DEBUG: false,
         });
+        
+        // Log portfolio at retirement for first simulation of first iteration only
+        if (iteration === 0 && i === 0) {
+          const retirementYearIndex = baseParams.retirementAge - baseParams.currentAge;
+          const retirementYearData = result.yearByYear?.[retirementYearIndex];
+          const portfolioAtRetirement = retirementYearData?.total || 0;
+          console.log(`Retire ${baseParams.retirementAge}: Portfolio at retirement: $${(portfolioAtRetirement / 1000).toFixed(0)}K`);
+        }
+        
         if (result.survives) successCount++;
       }
       
