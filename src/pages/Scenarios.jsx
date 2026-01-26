@@ -207,6 +207,26 @@ export default function Scenarios() {
     });
   };
 
+  // Helper to get destination account options based on source account type
+  const getDestinationOptions = (sourceAccountType) => {
+    const source = sourceAccountType?.toLowerCase() || 'taxable';
+    
+    if (source.includes('roth')) {
+      return [
+        { value: 'taxable', label: 'Taxable (Early Withdrawal)' }
+      ];
+    } else if (source.includes('traditional') || source.includes('ira') || source.includes('401k') || source === 'tax_deferred') {
+      return [
+        { value: 'taxable', label: 'Taxable (Withdrawal)' },
+        { value: 'tax_free', label: 'Roth IRA (Conversion)' }
+      ];
+    } else {
+      return [
+        { value: 'taxable', label: 'Taxable' }
+      ];
+    }
+  };
+
   // Array handlers for asset reallocations
   const addAssetReallocation = () => {
     setForm({
@@ -220,7 +240,8 @@ export default function Scenarios() {
         buy_asset_type: 'stocks',
         buy_cagr: '',
         buy_dividend_yield: '',
-        buy_dividend_qualified: true
+        buy_dividend_qualified: true,
+        destination_account_type: 'taxable'
       }]
     });
   };
@@ -2218,7 +2239,7 @@ export default function Scenarios() {
                         {/* BUY Section */}
                         <div>
                           <Label className="text-emerald-400 text-xs font-semibold mb-2 block">BUY</Label>
-                          <div className="grid grid-cols-2 gap-3 mb-2">
+                          <div className="grid grid-cols-3 gap-3 mb-2">
                             <div className="space-y-1">
                               <Label className="text-zinc-400 text-xs">Asset Name</Label>
                               <Input
@@ -2248,6 +2269,31 @@ export default function Scenarios() {
                                 </SelectContent>
                               </Select>
                             </div>
+                            {(() => {
+                              const selectedHolding = holdingsOptions.find(h => h.id === realloc.sell_holding_id);
+                              const destinationOptions = getDestinationOptions(selectedHolding?.accountType);
+                              
+                              return (
+                                <div className="space-y-1">
+                                  <Label className="text-zinc-400 text-xs">Destination Account</Label>
+                                  <Select
+                                    value={realloc.destination_account_type || 'taxable'}
+                                    onValueChange={(v) => updateAssetReallocation(realloc.id, 'destination_account_type', v)}
+                                  >
+                                    <SelectTrigger className="bg-zinc-800 border-zinc-700 h-9 text-sm text-zinc-200">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-zinc-900 border-zinc-700">
+                                      {destinationOptions.map(opt => (
+                                        <SelectItem key={opt.value} value={opt.value} className="text-zinc-200 focus:text-white">
+                                          {opt.label}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              );
+                            })()}
                           </div>
                           {realloc.buy_asset_type !== 'btc' && realloc.buy_asset_type !== 'cash' && (
                             <div className="grid grid-cols-3 gap-3">
