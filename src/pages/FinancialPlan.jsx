@@ -906,7 +906,7 @@ export default function FinancialPlan() {
       assetWithdrawalStrategy,
       withdrawalPriorityOrder,
       withdrawalBlendPercentages,
-      DEBUG: false,
+      DEBUG: true,
     });
     
     return result.yearByYear;
