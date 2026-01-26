@@ -22,6 +22,19 @@ import { getRMDFactor } from '@/components/shared/taxData';
 import { get401kLimit, getRothIRALimit, getTraditionalIRALimit, getHSALimit, getTaxConfigForYear, getRothIRAIncomeLimit } from '@/components/shared/taxConfig';
 import { getStateOptions, getStateTaxSummary, STATE_TAX_CONFIG, calculateStateTaxOnRetirement, calculateStateCapitalGainsTax, calculateStateIncomeTax } from '@/components/shared/stateTaxConfig';
 import { getPowerLawCAGR } from '@/components/shared/bitcoinPowerLaw';
+import { 
+  createSeededRNG, 
+  generateMonteCarloSeed, 
+  generateRandomPaths,
+  getBtcVolatilityForMonteCarlo,
+  BTC_SKEW_PARAM,
+  BTC_DEGREES_OF_FREEDOM,
+  ASSET_CORRELATIONS,
+  generateCorrelatedReturns,
+  randomNormal,
+  randomSkewedStudentT,
+  MONTE_CARLO_VERSION 
+} from '../components/shared/monteCarloSimulation';
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
@@ -619,174 +632,58 @@ export default function FinancialPlan() {
     return `$${num.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
   };
 
-  // Bitcoin volatility model - starts high and decays over time
-  const getBtcVolatilityForMonteCarlo = useCallback((yearsFromNow) => {
-    const initialVolatility = 55;
-    const minimumVolatility = 20;
-    const decayRate = 0.05;
-    return minimumVolatility + (initialVolatility - minimumVolatility) * Math.exp(-decayRate * yearsFromNow);
-  }, []);
+  // Monte Carlo constants and functions now imported from shared module
 
-  // Bitcoin distribution parameters based on academic research
-  // Swan Research: Skewness +2.8, Kurtosis ~105
-  // Skewed Student-t provides better empirical fit than normal distribution
-  const BTC_SKEW_PARAM = 1.15;  // Positive skew (>1 = more upside outcomes)
-  const BTC_DEGREES_OF_FREEDOM = 5;  // Fat tails (lower = fatter, 5 is typical for crypto)
-
-  // Asset correlation matrix based on historical data (2018-2024)
-  // Order: [BTC, Stocks, Bonds, RealEstate, Cash, Other]
-  // Conservative estimates to avoid overfitting
-  const ASSET_CORRELATIONS = [
-    [1.00,  0.40, -0.10,  0.20,  0.00,  0.30],  // BTC
-    [0.40,  1.00, -0.20,  0.50,  0.00,  0.60],  // Stocks
-    [-0.10, -0.20, 1.00, -0.10,  0.30, -0.10],  // Bonds
-    [0.20,  0.50, -0.10,  1.00,  0.00,  0.40],  // Real Estate
-    [0.00,  0.00,  0.30,  0.00,  1.00,  0.00],  // Cash
-    [0.30,  0.60, -0.10,  0.40,  0.00,  1.00],  // Other
-  ];
-
-  // Cholesky decomposition for generating correlated random numbers
-  // Returns lower triangular matrix L where L * L^T = correlation matrix
-  const choleskyDecomposition = (matrix) => {
-    const n = matrix.length;
-    const L = Array(n).fill(null).map(() => Array(n).fill(0));
-    
-    for (let i = 0; i < n; i++) {
-      for (let j = 0; j <= i; j++) {
-        let sum = 0;
-        for (let k = 0; k < j; k++) {
-          sum += L[i][k] * L[j][k];
-        }
-        if (i === j) {
-          L[i][j] = Math.sqrt(Math.max(0, matrix[i][i] - sum));
-        } else {
-          L[i][j] = (matrix[i][j] - sum) / (L[j][j] || 1);
-        }
-      }
-    }
-    return L;
-  };
-
-  // Pre-compute Cholesky matrix once (it's constant)
-  const CHOLESKY_L = choleskyDecomposition(ASSET_CORRELATIONS);
-
-  // Generate correlated random numbers from independent ones
-  // independentZ = [z1, z2, z3, z4, z5, z6] (independent standard normals)
-  // Returns correlated values in same order: [btc, stocks, bonds, realEstate, cash, other]
-  const generateCorrelatedReturns = (independentZ) => {
-    const correlated = [];
-    for (let i = 0; i < independentZ.length; i++) {
-      let sum = 0;
-      for (let j = 0; j <= i; j++) {
-        sum += CHOLESKY_L[i][j] * independentZ[j];
-      }
-      correlated.push(sum);
-    }
-    return correlated;
-  };
-
-  // Monte Carlo simulation - now uses runUnifiedProjection for consistency
+  // Monte Carlo simulation - now uses seeded RNG from shared module
   const runMonteCarloSimulation = useCallback((numSimulations = 500) => {
     const projectionYears = lifeExpectancy - currentAge + 1;
     const paths = [];
     const successResults = [];
     const withdrawalPaths = [];
 
-    // Helper: Generate random normal using Box-Muller
-    const randomNormal = () => {
-      const u1 = Math.max(0.0001, Math.random());
-      const u2 = Math.random();
-      return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+    // Generate seed from current state
+    const seed = generateMonteCarloSeed(
+      {
+        current_age: currentAge,
+        retirement_age: retirementAge,
+        life_expectancy: lifeExpectancy,
+        annual_retirement_spending: retirementAnnualSpending,
+        gross_annual_income: grossAnnualIncome,
+        filing_status: filingStatus,
+        state_of_residence: stateOfResidence,
+        btc_cagr_assumption: btcCagr,
+        stocks_cagr: stocksCagr,
+        income_growth_rate: incomeGrowth,
+        inflation_rate: inflationRate,
+        btc_return_model: btcReturnModel,
+        asset_withdrawal_strategy: assetWithdrawalStrategy,
+        cost_basis_method: costBasisMethod,
+      },
+      null, // no scenario
+      holdings,
+      liabilities,
+      accounts,
+      currentPrice
+    );
+
+    // Create seeded RNG
+    const seededRandom = createSeededRNG(seed);
+
+    // Generate random paths using seeded RNG
+    const baseParams = {
+      getBtcGrowthRate,
+      effectiveInflation,
+      effectiveStocksCagr,
+      bondsCagr,
+      realEstateCagr,
+      cashCagr,
+      otherCagr,
     };
 
-    // Chi-squared random variate generator (sum of squared normals)
-    const randomChiSquared = (df) => {
-      let sum = 0;
-      for (let i = 0; i < df; i++) {
-        const z = randomNormal();
-        sum += z * z;
-      }
-      return sum;
-    };
-
-    // Standard Student-t random variate
-    const randomStudentT = (df) => {
-      const z = randomNormal();
-      const chi2 = randomChiSquared(df);
-      return z / Math.sqrt(chi2 / df);
-    };
-
-    // Skewed Student-t using Fernández-Steel transformation
-    // skew > 1 means positive skew (more upside), skew < 1 means negative skew
-    const randomSkewedStudentT = (df, skew) => {
-      const t = randomStudentT(df);
-      const u = Math.random();
-      
-      // Fernández-Steel skewing: flip sign based on skew parameter
-      const threshold = 1 / (1 + skew * skew);
-      if (u < threshold) {
-        return -Math.abs(t) / skew;
-      } else {
-        return Math.abs(t) * skew;
-      }
-    };
+    const generatedPaths = generateRandomPaths(numSimulations, projectionYears, baseParams, seededRandom);
 
     for (let sim = 0; sim < numSimulations; sim++) {
-      // Generate random yearly returns for this simulation
-      const yearlyReturnOverrides = {
-        btc: [],
-        stocks: [],
-        bonds: [],
-        realEstate: [],
-        cash: [],
-        other: []
-      };
-
-      for (let year = 0; year <= projectionYears; year++) {
-        // Generate independent random numbers
-        // Use Skewed Student-t for BTC (fat tails + positive skew), normal for others
-        const independentZ = [
-          randomSkewedStudentT(BTC_DEGREES_OF_FREEDOM, BTC_SKEW_PARAM), // BTC
-          randomNormal(), // Stocks
-          randomNormal(), // Bonds
-          randomNormal(), // Real Estate
-          randomNormal(), // Cash
-          randomNormal(), // Other
-        ];
-        
-        // Apply correlation matrix to generate correlated shocks
-        const correlatedZ = generateCorrelatedReturns(independentZ);
-        const [zBtc, zStocks, zBonds, zRealEstate, zCash, zOther] = correlatedZ;
-
-        // BTC: Use getBtcGrowthRate as expected return, add volatility
-        const expectedBtcReturn = getBtcGrowthRate(year, effectiveInflation);
-        const btcVolatility = getBtcVolatilityForMonteCarlo(year);
-        // Expanded caps: -75% (worst year was -73%), +250% (allow fat tail upside)
-        const btcReturn = Math.max(-75, Math.min(250, expectedBtcReturn + btcVolatility * zBtc));
-
-        // Stocks: Use effectiveStocksCagr as expected, add volatility
-        const stocksVolatilityVal = 18;
-        const stocksReturn = Math.max(-40, Math.min(50, effectiveStocksCagr + stocksVolatilityVal * zStocks));
-
-        // Real Estate: Add +/- 5% randomness
-        const realEstateReturn = realEstateCagr + 5 * zRealEstate;
-
-        // Bonds: Add +/- 2% randomness
-        const bondsReturn = bondsCagr + 2 * zBonds;
-
-        // Cash: Add +/- 1% randomness
-        const cashReturn = cashCagr + 1 * zCash;
-
-        // Other: Add +/- 3% randomness
-        const otherReturn = otherCagr + 3 * zOther;
-
-        yearlyReturnOverrides.btc.push(btcReturn);
-        yearlyReturnOverrides.stocks.push(stocksReturn);
-        yearlyReturnOverrides.bonds.push(bondsReturn);
-        yearlyReturnOverrides.realEstate.push(realEstateReturn);
-        yearlyReturnOverrides.cash.push(cashReturn);
-        yearlyReturnOverrides.other.push(otherReturn);
-      }
+      const yearlyReturnOverrides = generatedPaths[sim];
 
       // Run unified projection with randomized returns
       const result = runUnifiedProjection({
@@ -868,8 +765,8 @@ export default function FinancialPlan() {
     effectiveStocksCagr, bondsCagr, realEstateCagr, cashCagr, otherCagr, savingsAllocationBtc,
     savingsAllocationStocks, savingsAllocationBonds, savingsAllocationCash, savingsAllocationOther,
     autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv, btcReleaseTriggerLtv,
-    btcReleaseTargetLtv, goals, lifeEvents, getTaxTreatmentFromHolding, getBtcVolatilityForMonteCarlo,
-    activeTaxLots, costBasisMethod
+    btcReleaseTargetLtv, goals, lifeEvents, getTaxTreatmentFromHolding,
+    activeTaxLots, costBasisMethod, btcReturnModel
   ]);
 
   // Reusable projection function using unified projection engine
@@ -1011,7 +908,7 @@ export default function FinancialPlan() {
       btcReleaseTriggerLtv, btcReleaseTargetLtv, goals, lifeEvents, getTaxTreatmentFromHolding, activeTaxLots, costBasisMethod,
       assetWithdrawalStrategy, withdrawalPriorityOrder, withdrawalBlendPercentages]);
 
-  // Calculate 90% safe spending using Monte Carlo binary search - OPTIMIZED
+  // Calculate 90% safe spending using Monte Carlo binary search - SEEDED
   const calculateSafeSpendingMonteCarlo = useCallback((numSimulations = 500) => {
     let low = 0;
     let high = 500000;
@@ -1019,82 +916,47 @@ export default function FinancialPlan() {
     
     const projectionYears = lifeExpectancy - currentAge + 1;
     
-    // Helper: Generate random normal using Box-Muller
-    const randomNormal = () => {
-      const u1 = Math.max(0.0001, Math.random());
-      const u2 = Math.random();
-      return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
-    };
+    // Generate seed from current state
+    const seed = generateMonteCarloSeed(
+      {
+        current_age: currentAge,
+        retirement_age: retirementAge,
+        life_expectancy: lifeExpectancy,
+        annual_retirement_spending: retirementAnnualSpending,
+        gross_annual_income: grossAnnualIncome,
+        filing_status: filingStatus,
+        state_of_residence: stateOfResidence,
+        btc_cagr_assumption: btcCagr,
+        stocks_cagr: stocksCagr,
+        income_growth_rate: incomeGrowth,
+        inflation_rate: inflationRate,
+        btc_return_model: btcReturnModel,
+        asset_withdrawal_strategy: assetWithdrawalStrategy,
+        cost_basis_method: costBasisMethod,
+      },
+      null,
+      holdings,
+      liabilities,
+      accounts,
+      currentPrice
+    );
 
-    // Chi-squared random variate generator
-    const randomChiSquared = (df) => {
-      let sum = 0;
-      for (let i = 0; i < df; i++) {
-        const z = randomNormal();
-        sum += z * z;
-      }
-      return sum;
-    };
-
-    // Standard Student-t random variate
-    const randomStudentT = (df) => {
-      const z = randomNormal();
-      const chi2 = randomChiSquared(df);
-      return z / Math.sqrt(chi2 / df);
-    };
-
-    // Skewed Student-t using Fernández-Steel transformation
-    const randomSkewedStudentT = (df, skew) => {
-      const t = randomStudentT(df);
-      const u = Math.random();
-      const threshold = 1 / (1 + skew * skew);
-      if (u < threshold) {
-        return -Math.abs(t) / skew;
-      } else {
-        return Math.abs(t) * skew;
-      }
+    // Create seeded RNG
+    const seededRandom = createSeededRNG(seed);
+    
+    // Generate base parameters
+    const baseParams = {
+      getBtcGrowthRate,
+      effectiveInflation,
+      effectiveStocksCagr,
+      bondsCagr,
+      realEstateCagr,
+      cashCagr,
+      otherCagr,
     };
     
-    // STEP 1: Generate all random paths ONCE at the start (more efficient and consistent)
-    const paths = [];
-    for (let sim = 0; sim < numSimulations; sim++) {
-      const yearlyReturnOverrides = {
-        btc: [], stocks: [], bonds: [], realEstate: [], cash: [], other: []
-      };
-      
-      for (let year = 0; year <= projectionYears; year++) {
-        // Generate independent random numbers
-        const independentZ = [
-          randomSkewedStudentT(BTC_DEGREES_OF_FREEDOM, BTC_SKEW_PARAM),
-          randomNormal(),
-          randomNormal(),
-          randomNormal(),
-          randomNormal(),
-          randomNormal(),
-        ];
-        
-        // Apply correlation matrix
-        const correlatedZ = generateCorrelatedReturns(independentZ);
-        const [zBtc, zStocks, zBonds, zRealEstate, zCash, zOther] = correlatedZ;
-
-        const expectedBtcReturn = getBtcGrowthRate(year, effectiveInflation);
-        const btcVolatility = getBtcVolatilityForMonteCarlo(year);
-        const btcReturn = Math.max(-75, Math.min(250, expectedBtcReturn + btcVolatility * zBtc));
-        const stocksReturn = Math.max(-40, Math.min(50, effectiveStocksCagr + 18 * zStocks));
-        const realEstateReturn = realEstateCagr + 5 * zRealEstate;
-        const bondsReturn = bondsCagr + 2 * zBonds;
-        const cashReturn = cashCagr + 1 * zCash;
-        const otherReturn = otherCagr + 3 * zOther;
-
-        yearlyReturnOverrides.btc.push(btcReturn);
-        yearlyReturnOverrides.stocks.push(stocksReturn);
-        yearlyReturnOverrides.bonds.push(bondsReturn);
-        yearlyReturnOverrides.realEstate.push(realEstateReturn);
-        yearlyReturnOverrides.cash.push(cashReturn);
-        yearlyReturnOverrides.other.push(otherReturn);
-      }
-      paths.push(yearlyReturnOverrides);
-    }
+    // STEP 1: Generate all random paths ONCE at the start using seeded RNG
+    const paths = generateRandomPaths(numSimulations, projectionYears, baseParams, seededRandom);
     
     // STEP 2: Binary search using the SAME paths for each spending level test
     for (let iteration = 0; iteration < 15; iteration++) {
@@ -1181,8 +1043,8 @@ export default function FinancialPlan() {
     cashCagr, otherCagr, savingsAllocationBtc, savingsAllocationStocks, savingsAllocationBonds,
     savingsAllocationCash, savingsAllocationOther, autoTopUpBtcCollateral, btcTopUpTriggerLtv,
     btcTopUpTargetLtv, btcReleaseTriggerLtv, btcReleaseTargetLtv, goals, lifeEvents,
-    getTaxTreatmentFromHolding, getBtcVolatilityForMonteCarlo, customReturnPeriods, tickerReturns,
-    activeTaxLots, costBasisMethod
+    getTaxTreatmentFromHolding, customReturnPeriods, tickerReturns,
+    activeTaxLots, costBasisMethod, btcCagr, stocksCagr, inflationRate, btcReturnModel, assetWithdrawalStrategy
   ]);
 
   // Run Monte Carlo when button clicked
