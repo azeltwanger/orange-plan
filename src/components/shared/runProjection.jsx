@@ -1868,11 +1868,42 @@ export function runUnifiedProjection({
         if (investableAmount > 0) {
           const totalAllocation = savingsAllocationBtc + savingsAllocationStocks + savingsAllocationBonds + savingsAllocationCash + savingsAllocationOther;
           if (totalAllocation > 0) {
-            portfolio.taxable.btc += investableAmount * (savingsAllocationBtc / totalAllocation);
-            portfolio.taxable.stocks += investableAmount * (savingsAllocationStocks / totalAllocation);
-            portfolio.taxable.bonds += investableAmount * (savingsAllocationBonds / totalAllocation);
-            portfolio.taxable.cash += investableAmount * (savingsAllocationCash / totalAllocation);
-            portfolio.taxable.other += investableAmount * (savingsAllocationOther / totalAllocation);
+            // Calculate dollar amounts for each asset class
+            const btcInvestment = investableAmount * (savingsAllocationBtc / totalAllocation);
+            const stocksInvestment = investableAmount * (savingsAllocationStocks / totalAllocation);
+            const bondsInvestment = investableAmount * (savingsAllocationBonds / totalAllocation);
+            const cashInvestment = investableAmount * (savingsAllocationCash / totalAllocation);
+            const otherInvestment = investableAmount * (savingsAllocationOther / totalAllocation);
+            
+            // Add to portfolio dollar values
+            portfolio.taxable.btc += btcInvestment;
+            portfolio.taxable.stocks += stocksInvestment;
+            portfolio.taxable.bonds += bondsInvestment;
+            portfolio.taxable.cash += cashInvestment;
+            portfolio.taxable.other += otherInvestment;
+            
+            // Create tax lot for BTC purchase (if any BTC was purchased)
+            if (btcInvestment > 0 && cumulativeBtcPrice > 0) {
+              const btcQuantityPurchased = btcInvestment / cumulativeBtcPrice;
+              
+              // Add to running tax lots for proper cost basis tracking during withdrawals
+              runningTaxLots.push({
+                id: `investment-year-${i}`,
+                lot_id: `investment-year-${i}`,
+                asset_ticker: 'BTC',
+                quantity: btcQuantityPurchased,
+                remaining_quantity: btcQuantityPurchased,
+                price_per_unit: cumulativeBtcPrice,
+                cost_basis: btcInvestment,
+                date: `${year}-01-01`,
+                account_type: 'taxable',
+                source: 'investment',
+              });
+              
+              if (DEBUG) {
+                console.log(`  New BTC tax lot created: ${btcQuantityPurchased.toFixed(6)} BTC @ $${Math.round(cumulativeBtcPrice).toLocaleString()} = $${Math.round(btcInvestment).toLocaleString()}`);
+              }
+            }
           } else {
             portfolio.taxable.cash += investableAmount;
           }
