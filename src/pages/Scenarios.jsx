@@ -2212,10 +2212,18 @@ export default function Scenarios() {
                               <Select
                                 value={realloc.sell_holding_id}
                                 onValueChange={(v) => {
+                                  console.log('=== Asset to Sell onValueChange ===');
+                                  console.log('Selected value (v):', v);
+                                  console.log('Current realloc.id:', realloc.id);
+                                  console.log('holdingsOptions:', holdingsOptions);
                                   const selectedHolding = holdingsOptions.find(h => h.id === v);
+                                  console.log('Found selectedHolding:', selectedHolding);
                                   const defaultDest = getDefaultDestination(selectedHolding?.accountType);
+                                  console.log('defaultDest:', defaultDest);
+                                  console.log('About to call updateAssetReallocation...');
                                   updateAssetReallocation(realloc.id, 'sell_holding_id', v);
                                   updateAssetReallocation(realloc.id, 'destination_account_type', defaultDest);
+                                  console.log('updateAssetReallocation calls complete');
                                 }}
                               >
                                 <SelectTrigger className="bg-zinc-800 border-zinc-700 h-9 text-sm text-zinc-200">
