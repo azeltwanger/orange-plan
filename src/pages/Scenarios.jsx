@@ -160,6 +160,8 @@ export default function Scenarios() {
     savings_allocation_bonds_override: '',
     savings_allocation_cash_override: '',
     savings_allocation_other_override: '',
+    investment_mode_override: '',
+    monthly_investment_amount_override: '',
     btc_return_model_override: '',
     custom_return_periods_override: {},
     ticker_returns_override: {},
@@ -354,6 +356,9 @@ export default function Scenarios() {
     const savingsAllocationCash = effectiveSettings.savings_allocation_cash_override ?? effectiveSettings.savings_allocation_cash ?? 0;
     const savingsAllocationOther = effectiveSettings.savings_allocation_other_override ?? effectiveSettings.savings_allocation_other ?? 0;
 
+    const investmentMode = effectiveSettings.investment_mode_override || effectiveSettings.investment_mode || 'all_surplus';
+    const monthlyInvestmentAmount = effectiveSettings.monthly_investment_amount_override ?? effectiveSettings.monthly_investment_amount ?? 0;
+
     // Use shared helper for comprehensive annual savings (EXACT match with FinancialPlan.jsx)
     const grossAnnualIncome = effectiveSettings.gross_annual_income_override ?? effectiveSettings.gross_annual_income ?? 100000;
     const currentAnnualSpending = effectiveSettings.current_annual_spending_override ?? effectiveSettings.current_annual_spending ?? 80000;
@@ -463,6 +468,8 @@ export default function Scenarios() {
       savingsAllocationBonds,
       savingsAllocationCash,
       savingsAllocationOther,
+      investmentMode,
+      monthlyInvestmentAmount,
       autoTopUpBtcCollateral: effectiveSettings.auto_top_up_btc_collateral ?? true,
       btcTopUpTriggerLtv: effectiveSettings.btc_top_up_trigger_ltv || 70,
       btcTopUpTargetLtv: effectiveSettings.btc_top_up_target_ltv || 50,
@@ -891,6 +898,8 @@ export default function Scenarios() {
             savings_allocation_bonds_override: selectedScenario.savings_allocation_bonds_override,
             savings_allocation_cash_override: selectedScenario.savings_allocation_cash_override,
             savings_allocation_other_override: selectedScenario.savings_allocation_other_override,
+            investment_mode_override: selectedScenario.investment_mode_override,
+            monthly_investment_amount_override: selectedScenario.monthly_investment_amount_override,
             // New fields for Monte Carlo
             btc_return_model_override: selectedScenario.btc_return_model_override,
             custom_return_periods_override: selectedScenario.custom_return_periods_override,
@@ -1040,6 +1049,8 @@ export default function Scenarios() {
       savings_allocation_btc_override: '', savings_allocation_stocks_override: '',
       savings_allocation_bonds_override: '', savings_allocation_cash_override: '',
       savings_allocation_other_override: '',
+      investment_mode_override: '',
+      monthly_investment_amount_override: '',
       btc_return_model_override: '',
       custom_return_periods_override: {},
       ticker_returns_override: {},
@@ -1096,6 +1107,8 @@ export default function Scenarios() {
       savings_allocation_bonds_override: form.savings_allocation_bonds_override !== '' ? parseFloat(form.savings_allocation_bonds_override) : null,
       savings_allocation_cash_override: form.savings_allocation_cash_override !== '' ? parseFloat(form.savings_allocation_cash_override) : null,
       savings_allocation_other_override: form.savings_allocation_other_override !== '' ? parseFloat(form.savings_allocation_other_override) : null,
+      investment_mode_override: form.investment_mode_override || null,
+      monthly_investment_amount_override: form.monthly_investment_amount_override ? Number(form.monthly_investment_amount_override) : null,
       btc_return_model_override: form.btc_return_model_override || null,
       custom_return_periods_override: (form.custom_return_periods_override && Object.keys(form.custom_return_periods_override).length > 0) ? form.custom_return_periods_override : null,
       ticker_returns_override: (form.ticker_returns_override && Object.keys(form.ticker_returns_override).length > 0) ? form.ticker_returns_override : null,
@@ -1138,6 +1151,8 @@ export default function Scenarios() {
       savings_allocation_bonds_override: scenario.savings_allocation_bonds_override ?? '',
       savings_allocation_cash_override: scenario.savings_allocation_cash_override ?? '',
       savings_allocation_other_override: scenario.savings_allocation_other_override ?? '',
+      investment_mode_override: scenario.investment_mode_override || '',
+      monthly_investment_amount_override: scenario.monthly_investment_amount_override ?? '',
       btc_return_model_override: scenario.btc_return_model_override || '',
       custom_return_periods_override: scenario.custom_return_periods_override || {},
       ticker_returns_override: scenario.ticker_returns_override || {},
@@ -1947,6 +1962,45 @@ export default function Scenarios() {
                     className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
                   />
                 </div>
+              </div>
+            </CollapsibleFormSection>
+
+            {/* Investment Strategy */}
+            <CollapsibleFormSection title="INVESTMENT STRATEGY" defaultOpen={false}>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-zinc-300 text-xs">Investment Mode</Label>
+                  <Select 
+                    value={form.investment_mode_override || ''} 
+                    onValueChange={(v) => setForm({ ...form, investment_mode_override: v })}
+                  >
+                    <SelectTrigger className="bg-zinc-800 border-zinc-700 text-zinc-200">
+                      <SelectValue placeholder={`Current: ${settings.investment_mode === 'custom' ? 'Custom Monthly Amount' : 'Invest All Surplus'}`} />
+                    </SelectTrigger>
+                    <SelectContent className="bg-zinc-900 border-zinc-700">
+                      <SelectItem value="all_surplus" className="text-zinc-200 focus:text-white">Invest All Surplus</SelectItem>
+                      <SelectItem value="custom" className="text-zinc-200 focus:text-white">Custom Monthly Amount</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {(form.investment_mode_override === 'custom' || (!form.investment_mode_override && settings.investment_mode === 'custom')) && (
+                  <div className="space-y-2">
+                    <Label className="text-zinc-300 text-xs">Monthly Investment Amount ($)</Label>
+                    <Input 
+                      type="number" 
+                      placeholder={String(settings.monthly_investment_amount || 0)}
+                      value={form.monthly_investment_amount_override} 
+                      onChange={(e) => setForm({ ...form, monthly_investment_amount_override: e.target.value })} 
+                      className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
+                    />
+                    <p className="text-xs text-zinc-500">
+                      {form.monthly_investment_amount_override 
+                        ? `$${(Number(form.monthly_investment_amount_override) * 12).toLocaleString()}/year will be invested. Remaining surplus stays as cash.`
+                        : 'Enter monthly amount to invest from surplus income'}
+                    </p>
+                  </div>
+                )}
               </div>
             </CollapsibleFormSection>
 
