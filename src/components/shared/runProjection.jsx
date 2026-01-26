@@ -2258,7 +2258,8 @@ export function runUnifiedProjection({
     // Debug: Log BTC lot tracking at end of year
     if (DEBUG && i <= 2) {
       const totalBtcInLots = runningTaxLots.reduce((sum, lot) => sum + (lot.remaining_quantity || 0), 0);
-      console.log(`  End of Year ${i}: portfolio.taxable.btc = $${Math.round(portfolio.taxable.btc).toLocaleString()}, BTC in lots = ${totalBtcInLots.toFixed(6)}, liquidBtc calc = ${(getAssetTotal('btc') / cumulativeBtcPrice).toFixed(6)}`);
+      const totalBtcValue = portfolio.taxable.btc + portfolio.taxDeferred.btc + portfolio.taxFree.btc;
+      console.log(`  End of Year ${i}: portfolio.taxable.btc = $${Math.round(portfolio.taxable.btc).toLocaleString()}, BTC in lots = ${totalBtcInLots.toFixed(6)}, liquidBtc calc = ${(totalBtcValue / cumulativeBtcPrice).toFixed(6)}`);
     }
 
         // Calculate totals
