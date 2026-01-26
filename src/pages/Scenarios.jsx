@@ -800,15 +800,36 @@ export default function Scenarios() {
           taxLots: [], // Use aggregate basis for Monte Carlo speed
           DEBUG: false,
         });
-        
-        // Log portfolio at retirement for first simulation of first iteration only
+
+        // Detailed year-by-year logging for first simulation of first iteration
         if (iteration === 0 && i === 0) {
+          console.log(`=== Detailed Year-by-Year for Retire ${baseParams.retirementAge} ===`);
+          console.log(`currentAge: ${baseParams.currentAge}, retirementAge: ${baseParams.retirementAge}, lifeExpectancy: ${baseParams.lifeExpectancy}`);
+          console.log(`testSpending (retirement): $${testSpending}, currentAnnualSpending (pre-ret): $${baseParams.currentAnnualSpending}`);
+          console.log(`paths[0].btc.length: ${paths[i]?.btc?.length}, yearByYear.length: ${result.yearByYear?.length}`);
+          console.log(`Portfolio at start (Year 0): $${((result.yearByYear?.[0]?.total || 0) / 1000).toFixed(0)}K`);
+
+          // Show first 10 years
+          result.yearByYear?.slice(0, 10).forEach((year, idx) => {
+            const age = baseParams.currentAge + idx;
+            const isRetired = age >= baseParams.retirementAge;
+            console.log(`Year ${idx} (Age ${age}): Total $${((year.total || 0)/1000).toFixed(0)}K, Spending $${((year.totalSpending || 0)/1000).toFixed(0)}K, ${isRetired ? 'RETIRED' : 'pre-ret'}`);
+          });
+
+          // Show last 5 years
+          console.log('... last 5 years:');
+          result.yearByYear?.slice(-5).forEach((year, idx) => {
+            const yearNum = result.yearByYear.length - 5 + idx;
+            const age = baseParams.currentAge + yearNum;
+            console.log(`Year ${yearNum} (Age ${age}): Total $${((year.total || 0)/1000).toFixed(0)}K, survives: ${result.survives}`);
+          });
+
           const retirementYearIndex = baseParams.retirementAge - baseParams.currentAge;
           const retirementYearData = result.yearByYear?.[retirementYearIndex];
           const portfolioAtRetirement = retirementYearData?.total || 0;
-          console.log(`Retire ${baseParams.retirementAge}: Portfolio at retirement: $${(portfolioAtRetirement / 1000).toFixed(0)}K`);
+          console.log(`Portfolio at retirement (Year ${retirementYearIndex}, Age ${baseParams.retirementAge}): $${(portfolioAtRetirement / 1000).toFixed(0)}K`);
         }
-        
+
         if (result.survives) successCount++;
       }
       
