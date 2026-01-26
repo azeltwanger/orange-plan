@@ -773,7 +773,7 @@ export default function Scenarios() {
   }, []);
 
   // Run Monte Carlo comparison with SAME random paths for both baseline and scenario
-  const runMonteCarloComparison = useCallback((baselineParams, scenarioParams, numSimulations = 1000) => {
+  const runMonteCarloComparison = useCallback((baselineParams, scenarioParams, numSimulations = 500) => {
     const projectionYears = Math.max(
       baselineParams.lifeExpectancy - baselineParams.currentAge + 1,
       scenarioParams ? scenarioParams.lifeExpectancy - scenarioParams.currentAge + 1 : 0
