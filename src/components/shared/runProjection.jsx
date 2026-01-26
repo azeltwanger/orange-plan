@@ -1901,7 +1901,10 @@ export function runUnifiedProjection({
               });
               
               if (DEBUG) {
-                console.log(`  New BTC tax lot created: ${btcQuantityPurchased.toFixed(6)} BTC @ $${Math.round(cumulativeBtcPrice).toLocaleString()} = $${Math.round(btcInvestment).toLocaleString()}`);
+                console.log(`  Year ${i}: Created investment tax lot - ${btcQuantityPurchased.toFixed(6)} BTC @ $${cumulativeBtcPrice.toLocaleString()}`);
+                console.log(`  Total runningTaxLots count: ${runningTaxLots.length}`);
+                const totalBtcInLots = runningTaxLots.reduce((sum, lot) => sum + (lot.remaining_quantity || 0), 0);
+                console.log(`  Total BTC quantity in all lots: ${totalBtcInLots.toFixed(6)}`);
               }
             }
           } else {
@@ -2251,6 +2254,12 @@ export function runUnifiedProjection({
         });
 
         totalDividendIncome = yearQualifiedDividends + yearNonQualifiedDividends;
+
+    // Debug: Log BTC lot tracking at end of year
+    if (DEBUG && i <= 2) {
+      const totalBtcInLots = runningTaxLots.reduce((sum, lot) => sum + (lot.remaining_quantity || 0), 0);
+      console.log(`  End of Year ${i}: portfolio.taxable.btc = $${Math.round(portfolio.taxable.btc).toLocaleString()}, BTC in lots = ${totalBtcInLots.toFixed(6)}, liquidBtc calc = ${(getAssetTotal('btc') / cumulativeBtcPrice).toFixed(6)}`);
+    }
 
         // Calculate totals
     const currentTotalEncumberedBtc = Object.values(encumberedBtc).reduce((sum, amount) => sum + amount, 0);
