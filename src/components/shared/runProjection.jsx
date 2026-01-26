@@ -1429,6 +1429,12 @@ export function runUnifiedProjection({
       if (portfolio.realEstate >= GROWTH_DUST_THRESHOLD && yearRealEstateGrowth !== 0) portfolio.realEstate *= (1 + yearRealEstateGrowth / 100);
       else if (portfolio.realEstate < GROWTH_DUST_THRESHOLD) portfolio.realEstate = 0;
       
+      // Capture beginning-of-year values for dividend calculation (Average Balance Method)
+      const beginningYearValues = holdingValues.map(hv => ({
+        ticker: hv.ticker,
+        beginningValue: hv.currentValue
+      }));
+      
       // Update tracked holding values for dividend calculations
       holdingValues.forEach(hv => {
         if (hv.currentValue < 1) {
@@ -1468,40 +1474,58 @@ export function runUnifiedProjection({
         hv.currentValue *= (1 + growthRate / 100);
       });
       
+      // Capture beginning-of-year values for reallocation dividends (Average Balance Method)
+      const beginningReallocValues = executedReallocations.map(r => ({
+        id: r.id,
+        beginningValue: r.currentValue
+      }));
+      
       // Update executed reallocation values
       executedReallocations.forEach(realloc => {
         if (realloc.currentValue < 1) {
           realloc.currentValue = 0;
           return;
         }
-        realloc.currentValue *= (1 + (realloc.buy_cagr || effectiveStocksGrowthThisYear) / 100);
+        realloc.currentValue *= (1 + (realloc.buy_cagr || effectiveTaxableStocksGrowth) / 100);
       });
     }
 
-    // Calculate dividend income from holdings (only taxable accounts generate taxable dividends)
-    // Tax-deferred and tax-free accounts reinvest dividends without immediate tax
-    // Real estate income (rental/REITs) is included and treated as non-qualified (ordinary income)
-    holdingValues.forEach(hv => {
-      if (hv.dividendYield > 0 && hv.currentValue > 0 && (hv.taxTreatment === 'taxable' || hv.taxTreatment === 'real_estate')) {
-        const annualDividend = hv.currentValue * (hv.dividendYield / 100);
-        // Real estate income (rental/REITs) is typically non-qualified (taxed as ordinary income)
-        const isQualified = hv.taxTreatment === 'real_estate' ? false : hv.dividendQualified;
-        if (isQualified) {
-          yearQualifiedDividends += annualDividend;
-        } else {
-          yearNonQualifiedDividends += annualDividend;
+    // Calculate dividend income using Average Balance Method
+    // Dividends = (Beginning Value + Ending Value) / 2 × Yield
+    // This approximates receiving dividends throughout the year (matches Fidelity/Schwab)
+    holdingValues.forEach((hv, index) => {
+      if (hv.dividendYield > 0 && (hv.taxTreatment === 'taxable' || hv.taxTreatment === 'real_estate')) {
+        const beginningValue = i > 0 ? (beginningYearValues[index]?.beginningValue || 0) : hv.currentValue;
+        const endingValue = hv.currentValue;
+        const averageValue = (beginningValue + endingValue) / 2;
+        
+        if (averageValue > 0) {
+          const annualDividend = averageValue * (hv.dividendYield / 100);
+          // Real estate income (rental/REITs) is typically non-qualified (taxed as ordinary income)
+          const isQualified = hv.taxTreatment === 'real_estate' ? false : hv.dividendQualified;
+          if (isQualified) {
+            yearQualifiedDividends += annualDividend;
+          } else {
+            yearNonQualifiedDividends += annualDividend;
+          }
         }
       }
     });
     
-    // Calculate dividend income from executed asset reallocations
-    executedReallocations.forEach(realloc => {
-      if (realloc.buy_dividend_yield > 0 && realloc.currentValue > 0) {
-        const annualDividend = realloc.currentValue * (realloc.buy_dividend_yield / 100);
-        if (realloc.buy_dividend_qualified !== false) {
-          yearQualifiedDividends += annualDividend;
-        } else {
-          yearNonQualifiedDividends += annualDividend;
+    // Calculate dividend income from executed asset reallocations (Average Balance Method)
+    executedReallocations.forEach((realloc, index) => {
+      if (realloc.buy_dividend_yield > 0) {
+        const beginningValue = i > 0 ? (beginningReallocValues[index]?.beginningValue || 0) : realloc.currentValue;
+        const endingValue = realloc.currentValue;
+        const averageValue = (beginningValue + endingValue) / 2;
+        
+        if (averageValue > 0) {
+          const annualDividend = averageValue * (realloc.buy_dividend_yield / 100);
+          if (realloc.buy_dividend_qualified !== false) {
+            yearQualifiedDividends += annualDividend;
+          } else {
+            yearNonQualifiedDividends += annualDividend;
+          }
         }
       }
     });
