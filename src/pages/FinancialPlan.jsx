@@ -4525,12 +4525,12 @@ export default function FinancialPlan() {
                         </span>
                       </TooltipTrigger>
                       <TooltipContent side="bottom" className="max-w-[300px] bg-zinc-800 border-zinc-700 text-zinc-200 text-sm p-3">
-                        <p>We simulate 1,000 different market futures, some with strong returns, some with crashes, to see how often your plan succeeds.</p>
+                        <p>We simulate 500 different market futures, some with strong returns, some with crashes, to see how often your plan succeeds.</p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
                 </h3>
-                <p className="text-sm text-zinc-500 mt-1">1,000 market scenarios reflecting Bitcoin's volatility patterns</p>
+                <p className="text-sm text-zinc-500 mt-1">500 market scenarios reflecting Bitcoin's volatility patterns</p>
               </div>
             </div>
 
