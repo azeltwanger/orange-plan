@@ -956,10 +956,9 @@ export default function Scenarios() {
           const scenarioMaxSpending = findMaxSustainableSpendingWithPaths(scenarioParams, safeSpendingSimulations, scenarioSafeSpendingPaths);
           
           // Debug: Run sim 0 at $40K for BOTH and compare year-by-year
-          console.log('\n=== DIRECT COMPARISON: Sim 0 at $40K ===');
+          console.log('\n=== DIRECT COMPARISON: Sim 0 at $40K spending ===');
           const debugSpending = 40000;
 
-          // Baseline sim 0
           const baseDebugParams = { ...baselineParams, retirementAnnualSpending: debugSpending };
           const baseResult = runUnifiedProjection({
             ...baseDebugParams,
@@ -968,7 +967,6 @@ export default function Scenarios() {
             DEBUG: false,
           });
 
-          // Scenario sim 0  
           const scenDebugParams = { ...scenarioParams, retirementAnnualSpending: debugSpending };
           const scenResult = runUnifiedProjection({
             ...scenDebugParams,
@@ -977,23 +975,21 @@ export default function Scenarios() {
             DEBUG: false,
           });
 
-          console.log('Baseline (retire', baselineParams.retirementAge, '):');
-          for (let y = 0; y <= 10; y++) {
-            const yr = baseResult.yearByYear[y];
+          console.log('BASELINE (retire ' + baselineParams.retirementAge + ') - Sim 0 at $40K:');
+          baseResult.yearByYear.slice(0, 15).forEach((yr, y) => {
             const age = baselineParams.currentAge + y;
             const isRet = age >= baselineParams.retirementAge;
-            console.log(`  Year ${y} Age ${age}: $${((yr?.total || 0)/1000).toFixed(0)}K ${isRet ? 'RET' : 'pre'}`);
-          }
-          console.log(`  Survives: ${baseResult.survives}`);
+            console.log(`  Y${y} Age${age}: $${((yr?.total || 0)/1000).toFixed(0)}K ${isRet ? 'RET' : 'pre'}`);
+          });
+          console.log(`  SURVIVES: ${baseResult.survives}`);
 
-          console.log('Scenario (retire', scenarioParams.retirementAge, '):');
-          for (let y = 0; y <= 10; y++) {
-            const yr = scenResult.yearByYear[y];
+          console.log('SCENARIO (retire ' + scenarioParams.retirementAge + ') - Sim 0 at $40K:');
+          scenResult.yearByYear.slice(0, 15).forEach((yr, y) => {
             const age = scenarioParams.currentAge + y;
             const isRet = age >= scenarioParams.retirementAge;
-            console.log(`  Year ${y} Age ${age}: $${((yr?.total || 0)/1000).toFixed(0)}K ${isRet ? 'RET' : 'pre'}`);
-          }
-          console.log(`  Survives: ${scenResult.survives}`);
+            console.log(`  Y${y} Age${age}: $${((yr?.total || 0)/1000).toFixed(0)}K ${isRet ? 'RET' : 'pre'}`);
+          });
+          console.log(`  SURVIVES: ${scenResult.survives}`);
 
           setScenarioMonteCarloResults({
             successRate: mcResults.scenarioSuccessRate,
