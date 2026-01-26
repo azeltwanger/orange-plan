@@ -1055,6 +1055,89 @@ export default function FinancialPlan() {
       if (high - low <= 5000) break;
     }
     
+    // Debug: Run one more time at $25K to compare specific simulations
+    if (retirementAge === 32 || retirementAge === 35) {
+      console.log(`\n=== Comparing individual sims at $25K for Retire ${retirementAge} ===`);
+      const debugSpending = 25000;
+      
+      let failedSims = [];
+      for (let i = 0; i < Math.min(paths.length, 20); i++) {
+        const result = runUnifiedProjection({
+          holdings,
+          accounts,
+          liabilities,
+          collateralizedLoans,
+          currentPrice,
+          currentAge,
+          retirementAge,
+          lifeExpectancy,
+          retirementAnnualSpending: debugSpending,
+          effectiveSocialSecurity,
+          socialSecurityStartAge,
+          otherRetirementIncome,
+          annualSavings,
+          incomeGrowth,
+          grossAnnualIncome,
+          currentAnnualSpending,
+          filingStatus,
+          stateOfResidence,
+          contribution401k,
+          employer401kMatch,
+          contributionRothIRA,
+          contributionTraditionalIRA,
+          contributionHSA,
+          hsaFamilyCoverage,
+          getBtcGrowthRate,
+          effectiveInflation,
+          effectiveStocksCagr,
+          bondsCagr,
+          realEstateCagr,
+          cashCagr,
+          otherCagr,
+          savingsAllocationBtc,
+          savingsAllocationStocks,
+          savingsAllocationBonds,
+          savingsAllocationCash,
+          savingsAllocationOther,
+          autoTopUpBtcCollateral,
+          btcTopUpTriggerLtv,
+          btcTopUpTargetLtv,
+          btcReleaseTriggerLtv,
+          btcReleaseTargetLtv,
+          goals,
+          lifeEvents,
+          getTaxTreatmentFromHolding,
+          yearlyReturnOverrides: paths[i],
+          customReturnPeriods,
+          tickerReturns,
+          taxLots: [],
+          costBasisMethod,
+          DEBUG: false,
+        });
+        
+        if (!result.survives) {
+          const retIdx = retirementAge - currentAge;
+          const portfolioAtRet = result.yearByYear?.[retIdx]?.total || 0;
+          
+          // Find depletion year
+          let depletionAge = 'Unknown';
+          for (let y = 0; y < result.yearByYear.length; y++) {
+            if ((result.yearByYear[y]?.total || 0) <= 0) {
+              depletionAge = currentAge + y;
+              break;
+            }
+          }
+          
+          failedSims.push({ sim: i, portfolioAtRet, depletionAge });
+        }
+      }
+      
+      console.log(`Retire ${retirementAge}: ${failedSims.length}/20 sims failed at $25K`);
+      failedSims.slice(0, 5).forEach(f => {
+        console.log(`  Sim ${f.sim}: Portfolio@Ret $${(f.portfolioAtRet/1000).toFixed(0)}K, Depleted at age ${f.depletionAge}`);
+      });
+    }
+    
     return safeSpending;
   }, [
     holdings, accounts, liabilities, collateralizedLoans, currentPrice, currentAge, retirementAge,
