@@ -1238,10 +1238,6 @@ export default function FinancialPlan() {
   const yearsToRetirement = Math.max(0, retirementAge - currentAge);
   const inflationAdjustedRetirementSpending = retirementAnnualSpending * Math.pow(1 + inflationRate / 100, yearsToRetirement);
 
-  // Required nest egg based on income-based withdrawals
-  const effectiveWithdrawalRate = Math.max(0.03, 1 / yearsInRetirement);
-  const requiredNestEgg = inflationAdjustedRetirementSpending / effectiveWithdrawalRate;
-
   // Calculate retirement status and insights
   const retirementStatus = useMemo(() => {
     // PRIORITY 1: If portfolio depletes at any point → Critical
@@ -1603,8 +1599,7 @@ export default function FinancialPlan() {
     : 0;
   const totalLifetimeWithdrawals = retirementYears.reduce((sum, p) => sum + p.yearWithdrawal, 0);
 
-  // Check if retirement is feasible: portfolio at retirement meets required nest egg
-  const canRetire = retirementValue >= requiredNestEgg * 0.8; // Within 80% of required
+
 
   const eventIcons = {
     income_change: Briefcase,
@@ -4452,7 +4447,6 @@ export default function FinancialPlan() {
               <div>
                 <p className="text-sm text-zinc-400">At Retirement (Age {retirementAge})</p>
                 <p className="text-2xl font-bold text-orange-400">{formatNumber(retirementValue, 2)}</p>
-                <p className="text-xs text-zinc-500">Need: {formatNumber(requiredNestEgg)}</p>
               </div>
               <div>
                 <div className="flex items-center gap-1">
