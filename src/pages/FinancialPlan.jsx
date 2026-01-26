@@ -1055,6 +1055,86 @@ export default function FinancialPlan() {
       if (high - low <= 5000) break;
     }
     
+    // Debug: Compare failures at $40K spending
+    if (retirementAge === 32 || retirementAge === 35) {
+      console.log(`\n=== Debug: Comparing sims at $40K for Retire ${retirementAge} ===`);
+      const debugSpending = 40000;
+      let failCount = 0;
+      let failDetails = [];
+      
+      for (let i = 0; i < paths.length; i++) {
+        const result = runUnifiedProjection({
+          holdings,
+          accounts,
+          liabilities,
+          collateralizedLoans,
+          currentPrice,
+          currentAge,
+          retirementAge,
+          lifeExpectancy,
+          retirementAnnualSpending: debugSpending,
+          effectiveSocialSecurity,
+          socialSecurityStartAge,
+          otherRetirementIncome,
+          annualSavings,
+          incomeGrowth,
+          grossAnnualIncome,
+          currentAnnualSpending,
+          filingStatus,
+          stateOfResidence,
+          contribution401k,
+          employer401kMatch,
+          contributionRothIRA,
+          contributionTraditionalIRA,
+          contributionHSA,
+          hsaFamilyCoverage,
+          getBtcGrowthRate,
+          effectiveInflation,
+          effectiveStocksCagr,
+          bondsCagr,
+          realEstateCagr,
+          cashCagr,
+          otherCagr,
+          savingsAllocationBtc,
+          savingsAllocationStocks,
+          savingsAllocationBonds,
+          savingsAllocationCash,
+          savingsAllocationOther,
+          autoTopUpBtcCollateral,
+          btcTopUpTriggerLtv,
+          btcTopUpTargetLtv,
+          btcReleaseTriggerLtv,
+          btcReleaseTargetLtv,
+          goals,
+          lifeEvents,
+          getTaxTreatmentFromHolding,
+          yearlyReturnOverrides: paths[i],
+          customReturnPeriods,
+          tickerReturns,
+          taxLots: [],
+          costBasisMethod,
+          DEBUG: false,
+        });
+        
+        if (!result.survives) {
+          failCount++;
+          if (failDetails.length < 5) {
+            const retIdx = retirementAge - currentAge;
+            failDetails.push({
+              sim: i,
+              portfolioAtRet: result.yearByYear?.[retIdx]?.total || 0,
+              finalTotal: result.yearByYear?.[result.yearByYear.length - 1]?.total || 0
+            });
+          }
+        }
+      }
+      
+      console.log(`Retire ${retirementAge}: ${failCount}/${paths.length} failed at $40K`);
+      failDetails.forEach(f => {
+        console.log(`  Sim ${f.sim}: Portfolio@Ret $${(f.portfolioAtRet/1000).toFixed(0)}K | Final $${(f.finalTotal/1000).toFixed(0)}K`);
+      });
+    }
+    
     // Debug: Run one more time at $25K to compare specific simulations
     if (retirementAge === 32 || retirementAge === 35) {
       console.log(`\n=== Comparing individual sims at $25K for Retire ${retirementAge} ===`);
