@@ -668,12 +668,37 @@ export function runUnifiedProjection({
     return defaultRate;
   };
 
+  // Helper to get total portfolio for debug logging
+  const getPortfolioTotal = () => {
+    return getAccountTotal('taxable') + getAccountTotal('taxDeferred') + getAccountTotal('taxFree') + portfolio.realEstate;
+  };
+
   // Main projection loop
   for (let i = 0; i <= lifeExpectancy - currentAge; i++) {
     const year = currentYear + i;
     const age = currentAge + i;
     const isRetired = age >= retirementAge;
     const yearsFromNow = i;
+
+    // DEBUG: Log first 2 years to diagnose scenario comparison issues
+    if (i <= 1 && DEBUG) {
+      console.log(`\n=== runUnifiedProjection Year ${i} (Age ${age}) DEBUG ===`);
+      console.log('isRetired:', isRetired);
+      console.log('retirementAge param:', retirementAge);
+      console.log('currentAnnualSpending param:', currentAnnualSpending);
+      console.log('retirementAnnualSpending param:', retirementAnnualSpending);
+      console.log('grossAnnualIncome param:', grossAnnualIncome);
+      console.log('Portfolio BEFORE year processing:', JSON.stringify({
+        taxableBtc: Math.round(portfolio.taxable?.btc || 0),
+        taxableStocks: Math.round(portfolio.taxable?.stocks || 0),
+        taxableCash: Math.round(portfolio.taxable?.cash || 0),
+        taxableTotal: Math.round(getAccountTotal('taxable')),
+        taxDeferredTotal: Math.round(getAccountTotal('taxDeferred')),
+        taxFreeTotal: Math.round(getAccountTotal('taxFree')),
+        realEstate: Math.round(portfolio.realEstate || 0),
+        grandTotal: Math.round(getPortfolioTotal())
+      }));
+    }
 
     // EARLY EXIT: If already depleted, zero everything and skip all calculations
     // Also check if total liquid assets are essentially zero (under $100) to catch edge cases
