@@ -2079,16 +2079,16 @@ export function runUnifiedProjection({
             yearNonQualifiedDividends += annualDividend;
           }
         }
-      }
-    });
-    
-    // Calculate dividend income from executed asset reallocations
-    executedReallocations.forEach((realloc, index) => {
-      if (realloc.buy_dividend_yield > 0 && realloc.currentValue > 0) {
+        }
+        });
+
+        // Calculate dividend income from executed asset reallocations
+        executedReallocations.forEach((realloc, index) => {
+        if (realloc.buy_dividend_yield > 0 && realloc.currentValue > 0) {
         const beginningValue = i > 0 ? (beginningReallocValues[index]?.beginningValue || 0) : realloc.currentValue;
         const endingValue = realloc.currentValue;
         const averageValue = (beginningValue + endingValue) / 2;
-        
+
         if (averageValue > 0) {
           const annualDividend = averageValue * (realloc.buy_dividend_yield / 100);
           if (realloc.buy_dividend_qualified !== false) {
@@ -2097,10 +2097,12 @@ export function runUnifiedProjection({
             yearNonQualifiedDividends += annualDividend;
           }
         }
-      }
-    });
-    
-    // Calculate totals
+        }
+        });
+
+        totalDividendIncome = yearQualifiedDividends + yearNonQualifiedDividends;
+
+        // Calculate totals
     const currentTotalEncumberedBtc = Object.values(encumberedBtc).reduce((sum, amount) => sum + amount, 0);
     const encumberedBtcValueThisYear = currentTotalEncumberedBtc * cumulativeBtcPrice;
     
