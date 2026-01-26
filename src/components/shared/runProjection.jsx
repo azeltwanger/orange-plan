@@ -494,6 +494,10 @@ export function runUnifiedProjection({
   let cumulativeBtcPrice = currentPrice;
   let cumulativeSavings = 0;
   const liquidationEvents = [];
+
+  // Initialize for Average Balance Method for dividends (declared outside loop)
+  let beginningYearValues = [];
+  let beginningReallocValues = [];
   
   // Create a mutable copy of tax lots for tracking remaining quantities through projection
   // Always use original quantity for projections - remaining_quantity is only for tracking within this projection run
