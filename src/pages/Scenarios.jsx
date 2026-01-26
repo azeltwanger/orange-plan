@@ -9,13 +9,8 @@ import {
   createSeededRNG, 
   generateMonteCarloSeed, 
   generateRandomPaths,
+  regenerateReturnsForParams,
   getBtcVolatilityForMonteCarlo,
-  BTC_SKEW_PARAM,
-  BTC_DEGREES_OF_FREEDOM,
-  ASSET_CORRELATIONS,
-  generateCorrelatedReturns,
-  randomNormal,
-  randomSkewedStudentT,
   MONTE_CARLO_VERSION 
 } from '../components/shared/monteCarloSimulation';
 import { Button } from "@/components/ui/button";
@@ -637,129 +632,7 @@ export default function Scenarios() {
   // Remove duplicates
   btcMilestones = btcMilestones.filter((m, i, arr) => i === 0 || m.age !== arr[i - 1].age);
 
-  // Monte Carlo constants and functions now imported from shared module
-
-  // Generate random paths ONCE for consistent A/B comparison - NOW USES SHARED MODULE
-  const generateRandomPathsLocal = useCallback((numSimulations, projectionYears, baseParams, seededRandom) => {
-    const paths = [];
-
-    for (let sim = 0; sim < numSimulations; sim++) {
-      const yearlyReturnOverrides = {
-        btc: [],
-        stocks: [],
-        bonds: [],
-        realEstate: [],
-        cash: [],
-        other: [],
-        // Store the random Z-scores so we can reconstruct with different expected returns
-        zScores: []
-      };
-
-      for (let year = 0; year <= projectionYears; year++) {
-        // Generate independent random numbers using seeded RNG
-        // Use Skewed Student-t for BTC (fat tails + positive skew), normal for others
-        const independentZ = [
-          randomSkewedStudentT(seededRandom, BTC_DEGREES_OF_FREEDOM, BTC_SKEW_PARAM), // BTC
-          randomNormal(seededRandom), // Stocks
-          randomNormal(seededRandom), // Bonds
-          randomNormal(seededRandom), // Real Estate
-          randomNormal(seededRandom), // Cash
-          randomNormal(seededRandom), // Other
-        ];
-        
-        // Apply correlation matrix to generate correlated shocks
-        const correlatedZ = generateCorrelatedReturns(independentZ);
-        const [zBtc, zStocks, zBonds, zRealEstate, zCash, zOther] = correlatedZ;
-
-        // Store Z-scores for potential regeneration with different expected returns
-        yearlyReturnOverrides.zScores.push({ 
-          zBtc, zStocks, zBonds, zRealEstate, zCash, zOther,
-          // Also store independent for scenario regeneration
-          independent: independentZ 
-        });
-
-        // BTC: Use getBtcGrowthRate as expected return, add volatility
-        const expectedBtcReturn = baseParams.getBtcGrowthRate(year, baseParams.effectiveInflation);
-        const btcVolatility = getBtcVolatilityForMonteCarlo(year);
-        // Expanded caps: -75% (worst year was -73%), +250% (allow fat tail upside)
-        const btcReturn = Math.max(-75, Math.min(250, expectedBtcReturn + btcVolatility * zBtc));
-
-        // Stocks (18% volatility)
-        const stocksVolatilityVal = 18;
-        const stocksReturn = Math.max(-40, Math.min(50, baseParams.effectiveStocksCagr + stocksVolatilityVal * zStocks));
-
-        // Real Estate (+/- 5%)
-        const realEstateReturn = baseParams.realEstateCagr + 5 * zRealEstate;
-
-        // Bonds (+/- 2%)
-        const bondsReturn = baseParams.bondsCagr + 2 * zBonds;
-
-        // Cash (+/- 1%)
-        const cashReturn = baseParams.cashCagr + 1 * zCash;
-
-        // Other (+/- 3%)
-        const otherReturn = baseParams.otherCagr + 3 * zOther;
-
-        yearlyReturnOverrides.btc.push(btcReturn);
-        yearlyReturnOverrides.stocks.push(stocksReturn);
-        yearlyReturnOverrides.bonds.push(bondsReturn);
-        yearlyReturnOverrides.realEstate.push(realEstateReturn);
-        yearlyReturnOverrides.cash.push(cashReturn);
-        yearlyReturnOverrides.other.push(otherReturn);
-      }
-
-      paths.push(yearlyReturnOverrides);
-    }
-
-    return paths;
-  }, []);
-
-  // Regenerate return overrides for a different parameter set using same Z-scores - NOW USES SHARED MODULE
-  const regenerateReturnsForParamsLocal = useCallback((path, params) => {
-    const newOverrides = {
-      btc: [],
-      stocks: [],
-      bonds: [],
-      realEstate: [],
-      cash: [],
-      other: []
-    };
-
-    for (let year = 0; year < path.zScores.length; year++) {
-      const { zBtc, zStocks, zBonds, zRealEstate, zCash, zOther } = path.zScores[year];
-
-      // BTC with scenario's expected return
-      const expectedBtcReturn = params.getBtcGrowthRate(year, params.effectiveInflation);
-      const btcVolatility = getBtcVolatilityForMonteCarlo(year);
-      // Expanded caps: -75% (worst year was -73%), +250% (allow fat tail upside)
-      const btcReturn = Math.max(-75, Math.min(250, expectedBtcReturn + btcVolatility * zBtc));
-
-      // Stocks with scenario's expected return
-      const stocksVolatilityVal = 18;
-      const stocksReturn = Math.max(-40, Math.min(50, params.effectiveStocksCagr + stocksVolatilityVal * zStocks));
-
-      // Real Estate
-      const realEstateReturn = params.realEstateCagr + 5 * zRealEstate;
-
-      // Bonds
-      const bondsReturn = params.bondsCagr + 2 * zBonds;
-
-      // Cash
-      const cashReturn = params.cashCagr + 1 * zCash;
-
-      // Other
-      const otherReturn = params.otherCagr + 3 * zOther;
-
-      newOverrides.btc.push(btcReturn);
-      newOverrides.stocks.push(stocksReturn);
-      newOverrides.bonds.push(bondsReturn);
-      newOverrides.realEstate.push(realEstateReturn);
-      newOverrides.cash.push(cashReturn);
-      newOverrides.other.push(otherReturn);
-    }
-
-    return newOverrides;
-  }, []);
+  // Monte Carlo functions imported from shared module
 
   // Check if scenario affects loan/liquidation parameters
   const scenarioAffectsLiquidation = useCallback((scenario) => {
@@ -784,7 +657,7 @@ export default function Scenarios() {
     const seededRandom = createSeededRNG(seed);
     
     // Generate paths once using baseline params with seeded RNG
-    const paths = generateRandomPathsLocal(numSimulations, projectionYears, baselineParams, seededRandom);
+    const paths = generateRandomPaths(numSimulations, projectionYears, baselineParams, seededRandom);
 
     let baselineSuccess = 0;
     let scenarioSuccess = 0;
@@ -812,7 +685,7 @@ export default function Scenarios() {
 
       // Run scenario with regenerated returns (same Z-scores, different expected returns if changed)
       if (scenarioParams) {
-        const scenarioOverrides = regenerateReturnsForParamsLocal(paths[i], scenarioParams);
+        const scenarioOverrides = regenerateReturnsForParams(paths[i], scenarioParams);
         const scenResult = runUnifiedProjection({
           ...scenarioParams,
           yearlyReturnOverrides: scenarioOverrides,
@@ -839,7 +712,7 @@ export default function Scenarios() {
       scenarioLiquidationRisk: scenarioParams ? (scenarioLiquidations / numSimulations) * 100 : null,
       numSimulations,
     };
-  }, [generateRandomPathsLocal, regenerateReturnsForParamsLocal]);
+  }, []);
 
   // Binary search for max sustainable spending with shared paths
   // If sharedPaths is provided, use those instead of generating new ones
@@ -857,7 +730,7 @@ export default function Scenarios() {
     } else {
       const seed = generateMonteCarloSeed(baseParams, null, holdings, liabilities, accounts, currentPrice);
       const seededRandom = createSeededRNG(seed);
-      paths = generateRandomPathsLocal(numSimulations, projectionYears, baseParams, seededRandom);
+      paths = generateRandomPaths(numSimulations, projectionYears, baseParams, seededRandom);
     }
 
     for (let iteration = 0; iteration < 15; iteration++) {
@@ -888,7 +761,7 @@ export default function Scenarios() {
     }
 
     return maxSpending;
-  }, [generateRandomPathsLocal, holdings, liabilities, accounts, currentPrice]);
+  }, [holdings, liabilities, accounts, currentPrice]);
 
   // Run Monte Carlo for both baseline and scenario
   const handleRunMonteCarlo = useCallback(async () => {
@@ -945,7 +818,7 @@ export default function Scenarios() {
         const projectionYearsForSafeSpending = baselineParams.lifeExpectancy - baselineParams.currentAge + 1;
         const safeSpendingSeed = generateMonteCarloSeed(baselineParams, null, holdings, liabilities, accounts, currentPrice);
         const safeSpendingRandom = createSeededRNG(safeSpendingSeed);
-        const sharedSafeSpendingPaths = generateRandomPathsLocal(safeSpendingSimulations, projectionYearsForSafeSpending, baselineParams, safeSpendingRandom);
+        const sharedSafeSpendingPaths = generateRandomPaths(safeSpendingSimulations, projectionYearsForSafeSpending, baselineParams, safeSpendingRandom);
 
         const baselineMaxSpending = findMaxSustainableSpendingWithPaths(baselineParams, safeSpendingSimulations, sharedSafeSpendingPaths);
         
