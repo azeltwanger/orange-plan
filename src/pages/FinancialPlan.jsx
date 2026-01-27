@@ -1829,7 +1829,8 @@ export default function FinancialPlan() {
             <Settings className="w-5 h-5" />
             Rate Assumptions
           </h3>
-          {/* BTC Return Model Selection */}
+          
+          {/* Section 1: Bitcoin Return Model */}
           <div className="mb-6 p-4 rounded-xl bg-orange-500/5 border border-orange-500/20">
             <Label className="text-zinc-300 font-medium mb-3 block">Bitcoin Return Model</Label>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
@@ -1921,26 +1922,27 @@ export default function FinancialPlan() {
             )}
           </div>
 
-          {/* Holding Overrides Section */}
-          <div className="mt-6 p-4 rounded-xl bg-zinc-800/30 border border-zinc-700">
+          {/* Section 2: Holding Overrides (Collapsible) */}
+          <div className="mb-6">
             <button
               onClick={() => setHoldingOverridesExpanded(!holdingOverridesExpanded)}
-              className="w-full flex items-center justify-between text-left"
+              className="w-full flex items-center justify-between text-left p-3 rounded-lg hover:bg-zinc-800/30 transition-colors"
             >
               <div>
-                <Label className="text-zinc-300 font-medium mb-1 block cursor-pointer">
+                <Label className="text-zinc-300 font-medium block cursor-pointer">
                   Holding Overrides
                 </Label>
-                <p className="text-xs text-zinc-500">
+                <p className="text-xs text-zinc-500 mt-1">
                   {Object.keys(tickerReturns).length > 0 
                     ? `${Object.keys(tickerReturns).length} holding${Object.keys(tickerReturns).length !== 1 ? 's' : ''} configured`
-                    : 'Set custom returns and dividends for specific holdings'}
+                    : 'No overrides'}
                 </p>
               </div>
               {holdingOverridesExpanded ? <ChevronUp className="w-4 h-4 text-zinc-400" /> : <ChevronDown className="w-4 h-4 text-zinc-400" />}
             </button>
 
             {holdingOverridesExpanded && (
+              <div className="mt-3 p-4 rounded-xl bg-zinc-800/30 border border-zinc-700">
               <div className="mt-4 space-y-3">
                 {/* Existing ticker overrides */}
                 {Object.keys(tickerReturns).length > 0 && (
@@ -2168,10 +2170,14 @@ export default function FinancialPlan() {
                   </p>
                 </div>
               </div>
-            )}
+            )
+            }
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* Section 3: Growth Rate Assumptions (CAGR Sliders) */}
+          <div className="p-4 rounded-xl bg-zinc-800/30 border border-zinc-700">
+            <h4 className="font-medium text-zinc-300 mb-4">Growth Rate Assumptions</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {btcReturnModel === 'custom' && (
               <div className="space-y-3">
                 <div className="flex justify-between">
@@ -2234,7 +2240,7 @@ export default function FinancialPlan() {
               </div>
               <Slider value={[incomeGrowth]} onValueChange={([v]) => setIncomeGrowth(v)} min={0} max={10} step={0.5} />
             </div>
-
+            </div>
           </div>
         </div>
       )}
