@@ -171,7 +171,9 @@ export default function Scenarios() {
     dividend_income_qualified: true,
     one_time_events: [],
     asset_reallocations: [],
-    hypothetical_btc_loan: { enabled: false, loan_amount: '', interest_rate: '', collateral_btc: '', ltv: '' }
+    hypothetical_btc_loan: { enabled: false, loan_amount: '', interest_rate: '', collateral_btc: '', ltv: '' },
+    future_btc_loan_rate: '',
+    future_btc_loan_rate_years: ''
   });
 
   // State for Custom Periods Modal
@@ -525,6 +527,9 @@ export default function Scenarios() {
       dividendIncomeQualified,
       assetReallocations,
       hypothetical_btc_loan: effectiveSettings.hypothetical_btc_loan || null,
+      // Future BTC loan rate parameters
+      futureBtcLoanRate: effectiveSettings.future_btc_loan_rate || null,
+      futureBtcLoanRateYears: effectiveSettings.future_btc_loan_rate_years || null,
       // Tax lots for lot-level cost basis tracking
       taxLots: activeTaxLots,
       // Withdrawal strategy parameters from user settings
@@ -584,6 +589,8 @@ export default function Scenarios() {
         one_time_events: selectedScenario.one_time_events,
         asset_reallocations: selectedScenario.asset_reallocations,
         hypothetical_btc_loan: selectedScenario.hypothetical_btc_loan,
+        future_btc_loan_rate: selectedScenario.future_btc_loan_rate,
+        future_btc_loan_rate_years: selectedScenario.future_btc_loan_rate_years,
       };
       const params = buildProjectionParams(overrides);
       return runUnifiedProjection(params);
@@ -953,6 +960,8 @@ export default function Scenarios() {
             one_time_events: selectedScenario.one_time_events,
             asset_reallocations: selectedScenario.asset_reallocations,
             hypothetical_btc_loan: selectedScenario.hypothetical_btc_loan,
+            future_btc_loan_rate: selectedScenario.future_btc_loan_rate,
+            future_btc_loan_rate_years: selectedScenario.future_btc_loan_rate_years,
           };
           scenarioParams = buildProjectionParams(overrides);
         }
@@ -1102,7 +1111,9 @@ export default function Scenarios() {
       dividend_income_qualified: true,
       one_time_events: [],
       asset_reallocations: [],
-      hypothetical_btc_loan: { enabled: false, loan_amount: '', interest_rate: '', collateral_btc: '', ltv: '' }
+      hypothetical_btc_loan: { enabled: false, loan_amount: '', interest_rate: '', collateral_btc: '', ltv: '' },
+      future_btc_loan_rate: '',
+      future_btc_loan_rate_years: ''
     });
   };
 
@@ -1186,6 +1197,8 @@ export default function Scenarios() {
       one_time_events: form.one_time_events || [],
       asset_reallocations: processedReallocations,
       hypothetical_btc_loan: cleanedHypotheticalLoan,
+      future_btc_loan_rate: form.future_btc_loan_rate !== '' ? parseFloat(form.future_btc_loan_rate) : null,
+      future_btc_loan_rate_years: form.future_btc_loan_rate_years !== '' ? parseInt(form.future_btc_loan_rate_years) : null,
     };
 
     if (editingScenario) {
@@ -1229,7 +1242,9 @@ export default function Scenarios() {
       dividend_income_qualified: scenario.dividend_income_qualified ?? true,
       one_time_events: scenario.one_time_events || [],
       asset_reallocations: scenario.asset_reallocations || [],
-      hypothetical_btc_loan: scenario.hypothetical_btc_loan || { enabled: false, loan_amount: '', interest_rate: '', collateral_btc: '', ltv: '' }
+      hypothetical_btc_loan: scenario.hypothetical_btc_loan || { enabled: false, loan_amount: '', interest_rate: '', collateral_btc: '', ltv: '' },
+      future_btc_loan_rate: scenario.future_btc_loan_rate ?? '',
+      future_btc_loan_rate_years: scenario.future_btc_loan_rate_years ?? ''
     });
     setFormOpen(true);
   };
@@ -2600,6 +2615,49 @@ export default function Scenarios() {
                   )}
                 </div>
               )}
+
+              {/* Loan Rate Projection - applies to ALL BTC loans */}
+              <div className="mt-6 pt-4 border-t border-zinc-700">
+                <h4 className="text-sm font-medium text-zinc-300 mb-3">Loan Rate Projection</h4>
+                <p className="text-xs text-zinc-500 mb-3">
+                  Model declining BTC loan rates over time. Applies to all BTC-backed loans in this scenario.
+                </p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-zinc-400 text-xs">Future BTC Loan Rate (%)</Label>
+                    <Input
+                      type="number"
+                      step="0.5"
+                      min="1"
+                      max="15"
+                      placeholder="e.g., 6"
+                      value={form.future_btc_loan_rate || ''}
+                      onChange={(e) => setForm({...form, future_btc_loan_rate: e.target.value})}
+                      className="bg-zinc-900 border-zinc-700 text-zinc-100"
+                    />
+                    <p className="text-xs text-zinc-500 mt-1">Rate loans decline to over time</p>
+                  </div>
+                  <div>
+                    <Label className="text-zinc-400 text-xs">Years to Reach</Label>
+                    <Input
+                      type="number"
+                      step="1"
+                      min="5"
+                      max="30"
+                      placeholder="e.g., 15"
+                      value={form.future_btc_loan_rate_years || ''}
+                      onChange={(e) => setForm({...form, future_btc_loan_rate_years: e.target.value})}
+                      className="bg-zinc-900 border-zinc-700 text-zinc-100"
+                    />
+                    <p className="text-xs text-zinc-500 mt-1">Years until future rate reached</p>
+                  </div>
+                </div>
+                {form.future_btc_loan_rate && form.future_btc_loan_rate_years && (
+                  <div className="mt-3 p-2 bg-zinc-900/50 rounded text-xs text-zinc-400">
+                    Preview: Current loan rates → {form.future_btc_loan_rate}% over {form.future_btc_loan_rate_years} years (linear decline)
+                  </div>
+                )}
+              </div>
             </CollapsibleFormSection>
 
             <div className="flex justify-end gap-3 pt-4 border-t border-zinc-800">
