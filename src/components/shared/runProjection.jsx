@@ -1355,6 +1355,16 @@ export function runUnifiedProjection({
           const additionalBtcNeeded = (targetCollateralValue / cumulativeBtcPrice) - encumberedBtc[loanKey];
           const liquidBtcAvailable = portfolio.taxable.btc / cumulativeBtcPrice;
           
+          console.log('=== LOAN TOP-UP TRIGGERED ===');
+          console.log('Year:', year, 'Age:', age);
+          console.log('Loan:', loan.name || loan.loan_name || 'Collateralized Loan');
+          console.log('LTV before top-up:', currentLTV.toFixed(2) + '%');
+          console.log('Trigger LTV:', triggerLTV);
+          console.log('Target LTV:', targetLTV);
+          console.log('Liquid BTC available:', liquidBtcAvailable.toFixed(4));
+          console.log('BTC needed for top-up:', additionalBtcNeeded.toFixed(4));
+          console.log('Top-up successful:', (additionalBtcNeeded > 0 && liquidBtcAvailable >= additionalBtcNeeded ? 'YES' : 'NO'));
+          
           if (additionalBtcNeeded > 0 && liquidBtcAvailable >= additionalBtcNeeded) {
             // Transfer proportional basis from taxable to encumbered
             const additionalBtcValue = additionalBtcNeeded * cumulativeBtcPrice;
@@ -1392,6 +1402,19 @@ export function runUnifiedProjection({
           const newDebtBalance = Math.max(0, debtBalance - proceedsFromSale);
           const remainingCollateralBtc = totalCollateralBtc - btcToSell;
           
+          console.log('=== LOAN LIQUIDATION ===');
+          console.log('Year:', year, 'Age:', age);
+          console.log('Loan:', loan.name || loan.loan_name || 'Collateralized Loan');
+          console.log('LTV at liquidation:', postTopUpLTV.toFixed(2) + '%');
+          console.log('Liquidation threshold:', liquidationLTV + '%');
+          console.log('Loan balance:', debtBalance.toFixed(2));
+          console.log('Collateral BTC:', totalCollateralBtc.toFixed(4));
+          console.log('Collateral value:', (totalCollateralBtc * cumulativeBtcPrice).toFixed(2));
+          console.log('BTC liquidated:', btcToSell.toFixed(4));
+          console.log('Proceeds from sale:', proceedsFromSale.toFixed(2));
+          console.log('Remaining debt:', newDebtBalance.toFixed(2));
+          console.log('Remaining collateral:', remainingCollateralBtc.toFixed(4));
+          
           // Reduce encumberedBtcBasis proportionally for liquidated BTC
           const totalEncumberedBtcAmount = Object.values(encumberedBtc).reduce((sum, btc) => sum + btc, 0);
           if (totalEncumberedBtcAmount > 0 && encumberedBtcBasis > 0) {
@@ -1428,9 +1451,17 @@ export function runUnifiedProjection({
         }
         // Release
         else if (postTopUpLTV <= releaseLTV) {
+          console.log('=== COLLATERAL RELEASE CHECK ===');
+          console.log('Year:', year, 'Age:', age);
+          console.log('Loan:', loan.name || loan.loan_name || 'Collateralized Loan');
+          console.log('LTV before release:', postTopUpLTV.toFixed(2) + '%');
+          console.log('Release threshold:', releaseLTV + '%');
+          console.log('Loan balance:', loan.current_balance.toFixed(2));
+          
           if (loan.current_balance <= 0) {
             if (!releasedBtc[loanKey]) {
               releasedBtc[loanKey] = encumberedBtc[loanKey];
+              console.log('BTC released (debt paid off):', releasedBtc[loanKey].toFixed(4));
               encumberedBtc[loanKey] = 0;
               liquidationEvents.push({
                 year,
@@ -1444,6 +1475,9 @@ export function runUnifiedProjection({
             const currentCollateral = encumberedBtc[loanKey];
             const targetCollateralForLoan = loan.current_balance / (releaseTargetLTV / 100) / cumulativeBtcPrice;
             const excessCollateral = Math.max(0, currentCollateral - targetCollateralForLoan);
+            console.log('Current collateral:', currentCollateral.toFixed(4));
+            console.log('Target collateral for', releaseTargetLTV + '% LTV:', targetCollateralForLoan.toFixed(4));
+            console.log('Excess collateral to release:', excessCollateral.toFixed(4));
             if (excessCollateral > 0) {
               releasedBtc[loanKey] = excessCollateral;
               encumberedBtc[loanKey] = targetCollateralForLoan;
@@ -2561,6 +2595,31 @@ export function runUnifiedProjection({
         // Calculate totals
     const currentTotalEncumberedBtc = Object.values(encumberedBtc).reduce((sum, amount) => sum + amount, 0);
     const encumberedBtcValueThisYear = currentTotalEncumberedBtc * cumulativeBtcPrice;
+    
+    // DEBUG: Year-end summary for first 10 years
+    if (i < 10) {
+      const liquidBtcQty = portfolio.taxable.btc / cumulativeBtcPrice;
+      console.log(`=== YEAR ${year} (Age ${age}) END SUMMARY ===`);
+      console.log('BTC Price:', cumulativeBtcPrice.toFixed(2));
+      console.log('Liquid BTC:', liquidBtcQty.toFixed(4));
+      console.log('Encumbered BTC:', currentTotalEncumberedBtc.toFixed(4));
+      console.log('Total BTC:', (liquidBtcQty + currentTotalEncumberedBtc).toFixed(4));
+      console.log('Cash:', portfolio.taxable.cash.toFixed(2));
+      console.log('Total Portfolio:', getTotalPortfolio(encumberedBtcValueThisYear).toFixed(2));
+      
+      // Log active loans
+      const activeLoans = Object.values(tempRunningCollateralizedLoans).filter(l => !l.paid_off);
+      if (activeLoans.length > 0) {
+        console.log('Active Loans:');
+        activeLoans.forEach(l => {
+          const lk = `loan_${l.id}`;
+          const collat = encumberedBtc[lk] || 0;
+          const collatVal = collat * cumulativeBtcPrice;
+          const ltv = collatVal > 0 ? (l.current_balance / collatVal) * 100 : 0;
+          console.log(`  - ${l.name || 'Loan'}: Balance $${l.current_balance.toFixed(2)}, Collateral ${collat.toFixed(4)} BTC, LTV ${ltv.toFixed(1)}%`);
+        });
+      }
+    }
     
     // End-of-year dust cleanup for all accounts to prevent compounding of near-zero balances
     const DUST_THRESHOLD_EOY = 10; // Increased threshold to catch more edge cases
