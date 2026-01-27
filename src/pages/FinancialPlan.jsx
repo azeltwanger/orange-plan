@@ -2170,8 +2170,7 @@ export default function FinancialPlan() {
                   </p>
                 </div>
               </div>
-            )
-            }
+            )}
           </div>
 
           {/* Section 3: Growth Rate Assumptions (CAGR Sliders) */}
