@@ -1119,6 +1119,13 @@ export default function Scenarios() {
         ? loanAmt / (ltv / 100 * currentPrice)
         : 0;
       
+      console.log('=== SAVING HYPOTHETICAL LOAN ===');
+      console.log('Current BTC Price:', currentPrice);
+      console.log('Loan Amount:', loanAmt);
+      console.log('LTV:', ltv);
+      console.log('Calculated Collateral BTC:', calculatedCollateral);
+      console.log('Verify LTV:', ((loanAmt / (calculatedCollateral * currentPrice)) * 100).toFixed(2) + '%');
+      
       cleanedHypotheticalLoan = {
         enabled: true,
         loan_amount: loanAmt || null,
@@ -1133,6 +1140,8 @@ export default function Scenarios() {
           : null,
         use_of_proceeds: form.hypothetical_btc_loan.use_of_proceeds || 'cash',
       };
+      
+      console.log('Full cleanedHypotheticalLoan object:', cleanedHypotheticalLoan);
     }
 
     // Process asset reallocations - convert empty strings to null for numeric fields

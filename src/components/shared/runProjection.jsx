@@ -533,6 +533,16 @@ export function runUnifiedProjection({
     };
   });
 
+  // DEBUG: Log existing debt at start of projection
+  console.log('=== EXISTING LIABILITIES (start of projection) ===');
+  Object.values(tempRunningDebt).forEach(l => {
+    console.log(`- ${l.name}: Balance $${l.current_balance?.toFixed(2)}, Type: ${l.type}, Collateral: ${l.collateral_btc_amount || 0} BTC`);
+  });
+  console.log('=== EXISTING COLLATERALIZED LOANS ===');
+  Object.values(tempRunningCollateralizedLoans).forEach(l => {
+    console.log(`- ${l.name || l.loan_name}: Balance $${l.current_balance?.toFixed(2)}, Collateral: ${l.collateral_btc_amount || 0} BTC`);
+  });
+
   // Initialize BTC collateral tracking (must be before hypothetical loan processing)
   const encumberedBtc = {};
   let releasedBtc = {};
@@ -560,6 +570,21 @@ export function runUnifiedProjection({
 
   // Process hypothetical BTC loan if provided (after all initializations)
   if (hypothetical_btc_loan?.enabled) {
+    console.log('=== HYPOTHETICAL LOAN INIT ===');
+    console.log('Loan Amount:', hypothetical_btc_loan.loan_amount);
+    console.log('Collateral BTC:', hypothetical_btc_loan.collateral_btc);
+    console.log('Interest Rate:', hypothetical_btc_loan.interest_rate);
+    console.log('LTV from form:', hypothetical_btc_loan.ltv);
+    console.log('Start Age:', hypothetical_btc_loan.start_age);
+    console.log('Use of Proceeds:', hypothetical_btc_loan.use_of_proceeds);
+    console.log('Current BTC Price:', currentPrice);
+    
+    // Verify LTV math
+    if (hypothetical_btc_loan.collateral_btc > 0) {
+      const actualLTV = (hypothetical_btc_loan.loan_amount / (hypothetical_btc_loan.collateral_btc * currentPrice)) * 100;
+      console.log('Calculated Actual LTV:', actualLTV.toFixed(2) + '%');
+    }
+    
     const loanStartAge = (hypothetical_btc_loan.start_age !== undefined && hypothetical_btc_loan.start_age !== null && hypothetical_btc_loan.start_age !== '')
       ? parseInt(hypothetical_btc_loan.start_age) 
       : currentAge;
@@ -583,16 +608,36 @@ export function runUnifiedProjection({
       entity_type: 'CollateralizedLoan',
     };
     
+    console.log('Loan Start Age:', loanStartAge, 'Current Age:', currentAge);
+    console.log('Will activate immediately:', loanStartAge <= currentAge);
+    
     if (loanStartAge > currentAge) {
       pendingHypotheticalLoans.push(hypotheticalLoanObj);
+      console.log('Loan added to pendingHypotheticalLoans for future activation');
     } else {
+      console.log('=== COLLATERAL TRANSFER (immediate activation) ===');
+      console.log('Liquid BTC before (value):', portfolio.taxable.btc);
+      console.log('Liquid BTC before (qty):', portfolio.taxable.btc / currentPrice);
+      console.log('Collateral being locked:', hypotheticalLoanObj.collateral_btc_amount, 'BTC');
+      console.log('Collateral value:', hypotheticalLoanObj.collateral_btc_amount * currentPrice);
+      
       tempRunningCollateralizedLoans[hypotheticalLoanObj.id] = hypotheticalLoanObj;
       const loanKey = `loan_${hypotheticalLoanObj.id}`;
       if (hypotheticalLoanObj.collateral_btc_amount > 0) {
         encumberedBtc[loanKey] = hypotheticalLoanObj.collateral_btc_amount;
         releasedBtc[loanKey] = 0;
       }
+      
+      console.log('Total encumbered BTC after:', Object.values(encumberedBtc).reduce((a,b) => a+b, 0));
+      
       const proceeds = hypotheticalLoanObj.current_balance;
+      console.log('=== LOAN PROCEEDS ===');
+      console.log('Proceeds amount:', proceeds);
+      console.log('Adding to:', hypotheticalLoanObj.use_of_proceeds);
+      console.log('Portfolio cash before:', portfolio.taxable.cash);
+      console.log('Portfolio stocks before:', portfolio.taxable.stocks);
+      console.log('Portfolio BTC before:', portfolio.taxable.btc);
+      
       if (proceeds > 0) {
         if (hypotheticalLoanObj.use_of_proceeds === 'btc') {
           portfolio.taxable.btc += proceeds;
@@ -603,6 +648,10 @@ export function runUnifiedProjection({
         }
         runningTaxableBasis += proceeds;
       }
+      
+      console.log('Portfolio cash after:', portfolio.taxable.cash);
+      console.log('Portfolio stocks after:', portfolio.taxable.stocks);
+      console.log('Portfolio BTC after:', portfolio.taxable.btc);
     }
   }
 
@@ -1283,6 +1332,16 @@ export function runUnifiedProjection({
       if (encumberedBtc[loanKey] > 0) {
         const collateralValue = encumberedBtc[loanKey] * cumulativeBtcPrice;
         let currentLTV = (loan.current_balance / collateralValue) * 100;
+        
+        // DEBUG: Log loan status for first 5 years
+        if (i < 5 && loan.isHypothetical) {
+          console.log(`=== YEAR ${year} (Age ${age}) HYPOTHETICAL LOAN ===`);
+          console.log('Loan Balance:', loan.current_balance?.toFixed(2));
+          console.log('Collateral BTC:', encumberedBtc[loanKey]?.toFixed(4));
+          console.log('BTC Price:', cumulativeBtcPrice?.toFixed(2));
+          console.log('Collateral Value:', collateralValue?.toFixed(2));
+          console.log('Current LTV:', currentLTV?.toFixed(2) + '%');
+        }
 
         const liquidationLTV = loan.liquidation_ltv || 80;
         const releaseLTV = btcReleaseTriggerLtv || 30;
