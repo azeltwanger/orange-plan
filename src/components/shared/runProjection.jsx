@@ -1395,32 +1395,61 @@ export function runUnifiedProjection({
     // ============================================
     if (assetReallocations && assetReallocations.length > 0) {
       assetReallocations.forEach(realloc => {
-        if (realloc.execution_year !== year) return;
+        // execution_year is stored as an AGE (e.g., 31), not calendar year
+        // Convert age to calendar year for comparison
+        let targetYear = realloc.execution_year;
+        if (targetYear && targetYear < 200) {
+          // It's an age, convert: check if current projection age matches the execution age
+          if (age !== targetYear) return;
+        } else {
+          // It's a calendar year
+          if (targetYear !== year) return;
+        }
         
-        const sellHoldingId = realloc.sell_holding_id;
         const sellAmount = realloc.sell_amount || 0;
+        if (sellAmount <= 0) return;
+        
+        // Get source info from holding or direct fields
+        let sourceAccountType = realloc.source_account_type;
+        let sellAssetType = realloc.sell_asset_type;
+        
+        if (realloc.sell_holding_id && holdings) {
+          const holdingToSell = holdings.find(h => h.id === realloc.sell_holding_id);
+          if (holdingToSell) {
+            if (!sourceAccountType) {
+              const taxTreatment = getTaxTreatmentFromHolding(holdingToSell);
+              sourceAccountType = taxTreatment || holdingToSell.account_type || 'taxable';
+            }
+            if (!sellAssetType) sellAssetType = holdingToSell.asset_type || 'btc';
+          }
+        }
+        
+        // Normalize account types
+        sourceAccountType = (sourceAccountType || 'taxable').toLowerCase();
+        if (sourceAccountType.includes('roth') || sourceAccountType === 'tax_free') sourceAccountType = 'tax_free';
+        else if (sourceAccountType.includes('traditional') || sourceAccountType.includes('401k') || sourceAccountType.includes('ira') || sourceAccountType === 'tax_deferred') sourceAccountType = 'tax_deferred';
+        else sourceAccountType = 'taxable';
+        
+        sellAssetType = (sellAssetType || 'btc').toLowerCase();
+        const sellAssetCategory = getAssetCategory(sellAssetType, sellAssetType === 'btc' ? 'BTC' : null);
+        
+        let destinationAccountType = (realloc.destination_account_type || 'taxable').toLowerCase();
+        if (destinationAccountType.includes('roth') || destinationAccountType === 'tax_free') destinationAccountType = 'tax_free';
+        else if (destinationAccountType.includes('traditional') || destinationAccountType.includes('401k') || destinationAccountType.includes('ira') || destinationAccountType === 'tax_deferred') destinationAccountType = 'tax_deferred';
+        else destinationAccountType = 'taxable';
+        
+        const buyAssetType = (realloc.buy_asset_type || 'btc').toLowerCase();
         const buyAssetName = realloc.buy_asset_name || 'Cash';
-        const buyAssetType = (realloc.buy_asset_type || 'cash').toLowerCase();
         const buyCagr = realloc.buy_cagr || 0;
         const buyDividendYield = realloc.buy_dividend_yield || 0;
         const buyDividendQualified = realloc.buy_dividend_qualified !== false;
         
-        if (sellAmount <= 0 || !sellHoldingId) return;
-        
-        // Find the holding being sold
-        const holdingToSell = holdings.find(h => h.id === sellHoldingId);
-        if (!holdingToSell) {
-          if (DEBUG) console.log(`[Year ${year}] Reallocation skipped - holding ${sellHoldingId} not found`);
-          return;
-        }
-        
-        const sourceTaxTreatment = getTaxTreatmentFromHolding(holdingToSell);
-        const sellAssetCategory = getAssetCategory(holdingToSell.asset_type, holdingToSell.ticker);
+        if (DEBUG) console.log(`[Year ${year}] Age ${age}: Executing reallocation - Sell $${sellAmount} ${sellAssetCategory} from ${sourceAccountType}, buy ${buyAssetType} in ${destinationAccountType}`);
         
         // Determine source portfolio key
         let sourcePortfolioKey = 'taxable';
-        if (sourceTaxTreatment === 'tax_deferred') sourcePortfolioKey = 'taxDeferred';
-        else if (sourceTaxTreatment === 'tax_free') sourcePortfolioKey = 'taxFree';
+        if (sourceAccountType === 'tax_deferred') sourcePortfolioKey = 'taxDeferred';
+        else if (sourceAccountType === 'tax_free') sourcePortfolioKey = 'taxFree';
         
         // Check available balance
         const availableInSource = portfolio[sourcePortfolioKey]?.[sellAssetCategory] || 0;
@@ -1502,17 +1531,24 @@ export function runUnifiedProjection({
         // === STEP 3: NET PROCEEDS ===
         const netProceeds = actualSellAmount - reallocTaxes - reallocPenalties;
         
-        // === STEP 4: BUY INTO DESTINATION (always taxable for reallocations) ===
+        // === STEP 4: BUY INTO DESTINATION ===
         const buyCategory = buyAssetType === 'btc' ? 'btc' : 
                            buyAssetType === 'stocks' ? 'stocks' : 
                            buyAssetType === 'bonds' ? 'bonds' : 
                            buyAssetType === 'cash' ? 'cash' : 'other';
         
-        portfolio.taxable[buyCategory] += netProceeds;
-        runningTaxableBasis += netProceeds; // New basis = net proceeds
+        // Determine destination portfolio key
+        let destPortfolioKey = 'taxable';
+        if (destinationAccountType === 'tax_deferred') destPortfolioKey = 'taxDeferred';
+        else if (destinationAccountType === 'tax_free') destPortfolioKey = 'taxFree';
         
-        // === STEP 5: CREATE TAX LOT IF BUYING BTC ===
-        if (buyAssetType === 'btc' && netProceeds > 0) {
+        portfolio[destPortfolioKey][buyCategory] += netProceeds;
+        if (destPortfolioKey === 'taxable') {
+          runningTaxableBasis += netProceeds; // New basis = net proceeds (only for taxable)
+        }
+        
+        // === STEP 5: CREATE TAX LOT IF BUYING BTC IN TAXABLE ===
+        if (buyAssetType === 'btc' && netProceeds > 0 && destPortfolioKey === 'taxable') {
           const btcQtyPurchased = netProceeds / cumulativeBtcPrice;
           runningTaxLots.push({
             id: `realloc-${year}-${realloc.id || Date.now()}`,
@@ -1555,7 +1591,7 @@ export function runUnifiedProjection({
           console.log(`  Sold: $${actualSellAmount.toLocaleString()} ${sellAssetCategory} from ${sourcePortfolioKey}`);
           console.log(`  Cost Basis: $${costBasis.toLocaleString()}, Gains: $${gains.toLocaleString()}`);
           console.log(`  Taxes: $${reallocTaxes.toLocaleString()}, Penalties: $${reallocPenalties.toLocaleString()}`);
-          console.log(`  Bought: $${netProceeds.toLocaleString()} ${buyAssetType} (taxable)`);
+          console.log(`  Bought: $${netProceeds.toLocaleString()} ${buyAssetType} (${destPortfolioKey})`);
         }
       });
     }
