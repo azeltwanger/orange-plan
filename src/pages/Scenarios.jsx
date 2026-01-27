@@ -431,7 +431,9 @@ export default function Scenarios() {
     const combinedLifeEvents = [...(lifeEvents || []), ...scenarioOneTimeEvents];
 
     // Process hypothetical BTC loan
-    let scenarioLiabilities = [...(liabilities || [])];
+    // Filter OUT btc_collateralized from liabilities since they're already in btcCollateralizedLoans
+    // This prevents double-counting debt and collateral in runUnifiedProjection
+    let scenarioLiabilities = [...(liabilities || [])].filter(l => l.type !== 'btc_collateralized');
     let scenarioCollateralizedLoans = [...(btcCollateralizedLoans || [])];
 
     // Note: hypothetical_btc_loan is passed directly to runUnifiedProjection
