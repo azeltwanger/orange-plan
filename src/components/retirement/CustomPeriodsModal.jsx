@@ -253,6 +253,8 @@ export default function CustomPeriodsModal({
                   </div>
                 );
               })()}
+            </TabsContent>
+          ))}
         </Tabs>
 
         {/* Info */}
