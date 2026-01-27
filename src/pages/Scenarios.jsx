@@ -1112,12 +1112,19 @@ export default function Scenarios() {
     // Clean up hypothetical_btc_loan - only include if actually enabled and has valid loan_amount
     let cleanedHypotheticalLoan = null;
     if (form.hypothetical_btc_loan?.enabled && form.hypothetical_btc_loan?.loan_amount) {
+      const loanAmt = parseFloat(form.hypothetical_btc_loan.loan_amount) || 0;
+      const ltv = parseFloat(form.hypothetical_btc_loan.ltv) || 50;
+      // Auto-calculate collateral from Loan Amount and LTV
+      const calculatedCollateral = currentPrice > 0 && ltv > 0 
+        ? loanAmt / (ltv / 100 * currentPrice)
+        : 0;
+      
       cleanedHypotheticalLoan = {
         enabled: true,
-        loan_amount: parseFloat(form.hypothetical_btc_loan.loan_amount) || null,
+        loan_amount: loanAmt || null,
         interest_rate: parseFloat(form.hypothetical_btc_loan.interest_rate) || 12,
-        collateral_btc: parseFloat(form.hypothetical_btc_loan.collateral_btc) || null,
-        ltv: parseFloat(form.hypothetical_btc_loan.ltv) || 50,
+        collateral_btc: calculatedCollateral,
+        ltv: ltv,
         start_age: form.hypothetical_btc_loan.start_age !== '' && form.hypothetical_btc_loan.start_age !== null 
           ? parseFloat(form.hypothetical_btc_loan.start_age) 
           : null,
@@ -2451,22 +2458,8 @@ export default function Scenarios() {
                     </div>
                   </div>
 
-                  {/* Row 2: Collateral BTC, Starting LTV */}
+                  {/* Row 2: Starting LTV, Collateral BTC (calculated) */}
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label className="text-zinc-300 text-xs">Collateral BTC</Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        placeholder="2.0"
-                        value={form.hypothetical_btc_loan?.collateral_btc || ''}
-                        onChange={(e) => setForm({
-                          ...form,
-                          hypothetical_btc_loan: { ...form.hypothetical_btc_loan, collateral_btc: e.target.value }
-                        })}
-                        className="bg-zinc-800 border-zinc-700 text-zinc-100"
-                      />
-                    </div>
                     <div className="space-y-2">
                       <Label className="text-zinc-300 text-xs">Starting LTV (%)</Label>
                       <Input
@@ -2480,7 +2473,54 @@ export default function Scenarios() {
                         className="bg-zinc-800 border-zinc-700 text-zinc-100"
                       />
                     </div>
+                    <div className="space-y-2">
+                      <Label className="text-zinc-300 text-xs">Collateral BTC (Calculated)</Label>
+                      <div className="bg-zinc-900 border border-zinc-700 rounded-md px-3 py-2 text-zinc-100 h-10 flex items-center">
+                        {(() => {
+                          const loanAmt = parseFloat(form.hypothetical_btc_loan?.loan_amount) || 0;
+                          const ltv = parseFloat(form.hypothetical_btc_loan?.ltv) || 50;
+                          const calculatedCollateral = currentPrice > 0 && ltv > 0 
+                            ? (loanAmt / (ltv / 100 * currentPrice)).toFixed(4) 
+                            : '0.0000';
+                          return `${calculatedCollateral} BTC`;
+                        })()}
+                      </div>
+                      <p className="text-xs text-zinc-500">Loan Amount ÷ (LTV% × ${currentPrice?.toLocaleString() || '---'} BTC)</p>
+                    </div>
                   </div>
+                  
+                  {/* Validation warning for insufficient BTC */}
+                  {(() => {
+                    const loanAmt = parseFloat(form.hypothetical_btc_loan?.loan_amount) || 0;
+                    const ltv = parseFloat(form.hypothetical_btc_loan?.ltv) || 50;
+                    const calculatedCollateral = currentPrice > 0 && ltv > 0 
+                      ? loanAmt / (ltv / 100 * currentPrice)
+                      : 0;
+                    
+                    // Calculate liquid BTC (taxable BTC not already collateralized)
+                    const taxableBtcHoldings = holdings
+                      .filter(h => h.asset_type === 'btc' || h.asset_type === 'crypto' || h.ticker === 'BTC')
+                      .filter(h => {
+                        const taxTreatment = sharedGetTaxTreatment(h, accounts);
+                        return taxTreatment === 'taxable';
+                      })
+                      .reduce((sum, h) => sum + (h.quantity || 0), 0);
+                    
+                    const existingCollateral = liabilities
+                      .filter(l => l.type === 'btc_collateralized')
+                      .reduce((sum, l) => sum + (l.collateral_btc_amount || 0), 0);
+                    
+                    const availableBtc = taxableBtcHoldings - existingCollateral;
+                    
+                    if (calculatedCollateral > 0 && calculatedCollateral > availableBtc) {
+                      return (
+                        <div className="mt-2 p-2 bg-red-900/30 border border-red-700 rounded text-red-400 text-xs">
+                          ⚠️ Insufficient liquid BTC. You need {calculatedCollateral.toFixed(4)} BTC but only have {availableBtc.toFixed(4)} BTC available.
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
 
                   {/* Row 3: Take Loan at Age, Pay Off at Age */}
                   <div className="grid grid-cols-2 gap-4">
