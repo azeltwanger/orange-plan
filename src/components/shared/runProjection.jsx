@@ -1551,6 +1551,7 @@ export function runUnifiedProjection({
             } else {
               if (DEBUG) console.log(`[Year ${year}] Roth early withdrawal: $${actualSellAmount.toFixed(0)} entirely from contributions (tax-free, no penalty)`);
             }
+            console.log(`ROTH REALLOCATION: Age ${age}, Amount $${actualSellAmount}, From Contributions: $${fromContributions}, From Earnings: $${fromEarnings}, Tax: $${reallocTaxes?.toFixed(0) || 0}, Penalty: $${reallocPenalties?.toFixed(0) || 0}`);
           }
           // After 59.5: All Roth withdrawals are tax-free and penalty-free
           
