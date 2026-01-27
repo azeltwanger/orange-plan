@@ -626,6 +626,16 @@ export function runUnifiedProjection({
   const standardDeductions = taxConfigForYear?.standardDeduction || { single: 15000, married: 30000 };
   const currentStandardDeduction = standardDeductions[filingStatus] || standardDeductions.single;
 
+  // Track Roth contributions for accurate early withdrawal tax calculations
+  // This must be defined BEFORE the main loop so it's accessible in asset reallocation
+  const totalRothContributions = accounts
+    .filter(a => ['401k_roth', 'ira_roth', 'roth_401k', 'roth_ira', 'hsa'].includes(a.account_type))
+    .reduce((sum, a) => sum + (a.roth_contributions || 0), 0);
+  
+  // Capture initial Roth balance for tracking withdrawals through projection
+  const initialRothBalance = (portfolio.taxFree.btc || 0) + (portfolio.taxFree.stocks || 0) + 
+    (portfolio.taxFree.bonds || 0) + (portfolio.taxFree.cash || 0) + (portfolio.taxFree.other || 0);
+
   // Track individual holding values for dividend calculations
   // We need to track values through the projection since dividends are based on current value
   const holdingValues = holdings.map(h => {
@@ -1512,13 +1522,37 @@ export function runUnifiedProjection({
           runningTaxableBasis = Math.max(0, runningTaxableBasis - costBasis);
           
         } else if (sourcePortfolioKey === 'taxFree') {
-          // Roth: No taxes normally, but penalties if early withdrawal of earnings
+          // Roth IRA: Contributions are always tax-free and penalty-free
+          // Earnings are taxed as ORDINARY INCOME + 10% penalty if withdrawn before 59.5
           if (age < PENALTY_FREE_AGE) {
-            // Simplified: assume 50% is earnings (worst case)
-            const earningsPortion = actualSellAmount * 0.5;
-            reallocTaxes = earningsPortion * 0.24; // Marginal tax rate
-            reallocPenalties = earningsPortion * 0.10; // 10% early withdrawal penalty
+            // Calculate current Roth balance
+            const currentRothBalance = (portfolio.taxFree.btc || 0) + (portfolio.taxFree.stocks || 0) + 
+              (portfolio.taxFree.bonds || 0) + (portfolio.taxFree.cash || 0) + (portfolio.taxFree.other || 0);
+            
+            // Track how much has already been withdrawn from Roth (contributions withdrawn first per IRS ordering)
+            const alreadyWithdrawnFromRoth = Math.max(0, initialRothBalance - currentRothBalance);
+            
+            // Contributions remaining = total contributions minus what's already been withdrawn
+            const contributionsRemaining = Math.max(0, totalRothContributions - alreadyWithdrawnFromRoth);
+            
+            // This withdrawal: contributions portion (tax-free) vs earnings portion (taxable)
+            const fromContributions = Math.min(actualSellAmount, contributionsRemaining);
+            const fromEarnings = Math.max(0, actualSellAmount - fromContributions);
+            
+            if (fromEarnings > 0) {
+              // Earnings taxed as ORDINARY INCOME (not capital gains) plus 10% penalty
+              // Use progressive tax calculation for accuracy
+              const earningsTax = calculateProgressiveIncomeTax(fromEarnings, filingStatus, year);
+              const ordinaryIncomeRate = fromEarnings > 0 ? (earningsTax / fromEarnings) : 0.24;
+              reallocTaxes = fromEarnings * Math.max(ordinaryIncomeRate, 0.10); // At least 10% bracket
+              reallocPenalties = fromEarnings * 0.10;
+              
+              if (DEBUG) console.log(`[Year ${year}] Roth early withdrawal: $${actualSellAmount.toFixed(0)} total - $${fromContributions.toFixed(0)} from contributions (tax-free), $${fromEarnings.toFixed(0)} from earnings (ordinary income tax + 10% penalty)`);
+            } else {
+              if (DEBUG) console.log(`[Year ${year}] Roth early withdrawal: $${actualSellAmount.toFixed(0)} entirely from contributions (tax-free, no penalty)`);
+            }
           }
+          // After 59.5: All Roth withdrawals are tax-free and penalty-free
           
         } else if (sourcePortfolioKey === 'taxDeferred') {
           // Traditional/401k: Full amount taxed as ordinary income
