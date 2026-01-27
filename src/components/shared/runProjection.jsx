@@ -533,6 +533,10 @@ export function runUnifiedProjection({
     };
   });
 
+  // Initialize BTC collateral tracking (must be before hypothetical loan processing)
+  const encumberedBtc = {};
+  let releasedBtc = {};
+
   // Process hypothetical BTC loan if provided
   if (hypothetical_btc_loan?.enabled) {
     const loanStartAge = (hypothetical_btc_loan.start_age !== undefined && hypothetical_btc_loan.start_age !== null && hypothetical_btc_loan.start_age !== '')
@@ -580,10 +584,6 @@ export function runUnifiedProjection({
       }
     }
   }
-
-  // Initialize BTC collateral tracking
-  const encumberedBtc = {};
-  let releasedBtc = {};
 
   liabilities.forEach(liability => {
     if (liability.type === 'btc_collateralized' && liability.collateral_btc_amount) {
