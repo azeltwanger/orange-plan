@@ -117,6 +117,7 @@ export function runUnifiedProjection({
   withdrawalBlendPercentages = { cash: 0, bonds: 25, stocks: 35, other: 10, btc: 30 },
   investmentMode = 'all_surplus',
   monthlyInvestmentAmount = 0,
+  assetReallocations = [],
   DEBUG = false,
 }) {
   const results = [];
@@ -1388,6 +1389,176 @@ export function runUnifiedProjection({
         }
       }
     });
+
+    // ============================================
+    // PROCESS ASSET REALLOCATIONS (Scenario-specific)
+    // ============================================
+    if (assetReallocations && assetReallocations.length > 0) {
+      assetReallocations.forEach(realloc => {
+        if (realloc.execution_year !== year) return;
+        
+        const sellHoldingId = realloc.sell_holding_id;
+        const sellAmount = realloc.sell_amount || 0;
+        const buyAssetName = realloc.buy_asset_name || 'Cash';
+        const buyAssetType = (realloc.buy_asset_type || 'cash').toLowerCase();
+        const buyCagr = realloc.buy_cagr || 0;
+        const buyDividendYield = realloc.buy_dividend_yield || 0;
+        const buyDividendQualified = realloc.buy_dividend_qualified !== false;
+        
+        if (sellAmount <= 0 || !sellHoldingId) return;
+        
+        // Find the holding being sold
+        const holdingToSell = holdings.find(h => h.id === sellHoldingId);
+        if (!holdingToSell) {
+          if (DEBUG) console.log(`[Year ${year}] Reallocation skipped - holding ${sellHoldingId} not found`);
+          return;
+        }
+        
+        const sourceTaxTreatment = getTaxTreatmentFromHolding(holdingToSell);
+        const sellAssetCategory = getAssetCategory(holdingToSell.asset_type, holdingToSell.ticker);
+        
+        // Determine source portfolio key
+        let sourcePortfolioKey = 'taxable';
+        if (sourceTaxTreatment === 'tax_deferred') sourcePortfolioKey = 'taxDeferred';
+        else if (sourceTaxTreatment === 'tax_free') sourcePortfolioKey = 'taxFree';
+        
+        // Check available balance
+        const availableInSource = portfolio[sourcePortfolioKey]?.[sellAssetCategory] || 0;
+        const actualSellAmount = Math.min(sellAmount, availableInSource);
+        
+        if (actualSellAmount <= 0) {
+          if (DEBUG) console.log(`[Year ${year}] Reallocation skipped - no ${sellAssetCategory} available in ${sourcePortfolioKey}`);
+          return;
+        }
+        
+        // === STEP 1: SELL FROM SOURCE ===
+        portfolio[sourcePortfolioKey][sellAssetCategory] -= actualSellAmount;
+        
+        // Reduce holdingValues proportionally
+        const preWithdrawalAmount = availableInSource;
+        reduceHoldingValuesForWithdrawal(sellAssetCategory, sourceTaxTreatment, actualSellAmount, preWithdrawalAmount);
+        
+        // === STEP 2: CALCULATE TAXES/PENALTIES ===
+        let reallocTaxes = 0;
+        let reallocPenalties = 0;
+        let costBasis = 0;
+        let gains = 0;
+        
+        if (sourcePortfolioKey === 'taxable') {
+          // Taxable: Calculate capital gains using lot selection for BTC
+          if (sellAssetCategory === 'btc' && runningTaxLots.length > 0) {
+            const btcQtyToSell = actualSellAmount / cumulativeBtcPrice;
+            const taxableBtcLots = runningTaxLots.filter(lot => 
+              lot.asset_ticker === 'BTC' && 
+              (lot.account_type === 'taxable' || !lot.account_type) &&
+              (lot.remaining_quantity ?? lot.quantity) > 0
+            );
+            
+            if (taxableBtcLots.length > 0) {
+              const lotResult = selectLots(taxableBtcLots, 'BTC', btcQtyToSell, costBasisMethod);
+              costBasis = lotResult.totalCostBasis;
+              
+              // Update running tax lots
+              for (const selected of lotResult.selectedLots) {
+                const lotIndex = runningTaxLots.findIndex(l => l.id === selected.lot.id || l.lot_id === selected.lot.lot_id);
+                if (lotIndex >= 0) {
+                  const currentRemaining = runningTaxLots[lotIndex].remaining_quantity ?? runningTaxLots[lotIndex].quantity ?? 0;
+                  runningTaxLots[lotIndex].remaining_quantity = Math.max(0, currentRemaining - selected.quantityFromLot);
+                }
+              }
+            } else {
+              // Fallback: estimate cost basis from runningTaxableBasis
+              const taxableTotal = getAccountTotal('taxable');
+              costBasis = taxableTotal > 0 ? actualSellAmount * (runningTaxableBasis / taxableTotal) : actualSellAmount * 0.5;
+            }
+          } else {
+            // Non-BTC: estimate cost basis proportionally
+            const taxableTotal = getAccountTotal('taxable');
+            costBasis = taxableTotal > 0 ? actualSellAmount * (runningTaxableBasis / taxableTotal) : actualSellAmount * 0.5;
+          }
+          
+          gains = Math.max(0, actualSellAmount - costBasis);
+          const ltcgRate = getLTCGRate(0, filingStatus, year); // Simplified - no stacking
+          reallocTaxes = gains * ltcgRate;
+          runningTaxableBasis = Math.max(0, runningTaxableBasis - costBasis);
+          
+        } else if (sourcePortfolioKey === 'taxFree') {
+          // Roth: No taxes normally, but penalties if early withdrawal of earnings
+          if (age < PENALTY_FREE_AGE) {
+            // Simplified: assume 50% is earnings (worst case)
+            const earningsPortion = actualSellAmount * 0.5;
+            reallocTaxes = earningsPortion * 0.24; // Marginal tax rate
+            reallocPenalties = earningsPortion * 0.10; // 10% early withdrawal penalty
+          }
+          
+        } else if (sourcePortfolioKey === 'taxDeferred') {
+          // Traditional/401k: Full amount taxed as ordinary income
+          reallocTaxes = actualSellAmount * 0.24; // Simplified marginal rate
+          if (age < PENALTY_FREE_AGE) {
+            reallocPenalties = actualSellAmount * 0.10; // 10% early withdrawal penalty
+          }
+        }
+        
+        // === STEP 3: NET PROCEEDS ===
+        const netProceeds = actualSellAmount - reallocTaxes - reallocPenalties;
+        
+        // === STEP 4: BUY INTO DESTINATION (always taxable for reallocations) ===
+        const buyCategory = buyAssetType === 'btc' ? 'btc' : 
+                           buyAssetType === 'stocks' ? 'stocks' : 
+                           buyAssetType === 'bonds' ? 'bonds' : 
+                           buyAssetType === 'cash' ? 'cash' : 'other';
+        
+        portfolio.taxable[buyCategory] += netProceeds;
+        runningTaxableBasis += netProceeds; // New basis = net proceeds
+        
+        // === STEP 5: CREATE TAX LOT IF BUYING BTC ===
+        if (buyAssetType === 'btc' && netProceeds > 0) {
+          const btcQtyPurchased = netProceeds / cumulativeBtcPrice;
+          runningTaxLots.push({
+            id: `realloc-${year}-${realloc.id || Date.now()}`,
+            lot_id: `realloc-${year}-${realloc.id || Date.now()}`,
+            asset_ticker: 'BTC',
+            quantity: btcQtyPurchased,
+            remaining_quantity: btcQtyPurchased,
+            price_per_unit: cumulativeBtcPrice,
+            cost_basis: netProceeds,
+            date: `${year}-01-01`,
+            account_type: 'taxable',
+            source: 'reallocation',
+          });
+        }
+        
+        // === STEP 6: TRACK FOR DIVIDEND CALCULATIONS ===
+        executedReallocations.push({
+          id: realloc.id || `realloc-${year}`,
+          year,
+          sellAssetType: sellAssetCategory,
+          buyAssetName,
+          buyAssetType,
+          soldAmount: actualSellAmount,
+          taxesPaid: reallocTaxes,
+          penaltiesPaid: reallocPenalties,
+          netProceeds,
+          capitalGains: gains,
+          currentValue: netProceeds,
+          buy_cagr: buyCagr,
+          buy_dividend_yield: buyDividendYield,
+          buy_dividend_qualified: buyDividendQualified,
+        });
+        
+        // Add taxes/penalties to year totals
+        taxesPaid += reallocTaxes + reallocPenalties;
+        federalTaxPaid += reallocTaxes + reallocPenalties; // Simplified - add to federal
+        
+        if (DEBUG) {
+          console.log(`[Year ${year}] Executed reallocation:`);
+          console.log(`  Sold: $${actualSellAmount.toLocaleString()} ${sellAssetCategory} from ${sourcePortfolioKey}`);
+          console.log(`  Cost Basis: $${costBasis.toLocaleString()}, Gains: $${gains.toLocaleString()}`);
+          console.log(`  Taxes: $${reallocTaxes.toLocaleString()}, Penalties: $${reallocPenalties.toLocaleString()}`);
+          console.log(`  Bought: $${netProceeds.toLocaleString()} ${buyAssetType} (taxable)`);
+        }
+      });
+    }
 
     // Initialize weighted stocks growth rates (will be calculated each year)
     let effectiveTaxableStocksGrowth = effectiveStocksCagr;
