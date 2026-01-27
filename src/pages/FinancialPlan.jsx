@@ -3,6 +3,7 @@ import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, ReferenceLine, Area, AreaChart, Legend } from 'recharts';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Target, Plus, Pencil, Trash2, TrendingUp, Calendar, Settings, Play, AlertTriangle, ChevronDown, ChevronUp, Sparkles, Home, Car, Baby, Briefcase, Heart, DollarSign, RefreshCw, Receipt, Info } from 'lucide-react';
 import { useBtcPrice } from '@/components/shared/useBtcPrice';
 import {
@@ -123,6 +124,13 @@ export default function FinancialPlan() {
     other: []
   });
   const [tickerReturns, setTickerReturns] = useState({});
+  
+  // Holding overrides section state
+  const [holdingOverridesExpanded, setHoldingOverridesExpanded] = useState(false);
+  const [selectedTickerForOverride, setSelectedTickerForOverride] = useState('');
+  const [tickerReturnInput, setTickerReturnInput] = useState('');
+  const [tickerDividendYieldInput, setTickerDividendYieldInput] = useState('');
+  const [tickerDividendQualifiedInput, setTickerDividendQualifiedInput] = useState(true);
 
   // Tax settings
   const [filingStatus, setFilingStatus] = useState('single');
@@ -1909,6 +1917,256 @@ export default function FinancialPlan() {
                     })}
                   </div>
                 )}
+              </div>
+            )}
+          </div>
+
+          {/* Holding Overrides Section */}
+          <div className="mt-6 p-4 rounded-xl bg-zinc-800/30 border border-zinc-700">
+            <button
+              onClick={() => setHoldingOverridesExpanded(!holdingOverridesExpanded)}
+              className="w-full flex items-center justify-between text-left"
+            >
+              <div>
+                <Label className="text-zinc-300 font-medium mb-1 block cursor-pointer">
+                  Holding Overrides
+                </Label>
+                <p className="text-xs text-zinc-500">
+                  {Object.keys(tickerReturns).length > 0 
+                    ? `${Object.keys(tickerReturns).length} holding${Object.keys(tickerReturns).length !== 1 ? 's' : ''} configured`
+                    : 'Set custom returns and dividends for specific holdings'}
+                </p>
+              </div>
+              {holdingOverridesExpanded ? <ChevronUp className="w-4 h-4 text-zinc-400" /> : <ChevronDown className="w-4 h-4 text-zinc-400" />}
+            </button>
+
+            {holdingOverridesExpanded && (
+              <div className="mt-4 space-y-3">
+                {/* Existing ticker overrides */}
+                {Object.keys(tickerReturns).length > 0 && (
+                  <div className="space-y-2">
+                    {/* Header row */}
+                    <div className="grid grid-cols-12 gap-2 px-3 text-xs text-zinc-500 font-medium">
+                      <div className="col-span-3">Holding</div>
+                      <div className="col-span-2">Return %</div>
+                      <div className="col-span-3">Dividend/Income %</div>
+                      <div className="col-span-2 text-center">Qualified</div>
+                      <div className="col-span-2"></div>
+                    </div>
+                    {Object.entries(tickerReturns).map(([ticker, data]) => {
+                      const holding = holdings.find(h => 
+                        h.ticker?.toUpperCase() === ticker || 
+                        h.asset_name?.toUpperCase().replace(/\s+/g, '_') === ticker
+                      );
+                      const assetType = holding?.asset_type || 'stocks';
+                      const incomeLabel = assetType === 'real_estate' ? 'Rental' : assetType === 'bonds' ? 'Interest' : 'Dividend';
+                      const config = typeof data === 'number' ? { rate: data, dividendYield: 0, dividendQualified: true } : data;
+                      const { rate = 0, dividendYield = 0, dividendQualified = true } = config;
+                      
+                      return (
+                        <div key={ticker} className="p-3 rounded-lg bg-zinc-900/50 border border-zinc-700">
+                          <div className="grid grid-cols-12 gap-2 items-center">
+                            <div className="col-span-3">
+                              <p className="text-sm font-medium text-zinc-200">
+                                {ticker}
+                                <span className="text-zinc-500 text-xs ml-1">({assetType})</span>
+                              </p>
+                            </div>
+                            <div className="col-span-2">
+                              <Input
+                                type="number"
+                                value={rate}
+                                onChange={(e) => {
+                                  const newRate = parseFloat(e.target.value) || 0;
+                                  setTickerReturns({
+                                    ...tickerReturns,
+                                    [ticker]: { ...config, rate: newRate }
+                                  });
+                                }}
+                                className="bg-zinc-900 border-zinc-700 text-sm"
+                                step="0.5"
+                                min={-50}
+                                max={200}
+                              />
+                            </div>
+                            <div className="col-span-3">
+                              <div className="flex items-center gap-1">
+                                <Input
+                                  type="number"
+                                  value={dividendYield}
+                                  onChange={(e) => {
+                                    const newYield = parseFloat(e.target.value) || 0;
+                                    setTickerReturns({
+                                      ...tickerReturns,
+                                      [ticker]: { ...config, dividendYield: newYield }
+                                    });
+                                  }}
+                                  className="bg-zinc-900 border-zinc-700 text-sm"
+                                  step="0.1"
+                                  min={0}
+                                  max={50}
+                                />
+                                <span className="text-xs text-zinc-500 whitespace-nowrap">{incomeLabel}</span>
+                              </div>
+                            </div>
+                            <div className="col-span-2 flex items-center justify-center">
+                              <Checkbox
+                                checked={dividendQualified}
+                                onCheckedChange={(checked) => {
+                                  setTickerReturns({
+                                    ...tickerReturns,
+                                    [ticker]: { ...config, dividendQualified: checked }
+                                  });
+                                }}
+                                className="border-zinc-600 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
+                                disabled={assetType === 'real_estate'}
+                                title={assetType === 'real_estate' ? 'Rental income is always non-qualified' : ''}
+                              />
+                            </div>
+                            <div className="col-span-2 flex justify-end">
+                              <Button
+                                onClick={() => {
+                                  const updated = { ...tickerReturns };
+                                  delete updated[ticker];
+                                  setTickerReturns(updated);
+                                }}
+                                size="sm"
+                                variant="ghost"
+                                className="text-rose-400 hover:text-rose-300 hover:bg-rose-500/10"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Add new ticker override */}
+                {(() => {
+                  const availableTickers = holdings
+                    .filter(h => (h.ticker || h.asset_name) && h.ticker?.toUpperCase() !== 'BTC')
+                    .map(h => ({
+                      ticker: h.ticker ? h.ticker.toUpperCase() : h.asset_name?.toUpperCase().replace(/\s+/g, '_'),
+                      assetType: h.asset_type || 'stocks',
+                      assetName: h.asset_name || h.ticker,
+                    }));
+                  
+                  const unique = [...new Map(availableTickers.map(t => [t.ticker, t])).values()];
+                  const available = unique.filter(t => !tickerReturns[t.ticker]);
+                  
+                  const selectedAssetType = available.find(t => t.ticker === selectedTickerForOverride)?.assetType || 'stocks';
+                  const selectedIncomeLabel = selectedAssetType === 'real_estate' ? 'Rental Income' : selectedAssetType === 'bonds' ? 'Interest' : 'Dividend';
+                  
+                  return available.length > 0 ? (
+                    <div className="p-4 rounded-lg bg-zinc-800/50 border border-zinc-700">
+                      <Label className="text-zinc-300 text-sm mb-3 block">Add Holding Override</Label>
+                      <div className="grid grid-cols-12 gap-2 items-end">
+                        <div className="col-span-3">
+                          <Label className="text-xs text-zinc-500 mb-1 block">Ticker/Name</Label>
+                          <Select value={selectedTickerForOverride} onValueChange={(val) => {
+                            setSelectedTickerForOverride(val);
+                            const found = available.find(t => t.ticker === val);
+                            if (found?.assetType === 'real_estate') {
+                              setTickerDividendQualifiedInput(false);
+                            }
+                          }}>
+                            <SelectTrigger className="bg-zinc-900 border-zinc-700 text-zinc-100">
+                              <SelectValue placeholder="Select..." />
+                            </SelectTrigger>
+                            <SelectContent className="bg-zinc-900 border-zinc-700">
+                              {available.map(t => (
+                                <SelectItem key={t.ticker} value={t.ticker} className="text-zinc-100">
+                                  {t.ticker} ({t.assetType})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="col-span-2">
+                          <Label className="text-xs text-zinc-500 mb-1 block">Return %</Label>
+                          <Input
+                            type="number"
+                            value={tickerReturnInput}
+                            onChange={(e) => setTickerReturnInput(e.target.value)}
+                            placeholder="0"
+                            className="bg-zinc-900 border-zinc-700"
+                            step="0.5"
+                            min={-50}
+                            max={200}
+                            disabled={!selectedTickerForOverride}
+                          />
+                        </div>
+                        <div className="col-span-3">
+                          <Label className="text-xs text-zinc-500 mb-1 block">{selectedIncomeLabel} %</Label>
+                          <Input
+                            type="number"
+                            value={tickerDividendYieldInput}
+                            onChange={(e) => setTickerDividendYieldInput(e.target.value)}
+                            placeholder="0"
+                            className="bg-zinc-900 border-zinc-700"
+                            step="0.1"
+                            min={0}
+                            max={50}
+                            disabled={!selectedTickerForOverride}
+                          />
+                        </div>
+                        <div className="col-span-2">
+                          <Label className="text-xs text-zinc-500 mb-1 block">Qualified</Label>
+                          <div className="h-10 flex items-center justify-center">
+                            <Checkbox
+                              checked={tickerDividendQualifiedInput}
+                              onCheckedChange={setTickerDividendQualifiedInput}
+                              disabled={!selectedTickerForOverride || selectedAssetType === 'real_estate'}
+                              title={selectedAssetType === 'real_estate' ? 'Rental income is always non-qualified' : ''}
+                              className="border-zinc-600 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
+                            />
+                          </div>
+                        </div>
+                        <div className="col-span-2">
+                          <Button
+                            onClick={() => {
+                              if (!selectedTickerForOverride) return;
+                              
+                              setTickerReturns({
+                                ...tickerReturns,
+                                [selectedTickerForOverride]: {
+                                  rate: parseFloat(tickerReturnInput) || 0,
+                                  dividendYield: parseFloat(tickerDividendYieldInput) || 0,
+                                  dividendQualified: tickerDividendQualifiedInput
+                                }
+                              });
+                              
+                              setSelectedTickerForOverride('');
+                              setTickerReturnInput('');
+                              setTickerDividendYieldInput('');
+                              setTickerDividendQualifiedInput(true);
+                            }}
+                            className="w-full bg-orange-600 hover:bg-orange-700 text-white"
+                            disabled={!selectedTickerForOverride}
+                          >
+                            <Plus className="w-4 h-4 mr-1" />
+                            Add
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : Object.keys(tickerReturns).length > 0 ? (
+                    <div className="p-3 rounded-lg bg-zinc-800/50 border border-zinc-700 text-center">
+                      <p className="text-sm text-zinc-400">
+                        All holdings have custom overrides defined.
+                      </p>
+                    </div>
+                  ) : null;
+                })()}
+
+                <div className="p-3 rounded-lg bg-zinc-800/30 border border-zinc-700">
+                  <p className="text-xs text-zinc-400">
+                    💡 Override returns and income for specific holdings. Examples: MSTR with 40% growth, VYM with 7% growth + 3% dividends, rental property with 4% appreciation + 6% rental income. Check 'Qualified' for most stock dividends (lower tax rate). REITs and rental income are always non-qualified.
+                  </p>
+                </div>
               </div>
             )}
           </div>
@@ -4866,9 +5124,6 @@ export default function FinancialPlan() {
         onSave={setCustomReturnPeriods}
         currentAge={currentAge}
         lifeExpectancy={lifeExpectancy}
-        holdings={holdings}
-        tickerReturns={tickerReturns}
-        onTickerReturnsSave={setTickerReturns}
       />
 
     </div>
