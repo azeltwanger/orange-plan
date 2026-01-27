@@ -2256,21 +2256,39 @@ export default function FinancialPlan() {
             </div>
             {(liabilities?.some(l => l.type === 'btc_collateralized') || collateralizedLoans?.length > 0) && (
               <>
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <Label className="text-zinc-400">Future BTC Loan Rate</Label>
-                    <span className="text-orange-400 font-semibold">{futureBtcLoanRate}%</span>
+                <div>
+                  <Label className="text-zinc-400">Future BTC Loan Rate</Label>
+                  <div className="flex items-center gap-2 mt-2">
+                    <Input
+                      type="number"
+                      min="1"
+                      max="15"
+                      step="0.5"
+                      placeholder="—"
+                      value={futureBtcLoanRate ?? ''}
+                      onChange={(e) => setFutureBtcLoanRate(e.target.value ? parseFloat(e.target.value) : null)}
+                      className="w-20 bg-zinc-900 border-zinc-700 text-center"
+                    />
+                    <span className="text-orange-400 font-medium">%</span>
                   </div>
-                  <Slider value={[futureBtcLoanRate]} onValueChange={([v]) => setFutureBtcLoanRate(v)} min={1} max={15} step={0.5} />
-                  <p className="text-xs text-zinc-500">Rate loans decline to over time</p>
+                  <p className="text-xs text-zinc-500 mt-1">Rate loans decline to over time</p>
                 </div>
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <Label className="text-zinc-400">Years to Reach</Label>
-                    <span className="text-orange-400 font-semibold">{futureBtcLoanRateYears}</span>
+                <div>
+                  <Label className="text-zinc-400">Years to Reach</Label>
+                  <div className="flex items-center gap-2 mt-2">
+                    <Input
+                      type="number"
+                      min="5"
+                      max="30"
+                      step="1"
+                      placeholder="—"
+                      value={futureBtcLoanRateYears ?? ''}
+                      onChange={(e) => setFutureBtcLoanRateYears(e.target.value ? parseInt(e.target.value) : null)}
+                      className="w-20 bg-zinc-900 border-zinc-700 text-center"
+                    />
+                    <span className="text-orange-400 font-medium">yrs</span>
                   </div>
-                  <Slider value={[futureBtcLoanRateYears]} onValueChange={([v]) => setFutureBtcLoanRateYears(v)} min={5} max={30} step={1} />
-                  <p className="text-xs text-zinc-500">Years until future rate reached</p>
+                  <p className="text-xs text-zinc-500 mt-1">Years until future rate reached</p>
                 </div>
               </>
             )}
