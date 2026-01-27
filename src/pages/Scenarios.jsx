@@ -2649,7 +2649,7 @@ export default function Scenarios() {
                     <Input
                       type="number"
                       step="1"
-                      min="5"
+                      min="1"
                       max="30"
                       placeholder="e.g., 15"
                       value={form.future_btc_loan_rate_years || ''}
