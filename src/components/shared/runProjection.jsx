@@ -1190,7 +1190,14 @@ export function runUnifiedProjection({
           const annualInterest = liability.current_balance * (liability.interest_rate / 100);
           liability.current_balance += annualInterest;
         } else if (isBtcLoan && hasInterest && i > 0) {
-          const dailyRate = liability.interest_rate / 100 / 365;
+          // Apply declining rate if configured
+          const effectiveRate = getLoanRateForYear(
+            liability.interest_rate,
+            i,
+            futureBtcLoanRate,
+            futureBtcLoanRateYears
+          );
+          const dailyRate = effectiveRate / 100 / 365;
           liability.current_balance = liability.current_balance * Math.pow(1 + dailyRate, 365);
         }
       }
@@ -1345,7 +1352,14 @@ export function runUnifiedProjection({
             loan.paid_off = true;
           }
         } else if (hasInterest && i > 0) {
-          const dailyRate = loan.interest_rate / 100 / 365;
+          // Apply declining rate if configured
+          const effectiveRate = getLoanRateForYear(
+            loan.interest_rate,
+            i,
+            futureBtcLoanRate,
+            futureBtcLoanRateYears
+          );
+          const dailyRate = effectiveRate / 100 / 365;
           loan.current_balance = loan.current_balance * Math.pow(1 + dailyRate, 365);
         }
       }
