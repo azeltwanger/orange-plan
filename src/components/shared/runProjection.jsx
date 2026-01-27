@@ -1465,7 +1465,7 @@ export function runUnifiedProjection({
         
         // Reduce holdingValues proportionally
         const preWithdrawalAmount = availableInSource;
-        reduceHoldingValuesForWithdrawal(sellAssetCategory, sourceTaxTreatment, actualSellAmount, preWithdrawalAmount);
+        reduceHoldingValuesForWithdrawal(sellAssetCategory, sourceAccountType, actualSellAmount, preWithdrawalAmount);
         
         // === STEP 2: CALCULATE TAXES/PENALTIES ===
         let reallocTaxes = 0;
