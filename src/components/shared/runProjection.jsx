@@ -1778,11 +1778,6 @@ export function runUnifiedProjection({
       }
     });
 
-    // Roth contributions for accessible funds
-    const totalRothContributions = accounts
-      .filter(a => ['401k_roth', 'ira_roth', 'hsa'].includes(a.account_type))
-      .reduce((sum, a) => sum + (a.roth_contributions || 0), 0);
-
     let ranOutOfMoneyThisYear = false;
 
     // PRE-RETIREMENT
