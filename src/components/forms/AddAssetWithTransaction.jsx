@@ -182,7 +182,9 @@ export default function AddAssetWithTransaction({
     return sum + (qty * price) + fee;
   }, 0);
 
-  const handleSubmit = () => {
+  const handleSubmit = (e) => {
+    if (e) e.preventDefault();
+    
     const quantity = parseFloat(assetData.quantity) || 0;
 
     const holdingData = {
