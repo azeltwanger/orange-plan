@@ -165,6 +165,10 @@ export default function FinancialPlan() {
   const [btcReleaseTriggerLtv, setBtcReleaseTriggerLtv] = useState(30);
   const [btcReleaseTargetLtv, setBtcReleaseTargetLtv] = useState(40);
 
+  // Future BTC Loan Rate Settings
+  const [futureBtcLoanRate, setFutureBtcLoanRate] = useState(8);
+  const [futureBtcLoanRateYears, setFutureBtcLoanRateYears] = useState(15);
+
   // State tax settings
   const [stateOfResidence, setStateOfResidence] = useState('TX');
 
@@ -397,6 +401,8 @@ export default function FinancialPlan() {
                   if (settings.btc_top_up_target_ltv !== undefined) setBtcTopUpTargetLtv(settings.btc_top_up_target_ltv);
                   if (settings.btc_release_trigger_ltv !== undefined) setBtcReleaseTriggerLtv(settings.btc_release_trigger_ltv);
                   if (settings.btc_release_target_ltv !== undefined) setBtcReleaseTargetLtv(settings.btc_release_target_ltv);
+                  if (settings.future_btc_loan_rate !== undefined) setFutureBtcLoanRate(settings.future_btc_loan_rate);
+                  if (settings.future_btc_loan_rate_years !== undefined) setFutureBtcLoanRateYears(settings.future_btc_loan_rate_years);
                   setSettingsLoaded(true);
     }
   }, [userSettings, settingsLoaded]);
@@ -463,10 +469,12 @@ export default function FinancialPlan() {
                       asset_withdrawal_strategy: assetWithdrawalStrategy,
                       withdrawal_priority_order: withdrawalPriorityOrder,
                       withdrawal_blend_percentages: withdrawalBlendPercentages,
+                      future_btc_loan_rate: futureBtcLoanRate || null,
+                      future_btc_loan_rate_years: futureBtcLoanRateYears || null,
                       });
                       }, 1000); // Debounce 1 second
                       return () => clearTimeout(timeoutId);
-                      }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, otherCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, useCustomSocialSecurity, grossAnnualIncome, contribution401k, employer401kMatch, contributionRothIRA, contributionTraditionalIRA, contributionHSA, hsaFamilyCoverage, filingStatus, stateOfResidence, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv, btcReleaseTriggerLtv, btcReleaseTargetLtv, savingsAllocationBtc, savingsAllocationStocks, savingsAllocationBonds, savingsAllocationCash, savingsAllocationOther, investmentMode, monthlyInvestmentAmount, customReturnPeriods, tickerReturns, assetWithdrawalStrategy, withdrawalPriorityOrder, withdrawalBlendPercentages, saveSettings]);
+                      }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, otherCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, useCustomSocialSecurity, grossAnnualIncome, contribution401k, employer401kMatch, contributionRothIRA, contributionTraditionalIRA, contributionHSA, hsaFamilyCoverage, filingStatus, stateOfResidence, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv, btcReleaseTriggerLtv, btcReleaseTargetLtv, savingsAllocationBtc, savingsAllocationStocks, savingsAllocationBonds, savingsAllocationCash, savingsAllocationOther, investmentMode, monthlyInvestmentAmount, customReturnPeriods, tickerReturns, assetWithdrawalStrategy, withdrawalPriorityOrder, withdrawalBlendPercentages, futureBtcLoanRate, futureBtcLoanRateYears, saveSettings]);
 
                       // Calculate accurate debt payments for current month
   const currentMonthForDebt = new Date().getMonth();
@@ -759,6 +767,8 @@ export default function FinancialPlan() {
         assetWithdrawalStrategy,
         withdrawalPriorityOrder,
         withdrawalBlendPercentages,
+        futureBtcLoanRate,
+        futureBtcLoanRateYears,
         DEBUG: false,
       });
 
@@ -1145,6 +1155,8 @@ export default function FinancialPlan() {
           tickerReturns,
           taxLots: [],
           costBasisMethod,
+          futureBtcLoanRate,
+          futureBtcLoanRateYears,
           DEBUG: false,
         });
         
@@ -1533,10 +1545,12 @@ export default function FinancialPlan() {
         assetWithdrawalStrategy,
         withdrawalPriorityOrder,
         withdrawalBlendPercentages,
+        futureBtcLoanRate,
+        futureBtcLoanRateYears,
         DEBUG: false,
-      });
-      
-      return result.survives;
+        });
+
+        return result.survives;
     };
     
     // First check if even max amount works
@@ -2238,6 +2252,26 @@ export default function FinancialPlan() {
               </div>
               <Slider value={[incomeGrowth]} onValueChange={([v]) => setIncomeGrowth(v)} min={0} max={10} step={0.5} />
             </div>
+            {(liabilities?.some(l => l.type === 'btc_collateralized') || collateralizedLoans?.length > 0) && (
+              <>
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <Label className="text-zinc-400">Future BTC Loan Rate</Label>
+                    <span className="text-orange-400 font-semibold">{futureBtcLoanRate}%</span>
+                  </div>
+                  <Slider value={[futureBtcLoanRate]} onValueChange={([v]) => setFutureBtcLoanRate(v)} min={1} max={15} step={0.5} />
+                  <p className="text-xs text-zinc-500">Rate loans decline to over time</p>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <Label className="text-zinc-400">Years to Reach</Label>
+                    <span className="text-orange-400 font-semibold">{futureBtcLoanRateYears}</span>
+                  </div>
+                  <Slider value={[futureBtcLoanRateYears]} onValueChange={([v]) => setFutureBtcLoanRateYears(v)} min={5} max={30} step={1} />
+                  <p className="text-xs text-zinc-500">Years until future rate reached</p>
+                </div>
+              </>
+            )}
             </div>
           </div>
         </div>
