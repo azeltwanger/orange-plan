@@ -537,7 +537,28 @@ export function runUnifiedProjection({
   const encumberedBtc = {};
   let releasedBtc = {};
 
-  // Process hypothetical BTC loan if provided
+  // Populate encumberedBtc from existing liabilities/loans BEFORE hypothetical loan processing
+  liabilities.forEach(liability => {
+    if (liability.type === 'btc_collateralized' && liability.collateral_btc_amount) {
+      encumberedBtc[liability.id] = liability.collateral_btc_amount;
+      releasedBtc[liability.id] = 0;
+    }
+  });
+
+  collateralizedLoans.forEach(loan => {
+    if (loan.collateral_btc_amount) {
+      const loanKey = `loan_${loan.id}`;
+      encumberedBtc[loanKey] = loan.collateral_btc_amount;
+      releasedBtc[loanKey] = 0;
+    }
+  });
+
+  // Track cost basis for taxable accounts BEFORE subtracting encumbered BTC
+  const taxableHoldings = holdings.filter(h => getTaxTreatmentFromHolding(h) === 'taxable');
+  const initialTaxableCostBasis = taxableHoldings.reduce((sum, h) => sum + (h.cost_basis_total || 0), 0);
+  let runningTaxableBasis = initialTaxableCostBasis;
+
+  // Process hypothetical BTC loan if provided (after all initializations)
   if (hypothetical_btc_loan?.enabled) {
     const loanStartAge = (hypothetical_btc_loan.start_age !== undefined && hypothetical_btc_loan.start_age !== null && hypothetical_btc_loan.start_age !== '')
       ? parseInt(hypothetical_btc_loan.start_age) 
@@ -584,26 +605,6 @@ export function runUnifiedProjection({
       }
     }
   }
-
-  liabilities.forEach(liability => {
-    if (liability.type === 'btc_collateralized' && liability.collateral_btc_amount) {
-      encumberedBtc[liability.id] = liability.collateral_btc_amount;
-      releasedBtc[liability.id] = 0;
-    }
-  });
-
-  collateralizedLoans.forEach(loan => {
-    if (loan.collateral_btc_amount) {
-      const loanKey = `loan_${loan.id}`;
-      encumberedBtc[loanKey] = loan.collateral_btc_amount;
-      releasedBtc[loanKey] = 0;
-    }
-  });
-
-  // Track cost basis for taxable accounts BEFORE subtracting encumbered BTC
-  const taxableHoldings = holdings.filter(h => getTaxTreatmentFromHolding(h) === 'taxable');
-  const initialTaxableCostBasis = taxableHoldings.reduce((sum, h) => sum + (h.cost_basis_total || 0), 0);
-  let runningTaxableBasis = initialTaxableCostBasis;
 
   // Calculate initial taxable value BEFORE subtracting encumbered
   const initialTaxableValueBeforeEncumbered = portfolio.taxable.btc + portfolio.taxable.stocks + portfolio.taxable.bonds + portfolio.taxable.cash + portfolio.taxable.other;
