@@ -19,6 +19,27 @@ import { selectLots } from '@/components/shared/lotSelectionHelpers';
  * @param {number|null} fallbackRate - Default rate if no period matches (null for BTC to use Power Law)
  * @returns {number|null} - Return rate percentage, or null if no match and fallback is null
  */
+/**
+ * Get effective loan interest rate for a given projection year.
+ * Models declining rates from current rate to future target rate over specified years.
+ * 
+ * @param {number} baseRate - Current interest rate (e.g., 12 for 12%)
+ * @param {number} projectionYear - Year index from projection start (0 = current year)
+ * @param {number|null} futureRate - Target future rate (e.g., 6 for 6%)
+ * @param {number|null} yearsToReach - Years to reach the future rate (e.g., 15)
+ * @returns {number} - Effective interest rate for this year
+ */
+export function getLoanRateForYear(baseRate, projectionYear, futureRate, yearsToReach) {
+  if (!futureRate || !yearsToReach || yearsToReach <= 0) {
+    return baseRate;
+  }
+  if (projectionYear >= yearsToReach) {
+    return futureRate;
+  }
+  const annualDecline = (baseRate - futureRate) / yearsToReach;
+  return Math.max(futureRate, baseRate - (annualDecline * projectionYear));
+}
+
 export function getCustomReturnForYear(assetType, yearIndex, customReturnPeriods, fallbackRate) {
   if (!customReturnPeriods || !customReturnPeriods[assetType]) {
     return fallbackRate;
@@ -118,6 +139,8 @@ export function runUnifiedProjection({
   investmentMode = 'all_surplus',
   monthlyInvestmentAmount = 0,
   assetReallocations = [],
+  futureBtcLoanRate = null,
+  futureBtcLoanRateYears = null,
   DEBUG = false,
 }) {
   const results = [];
