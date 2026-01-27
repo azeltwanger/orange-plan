@@ -414,7 +414,7 @@ export default function Liabilities() {
                     <>
                       <li>• When LTV reaches <span className="text-amber-400">{topUpTriggerLtv}%</span>, liquid BTC is used to add collateral</li>
                       <li>• Collateral is added until LTV drops to <span className="text-emerald-400">{topUpTargetLtv}%</span></li>
-                      <li>• If insufficient liquid BTC, a <span className="text-rose-400">partial liquidation</span> occurs instead</li>
+                      <li>• If insufficient liquid BTC and LTV reaches <span className="text-rose-400">80%</span>, <span className="text-rose-400">full liquidation</span> occurs (loan paid off, excess collateral returned)</li>
                     </>
                   ) : (
                     <>
