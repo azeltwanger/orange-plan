@@ -743,12 +743,13 @@ export default function Scenarios() {
 
       if (baseResult.survives) baselineSuccess++;
       
-      // Count ANY simulation where a forced liquidation occurred (user lost BTC to loan)
-      // Independent of plan success - shows pure loan risk
-      const baseHasLiquidation = baseResult.yearByYear?.some(y =>
-        y.liquidations?.some(l => l.type === 'full_liquidation' || l.type === 'partial_liquidation')
+      // Check for liquidation events (excluding top_up and release)
+      const baseHasLiquidation = baseResult.yearByYear?.some(y => 
+        y.liquidations?.some(l => l.type !== 'top_up' && l.type !== 'release')
       );
-      if (baseHasLiquidation) baselineLiquidations++;
+      
+      // Only count as catastrophic liquidation if BOTH liquidation happened AND plan failed
+      if (baseHasLiquidation && !baseResult.survives) baselineLiquidations++;
 
       // Run scenario with regenerated returns (same Z-scores, different expected returns if changed)
       if (scenarioParams) {
@@ -762,19 +763,21 @@ export default function Scenarios() {
 
         if (scenResult.survives) scenarioSuccess++;
         
-        // Count ANY simulation where a forced liquidation occurred
-        const scenHasLiquidation = scenResult.yearByYear?.some(y =>
-          y.liquidations?.some(l => l.type === 'full_liquidation' || l.type === 'partial_liquidation')
+        // Check for liquidation events (excluding top_up and release)
+        const scenHasLiquidation = scenResult.yearByYear?.some(y => 
+          y.liquidations?.some(l => l.type !== 'top_up' && l.type !== 'release')
         );
-        if (scenHasLiquidation) scenarioLiquidations++;
+        
+        // Only count as catastrophic liquidation if BOTH liquidation happened AND plan failed
+        if (scenHasLiquidation && !scenResult.survives) scenarioLiquidations++;
       }
     }
 
     return {
       baselineSuccessRate: (baselineSuccess / numSimulations) * 100,
       scenarioSuccessRate: scenarioParams ? (scenarioSuccess / numSimulations) * 100 : null,
-      baselineForcedLiquidationRate: (baselineLiquidations / numSimulations) * 100,
-      scenarioForcedLiquidationRate: scenarioParams ? (scenarioLiquidations / numSimulations) * 100 : null,
+      baselineLiquidationRisk: (baselineLiquidations / numSimulations) * 100,
+      scenarioLiquidationRisk: scenarioParams ? (scenarioLiquidations / numSimulations) * 100 : null,
       numSimulations,
     };
   }, []);
@@ -962,14 +965,14 @@ export default function Scenarios() {
 
         setBaselineMonteCarloResults({
           successRate: mcResults.baselineSuccessRate,
-          forcedLiquidationRate: mcResults.baselineForcedLiquidationRate,
+          liquidationRisk: mcResults.baselineLiquidationRisk,
           numSimulations: mcResults.numSimulations,
         });
 
         if (scenarioParams) {
           setScenarioMonteCarloResults({
             successRate: mcResults.scenarioSuccessRate,
-            forcedLiquidationRate: mcResults.scenarioForcedLiquidationRate,
+            liquidationRisk: mcResults.scenarioLiquidationRisk,
             numSimulations: mcResults.numSimulations,
             liquidationAffected,
           });
@@ -1593,8 +1596,8 @@ export default function Scenarios() {
                       <tr className="border-b border-zinc-800/50">
                         <td className="py-3 px-4 text-zinc-200">
                           <div className="flex items-center gap-1">
-                            Forced Liquidation Rate
-                            <span className="text-zinc-500 cursor-help" title="Percentage of simulations where at least one BTC-backed loan was liquidated, forcing you to sell BTC to cover debt. Higher rates indicate more loan risk, but liquidation doesn't necessarily mean plan failure.">
+                            Catastrophic Liquidation Risk
+                            <span className="text-zinc-500 cursor-help" title="The probability that a loan liquidation causes your plan to run out of money before your life expectancy. Liquidations that don't cause plan failure are not counted.">
                               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                               </svg>
@@ -1605,8 +1608,8 @@ export default function Scenarios() {
                           {monteCarloRunning && !baselineMonteCarloResults ? (
                             <Loader2 className="w-4 h-4 animate-spin inline" />
                           ) : baselineMonteCarloResults ? (
-                            <span className={getLiquidationRiskDisplay(baselineMonteCarloResults.forcedLiquidationRate).color}>
-                              {getLiquidationRiskDisplay(baselineMonteCarloResults.forcedLiquidationRate).label}
+                            <span className={getLiquidationRiskDisplay(baselineMonteCarloResults.liquidationRisk).color}>
+                              {getLiquidationRiskDisplay(baselineMonteCarloResults.liquidationRisk).label}
                             </span>
                           ) : '—'}
                         </td>
@@ -1614,14 +1617,14 @@ export default function Scenarios() {
                           {monteCarloRunning && !scenarioMonteCarloResults ? (
                             <Loader2 className="w-4 h-4 animate-spin inline" />
                           ) : scenarioMonteCarloResults ? (
-                            <span className={getLiquidationRiskDisplay(scenarioMonteCarloResults.forcedLiquidationRate).color}>
-                              {getLiquidationRiskDisplay(scenarioMonteCarloResults.forcedLiquidationRate).label}
+                            <span className={getLiquidationRiskDisplay(scenarioMonteCarloResults.liquidationRisk).color}>
+                              {getLiquidationRiskDisplay(scenarioMonteCarloResults.liquidationRisk).label}
                             </span>
                           ) : '—'}
                         </td>
                         <td className="py-3 px-4 text-right font-mono">
                           {baselineMonteCarloResults && scenarioMonteCarloResults ? (() => {
-                            const diff = scenarioMonteCarloResults.forcedLiquidationRate - baselineMonteCarloResults.forcedLiquidationRate;
+                            const diff = scenarioMonteCarloResults.liquidationRisk - baselineMonteCarloResults.liquidationRisk;
                             if (!scenarioMonteCarloResults.liquidationAffected && Math.abs(diff) < 1) {
                               return <span className="text-zinc-500">—</span>;
                             }
