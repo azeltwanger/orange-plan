@@ -1943,7 +1943,6 @@ export default function FinancialPlan() {
 
             {holdingOverridesExpanded && (
               <div className="mt-3 p-4 rounded-xl bg-zinc-800/30 border border-zinc-700">
-              <div className="mt-4 space-y-3">
                 {/* Existing ticker overrides */}
                 {Object.keys(tickerReturns).length > 0 && (
                   <div className="space-y-2">
