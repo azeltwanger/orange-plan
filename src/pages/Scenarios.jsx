@@ -2616,6 +2616,18 @@ export default function Scenarios() {
                 </div>
               )}
 
+              {/* How it works in projections */}
+              <div className="mt-4 p-3 bg-zinc-800/50 rounded-lg">
+                <p className="text-sm font-medium text-zinc-300 mb-2">How it works in projections:</p>
+                <p className="text-xs text-zinc-500 italic mb-2">Based on lender loan terms</p>
+                <ul className="text-xs text-zinc-400 space-y-1">
+                  <li>• When LTV reaches <span className="text-yellow-400">70%</span>, liquid BTC is used to add collateral</li>
+                  <li>• Collateral is added until LTV drops to <span className="text-green-400">50%</span></li>
+                  <li>• If insufficient liquid BTC and LTV reaches <span className="text-red-400">80%</span>, <span className="text-red-400">full liquidation</span> occurs (loan paid off, excess collateral returned)</li>
+                  <li>• When LTV drops below <span className="text-purple-400">30%</span>, excess collateral is released back to liquid (bringing LTV up to <span className="text-green-400">40%</span>)</li>
+                </ul>
+              </div>
+
               {/* Loan Rate Projection - applies to ALL BTC loans */}
               <div className="mt-6 pt-4 border-t border-zinc-700">
                 <h4 className="text-sm font-medium text-zinc-300 mb-3">Loan Rate Projection</h4>
