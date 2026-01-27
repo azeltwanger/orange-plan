@@ -857,6 +857,8 @@ export default function FinancialPlan() {
       assetWithdrawalStrategy,
       withdrawalPriorityOrder,
       withdrawalBlendPercentages,
+      futureBtcLoanRate,
+      futureBtcLoanRateYears,
       DEBUG: false,
     });
     
