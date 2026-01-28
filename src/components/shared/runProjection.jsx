@@ -1034,6 +1034,12 @@ export function runUnifiedProjection({
     const loansWithPayoffGoals = new Set();
 
     lifeEvents.forEach(event => {
+      // Debug: Log inheritance/windfall events
+      if (['inheritance', 'windfall', 'gift', 'asset_sale'].includes(event.event_type)) {
+        console.log('[DEBUG runUnifiedProjection] Processing inheritance/windfall event:', JSON.stringify(event));
+        console.log('[DEBUG runUnifiedProjection] Year match check:', event.year, '===', year, '→', event.year === year);
+      }
+      
       if (event.year === year || (event.is_recurring && event.year <= year && year < event.year + (event.recurring_years || 1))) {
         // Handle assets-affecting events (inheritance, windfall, one-time inflows)
         if (event.affects === 'assets') {
