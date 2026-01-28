@@ -3025,9 +3025,10 @@ export default function Scenarios() {
                             if (Math.abs(diff) < 3) {
                               return <span className="text-zinc-500">≈ same</span>;
                             }
+                            // For liquidation risk: HIGHER is WORSE, so up arrow when risk increases
                             return (
                               <span className={diff < 0 ? "text-emerald-400" : "text-rose-400"}>
-                                {diff < 0 ? '▲' : '▼'} {Math.abs(diff).toFixed(0)}%
+                                {diff > 0 ? '▲' : '▼'} {Math.abs(diff).toFixed(0)}%
                               </span>
                             );
                           })() : '—'}
