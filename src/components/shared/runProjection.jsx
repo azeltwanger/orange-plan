@@ -2010,7 +2010,13 @@ export function runUnifiedProjection({
       
       const yearTaxableIncome = Math.max(0, yearGrossIncome - year401k - yearTraditionalIRA - yearHSA - currentStandardDeduction);
       const yearFederalTax = calculateProgressiveIncomeTax(yearTaxableIncome, filingStatus, year);
-      const yearStateTax = calculateStateIncomeTax({ income: yearGrossIncome - year401k - yearTraditionalIRA - yearHSA, filingStatus, state: stateOfResidence, year });
+      const yearStateTax = calculateStateIncomeTax({ 
+        income: yearGrossIncome - year401k - yearTraditionalIRA - yearHSA, 
+        filingStatus, 
+        state: stateOfResidence, 
+        year,
+        inflationRate: effectiveInflation / 100
+      });
       
       federalTaxPaid = yearFederalTax;
       stateTaxPaid = yearStateTax;
@@ -2104,6 +2110,7 @@ export function runUnifiedProjection({
           taxableGainPortion: prelimTaxableWithdraw.shortTermGain + prelimTaxableWithdraw.longTermGain,
           pensionIncome: 0,
           year: year,
+          inflationRate: effectiveInflation / 100
         });
 
         federalTaxPaid += (taxEstimate.totalTax || 0);
@@ -2448,6 +2455,7 @@ export function runUnifiedProjection({
         taxableGainPortion: prelimRetirementTaxable.shortTermGain + prelimRetirementTaxable.longTermGain,
         pensionIncome: otherRetirementIncome,
         year: year,
+        inflationRate: effectiveInflation / 100
       });
 
       federalTaxPaid = federalTaxOnOtherIncome + (taxEstimate.totalTax || 0);

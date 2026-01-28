@@ -1,6 +1,7 @@
 // ===========================================
 // STATE TAX CONFIGURATION - COMPLETE VERSION
 // Last updated: 2025
+// Base year: 2026. Brackets inflate automatically for future projection years.
 // Includes: brackets, standard deductions, LTCG treatment
 // ===========================================
 
@@ -216,48 +217,66 @@ export const STATE_TAX_CONFIG = {
 // ===========================================
 
 /**
- * Calculate state income tax using progressive brackets.
+ * Calculate state income tax using progressive brackets with inflation adjustment.
  * 
  * Each state has unique brackets, deductions, and exemptions:
  * - Standard deduction: Reduces taxable income before applying brackets
  * - Personal exemption: Additional per-person deduction (some states only)
  * - Taxpayer credit: Dollar-for-dollar tax reduction (Utah)
  * 
+ * INFLATION: Brackets and deductions are inflated for years beyond 2026 (base year)
+ * to prevent artificially high state taxes in long-term projections.
+ * 
  * @param {Object} params - Tax calculation parameters
  * @param {number} params.income - Gross income
  * @param {string} params.filingStatus - 'single', 'married_filing_jointly', 'married'
  * @param {string} params.state - Two-letter state code (e.g., 'CA', 'NY', 'TX')
  * @param {number} params.year - Tax year
+ * @param {number} params.inflationRate - Annual inflation rate (default: 0.025 = 2.5%)
  * @returns {number} - State income tax owed
  */
 export function calculateStateIncomeTax({
   income,
   filingStatus = 'single',
   state,
-  year = 2025
+  year = 2026,
+  inflationRate = 0.025
 }) {
   const config = STATE_TAX_CONFIG[state];
   if (!config || !config.hasIncomeTax) return 0;
 
+  // Calculate inflation factor for years beyond 2026 (base year)
+  const baseYear = 2026;
+  const yearsFromBase = Math.max(0, year - baseYear);
+  const inflationFactor = Math.pow(1 + inflationRate, yearsFromBase);
+
   const isMarried = filingStatus === 'married_filing_jointly' || filingStatus === 'married';
   
-  // Get standard deduction or personal exemption
+  // Get base brackets and inflate them
+  const baseBrackets = (isMarried && config.bracketsMarried) ? config.bracketsMarried : config.brackets;
+  if (!baseBrackets || baseBrackets.length === 0) return 0;
+  
+  const brackets = baseBrackets.map(b => ({
+    min: Math.round(b.min * inflationFactor),
+    max: b.max === Infinity ? Infinity : Math.round(b.max * inflationFactor),
+    rate: b.rate // Rate stays the same
+  }));
+  
+  // Inflate deductions
   let deduction = 0;
   if (config.standardDeduction) {
-    deduction = isMarried ? config.standardDeduction.married : config.standardDeduction.single;
+    const baseDeduction = isMarried ? config.standardDeduction.married : config.standardDeduction.single;
+    deduction = Math.round(baseDeduction * inflationFactor);
   }
   if (config.personalExemption) {
-    deduction += isMarried ? config.personalExemption.married : config.personalExemption.single;
+    const baseExemption = isMarried ? config.personalExemption.married : config.personalExemption.single;
+    deduction += Math.round(baseExemption * inflationFactor);
   }
   
   const taxableIncome = Math.max(0, income - deduction);
   if (taxableIncome <= 0) return 0;
   
-  // Get appropriate brackets
-  const brackets = (isMarried && config.bracketsMarried) ? config.bracketsMarried : config.brackets;
-  if (!brackets || brackets.length === 0) return 0;
-  
-  // Calculate progressive tax
+  // Calculate progressive tax using inflated brackets
   let tax = 0;
   let remainingIncome = taxableIncome;
   
@@ -274,9 +293,10 @@ export function calculateStateIncomeTax({
     }
   }
   
-  // Apply taxpayer credit if exists (Utah)
+  // Apply taxpayer credit if exists (Utah) - also inflate
   if (config.taxpayerCredit) {
-    const credit = isMarried ? config.taxpayerCredit.married : config.taxpayerCredit.single;
+    const baseCredit = isMarried ? config.taxpayerCredit.married : config.taxpayerCredit.single;
+    const credit = Math.round(baseCredit * inflationFactor);
     tax = Math.max(0, tax - credit);
   }
   
@@ -285,7 +305,7 @@ export function calculateStateIncomeTax({
 
 
 /**
- * Calculate state capital gains tax accounting for special treatments.
+ * Calculate state capital gains tax accounting for special treatments with inflation adjustment.
  * 
  * State LTCG treatments vary widely:
  * - 'ordinary': Taxed same as wages (most states) - CA, NY, NJ, etc.
@@ -295,6 +315,8 @@ export function calculateStateIncomeTax({
  * - 'credit': Montana's 2% credit
  * - 'special': Unique rules (WA 7% on gains > $270k, HI 7.25% flat, MA dual rate)
  * 
+ * INFLATION: Special thresholds (WA $270k, VT $350k cap) inflate for years beyond 2026.
+ * 
  * @param {Object} params - Cap gains calculation parameters  
  * @param {number} params.longTermGains - LTCG amount (held > 1 year)
  * @param {number} params.shortTermGains - STCG amount (held ≤ 1 year)
@@ -302,6 +324,7 @@ export function calculateStateIncomeTax({
  * @param {string} params.filingStatus - 'single', 'married_filing_jointly', 'married'
  * @param {string} params.state - Two-letter state code
  * @param {number} params.year - Tax year
+ * @param {number} params.inflationRate - Annual inflation rate (default: 0.025 = 2.5%)
  * @returns {Object} - { tax, taxOnGains, effectiveRate }
  */
 export function calculateStateCapitalGainsTax({
@@ -310,10 +333,16 @@ export function calculateStateCapitalGainsTax({
   otherIncome = 0,
   filingStatus = 'single',
   state,
-  year = 2025
+  year = 2026,
+  inflationRate = 0.025
 }) {
   const config = STATE_TAX_CONFIG[state];
   if (!config || !config.hasIncomeTax) return { tax: 0, effectiveRate: 0 };
+
+  // Calculate inflation factor for years beyond 2026 (base year)
+  const baseYear = 2026;
+  const yearsFromBase = Math.max(0, year - baseYear);
+  const inflationFactor = Math.pow(1 + inflationRate, yearsFromBase);
 
   const isMarried = filingStatus === 'married_filing_jointly' || filingStatus === 'married';
   
@@ -333,16 +362,19 @@ export function calculateStateCapitalGainsTax({
         taxableLTCG = longTermGains * (1 - config.ltcgDeductionPercent / 100);
       }
       if (config.ltcgDeductionMax) {
-        const deduction = Math.min(longTermGains * (config.ltcgDeductionPercent / 100), config.ltcgDeductionMax);
+        const inflatedMax = Math.round(config.ltcgDeductionMax * inflationFactor);
+        const deduction = Math.min(longTermGains * (config.ltcgDeductionPercent / 100), inflatedMax);
         taxableLTCG = longTermGains - deduction;
       }
       break;
       
     case 'exclusion':
-      // Vermont-style exclusion with cap
+      // Vermont-style exclusion with cap (inflated)
       if (config.ltcgExclusionPercent) {
         const exclusion = longTermGains * (config.ltcgExclusionPercent / 100);
-        const cappedExclusion = config.ltcgExclusionCap ? Math.min(exclusion, config.ltcgExclusionCap) : exclusion;
+        const baseExclusionCap = config.ltcgExclusionCap || 350000;
+        const inflatedCap = Math.round(baseExclusionCap * inflationFactor);
+        const cappedExclusion = Math.min(exclusion, inflatedCap);
         taxableLTCG = longTermGains - cappedExclusion;
       }
       break;
@@ -353,9 +385,10 @@ export function calculateStateCapitalGainsTax({
       break;
       
     case 'special':
-      // Washington's 7% on gains over threshold
+      // Washington's 7% on gains over threshold (inflated)
       if (state === 'WA') {
-        const threshold = config.ltcgSpecialThreshold || 270000;
+        const baseThreshold = config.ltcgSpecialThreshold || 270000;
+        const threshold = Math.round(baseThreshold * inflationFactor);
         if (longTermGains > threshold) {
           const taxableGains = longTermGains - threshold;
           return { 
@@ -418,7 +451,8 @@ export function calculateStateCapitalGainsTax({
     income: totalIncome,
     filingStatus,
     state,
-    year
+    year,
+    inflationRate
   });
   
   // Apply Montana credit if applicable
@@ -435,7 +469,8 @@ export function calculateStateCapitalGainsTax({
     income: otherIncome,
     filingStatus,
     state,
-    year
+    year,
+    inflationRate
   });
   
   const taxOnGains = tax - taxWithoutGains;
@@ -542,7 +577,8 @@ export function calculateStateTaxOnRetirement({
   taxableWithdrawal = 0,
   taxableGainPortion = 0,
   pensionIncome = 0,
-  year = new Date().getFullYear()
+  year = new Date().getFullYear(),
+  inflationRate = 0.025
 }) {
   const config = STATE_TAX_CONFIG[state];
   if (!config || !config.hasIncomeTax) return 0;
@@ -583,7 +619,8 @@ export function calculateStateTaxOnRetirement({
     otherIncome: taxableRetirement + taxableSS,
     filingStatus,
     state,
-    year
+    year,
+    inflationRate
   });
   
   return tax;
