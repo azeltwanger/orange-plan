@@ -904,6 +904,11 @@ export function runUnifiedProjection({
     let yearQualifiedDividends = 0;
     let yearNonQualifiedDividends = 0;
     let totalDividendIncome = 0;
+    
+    // Early withdrawal tracking (before age 59.5)
+    let yearEarlyWithdrawalTax = 0;
+    let yearEarlyWithdrawalPenalty = 0;
+    let yearReallocationDetails = [];
 
     // BTC growth and price tracking - priority: Monte Carlo > Custom Periods > Power Law/model
     const customBtcRate = getCustomReturnForYear('btc', i, customReturnPeriods, null);
@@ -1751,6 +1756,25 @@ export function runUnifiedProjection({
         taxesPaid += reallocTaxes + reallocPenalties;
         federalTaxPaid += reallocTaxes + reallocPenalties; // Simplified - add to federal
         
+        // Track early withdrawal details separately for tooltips
+        if (age < PENALTY_FREE_AGE) {
+          yearEarlyWithdrawalTax += reallocTaxes;
+          yearEarlyWithdrawalPenalty += reallocPenalties;
+        }
+        
+        // Track reallocation details for tooltip display
+        yearReallocationDetails.push({
+          fromAccount: sourcePortfolioKey,
+          toAccount: destPortfolioKey,
+          sellAsset: sellAssetCategory,
+          buyAsset: buyAssetType,
+          amount: Math.round(actualSellAmount),
+          netProceeds: Math.round(netProceeds),
+          taxPaid: Math.round(reallocTaxes),
+          penaltyPaid: Math.round(reallocPenalties),
+          capitalGains: Math.round(gains),
+        });
+        
         if (DEBUG) {
           console.log(`[Year ${year}] Executed reallocation:`);
           console.log(`  Sold: $${actualSellAmount.toLocaleString()} ${sellAssetCategory} from ${sourcePortfolioKey}`);
@@ -2066,6 +2090,15 @@ export function runUnifiedProjection({
         stateTaxPaid += preRetireStateTax;
         taxesPaid += (taxEstimate.totalTax || 0) + preRetireStateTax;
         penaltyPaid = taxEstimate.totalPenalty || 0;
+        
+        // Track early withdrawal penalties for spending deficits (before 59.5)
+        if (age < PENALTY_FREE_AGE && penaltyPaid > 0) {
+          yearEarlyWithdrawalPenalty += penaltyPaid;
+          // Track tax on early withdrawals from tax-advantaged accounts
+          const taxDeferredTax = (taxEstimate.fromTaxDeferred || 0) * 0.24; // Simplified marginal rate
+          const taxFreeTax = taxEstimate.taxFreeEarningsTax || 0;
+          yearEarlyWithdrawalTax += taxDeferredTax + taxFreeTax;
+        }
 
         // Use results from the preliminary withdrawal (lots already updated)
         withdrawFromTaxable = prelimTaxableWithdraw.withdrawn;
@@ -2397,6 +2430,15 @@ export function runUnifiedProjection({
       stateTaxPaid = stateTax;
       taxesPaid = federalTaxOnOtherIncome + (taxEstimate.totalTax || 0) + stateTax;
       penaltyPaid = taxEstimate.totalPenalty || 0;
+      
+      // Track early withdrawal penalties for retirement spending (before 59.5)
+      if (age < PENALTY_FREE_AGE && penaltyPaid > 0) {
+        yearEarlyWithdrawalPenalty += penaltyPaid;
+        // Track tax on early withdrawals from tax-advantaged accounts
+        const taxDeferredTax = (taxEstimate.fromTaxDeferred || 0) * 0.24; // Simplified marginal rate
+        const taxFreeTax = taxEstimate.taxFreeEarningsTax || 0;
+        yearEarlyWithdrawalTax += taxDeferredTax + taxFreeTax;
+      }
 
       // Calculate retirement net cash flow: income - spending - goals - taxes
       // Positive = surplus, Negative = deficit
@@ -2835,6 +2877,14 @@ export function runUnifiedProjection({
       yearTraditionalIRAContribution: !isRetired ? Math.round(yearTraditionalIRA || 0) : 0,
       yearHSAContribution: !isRetired ? Math.round(yearHSA || 0) : 0,
       yearEmployer401kMatch: !isRetired ? Math.round(yearEmployerMatch || 0) : 0,
+      
+      // Early withdrawal tracking (before age 59.5)
+      earlyWithdrawalTax: Math.round(yearEarlyWithdrawalTax),
+      earlyWithdrawalPenalty: Math.round(yearEarlyWithdrawalPenalty),
+      
+      // Asset reallocation tracking
+      hasReallocation: yearReallocationDetails.length > 0,
+      reallocationDetails: yearReallocationDetails,
     });
   }
   
