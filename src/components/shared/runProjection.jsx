@@ -1062,6 +1062,16 @@ export function runUnifiedProjection({
             portfolio.taxable.cash += event.amount;
           }
           runningTaxableBasis += event.amount;
+          
+          if (DEBUG && ['inheritance', 'windfall', 'gift'].includes(event.event_type)) {
+            console.log('🟢 PROCESSED INHERITANCE via else-if block:', event.amount);
+            console.log('  Portfolio AFTER event processing:', {
+              taxableBtc: Math.round(portfolio.taxable?.btc || 0),
+              taxableStocks: Math.round(portfolio.taxable?.stocks || 0),
+              taxableCash: Math.round(portfolio.taxable?.cash || 0),
+              total: Math.round(getPortfolioTotal())
+            });
+          }
         }
         // Handle one-time expenses (major_expense with negative amount or affects='assets' with negative)
         if ((event.event_type === 'major_expense' || (event.affects === 'assets' && event.amount < 0)) && event.year === year) {
