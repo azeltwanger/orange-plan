@@ -1020,6 +1020,27 @@ export default function Scenarios() {
     setScenarioMonteCarloResults(null);
   }, [selectedScenarioId]);
 
+  // Debug: Compare taxes year by year
+  useEffect(() => {
+    if (baselineProjection?.yearByYear && scenarioProjection?.yearByYear) {
+      console.log('[TAX COMPARISON] Year-by-year taxes:');
+      const maxYears = Math.min(baselineProjection.yearByYear.length, scenarioProjection.yearByYear.length, 20);
+      for (let i = 0; i < maxYears; i++) {
+        const baseYear = baselineProjection.yearByYear[i];
+        const scenYear = scenarioProjection.yearByYear[i];
+        if (baseYear.taxesPaid !== scenYear.taxesPaid) {
+          console.log(`  Age ${baseYear.age}: Base $${baseYear.taxesPaid.toLocaleString()} vs Scenario $${scenYear.taxesPaid.toLocaleString()} (diff: $${(scenYear.taxesPaid - baseYear.taxesPaid).toLocaleString()})`);
+        }
+      }
+      console.log('[TAX COMPARISON] Lifetime totals:');
+      const baseLifetime = baselineProjection.yearByYear.reduce((sum, y) => sum + (y.taxesPaid || 0), 0);
+      const scenLifetime = scenarioProjection.yearByYear.reduce((sum, y) => sum + (y.taxesPaid || 0), 0);
+      console.log(`  Baseline: $${baseLifetime.toLocaleString()}`);
+      console.log(`  Scenario: $${scenLifetime.toLocaleString()}`);
+      console.log(`  Difference: $${(scenLifetime - baseLifetime).toLocaleString()}`);
+    }
+  }, [baselineProjection, scenarioProjection]);
+
   // Format currency helper (moved up for use in holdingsOptions)
   const formatCurrency = (num) => {
     if (num === null || num === undefined) return '-';
