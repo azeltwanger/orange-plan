@@ -1701,6 +1701,12 @@ export function runUnifiedProjection({
         // === STEP 3: NET PROCEEDS ===
         const netProceeds = actualSellAmount - reallocTaxes - reallocPenalties;
         
+        console.log('[REALLOC DEBUG] Year:', year, 'Age:', age);
+        console.log('[REALLOC DEBUG] actualSellAmount:', actualSellAmount);
+        console.log('[REALLOC DEBUG] reallocTaxes:', reallocTaxes);
+        console.log('[REALLOC DEBUG] reallocPenalties:', reallocPenalties);
+        console.log('[REALLOC DEBUG] netProceeds:', netProceeds);
+        
         // === STEP 4: BUY INTO DESTINATION ===
         const buyCategory = buyAssetType === 'btc' ? 'btc' : 
                            buyAssetType === 'stocks' ? 'stocks' : 
@@ -1712,7 +1718,13 @@ export function runUnifiedProjection({
         if (destinationAccountType === 'tax_deferred') destPortfolioKey = 'taxDeferred';
         else if (destinationAccountType === 'tax_free') destPortfolioKey = 'taxFree';
         
+        console.log('[REALLOC DEBUG] destPortfolioKey:', destPortfolioKey);
+        console.log('[REALLOC DEBUG] buyCategory:', buyCategory);
+        console.log('[REALLOC DEBUG] portfolio[destPortfolioKey][buyCategory] BEFORE:', portfolio[destPortfolioKey][buyCategory]);
+        
         portfolio[destPortfolioKey][buyCategory] += netProceeds;
+        
+        console.log('[REALLOC DEBUG] portfolio[destPortfolioKey][buyCategory] AFTER:', portfolio[destPortfolioKey][buyCategory]);
         if (destPortfolioKey === 'taxable') {
           runningTaxableBasis += netProceeds; // New basis = net proceeds (only for taxable)
         }
