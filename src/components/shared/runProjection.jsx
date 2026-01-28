@@ -1966,7 +1966,8 @@ export function runUnifiedProjection({
       taxesPaid = yearFederalTax + yearStateTax;
       // Net income = gross - taxes - pre-tax contributions (401k, Traditional IRA, HSA come from paycheck)
       // Add estimated dividend income (calculated before withdrawals) for cash flow decisions
-      const yearNetIncome = yearGrossIncome - taxesPaid - year401k - yearTraditionalIRA - yearHSA + estimatedDividendIncome;
+      // Add life event income (inheritance, windfall, etc.) - this is already invested in portfolio, but also adds to cash flow
+      const yearNetIncome = yearGrossIncome - taxesPaid - year401k - yearTraditionalIRA - yearHSA + estimatedDividendIncome + yearLifeEventIncome;
 
       const baseYearSpending = (currentAnnualSpending * Math.pow(1 + effectiveInflation / 100, i)) + activeExpenseAdjustment;
       yearSpending = i === 0 ? baseYearSpending * currentYearProRataFactor : baseYearSpending;
@@ -2343,7 +2344,8 @@ export function runUnifiedProjection({
       // Social Security is now calculated earlier (before retirement/pre-retirement split)
       // In retirement, dividend income adds to available income to fund spending
       // Use estimatedDividendIncome here (calculated before withdrawals) to properly reduce withdrawal needs
-      const totalRetirementIncome = otherRetirementIncome + socialSecurityIncome + estimatedDividendIncome;
+      // Include life event income (inheritance, windfall, etc.) - already invested but also reduces withdrawal need
+      const totalRetirementIncome = otherRetirementIncome + socialSecurityIncome + estimatedDividendIncome + yearLifeEventIncome;
       const taxableSocialSecurity = calculateTaxableSocialSecurity(socialSecurityIncome, otherRetirementIncome + desiredWithdrawal, filingStatus);
       const totalOtherIncomeForTax = otherRetirementIncome + taxableSocialSecurity + rmdWithdrawn;
 
