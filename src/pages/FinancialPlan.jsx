@@ -165,9 +165,9 @@ export default function FinancialPlan() {
   const [btcReleaseTriggerLtv, setBtcReleaseTriggerLtv] = useState(30);
   const [btcReleaseTargetLtv, setBtcReleaseTargetLtv] = useState(40);
 
-  // Future BTC Loan Rate Settings
-  const [futureBtcLoanRate, setFutureBtcLoanRate] = useState(8);
-  const [futureBtcLoanRateYears, setFutureBtcLoanRateYears] = useState(15);
+  // Future BTC Loan Rate Settings (default to null = no decline from current rate)
+  const [futureBtcLoanRate, setFutureBtcLoanRate] = useState(null);
+  const [futureBtcLoanRateYears, setFutureBtcLoanRateYears] = useState(0);
 
   // State tax settings
   const [stateOfResidence, setStateOfResidence] = useState('TX');
@@ -401,8 +401,13 @@ export default function FinancialPlan() {
                   if (settings.btc_top_up_target_ltv !== undefined) setBtcTopUpTargetLtv(settings.btc_top_up_target_ltv);
                   if (settings.btc_release_trigger_ltv !== undefined) setBtcReleaseTriggerLtv(settings.btc_release_trigger_ltv);
                   if (settings.btc_release_target_ltv !== undefined) setBtcReleaseTargetLtv(settings.btc_release_target_ltv);
-                  if (settings.future_btc_loan_rate !== undefined) setFutureBtcLoanRate(settings.future_btc_loan_rate);
-                  if (settings.future_btc_loan_rate_years !== undefined) setFutureBtcLoanRateYears(settings.future_btc_loan_rate_years);
+                  // For future loan rate: only set if explicitly configured (null/0 means no decline)
+                  if (settings.future_btc_loan_rate !== undefined && settings.future_btc_loan_rate !== null) {
+                    setFutureBtcLoanRate(settings.future_btc_loan_rate);
+                  }
+                  if (settings.future_btc_loan_rate_years !== undefined && settings.future_btc_loan_rate_years !== null) {
+                    setFutureBtcLoanRateYears(settings.future_btc_loan_rate_years);
+                  }
                   setSettingsLoaded(true);
     }
   }, [userSettings, settingsLoaded]);
@@ -469,8 +474,8 @@ export default function FinancialPlan() {
                       asset_withdrawal_strategy: assetWithdrawalStrategy,
                       withdrawal_priority_order: withdrawalPriorityOrder,
                       withdrawal_blend_percentages: withdrawalBlendPercentages,
-                      future_btc_loan_rate: futureBtcLoanRate || null,
-                      future_btc_loan_rate_years: futureBtcLoanRateYears || null,
+                      future_btc_loan_rate: futureBtcLoanRate,
+                      future_btc_loan_rate_years: futureBtcLoanRateYears,
                       });
                       }, 1000); // Debounce 1 second
                       return () => clearTimeout(timeoutId);
@@ -2260,12 +2265,12 @@ export default function FinancialPlan() {
             {(liabilities?.some(l => l.type === 'btc_collateralized') || collateralizedLoans?.length > 0) && (
               <>
                 <div>
-                  <Label className="text-zinc-400">Future BTC Loan Rate</Label>
+                  <Label className="text-zinc-400">Target BTC Loan Rate (%)</Label>
                   <div className="flex items-center gap-2 mt-2">
                     <Input
                       type="number"
-                      min="1"
-                      max="15"
+                      min="0"
+                      max="20"
                       step="0.5"
                       placeholder="—"
                       value={futureBtcLoanRate ?? ''}
@@ -2274,24 +2279,24 @@ export default function FinancialPlan() {
                     />
                     <span className="text-orange-400 font-medium">%</span>
                   </div>
-                  <p className="text-xs text-zinc-500 mt-1">Rate loans decline to over time</p>
+                  <p className="text-xs text-zinc-500 mt-1">Rate loans decline to. Blank = no change.</p>
                 </div>
                 <div>
-                  <Label className="text-zinc-400">Years to Reach</Label>
+                  <Label className="text-zinc-400">Years to Reach Target</Label>
                   <div className="flex items-center gap-2 mt-2">
                     <Input
                       type="number"
-                      min="5"
+                      min="0"
                       max="30"
                       step="1"
-                      placeholder="—"
-                      value={futureBtcLoanRateYears ?? ''}
-                      onChange={(e) => setFutureBtcLoanRateYears(e.target.value ? parseInt(e.target.value) : null)}
+                      placeholder="0"
+                      value={futureBtcLoanRateYears || ''}
+                      onChange={(e) => setFutureBtcLoanRateYears(e.target.value ? parseInt(e.target.value) : 0)}
                       className="w-20 bg-zinc-900 border-zinc-700 text-center"
                     />
                     <span className="text-orange-400 font-medium">yrs</span>
                   </div>
-                  <p className="text-xs text-zinc-500 mt-1">Years until future rate reached</p>
+                  <p className="text-xs text-zinc-500 mt-1">0 = no rate decline</p>
                 </div>
               </>
             )}

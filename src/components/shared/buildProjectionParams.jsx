@@ -201,7 +201,7 @@ export function buildProjectionParams(settings, overrides = {}, data) {
     assetReallocations,
     hypothetical_btc_loan: effectiveSettings.hypothetical_btc_loan ?? null,
     futureBtcLoanRate: effectiveSettings.future_btc_loan_rate ?? settings.future_btc_loan_rate ?? null,
-    futureBtcLoanRateYears: effectiveSettings.future_btc_loan_rate_years ?? settings.future_btc_loan_rate_years ?? null,
+    futureBtcLoanRateYears: effectiveSettings.future_btc_loan_rate_years ?? settings.future_btc_loan_rate_years ?? 0,
     taxLots: activeTaxLots,
     assetWithdrawalStrategy: effectiveSettings.asset_withdrawal_strategy ?? settings.asset_withdrawal_strategy ?? 'proportional',
     withdrawalPriorityOrder: effectiveSettings.withdrawal_priority_order ?? settings.withdrawal_priority_order ?? ['cash', 'bonds', 'stocks', 'other', 'btc'],
