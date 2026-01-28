@@ -306,8 +306,9 @@ export default function Scenarios() {
 
   // Derive BTC-backed loans from Liability entity (type='btc_collateralized')
   const btcCollateralizedLoans = useMemo(() => {
+    console.log('[DEBUG] Raw liabilities:', liabilities);
     if (!liabilities) return [];
-    return liabilities
+    const filtered = liabilities
       .filter(l => l.type === 'btc_collateralized')
       .map(l => ({
         id: l.id,
@@ -319,6 +320,8 @@ export default function Scenarios() {
         interest_rate: l.interest_rate || 12.4,
         collateral_release_ltv: l.collateral_release_ltv || 30,
       }));
+    console.log('[DEBUG] Derived btcCollateralizedLoans:', filtered);
+    return filtered;
   }, [liabilities]);
 
   const { data: goals = [], isLoading: goalsLoading } = useQuery({
@@ -444,6 +447,9 @@ export default function Scenarios() {
     // Asset reallocations for future processing
     const assetReallocations = effectiveSettings.asset_reallocations || [];
 
+    console.log('[DEBUG] scenarioLiabilities (non-BTC):', scenarioLiabilities);
+    console.log('[DEBUG] scenarioCollateralizedLoans:', scenarioCollateralizedLoans);
+
     const savingsResult = calculateComprehensiveAnnualSavings({
       grossAnnualIncome,
       currentAnnualSpending,
@@ -545,6 +551,7 @@ export default function Scenarios() {
     if (!holdings.length || !accounts.length || !userSettings.length || !currentPrice) return null;
     try {
       const params = buildProjectionParams();
+      console.log('[DEBUG] Params passed to runUnifiedProjection - collateralizedLoans:', params.collateralizedLoans);
       return runUnifiedProjection(params);
     } catch (error) {
       console.error('Baseline projection error:', error);
