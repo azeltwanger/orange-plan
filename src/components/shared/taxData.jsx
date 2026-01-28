@@ -1,9 +1,9 @@
-// ===========================================
-// CONSOLIDATED TAX DATA - ALL ANNUAL VALUES
-// ===========================================
-// Tax data updated for 2026 per IRS Revenue Procedure 2025-32 and OBBBA (One Big Beautiful Bill Act)
-// Base year for projections: 2026
-// Future years inflate using FALLBACK_INFLATION (2.5%)
+// =============================================================================
+// TAX DATA - Updated January 2026
+// Sources: IRS Revenue Procedure 2025-32, One Big Beautiful Bill Act (OBBBA)
+// Historical data preserved for tax lot reporting (2024-2025)
+// Future years (2027+) inflate from 2026 base using FALLBACK_INFLATION (2.5%)
+// =============================================================================
 //
 // UPDATE CHECKLIST (Every January):
 // [ ] Federal income brackets
@@ -15,7 +15,7 @@
 // [ ] Medicare IRMAA brackets
 // [ ] Estate/gift limits
 // [ ] State tax updates (check each state)
-// ===========================================
+// =============================================================================
 
 const CURRENT_YEAR = 2026;
 const FALLBACK_INFLATION = 0.025; // 2.5% for projecting unknown years
@@ -101,43 +101,42 @@ export const FEDERAL_INCOME_BRACKETS = {
     ]
   },
   // 2026 brackets per IRS Revenue Procedure 2025-32 and OBBBA
-  // OBBBA provided ~4% inflation for bottom two brackets, ~2.3% for higher brackets
   2026: {
     single: [
       { min: 0, max: 12400, rate: 10 },
       { min: 12400, max: 50400, rate: 12 },
-      { min: 50400, max: 105725, rate: 22 },
-      { min: 105725, max: 201850, rate: 24 },
-      { min: 201850, max: 256300, rate: 32 },
-      { min: 256300, max: 640750, rate: 35 },
-      { min: 640750, max: Infinity, rate: 37 }
+      { min: 50400, max: 105850, rate: 22 },
+      { min: 105850, max: 201950, rate: 24 },
+      { min: 201950, max: 256450, rate: 32 },
+      { min: 256450, max: 641450, rate: 35 },
+      { min: 641450, max: Infinity, rate: 37 }
     ],
     married_filing_jointly: [
       { min: 0, max: 24800, rate: 10 },
       { min: 24800, max: 100800, rate: 12 },
-      { min: 100800, max: 211450, rate: 22 },
-      { min: 211450, max: 403700, rate: 24 },
-      { min: 403700, max: 512600, rate: 32 },
-      { min: 512600, max: 768900, rate: 35 },
-      { min: 768900, max: Infinity, rate: 37 }
+      { min: 100800, max: 211700, rate: 22 },
+      { min: 211700, max: 403950, rate: 24 },
+      { min: 403950, max: 512800, rate: 32 },
+      { min: 512800, max: 769350, rate: 35 },
+      { min: 769350, max: Infinity, rate: 37 }
     ],
     married_filing_separately: [
       { min: 0, max: 12400, rate: 10 },
       { min: 12400, max: 50400, rate: 12 },
-      { min: 50400, max: 105725, rate: 22 },
-      { min: 105725, max: 201850, rate: 24 },
-      { min: 201850, max: 256300, rate: 32 },
-      { min: 256300, max: 384450, rate: 35 },
-      { min: 384450, max: Infinity, rate: 37 }
+      { min: 50400, max: 105850, rate: 22 },
+      { min: 105850, max: 201975, rate: 24 },
+      { min: 201975, max: 256400, rate: 32 },
+      { min: 256400, max: 384675, rate: 35 },
+      { min: 384675, max: Infinity, rate: 37 }
     ],
     head_of_household: [
-      { min: 0, max: 17680, rate: 10 },
-      { min: 17680, max: 67450, rate: 12 },
-      { min: 67450, max: 105725, rate: 22 },
-      { min: 105725, max: 201850, rate: 24 },
-      { min: 201850, max: 256300, rate: 32 },
-      { min: 256300, max: 640750, rate: 35 },
-      { min: 640750, max: Infinity, rate: 37 }
+      { min: 0, max: 17650, rate: 10 },
+      { min: 17650, max: 67450, rate: 12 },
+      { min: 67450, max: 105850, rate: 22 },
+      { min: 105850, max: 201950, rate: 24 },
+      { min: 201950, max: 256450, rate: 32 },
+      { min: 256450, max: 641450, rate: 35 },
+      { min: 641450, max: Infinity, rate: 37 }
     ]
   }
 };
@@ -160,10 +159,10 @@ export const FEDERAL_LTCG_BRACKETS = {
   },
   // 2026 LTCG brackets per IRS Revenue Procedure 2025-32
   2026: {
-    single: { zeroMax: 49550, fifteenMax: 545850 },
-    married_filing_jointly: { zeroMax: 99100, fifteenMax: 613850 },
-    married_filing_separately: { zeroMax: 49550, fifteenMax: 306925 },
-    head_of_household: { zeroMax: 66350, fifteenMax: 579650 }
+    single: { zeroMax: 49650, fifteenMax: 547350 },
+    married_filing_jointly: { zeroMax: 99300, fifteenMax: 615550 },
+    married_filing_separately: { zeroMax: 49650, fifteenMax: 307775 },
+    head_of_household: { zeroMax: 66450, fifteenMax: 580650 }
   }
 };
 
@@ -255,6 +254,29 @@ export const CONTRIBUTION_LIMITS = {
     
     simple_ira: 16500,
     simple_ira_catchup: 3500
+  },
+  // 2026 contribution limits per IRS
+  2026: {
+    traditional_401k: 24000,
+    traditional_401k_catchup: 7500,
+    traditional_401k_super_catchup: 11250, // Ages 60-63
+    total_401k_limit: 71500,
+    
+    traditional_ira: 7000,
+    traditional_ira_catchup: 1000,
+    
+    roth_ira: 7000,
+    roth_ira_catchup: 1000,
+    
+    hsa_single: 4400,
+    hsa_family: 8750,
+    hsa_catchup: 1000,
+    
+    sep_ira_percent: 25,
+    sep_ira_max: 71500,
+    
+    simple_ira: 17000,
+    simple_ira_catchup: 3500
   }
 };
 
@@ -270,6 +292,12 @@ export const ROTH_INCOME_LIMITS = {
   2025: {
     single: { phaseoutStart: 150000, phaseoutEnd: 165000 },
     married_filing_jointly: { phaseoutStart: 236000, phaseoutEnd: 246000 },
+    married_filing_separately: { phaseoutStart: 0, phaseoutEnd: 10000 }
+  },
+  // 2026 Roth IRA income limits
+  2026: {
+    single: { phaseoutStart: 154000, phaseoutEnd: 169000 },
+    married_filing_jointly: { phaseoutStart: 242000, phaseoutEnd: 252000 },
     married_filing_separately: { phaseoutStart: 0, phaseoutEnd: 10000 }
   }
 };
@@ -288,6 +316,13 @@ export const TRADITIONAL_IRA_DEDUCTION_LIMITS = {
     single: { phaseoutStart: 79000, phaseoutEnd: 89000 },
     married_filing_jointly: { phaseoutStart: 126000, phaseoutEnd: 146000 },
     married_filing_jointly_spouse_covered: { phaseoutStart: 236000, phaseoutEnd: 246000 },
+    married_filing_separately: { phaseoutStart: 0, phaseoutEnd: 10000 }
+  },
+  // 2026 Traditional IRA deduction limits
+  2026: {
+    single: { phaseoutStart: 81000, phaseoutEnd: 91000 },
+    married_filing_jointly: { phaseoutStart: 129000, phaseoutEnd: 149000 },
+    married_filing_jointly_spouse_covered: { phaseoutStart: 242000, phaseoutEnd: 252000 },
     married_filing_separately: { phaseoutStart: 0, phaseoutEnd: 10000 }
   }
 };
@@ -324,6 +359,20 @@ export const SOCIAL_SECURITY = {
     bendPoint2: 7391,
     
     cola: 2.5
+  },
+  // 2026 Social Security limits
+  2026: {
+    wageBase: 180600,
+    taxRate: 6.2,
+    maxBenefit: 5236,
+    
+    earningsTestUnderFRA: 24000,
+    earningsTestYearOfFRA: 63600,
+    
+    bendPoint1: 1256,
+    bendPoint2: 7572,
+    
+    cola: 2.3 // Estimated COLA for 2026
   }
 };
 
@@ -433,6 +482,29 @@ export const MEDICARE_IRMAA = {
         { maxIncome: 400000, partB_surcharge: 296.00, partD_surcharge: 57.00 },
         { maxIncome: 750000, partB_surcharge: 407.00, partD_surcharge: 78.60 },
         { maxIncome: Infinity, partB_surcharge: 443.90, partD_surcharge: 85.80 }
+      ]
+    }
+  },
+  // 2026 Medicare IRMAA brackets (estimated)
+  2026: {
+    partB_base: 190.00,
+    partD_base: 0,
+    brackets: {
+      single: [
+        { maxIncome: 109000, partB_surcharge: 0, partD_surcharge: 0 },
+        { maxIncome: 136000, partB_surcharge: 76.00, partD_surcharge: 14.00 },
+        { maxIncome: 171000, partB_surcharge: 190.00, partD_surcharge: 36.20 },
+        { maxIncome: 205000, partB_surcharge: 304.00, partD_surcharge: 58.40 },
+        { maxIncome: 500000, partB_surcharge: 418.00, partD_surcharge: 80.60 },
+        { maxIncome: Infinity, partB_surcharge: 456.00, partD_surcharge: 88.00 }
+      ],
+      married_filing_jointly: [
+        { maxIncome: 218000, partB_surcharge: 0, partD_surcharge: 0 },
+        { maxIncome: 272000, partB_surcharge: 76.00, partD_surcharge: 14.00 },
+        { maxIncome: 342000, partB_surcharge: 190.00, partD_surcharge: 36.20 },
+        { maxIncome: 410000, partB_surcharge: 304.00, partD_surcharge: 58.40 },
+        { maxIncome: 750000, partB_surcharge: 418.00, partD_surcharge: 80.60 },
+        { maxIncome: Infinity, partB_surcharge: 456.00, partD_surcharge: 88.00 }
       ]
     }
   }
@@ -552,12 +624,13 @@ export function getLTCGBrackets(year, filingStatus = 'single', inflationRate = n
 export function getStandardDeduction(year, filingStatus = 'single', age = 0, isBlind = false, inflationRate = null, income = 0) {
   const yearData = getYearData(STANDARD_DEDUCTIONS, year, inflationRate);
   const normalizedStatus = filingStatus === 'married' ? 'married_filing_jointly' : filingStatus;
+  const isMarried = normalizedStatus === 'married_filing_jointly';
   
   let deduction = yearData[normalizedStatus] || yearData.single;
   
   // Add additional deduction for 65+ or blind
   if (age >= 65 || isBlind) {
-    const additional = normalizedStatus.includes('married') 
+    const additional = isMarried 
       ? yearData.additional_married 
       : yearData.additional_single;
     if (additional) {
@@ -571,14 +644,23 @@ export function getStandardDeduction(year, filingStatus = 'single', age = 0, isB
   // NEW for 2026+ (OBBBA): Senior bonus deduction with phaseout
   // Additional $6,000 for 65+ that phases out above $75,000 AGI
   if (age >= 65 && yearData.senior_bonus_deduction) {
-    const bonusDeduction = yearData.senior_bonus_deduction;
+    let bonusDeduction = yearData.senior_bonus_deduction;
     const phaseoutStart = yearData.senior_bonus_phaseout_start || 75000;
     const phaseoutRate = yearData.senior_bonus_phaseout_rate || 0.06;
     
-    if (income > phaseoutStart) {
-      const reduction = (income - phaseoutStart) * phaseoutRate;
-      const adjustedBonus = Math.max(0, bonusDeduction - reduction);
-      deduction += adjustedBonus;
+    // Apply inflation to phaseout threshold for future years beyond 2026
+    const yearsFromBase = Math.max(0, year - 2026);
+    const effectiveInflationRate = inflationRate !== null ? inflationRate : FALLBACK_INFLATION;
+    const inflatedPhaseoutStart = phaseoutStart * Math.pow(1 + effectiveInflationRate, yearsFromBase);
+    
+    if (income > inflatedPhaseoutStart) {
+      const reduction = (income - inflatedPhaseoutStart) * phaseoutRate;
+      bonusDeduction = Math.max(0, bonusDeduction - reduction);
+    }
+    
+    // Both spouses get the bonus if married filing jointly
+    if (isMarried) {
+      deduction += bonusDeduction * 2;
     } else {
       deduction += bonusDeduction;
     }
