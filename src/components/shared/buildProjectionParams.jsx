@@ -1,0 +1,202 @@
+import { 
+  calculateComprehensiveAnnualSavings, 
+  deriveEffectiveSocialSecurity, 
+  createBtcGrowthRateFunction,
+  getTaxTreatmentFromHolding as sharedGetTaxTreatment
+} from '@/components/shared/projectionHelpers';
+
+/**
+ * Build projection parameters from UserSettings and optional scenario overrides.
+ * 
+ * This is the SINGLE SOURCE OF TRUTH for projection parameters used by both:
+ * - FinancialPlan.jsx (baseline projections)
+ * - Scenarios.jsx (baseline + scenario comparison)
+ * 
+ * @param {Object} settings - UserSettings entity record
+ * @param {Object} overrides - Scenario overrides (defaults to {})
+ * @param {Object} data - Required data dependencies
+ * @returns {Object} - Complete params object for runUnifiedProjection
+ */
+export function buildProjectionParams(settings, overrides = {}, data) {
+  const {
+    holdings,
+    accounts,
+    liabilities,
+    btcCollateralizedLoans,
+    goals,
+    lifeEvents,
+    activeTaxLots,
+    currentPrice,
+  } = data;
+
+  // Merge settings with overrides - overrides take precedence
+  const effectiveSettings = { ...settings, ...overrides };
+  
+  // Extract all parameters with fallback defaults
+  const retirementAge = effectiveSettings.retirement_age_override || effectiveSettings.retirement_age || 65;
+  const currentAge = effectiveSettings.current_age || 35;
+  const lifeExpectancy = effectiveSettings.life_expectancy_override || effectiveSettings.life_expectancy || 90;
+  const retirementSpending = effectiveSettings.annual_retirement_spending_override || effectiveSettings.annual_retirement_spending || 100000;
+  const stateOfResidence = effectiveSettings.state_override || effectiveSettings.state_of_residence || 'TX';
+  const btcCagr = effectiveSettings.btc_cagr_override ?? effectiveSettings.btc_cagr_assumption ?? 25;
+  const stocksCagr = effectiveSettings.stocks_cagr_override ?? effectiveSettings.stocks_cagr ?? 7;
+  const bondsCagr = effectiveSettings.bonds_cagr_override ?? effectiveSettings.bonds_cagr ?? 3;
+  const realEstateCagr = effectiveSettings.real_estate_cagr_override ?? effectiveSettings.real_estate_cagr ?? 4;
+  const cashCagr = effectiveSettings.cash_cagr_override ?? effectiveSettings.cash_cagr ?? 0;
+  const otherCagr = effectiveSettings.other_cagr_override ?? effectiveSettings.other_cagr ?? 7;
+  const inflationRate = effectiveSettings.inflation_override ?? effectiveSettings.inflation_rate ?? 3;
+  const incomeGrowth = effectiveSettings.income_growth_override ?? effectiveSettings.income_growth_rate ?? 3;
+  const ssStartAge = effectiveSettings.social_security_start_age_override || effectiveSettings.social_security_start_age || 67;
+  const ssAmount = effectiveSettings.social_security_amount_override ?? effectiveSettings.social_security_amount ?? 0;
+  const btcReturnModel = effectiveSettings.btc_return_model_override || effectiveSettings.btc_return_model || 'custom';
+  const useCustomSocialSecurity = effectiveSettings.use_custom_social_security ?? false;
+  
+  const savingsAllocationBtc = effectiveSettings.savings_allocation_btc_override ?? effectiveSettings.savings_allocation_btc ?? 80;
+  const savingsAllocationStocks = effectiveSettings.savings_allocation_stocks_override ?? effectiveSettings.savings_allocation_stocks ?? 20;
+  const savingsAllocationBonds = effectiveSettings.savings_allocation_bonds_override ?? effectiveSettings.savings_allocation_bonds ?? 0;
+  const savingsAllocationCash = effectiveSettings.savings_allocation_cash_override ?? effectiveSettings.savings_allocation_cash ?? 0;
+  const savingsAllocationOther = effectiveSettings.savings_allocation_other_override ?? effectiveSettings.savings_allocation_other ?? 0;
+
+  const investmentMode = effectiveSettings.investment_mode_override || effectiveSettings.investment_mode || 'all_surplus';
+  const monthlyInvestmentAmount = effectiveSettings.monthly_investment_amount_override ?? effectiveSettings.monthly_investment_amount ?? 0;
+
+  // Income and spending
+  const grossAnnualIncome = effectiveSettings.gross_annual_income_override ?? effectiveSettings.gross_annual_income ?? 100000;
+  const currentAnnualSpending = effectiveSettings.current_annual_spending_override ?? effectiveSettings.current_annual_spending ?? 80000;
+  const filingStatus = effectiveSettings.filing_status || 'single';
+  const contribution401k = effectiveSettings.contribution_401k ?? 0;
+  const employer401kMatch = effectiveSettings.employer_401k_match ?? 0;
+  const contributionRothIRA = effectiveSettings.contribution_roth_ira ?? 0;
+  const contributionTraditionalIRA = effectiveSettings.contribution_traditional_ira ?? 0;
+  const contributionHSA = effectiveSettings.contribution_hsa ?? 0;
+  const hsaFamilyCoverage = effectiveSettings.hsa_family_coverage || false;
+
+  // Dividend income parameters
+  const dividendIncome = effectiveSettings.dividend_income_override ?? 0;
+  const dividendIncomeQualified = effectiveSettings.dividend_income_qualified ?? true;
+
+  // Process one-time events from scenario into lifeEvents format
+  const scenarioOneTimeEvents = (effectiveSettings.one_time_events || []).map(event => {
+    const originalAmount = parseFloat(event.amount) || 0;
+    const eventType = event.event_type || (originalAmount >= 0 ? 'income_change' : 'expense_change');
+    
+    // For inheritance, windfall, gift - preserve event_type so runUnifiedProjection handles correctly
+    const preserveEventType = ['inheritance', 'windfall', 'gift', 'asset_sale'].includes(eventType);
+
+    return {
+      id: `scenario_event_${event.id || Date.now()}`,
+      name: event.description || `${eventType} at age ${event.year}`,
+      event_type: preserveEventType ? eventType : (originalAmount >= 0 ? 'income_change' : 'expense_change'),
+      year: parseInt(event.year) || currentAge,
+      amount: Math.abs(originalAmount),
+      is_recurring: false,
+      affects: preserveEventType ? 'income' : (originalAmount >= 0 ? 'income' : 'expenses'),
+      _isOneTime: true,
+      _originalAmount: originalAmount
+    };
+  });
+
+  // Combine with existing life events
+  const combinedLifeEvents = [...(lifeEvents || []), ...scenarioOneTimeEvents];
+
+  // Process liabilities - filter OUT btc_collateralized since they're in btcCollateralizedLoans
+  // This prevents double-counting debt and collateral
+  let scenarioLiabilities = [...(liabilities || [])].filter(l => l.type !== 'btc_collateralized');
+  let scenarioCollateralizedLoans = [...(btcCollateralizedLoans || [])];
+
+  // Asset reallocations for future processing
+  const assetReallocations = effectiveSettings.asset_reallocations || [];
+
+  // Use shared helper for comprehensive annual savings (accounts for taxes, retirement contributions)
+  const savingsResult = calculateComprehensiveAnnualSavings({
+    grossAnnualIncome,
+    currentAnnualSpending,
+    filingStatus,
+    contribution401k,
+    employer401kMatch,
+    contributionRothIRA,
+    contributionTraditionalIRA,
+    contributionHSA,
+    hsaFamilyCoverage,
+    currentAge,
+  });
+
+  // Use shared helper for effective Social Security
+  const effectiveSocialSecurity = deriveEffectiveSocialSecurity({
+    grossAnnualIncome,
+    socialSecurityStartAge: ssStartAge,
+    socialSecurityAmount: ssAmount,
+    useCustomSocialSecurity,
+    currentAge,
+  });
+
+  // Use shared helper for BTC growth rate function
+  // Scenario custom_return_periods_override takes precedence over global settings
+  const effectiveCustomReturnPeriods = effectiveSettings.custom_return_periods_override || effectiveSettings.custom_return_periods || {};
+  const getBtcGrowthRate = createBtcGrowthRateFunction(
+    btcReturnModel, 
+    btcCagr, 
+    effectiveCustomReturnPeriods
+  );
+
+  return {
+    holdings,
+    accounts,
+    liabilities: scenarioLiabilities,
+    collateralizedLoans: scenarioCollateralizedLoans,
+    currentPrice,
+    currentAge,
+    retirementAge,
+    lifeExpectancy,
+    retirementAnnualSpending: retirementSpending,
+    effectiveSocialSecurity,
+    socialSecurityStartAge: ssStartAge,
+    otherRetirementIncome: (effectiveSettings.other_retirement_income || 0) + dividendIncome,
+    annualSavings: savingsResult.annualSavings,
+    incomeGrowth,
+    grossAnnualIncome,
+    currentAnnualSpending,
+    filingStatus,
+    stateOfResidence,
+    contribution401k,
+    employer401kMatch,
+    contributionRothIRA,
+    contributionTraditionalIRA,
+    contributionHSA,
+    hsaFamilyCoverage,
+    getBtcGrowthRate,
+    effectiveInflation: inflationRate,
+    effectiveStocksCagr: stocksCagr,
+    bondsCagr,
+    realEstateCagr,
+    cashCagr,
+    otherCagr,
+    savingsAllocationBtc,
+    savingsAllocationStocks,
+    savingsAllocationBonds,
+    savingsAllocationCash,
+    savingsAllocationOther,
+    investmentMode,
+    monthlyInvestmentAmount,
+    autoTopUpBtcCollateral: effectiveSettings.auto_top_up_btc_collateral ?? true,
+    btcTopUpTriggerLtv: effectiveSettings.btc_top_up_trigger_ltv || 70,
+    btcTopUpTargetLtv: effectiveSettings.btc_top_up_target_ltv || 50,
+    btcReleaseTriggerLtv: effectiveSettings.btc_release_trigger_ltv || 30,
+    btcReleaseTargetLtv: effectiveSettings.btc_release_target_ltv || 40,
+    goals: goals || [],
+    lifeEvents: combinedLifeEvents,
+    getTaxTreatmentFromHolding: (holding) => sharedGetTaxTreatment(holding, accounts),
+    customReturnPeriods: effectiveSettings.custom_return_periods_override || effectiveSettings.custom_return_periods || {},
+    tickerReturns: effectiveSettings.ticker_returns_override || effectiveSettings.ticker_returns || {},
+    dividendIncomeQualified,
+    assetReallocations,
+    hypothetical_btc_loan: effectiveSettings.hypothetical_btc_loan || null,
+    futureBtcLoanRate: effectiveSettings.future_btc_loan_rate || null,
+    futureBtcLoanRateYears: effectiveSettings.future_btc_loan_rate_years || null,
+    taxLots: activeTaxLots,
+    assetWithdrawalStrategy: effectiveSettings.asset_withdrawal_strategy || 'proportional',
+    withdrawalPriorityOrder: effectiveSettings.withdrawal_priority_order || ['cash', 'bonds', 'stocks', 'other', 'btc'],
+    withdrawalBlendPercentages: effectiveSettings.withdrawal_blend_percentages || { cash: 0, bonds: 25, stocks: 35, other: 10, btc: 30 },
+    costBasisMethod: effectiveSettings.cost_basis_method || 'HIFO',
+  };
+}

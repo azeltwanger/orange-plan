@@ -26,12 +26,7 @@ import { cn } from "@/lib/utils";
 import { LoadingSkeleton } from '@/components/ui/LoadingSkeleton';
 import { useBtcPrice } from '@/components/shared/useBtcPrice';
 import CustomPeriodsModal from '@/components/retirement/CustomPeriodsModal';
-import { 
-  calculateComprehensiveAnnualSavings, 
-  deriveEffectiveSocialSecurity, 
-  createBtcGrowthRateFunction,
-  getTaxTreatmentFromHolding as sharedGetTaxTreatment
-} from '@/components/shared/projectionHelpers';
+import { buildProjectionParams } from '@/components/shared/buildProjectionParams';
 
 // CollapsibleSection component for organizing metrics
 const CollapsibleSection = ({ title, defaultOpen = true, children }) => {
@@ -386,200 +381,29 @@ export default function Scenarios() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [lockedTooltipData]);
 
-  // Build projection parameters from settings - creates the baseline params object
-  // Uses shared helpers for EXACT consistency with FinancialPlan.jsx
-  const buildProjectionParams = (overrides = {}) => {
-    const effectiveSettings = { ...settings, ...overrides };
-    
-    const retirementAge = effectiveSettings.retirement_age_override || effectiveSettings.retirement_age || 65;
-    const currentAge = effectiveSettings.current_age || 35;
-    const lifeExpectancy = effectiveSettings.life_expectancy_override || effectiveSettings.life_expectancy || 90;
-    const retirementSpending = effectiveSettings.annual_retirement_spending_override || effectiveSettings.annual_retirement_spending || 100000;
-    const stateOfResidence = effectiveSettings.state_override || effectiveSettings.state_of_residence || 'TX';
-    const btcCagr = effectiveSettings.btc_cagr_override ?? effectiveSettings.btc_cagr_assumption ?? 25;
-    const stocksCagr = effectiveSettings.stocks_cagr_override ?? effectiveSettings.stocks_cagr ?? 7;
-    const bondsCagr = effectiveSettings.bonds_cagr_override ?? effectiveSettings.bonds_cagr ?? 3;
-    const realEstateCagr = effectiveSettings.real_estate_cagr_override ?? effectiveSettings.real_estate_cagr ?? 4;
-    const cashCagr = effectiveSettings.cash_cagr_override ?? effectiveSettings.cash_cagr ?? 0;
-    const otherCagr = effectiveSettings.other_cagr_override ?? effectiveSettings.other_cagr ?? 7;
-    const inflationRate = effectiveSettings.inflation_override ?? effectiveSettings.inflation_rate ?? 3;
-    const incomeGrowth = effectiveSettings.income_growth_override ?? effectiveSettings.income_growth_rate ?? 3;
-    const ssStartAge = effectiveSettings.social_security_start_age_override || effectiveSettings.social_security_start_age || 67;
-    const ssAmount = effectiveSettings.social_security_amount_override ?? effectiveSettings.social_security_amount ?? 0;
-    const btcReturnModel = effectiveSettings.btc_return_model_override || effectiveSettings.btc_return_model || 'custom';
-    const useCustomSocialSecurity = effectiveSettings.use_custom_social_security ?? false;
-    
-    const savingsAllocationBtc = effectiveSettings.savings_allocation_btc_override ?? effectiveSettings.savings_allocation_btc ?? 80;
-    const savingsAllocationStocks = effectiveSettings.savings_allocation_stocks_override ?? effectiveSettings.savings_allocation_stocks ?? 20;
-    const savingsAllocationBonds = effectiveSettings.savings_allocation_bonds_override ?? effectiveSettings.savings_allocation_bonds ?? 0;
-    const savingsAllocationCash = effectiveSettings.savings_allocation_cash_override ?? effectiveSettings.savings_allocation_cash ?? 0;
-    const savingsAllocationOther = effectiveSettings.savings_allocation_other_override ?? effectiveSettings.savings_allocation_other ?? 0;
+  // buildProjectionParams now imported from shared utility
 
-    const investmentMode = effectiveSettings.investment_mode_override || effectiveSettings.investment_mode || 'all_surplus';
-    const monthlyInvestmentAmount = effectiveSettings.monthly_investment_amount_override ?? effectiveSettings.monthly_investment_amount ?? 0;
-
-    // Use shared helper for comprehensive annual savings (EXACT match with FinancialPlan.jsx)
-    const grossAnnualIncome = effectiveSettings.gross_annual_income_override ?? effectiveSettings.gross_annual_income ?? 100000;
-    const currentAnnualSpending = effectiveSettings.current_annual_spending_override ?? effectiveSettings.current_annual_spending ?? 80000;
-    const filingStatus = effectiveSettings.filing_status || 'single';
-    const contribution401k = effectiveSettings.contribution_401k ?? 0;
-    const employer401kMatch = effectiveSettings.employer_401k_match ?? 0;
-    const contributionRothIRA = effectiveSettings.contribution_roth_ira ?? 0;
-    const contributionTraditionalIRA = effectiveSettings.contribution_traditional_ira ?? 0;
-    const contributionHSA = effectiveSettings.contribution_hsa ?? 0;
-    const hsaFamilyCoverage = effectiveSettings.hsa_family_coverage || false;
-
-    // Dividend income parameters
-    const dividendIncome = effectiveSettings.dividend_income_override ?? 0;
-    const dividendIncomeQualified = effectiveSettings.dividend_income_qualified ?? true;
-
-    // Process one-time events from scenario into lifeEvents format
-    const scenarioOneTimeEvents = (effectiveSettings.one_time_events || []).map(event => {
-      const originalAmount = parseFloat(event.amount) || 0;
-      const eventType = event.event_type || (originalAmount >= 0 ? 'income_change' : 'expense_change');
-      
-      // For inheritance, windfall, gift - preserve event_type so runUnifiedProjection handles correctly
-      const preserveEventType = ['inheritance', 'windfall', 'gift', 'asset_sale'].includes(eventType);
-
-      return {
-        id: `scenario_event_${event.id || Date.now()}`,
-        name: event.description || `${eventType} at age ${event.year}`,
-        event_type: preserveEventType ? eventType : (originalAmount >= 0 ? 'income_change' : 'expense_change'),
-        year: parseInt(event.year) || currentAge,
-        amount: Math.abs(originalAmount),
-        is_recurring: false,
-        affects: preserveEventType ? 'income' : (originalAmount >= 0 ? 'income' : 'expenses'),
-        _isOneTime: true,
-        _originalAmount: originalAmount
-      };
-    });
-
-    // Combine with existing life events
-    const combinedLifeEvents = [...(lifeEvents || []), ...scenarioOneTimeEvents];
-
-    // Process hypothetical BTC loan
-    // Filter OUT btc_collateralized from liabilities since they're already in btcCollateralizedLoans
-    // This prevents double-counting debt and collateral in runUnifiedProjection
-    let scenarioLiabilities = [...(liabilities || [])].filter(l => l.type !== 'btc_collateralized');
-    let scenarioCollateralizedLoans = [...(btcCollateralizedLoans || [])];
-
-    // Note: hypothetical_btc_loan is passed directly to runUnifiedProjection
-    // which handles it with proper start_age logic. Do NOT add it to liabilities arrays here.
-
-    // Asset reallocations for future processing
-    const assetReallocations = effectiveSettings.asset_reallocations || [];
-
-    console.log('[DEBUG] scenarioLiabilities (non-BTC):', scenarioLiabilities);
-    console.log('[DEBUG] scenarioCollateralizedLoans:', scenarioCollateralizedLoans);
-
-    const savingsResult = calculateComprehensiveAnnualSavings({
-      grossAnnualIncome,
-      currentAnnualSpending,
-      filingStatus,
-      contribution401k,
-      employer401kMatch,
-      contributionRothIRA,
-      contributionTraditionalIRA,
-      contributionHSA,
-      hsaFamilyCoverage,
-      currentAge,
-    });
-
-    // Use shared helper for effective Social Security (EXACT match with FinancialPlan.jsx)
-    const effectiveSocialSecurity = deriveEffectiveSocialSecurity({
-      grossAnnualIncome,
-      socialSecurityStartAge: ssStartAge,
-      socialSecurityAmount: ssAmount,
-      useCustomSocialSecurity,
-      currentAge,
-    });
-
-    // Use shared helper for BTC growth rate function (EXACT match with FinancialPlan.jsx)
-    // Scenario custom_return_periods_override takes precedence over global settings
-    const effectiveCustomReturnPeriods = effectiveSettings.custom_return_periods_override || effectiveSettings.custom_return_periods || {};
-    const getBtcGrowthRate = createBtcGrowthRateFunction(
-      btcReturnModel, 
-      btcCagr, 
-      effectiveCustomReturnPeriods
-    );
-
-    return {
-      holdings,
-      accounts,
-      liabilities: scenarioLiabilities,
-      collateralizedLoans: scenarioCollateralizedLoans,
-      currentPrice,
-      currentAge,
-      retirementAge,
-      lifeExpectancy,
-      retirementAnnualSpending: retirementSpending,
-      effectiveSocialSecurity,
-      socialSecurityStartAge: ssStartAge,
-      otherRetirementIncome: (effectiveSettings.other_retirement_income || 0) + dividendIncome,
-      annualSavings: savingsResult.annualSavings,
-      incomeGrowth,
-      grossAnnualIncome,
-      currentAnnualSpending,
-      filingStatus,
-      stateOfResidence,
-      contribution401k,
-      employer401kMatch,
-      contributionRothIRA,
-      contributionTraditionalIRA,
-      contributionHSA,
-      hsaFamilyCoverage,
-      getBtcGrowthRate,
-      effectiveInflation: inflationRate,
-      effectiveStocksCagr: stocksCagr,
-      bondsCagr,
-      realEstateCagr,
-      cashCagr,
-      otherCagr,
-      savingsAllocationBtc,
-      savingsAllocationStocks,
-      savingsAllocationBonds,
-      savingsAllocationCash,
-      savingsAllocationOther,
-      investmentMode,
-      monthlyInvestmentAmount,
-      autoTopUpBtcCollateral: effectiveSettings.auto_top_up_btc_collateral ?? true,
-      btcTopUpTriggerLtv: effectiveSettings.btc_top_up_trigger_ltv || 70,
-      btcTopUpTargetLtv: effectiveSettings.btc_top_up_target_ltv || 50,
-      btcReleaseTriggerLtv: effectiveSettings.btc_release_trigger_ltv || 30,
-      btcReleaseTargetLtv: effectiveSettings.btc_release_target_ltv || 40,
-      goals: goals || [],
-      lifeEvents: combinedLifeEvents,
-      getTaxTreatmentFromHolding: (holding) => sharedGetTaxTreatment(holding, accounts),
-      customReturnPeriods: effectiveSettings.custom_return_periods_override || effectiveSettings.custom_return_periods || {},
-      tickerReturns: effectiveSettings.ticker_returns_override || effectiveSettings.ticker_returns || {},
-      dividendIncomeQualified,
-      assetReallocations,
-      hypothetical_btc_loan: effectiveSettings.hypothetical_btc_loan || null,
-      // Future BTC loan rate parameters
-      futureBtcLoanRate: effectiveSettings.future_btc_loan_rate || null,
-      futureBtcLoanRateYears: effectiveSettings.future_btc_loan_rate_years || null,
-      // Tax lots for lot-level cost basis tracking
-      taxLots: activeTaxLots,
-      // Withdrawal strategy parameters from user settings
-      assetWithdrawalStrategy: effectiveSettings.asset_withdrawal_strategy || 'proportional',
-      withdrawalPriorityOrder: effectiveSettings.withdrawal_priority_order || ['cash', 'bonds', 'stocks', 'other', 'btc'],
-      withdrawalBlendPercentages: effectiveSettings.withdrawal_blend_percentages || { cash: 0, bonds: 25, stocks: 35, other: 10, btc: 30 },
-      costBasisMethod: effectiveSettings.cost_basis_method || 'HIFO',
-    };
-  };
-
-  // Run baseline projection
+  // Run baseline projection using shared buildProjectionParams
   const baselineProjection = useMemo(() => {
     if (!holdings.length || !accounts.length || !userSettings.length || !currentPrice) return null;
     try {
-      const params = buildProjectionParams();
+      const params = buildProjectionParams(settings, {}, {
+        holdings,
+        accounts,
+        liabilities,
+        btcCollateralizedLoans,
+        goals,
+        lifeEvents,
+        activeTaxLots,
+        currentPrice,
+      });
       console.log('[DEBUG] Params passed to runUnifiedProjection - collateralizedLoans:', params.collateralizedLoans);
       return runUnifiedProjection(params);
     } catch (error) {
       console.error('Baseline projection error:', error);
       return null;
     }
-  }, [holdings, accounts, liabilities, btcCollateralizedLoans, goals, lifeEvents, userSettings, budgetItems, currentPrice]);
+  }, [holdings, accounts, liabilities, btcCollateralizedLoans, goals, lifeEvents, userSettings, budgetItems, currentPrice, activeTaxLots]);
 
   // Run scenario projection
   const selectedScenario = scenarios.find(s => s.id === selectedScenarioId);
@@ -588,7 +412,6 @@ export default function Scenarios() {
     if (!selectedScenario || !holdings.length || !accounts.length || !userSettings.length || !currentPrice) return null;
     try {
       const overrides = {
-        // Existing fields
         retirement_age_override: selectedScenario.retirement_age_override,
         life_expectancy_override: selectedScenario.life_expectancy_override,
         annual_retirement_spending_override: selectedScenario.annual_retirement_spending_override,
@@ -607,7 +430,6 @@ export default function Scenarios() {
         savings_allocation_bonds_override: selectedScenario.savings_allocation_bonds_override,
         savings_allocation_cash_override: selectedScenario.savings_allocation_cash_override,
         savings_allocation_other_override: selectedScenario.savings_allocation_other_override,
-        // New fields
         btc_return_model_override: selectedScenario.btc_return_model_override,
         custom_return_periods_override: selectedScenario.custom_return_periods_override,
         ticker_returns_override: selectedScenario.ticker_returns_override,
@@ -621,13 +443,22 @@ export default function Scenarios() {
         future_btc_loan_rate: selectedScenario.future_btc_loan_rate,
         future_btc_loan_rate_years: selectedScenario.future_btc_loan_rate_years,
       };
-      const params = buildProjectionParams(overrides);
+      const params = buildProjectionParams(settings, overrides, {
+        holdings,
+        accounts,
+        liabilities,
+        btcCollateralizedLoans,
+        goals,
+        lifeEvents,
+        activeTaxLots,
+        currentPrice,
+      });
       return runUnifiedProjection(params);
     } catch (error) {
       console.error('Scenario projection error:', error);
       return null;
     }
-  }, [selectedScenario, holdings, accounts, liabilities, btcCollateralizedLoans, goals, lifeEvents, userSettings, budgetItems, currentPrice]);
+  }, [selectedScenario, holdings, accounts, liabilities, btcCollateralizedLoans, goals, lifeEvents, userSettings, budgetItems, currentPrice, activeTaxLots]);
 
   // Calculate max drawdown BTC can survive without liquidation
   const calculateMaxDrawdownSurvived = useCallback(() => {
@@ -953,7 +784,16 @@ export default function Scenarios() {
     // Use setTimeout to allow UI to update before heavy computation
     setTimeout(() => {
       try {
-        const baselineParams = buildProjectionParams();
+        const baselineParams = buildProjectionParams(settings, {}, {
+          holdings,
+          accounts,
+          liabilities,
+          btcCollateralizedLoans,
+          goals,
+          lifeEvents,
+          activeTaxLots,
+          currentPrice,
+        });
         let scenarioParams = null;
 
         if (selectedScenario) {
@@ -992,7 +832,16 @@ export default function Scenarios() {
             future_btc_loan_rate: selectedScenario.future_btc_loan_rate,
             future_btc_loan_rate_years: selectedScenario.future_btc_loan_rate_years,
           };
-          scenarioParams = buildProjectionParams(overrides);
+          scenarioParams = buildProjectionParams(settings, overrides, {
+            holdings,
+            accounts,
+            liabilities,
+            btcCollateralizedLoans,
+            goals,
+            lifeEvents,
+            activeTaxLots,
+            currentPrice,
+          });
         }
 
         // Run comparison with shared random paths (500 simulations)
@@ -1033,7 +882,16 @@ export default function Scenarios() {
     if (!baselineProjection || !scenarioProjection || !selectedScenario) return;
     
     // Build params for both to compare
-    const baseParams = buildProjectionParams();
+    const baseParams = buildProjectionParams(settings, {}, {
+      holdings,
+      accounts,
+      liabilities,
+      btcCollateralizedLoans,
+      goals,
+      lifeEvents,
+      activeTaxLots,
+      currentPrice,
+    });
     const scenOverrides = {
       retirement_age_override: selectedScenario.retirement_age_override,
       life_expectancy_override: selectedScenario.life_expectancy_override,
@@ -1066,7 +924,16 @@ export default function Scenarios() {
       future_btc_loan_rate: selectedScenario.future_btc_loan_rate,
       future_btc_loan_rate_years: selectedScenario.future_btc_loan_rate_years,
     };
-    const scenParams = buildProjectionParams(scenOverrides);
+    const scenParams = buildProjectionParams(settings, scenOverrides, {
+      holdings,
+      accounts,
+      liabilities,
+      btcCollateralizedLoans,
+      goals,
+      lifeEvents,
+      activeTaxLots,
+      currentPrice,
+    });
     
     console.log('=== BASELINE VS SCENARIO PARAM COMPARISON ===');
     console.log('Selected Scenario:', selectedScenario.name);
