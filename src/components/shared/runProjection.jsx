@@ -1093,16 +1093,14 @@ export function runUnifiedProjection({
           
           if (isOneTimeExpense) {
             const expenseAmount = event.amount; // Already positive from buildProjectionParams
-            yearGoalWithdrawal += expenseAmount; // Treat as withdrawal need
-            yearLifeEventExpense += expenseAmount; // Track for tooltip display
+            yearLifeEventExpense += expenseAmount; // Track for tooltip display - NOT added to yearGoalWithdrawal to avoid double-counting
             if (DEBUG) console.log(`🔴 Processed one-time expense: $${expenseAmount.toLocaleString()} from ${event.event_type} (${event.name})`);
           }
         }
         // Home purchase down payment
         if (event.event_type === 'home_purchase' && event.year === year) {
           eventImpact -= (event.down_payment || 0);
-          yearGoalWithdrawal += (event.down_payment || 0); // Down payment is a withdrawal
-          yearLifeEventExpense += (event.down_payment || 0); // Track for tooltip
+          yearLifeEventExpense += (event.down_payment || 0); // Track for tooltip - NOT added to yearGoalWithdrawal to avoid double-counting
         }
       }
     });
