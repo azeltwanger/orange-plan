@@ -1502,7 +1502,7 @@ export default function Scenarios() {
                         
                         console.log('[DEBUG] Tooltip data for age', p?.age, {
                           hasReallocation: p?.hasReallocation,
-                          reallocationDetails: p?.reallocationDetails,
+                          reallocationDetails: JSON.stringify(p?.reallocationDetails),
                           earlyWithdrawalTax: p?.earlyWithdrawalTax,
                           earlyWithdrawalPenalty: p?.earlyWithdrawalPenalty,
                           penaltyPaid: p?.penaltyPaid
@@ -2132,7 +2132,7 @@ export default function Scenarios() {
                 
                 console.log('[DEBUG] Locked Tooltip data for age', p?.age, {
                   hasReallocation: p?.hasReallocation,
-                  reallocationDetails: p?.reallocationDetails,
+                  reallocationDetails: JSON.stringify(p?.reallocationDetails),
                   earlyWithdrawalTax: p?.earlyWithdrawalTax,
                   earlyWithdrawalPenalty: p?.earlyWithdrawalPenalty,
                   penaltyPaid: p?.penaltyPaid
