@@ -2099,13 +2099,21 @@ export function runUnifiedProjection({
         // Update Roth contribution basis after withdrawal
         runningRothContributionBasis = taxEstimate.newRothContributionBasis || runningRothContributionBasis;
 
-        const preRetireStateTax = calculateStateTaxOnRetirement({
+        // Calculate Roth earnings portion for state tax (before 59.5, earnings are taxable)
+      let rothEarningsForStateTax = 0;
+      if (age < PENALTY_FREE_AGE && taxEstimate.fromTaxFree > 0) {
+        // IRS ordering: contributions come out first, then earnings
+        const rothContributionsUsed = Math.min(taxEstimate.fromTaxFree, runningRothContributionBasis);
+        rothEarningsForStateTax = Math.max(0, taxEstimate.fromTaxFree - rothContributionsUsed);
+      }
+      
+      const preRetireStateTax = calculateStateTaxOnRetirement({
           state: stateOfResidence,
           age: age,
           filingStatus: filingStatus,
-          totalAGI: deficit,
+          totalAGI: deficit + rothEarningsForStateTax, // Include Roth earnings in AGI
           socialSecurityIncome: 0,
-          taxDeferredWithdrawal: taxEstimate.fromTaxDeferred || 0,
+          taxDeferredWithdrawal: (taxEstimate.fromTaxDeferred || 0) + rothEarningsForStateTax, // Roth earnings taxed as ordinary income
           taxableWithdrawal: prelimTaxableWithdraw.withdrawn,
           taxableGainPortion: prelimTaxableWithdraw.shortTermGain + prelimTaxableWithdraw.longTermGain,
           pensionIncome: 0,
@@ -2444,13 +2452,21 @@ export function runUnifiedProjection({
       // Update Roth contribution basis after withdrawal
       runningRothContributionBasis = taxEstimate.newRothContributionBasis || runningRothContributionBasis;
 
+      // Calculate Roth earnings portion for state tax (before 59.5, earnings are taxable)
+      let retirementRothEarningsForStateTax = 0;
+      if (age < PENALTY_FREE_AGE && taxEstimate.fromTaxFree > 0) {
+        // IRS ordering: contributions come out first, then earnings
+        const rothContributionsUsed = Math.min(taxEstimate.fromTaxFree, runningRothContributionBasis);
+        retirementRothEarningsForStateTax = Math.max(0, taxEstimate.fromTaxFree - rothContributionsUsed);
+      }
+      
       const stateTax = calculateStateTaxOnRetirement({
         state: stateOfResidence,
         age: age,
         filingStatus: filingStatus,
-        totalAGI: totalOtherIncomeForTax + cappedWithdrawal,
+        totalAGI: totalOtherIncomeForTax + cappedWithdrawal + retirementRothEarningsForStateTax,
         socialSecurityIncome: socialSecurityIncome,
-        taxDeferredWithdrawal: taxEstimate.fromTaxDeferred || 0,
+        taxDeferredWithdrawal: (taxEstimate.fromTaxDeferred || 0) + retirementRothEarningsForStateTax, // Roth earnings taxed as ordinary income
         taxableWithdrawal: prelimRetirementTaxable.withdrawn,
         taxableGainPortion: prelimRetirementTaxable.shortTermGain + prelimRetirementTaxable.longTermGain,
         pensionIncome: otherRetirementIncome,
