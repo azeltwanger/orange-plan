@@ -1038,8 +1038,8 @@ export function runUnifiedProjection({
             runningTaxableBasis += eventAmount;
           }
         }
-        // Also track inheritance/windfall/gift event types - always process these regardless of affects property
-        if (['inheritance', 'windfall', 'gift', 'asset_sale'].includes(event.event_type) && event.amount > 0) {
+        // Also track inheritance/windfall/gift event types - only if NOT already handled by affects === 'assets' block
+        else if (['inheritance', 'windfall', 'gift', 'asset_sale'].includes(event.event_type) && event.amount > 0 && event.affects !== 'assets') {
           yearLifeEventIncome += event.amount;
           // Add to portfolio proportionately
           const totalAllocation = savingsAllocationBtc + savingsAllocationStocks + savingsAllocationBonds + savingsAllocationCash + savingsAllocationOther;
