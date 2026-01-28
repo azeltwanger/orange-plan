@@ -3601,8 +3601,6 @@ export default function Scenarios() {
                 <Plus className="h-4 w-4 mr-2" />
                 Add Event
               </Button>
-              
-              <p className="text-xs text-zinc-500 mt-3">Use positive amounts for income (inheritance, bonus). Use negative amounts for expenses (-50000 for a large purchase).</p>
             </CollapsibleFormSection>
 
             {/* Asset Reallocation */}
