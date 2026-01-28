@@ -1977,7 +1977,7 @@ export default function Scenarios() {
                       
                       // Render tooltip - prioritize scenario if both exist, show both if significantly different
                       return (
-                        <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-4 text-sm min-w-[280px] max-h-[500px] overflow-y-auto shadow-xl">
+                        <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-4 text-sm min-w-[320px] max-w-[350px] max-h-[400px] overflow-y-auto shadow-xl">
                           {showScenario && scenarioYearData && renderTooltipContent(scenarioYearData, selectedScenario.name, true)}
                           {showBaseline && baselineYearData && !showScenario && renderTooltipContent(baselineYearData, 'Baseline', false)}
                         </div>
