@@ -2638,6 +2638,45 @@ export default function Scenarios() {
                         </div>
                       )}
                       
+                      {/* Asset Reallocation */}
+                      {p.hasReallocation && p.reallocationDetails && p.reallocationDetails.length > 0 && (
+                        <div className="pt-3 mt-3 border-t border-zinc-700/70">
+                          <p className="text-xs font-semibold text-amber-400 mb-2">
+                            🔄 Asset Reallocation This Year:
+                          </p>
+                          <div className="space-y-2">
+                            {p.reallocationDetails.map((r, idx) => (
+                              <div key={idx} className="text-xs text-zinc-400">
+                                <p className="text-amber-300">
+                                  {r.sellAsset} from {r.fromAccount} → {r.buyAsset} in {r.toAccount}
+                                </p>
+                                <p className="ml-3 text-zinc-500">
+                                  Sold: ${r.amount.toLocaleString()}
+                                </p>
+                                {r.capitalGains > 0 && (
+                                  <p className="ml-3 text-zinc-500">
+                                    Capital Gains: ${r.capitalGains.toLocaleString()}
+                                  </p>
+                                )}
+                                {r.taxPaid > 0 && (
+                                  <p className="ml-3 text-rose-400">
+                                    Tax: -${r.taxPaid.toLocaleString()}
+                                  </p>
+                                )}
+                                {r.penaltyPaid > 0 && (
+                                  <p className="ml-3 text-rose-400">
+                                    Penalty: -${r.penaltyPaid.toLocaleString()}
+                                  </p>
+                                )}
+                                <p className="ml-3 text-emerald-400">
+                                  Net Proceeds: ${r.netProceeds.toLocaleString()}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
                       {/* Debt Payoffs */}
                       {p.debtPayoffs && p.debtPayoffs.length > 0 && (
                         <div className="pt-3 mt-3 border-t border-zinc-700/70">
