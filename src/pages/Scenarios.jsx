@@ -411,6 +411,8 @@ export default function Scenarios() {
   const scenarioProjection = useMemo(() => {
     if (!selectedScenario || !holdings.length || !accounts.length || !userSettings.length || !currentPrice) return null;
     try {
+      console.log('[DEBUG 1] selectedScenario.one_time_events RAW:', JSON.stringify(selectedScenario.one_time_events));
+      
       const rawOverrides = {
         retirement_age_override: selectedScenario.retirement_age_override,
         life_expectancy_override: selectedScenario.life_expectancy_override,
@@ -453,6 +455,8 @@ export default function Scenarios() {
           return true;
         })
       );
+      
+      console.log('[DEBUG 2] overrides.one_time_events AFTER cleanup:', JSON.stringify(overrides.one_time_events));
 
       const params = buildProjectionParams(settings, overrides, {
         holdings,

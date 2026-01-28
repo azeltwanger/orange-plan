@@ -1010,6 +1010,10 @@ export function runUnifiedProjection({
     let activeExpenseAdjustment = 0;
     
     lifeEvents.forEach(event => {
+      if (event.event_type === 'inheritance' || event.event_type === 'windfall') {
+        console.log('[DEBUG 6] Processing inheritance/windfall in runProjection:', event.name, 'year:', event.year, 'amount:', event.amount, 'current year:', year);
+      }
+      
       // Recurring income changes
       if (event.event_type === 'income_change') {
         const eventEndYear = event.year + (event.is_recurring ? (event.recurring_years || 1) : 1);

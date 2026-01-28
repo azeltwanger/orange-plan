@@ -28,6 +28,8 @@ export function buildProjectionParams(settings, overrides = {}, data) {
     activeTaxLots,
     currentPrice,
   } = data;
+  
+  console.log('[DEBUG 3] buildProjectionParams RECEIVED overrides.one_time_events:', JSON.stringify(overrides?.one_time_events));
 
   // Merge settings with overrides - overrides take precedence
   const effectiveSettings = { ...settings, ...overrides };
@@ -95,9 +97,15 @@ export function buildProjectionParams(settings, overrides = {}, data) {
       _originalAmount: originalAmount
     };
   });
+  
+  console.log('[DEBUG 4] scenarioOneTimeEvents TRANSFORMED:', JSON.stringify(scenarioOneTimeEvents));
 
   // Combine with existing life events
   const combinedLifeEvents = [...(lifeEvents || []), ...scenarioOneTimeEvents];
+  
+  console.log('[DEBUG 5] combinedLifeEvents count:', combinedLifeEvents.length);
+  const inheritanceEvents = combinedLifeEvents.filter(e => e.event_type === 'inheritance');
+  console.log('[DEBUG 5b] Inheritance events in combinedLifeEvents:', JSON.stringify(inheritanceEvents));
 
   // Process liabilities - filter OUT btc_collateralized since they're in btcCollateralizedLoans
   // This prevents double-counting debt and collateral
