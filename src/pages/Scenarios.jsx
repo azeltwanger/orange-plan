@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { runUnifiedProjection } from '@/components/shared/runProjection';
@@ -136,6 +136,8 @@ export default function Scenarios() {
   const [monteCarloRunning, setMonteCarloRunning] = useState(false);
   const [baselineMonteCarloResults, setBaselineMonteCarloResults] = useState(null);
   const [scenarioMonteCarloResults, setScenarioMonteCarloResults] = useState(null);
+  const [lockedTooltipData, setLockedTooltipData] = useState(null);
+  const chartContainerRef = useRef(null);
   const queryClient = useQueryClient();
 
   // Form state for creating/editing scenarios
@@ -371,6 +373,18 @@ export default function Scenarios() {
   const isLoading = holdingsLoading || accountsLoading || liabilitiesLoading || goalsLoading || eventsLoading || settingsLoading || scenariosLoading || priceLoading;
 
   const settings = userSettings[0] || {};
+
+  // Click outside to dismiss locked tooltip
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (lockedTooltipData && chartContainerRef.current && !chartContainerRef.current.contains(event.target)) {
+        setLockedTooltipData(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [lockedTooltipData]);
 
   // Build projection parameters from settings - creates the baseline params object
   // Uses shared helpers for EXACT consistency with FinancialPlan.jsx
@@ -1415,9 +1429,30 @@ export default function Scenarios() {
           </div>
           
           {showChart && (
-            <div className="h-80">
+            <div className="h-80 relative overflow-visible" ref={chartContainerRef}>
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData}>
+                <LineChart 
+                  data={chartData}
+                  onClick={(e) => {
+                    if (e && e.activePayload && e.activeLabel !== undefined && e.activeCoordinate) {
+                      // If clicking the same age, unlock
+                      if (lockedTooltipData && lockedTooltipData.label === e.activeLabel) {
+                        setLockedTooltipData(null);
+                      } else {
+                        // Lock to this data point with position
+                        setLockedTooltipData({ 
+                          payload: e.activePayload, 
+                          label: e.activeLabel,
+                          x: e.activeCoordinate.x,
+                          y: 50
+                        });
+                      }
+                    } else {
+                      // Clicking empty area unlocks
+                      setLockedTooltipData(null);
+                    }
+                  }}
+                >
                   <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
                   <XAxis dataKey="age" stroke="#71717a" fontSize={12} />
                   <YAxis stroke="#71717a" fontSize={12} tickFormatter={(v) => formatCurrency(v)} />
@@ -1436,7 +1471,14 @@ export default function Scenarios() {
                       overflow: 'visible'
                     }}
                     position={{ y: 10 }}
+                    active={lockedTooltipData ? true : undefined}
+                    cursor={lockedTooltipData ? false : true}
                     content={({ active, payload, label }) => {
+                      // If tooltip is locked, don't render hover tooltip (locked tooltip rendered separately)
+                      if (lockedTooltipData) {
+                        return null;
+                      }
+                      
                       if (!active || !payload?.length) return null;
                       
                       // Find which line was hovered - baseline or scenario
@@ -1471,7 +1513,7 @@ export default function Scenarios() {
                                   {projectionName} • Age {label} {p.hasEvent ? '📅' : ''} {hasLiquidation ? '⚠️' : ''}
                                 </p>
                               </div>
-                              <p className="text-xs text-zinc-500">{p.isRetired ? '(Retirement)' : '(Pre-Retirement)'}</p>
+                              <p className="text-xs text-zinc-500">{p.isRetired ? '(Retirement)' : '(Pre-Retirement)'}{lockedTooltipData ? ' • Click to unlock' : ''}</p>
                             </div>
 
                             <div className="space-y-2">
@@ -1949,7 +1991,567 @@ export default function Scenarios() {
                   <Line type="monotone" dataKey="scenario" stroke="#F7931A" strokeWidth={2} dot={false} name="scenario" />
                 </LineChart>
               </ResponsiveContainer>
+              
+              {/* Locked Tooltip Portal */}
+              {lockedTooltipData && (() => {
+                // Find which data source to show (baseline or scenario)
+                const baselineData = lockedTooltipData.payload.find(p => p.dataKey === 'baseline');
+                const scenarioData = lockedTooltipData.payload.find(p => p.dataKey === 'scenario');
+                
+                const age = parseInt(lockedTooltipData.label);
+                const baselineYearData = baselineProjection?.yearByYear?.find(y => y.age === age);
+                const scenarioYearData = scenarioProjection?.yearByYear?.find(y => y.age === age);
+                
+                // Prefer scenario if it exists and has data
+                const p = (scenarioData?.value != null && scenarioYearData) ? scenarioYearData : baselineYearData;
+                const projectionName = (scenarioData?.value != null && scenarioYearData) ? selectedScenario.name : 'Baseline';
+                const isScenario = (scenarioData?.value != null && scenarioYearData);
+                
+                if (!p) return null;
+                
+                const hasLiquidation = p.liquidations && p.liquidations.length > 0;
+                const stateCode = isScenario 
+                  ? (selectedScenario.state_override || settings.state_of_residence || 'TX')
+                  : (settings.state_of_residence || 'TX');
+                
+                // Smart positioning with boundary detection
+                const tooltipWidth = 350;
+                const containerWidth = chartContainerRef.current?.offsetWidth || 1200;
+                const clickX = lockedTooltipData.x || 0;
+                const offset = 15;
+                
+                // If tooltip would overflow right edge, position to left of click point
+                const wouldOverflow = clickX + offset + tooltipWidth > containerWidth;
+                const leftPosition = wouldOverflow 
+                  ? Math.max(0, clickX - tooltipWidth - offset) 
+                  : clickX + offset;
+                
+                return (
+                  <div 
+                    className="absolute bg-zinc-900 border border-zinc-700 rounded-xl p-4 text-sm shadow-2xl"
+                    style={{ 
+                      zIndex: 9999,
+                      top: '20px',
+                      left: `${leftPosition}px`,
+                      width: '350px',
+                      maxHeight: '500px',
+                      overflowY: 'scroll'
+                    }}
+                  >
+                    {/* Header */}
+                    <div className="mb-4">
+                      <div className="flex items-center justify-between">
+                        <p className="font-bold text-lg text-zinc-100">
+                          {projectionName} • Age {lockedTooltipData.label} {p.hasEvent ? '📅' : ''} {hasLiquidation ? '⚠️' : ''}
+                        </p>
+                        <button 
+                          onClick={() => setLockedTooltipData(null)}
+                          className="text-zinc-500 hover:text-zinc-300 text-sm p-1 hover:bg-zinc-800 rounded"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                      <p className="text-xs text-zinc-500">{p.isRetired ? '(Retirement)' : '(Pre-Retirement)'}</p>
+                    </div>
+
+                    <div className="space-y-2">
+                      {/* Bitcoin breakdown */}
+                      {((p.btcLiquid || 0) > 0 || (p.btcEncumbered || 0) > 0) && (() => {
+                        const btcPrice = p.btcPrice || currentPrice;
+                        const liquidBtcAmount = (p.btcLiquid || 0) / btcPrice;
+                        const collateralBtcAmount = (p.btcEncumbered || 0) / btcPrice;
+                        const totalBtcAmount = liquidBtcAmount + collateralBtcAmount;
+                        
+                        return (
+                          <>
+                            <div className="flex justify-between gap-6">
+                              <span className="text-orange-400 font-medium">Bitcoin:</span>
+                              <span className="text-zinc-200 font-medium text-right">
+                                ${((p.btcLiquid || 0) + (p.btcEncumbered || 0)).toLocaleString()}
+                                <span className="text-zinc-500 text-xs ml-1">({totalBtcAmount.toFixed(4)} BTC)</span>
+                                <span className="text-zinc-600 text-xs ml-1">@ {(p.btcGrowthRate || 0).toFixed(1)}%</span>
+                              </span>
+                            </div>
+                            {(p.btcLiquid || 0) > 0 && (
+                              <div className="flex justify-between gap-6 pl-3">
+                                <span className="text-orange-400/70 font-light text-sm">└ Liquid:</span>
+                                <span className="text-zinc-300 text-sm text-right">
+                                  ${(p.btcLiquid || 0).toLocaleString()}
+                                  <span className="text-zinc-500 text-xs ml-1">({liquidBtcAmount.toFixed(4)} BTC)</span>
+                                </span>
+                              </div>
+                            )}
+                            {(p.btcEncumbered || 0) > 0 && (
+                              <div className="flex justify-between gap-6 pl-3">
+                                <span className="text-amber-700/70 font-light text-sm">└ Collateral 🔒:</span>
+                                <span className="text-zinc-300 text-sm text-right">
+                                  ${(p.btcEncumbered || 0).toLocaleString()}
+                                  <span className="text-zinc-500 text-xs ml-1">({collateralBtcAmount.toFixed(4)} BTC)</span>
+                                </span>
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
+                      
+                      {/* Other assets */}
+                      {(p.stocks || 0) > 0 && (
+                        <div className="flex justify-between gap-6">
+                          <span className="text-blue-400 font-light">Stocks:</span>
+                          <span className="text-zinc-200 font-medium text-right">
+                            ${(p.stocks || 0).toLocaleString()}
+                            <span className="text-zinc-600 text-xs ml-1">@ {(p.stocksGrowthRate || 0).toFixed(1)}%</span>
+                          </span>
+                        </div>
+                      )}
+                      {(p.realEstate || 0) > 0 && (
+                        <div className="flex justify-between gap-6">
+                          <span className="text-emerald-400 font-light">Real Estate:</span>
+                          <span className="text-zinc-200 font-medium text-right">
+                            ${(p.realEstate || 0).toLocaleString()}
+                            <span className="text-zinc-600 text-xs ml-1">@ {(p.realEstateGrowthRate || 0).toFixed(1)}%</span>
+                          </span>
+                        </div>
+                      )}
+                      {(p.bonds || 0) > 0 && (
+                        <div className="flex justify-between gap-6">
+                          <span className="text-purple-400 font-light">Bonds:</span>
+                          <span className="text-zinc-200 font-medium text-right">
+                            ${(p.bonds || 0).toLocaleString()}
+                            <span className="text-zinc-600 text-xs ml-1">@ {(p.bondsGrowthRate || 0).toFixed(1)}%</span>
+                          </span>
+                        </div>
+                      )}
+                      {(p.cash || 0) > 0 && (
+                        <div className="flex justify-between gap-6">
+                          <span className="text-cyan-400 font-light">Cash:</span>
+                          <span className="text-zinc-200 font-medium text-right">
+                            ${(p.cash || 0).toLocaleString()}
+                            <span className="text-zinc-600 text-xs ml-1">@ {(p.cashGrowthRate || 0).toFixed(1)}%</span>
+                          </span>
+                        </div>
+                      )}
+                      
+                      {/* Total Assets */}
+                      <div className="pt-3 mt-3 border-t border-zinc-700/70 space-y-1.5">
+                        <div className="flex justify-between gap-6">
+                          <span className="text-zinc-100 font-semibold">Total Assets:</span>
+                          <span className="text-zinc-100 font-semibold text-right">${(p.total || 0).toLocaleString()}</span>
+                        </div>
+                      </div>
+                      
+                      {/* Debt Summary */}
+                      {(p.totalDebt > 0) && (
+                        <div className="pt-3 mt-3 border-t border-zinc-700/70">
+                          <div className="flex justify-between gap-6">
+                            <span className="text-rose-300 font-semibold">Total Debt:</span>
+                            <span className="text-rose-300 font-semibold">-${(p.totalDebt || 0).toLocaleString()}</span>
+                          </div>
+                          {p.totalBtcLoanDebt > 0 && (
+                            <div className="flex justify-between gap-6 text-xs text-zinc-500 mt-1">
+                              <span>BTC-Backed:</span>
+                              <span>${(p.totalBtcLoanDebt || 0).toLocaleString()} ({Math.round((p.btcLoanDetails || []).reduce((sum, l) => sum + l.ltv, 0) / (p.btcLoanDetails?.length || 1))}% avg LTV)</span>
+                            </div>
+                          )}
+                          {p.totalRegularDebt > 0 && (
+                            <div className="flex justify-between gap-6 text-xs text-zinc-500 mt-1">
+                              <span>Regular Debt:</span>
+                              <span>${(p.totalRegularDebt || 0).toLocaleString()}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between gap-6 mt-2 pt-2 border-t border-zinc-700/40">
+                            <span className={cn("font-semibold", ((p.total || 0) - (p.totalDebt || 0)) >= 0 ? "text-emerald-400" : "text-rose-400")}>
+                              Net Worth:
+                            </span>
+                            <span className={cn("font-semibold", ((p.total || 0) - (p.totalDebt || 0)) >= 0 ? "text-emerald-400" : "text-rose-400")}>
+                              ${((p.total || 0) - (p.totalDebt || 0)).toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Cash Flow sections - same as hover */}
+                      {p.isWithdrawing && !p.isRetired && (
+                        <div className="pt-3 mt-3 border-t border-zinc-700/70">
+                          <p className="text-zinc-400 mb-2 font-medium text-xs">Annual Cash Flow:</p>
+                          <div className="text-xs space-y-1.5 text-zinc-500 mb-2">
+                            <div className="flex justify-between gap-6">
+                              <span>Gross Income:</span>
+                              <span className="text-emerald-400 text-right">${(p.yearGrossIncome || 0).toLocaleString()}</span>
+                            </div>
+                            {p.lifeEventIncome > 0 && (
+                              <div className="flex justify-between gap-6">
+                                <span>Life Event Income:</span>
+                                <span className="text-emerald-400 text-right">+${p.lifeEventIncome.toLocaleString()}</span>
+                              </div>
+                            )}
+                            {p.totalDividendIncome > 0 && (
+                              <div className="flex justify-between gap-6">
+                                <span>Dividend Income:</span>
+                                <span className="text-emerald-400 text-right">+${(p.totalDividendIncome || 0).toLocaleString()}</span>
+                              </div>
+                            )}
+                            {p.federalTaxPaid > 0 && (
+                              <div className="flex justify-between gap-6">
+                                <span>Federal Tax:</span>
+                                <span className="text-rose-300 text-right">-${p.federalTaxPaid.toLocaleString()}</span>
+                              </div>
+                            )}
+                            {p.stateTaxPaid > 0 && (
+                              <div className="flex justify-between gap-6">
+                                <span>{stateCode} State Tax:</span>
+                                <span className="text-rose-300 text-right">-${p.stateTaxPaid.toLocaleString()}</span>
+                              </div>
+                            )}
+                            <div className="flex justify-between gap-6">
+                              <span>Spending:</span>
+                              <span className="text-zinc-300 text-right">-${(p.yearSpending || 0).toLocaleString()}</span>
+                            </div>
+                            {p.goalFunding > 0 && (
+                              <div className="flex justify-between gap-6">
+                                <span>Goal Funding:</span>
+                                <span className="text-rose-300 text-right">-${p.goalFunding.toLocaleString()}</span>
+                              </div>
+                            )}
+                            {p.lifeEventExpense > 0 && (
+                              <div className="flex justify-between gap-6">
+                                <span>Life Event Expense:</span>
+                                <span className="text-rose-300 text-right">-${p.lifeEventExpense.toLocaleString()}</span>
+                              </div>
+                            )}
+                          </div>
+                          {p.debtPayments > 0 && (
+                            <div className="text-xs text-zinc-500 mb-2">
+                              (Debt Payments: ${p.debtPayments.toLocaleString()} - tracked separately)
+                            </div>
+                          )}
+                          <div className="pt-2 border-t border-zinc-700/40">
+                            {p.netCashFlow > 0 ? (
+                              <p className="font-semibold text-emerald-400 text-sm">
+                                Net Savings: +${Math.abs(p.netCashFlow).toLocaleString()}
+                              </p>
+                            ) : (
+                              <p className="font-semibold text-rose-400 text-sm">
+                                Net Withdrawal: -${(p.totalWithdrawalAmount || 0).toLocaleString()}
+                              </p>
+                            )}
+                          </div>
+                          {(p.withdrawFromTaxable > 0 || p.withdrawFromTaxDeferred > 0 || p.withdrawFromTaxFree > 0) && (
+                            <div className="text-xs space-y-1.5 text-zinc-500 mt-3 pt-3 border-t border-zinc-700/40">
+                              <p className="text-zinc-400 font-medium mb-1">Withdrawal Sources:</p>
+                              {p.withdrawFromTaxable > 0 && (
+                                <div className="flex justify-between gap-6">
+                                  <span>From Taxable:</span>
+                                  <span className="text-rose-400 text-right">-${p.withdrawFromTaxable.toLocaleString()}</span>
+                                </div>
+                              )}
+                              {p.withdrawFromTaxDeferred > 0 && (
+                                <div className="flex justify-between gap-6">
+                                  <span>From Tax-Deferred:</span>
+                                  <span className="text-rose-400 text-right">-${p.withdrawFromTaxDeferred.toLocaleString()}</span>
+                                </div>
+                              )}
+                              {p.withdrawFromTaxFree > 0 && (
+                                <div className="flex justify-between gap-6">
+                                  <span>From Tax-Free:</span>
+                                  <span className="text-rose-400 text-right">-${p.withdrawFromTaxFree.toLocaleString()}</span>
+                                </div>
+                              )}
+                              {p.penaltyPaid > 0 && (
+                                <div className="flex justify-between gap-6">
+                                  <span>Early Withdrawal Penalty:</span>
+                                  <span className="text-rose-300 text-right">-${p.penaltyPaid.toLocaleString()}</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          {p.loanPayoffs && p.loanPayoffs.length > 0 && (
+                            <div className="mt-2 p-2 rounded bg-orange-500/10 border border-orange-500/20">
+                              <p className="text-xs text-orange-400 font-medium">🎉 Loan Paid Off to Unlock Equity</p>
+                              {p.loanPayoffs.map((lp, lpIdx) => (
+                                <div key={lpIdx} className="text-[10px] text-zinc-400 mt-1">
+                                  <div className="font-medium text-orange-300">{lp.loanName}</div>
+                                  <div>Debt Cleared: ${Math.round(lp.debtPaid).toLocaleString()}</div>
+                                  <div>BTC Released: {lp.btcReleased.toFixed(4)} BTC (${Math.round(lp.equityReleased).toLocaleString()})</div>
+                                  <div>Tax on Sale: ${Math.round(lp.taxOnSale).toLocaleString()}</div>
+                                  <div>Net Equity Applied: ${Math.round(lp.appliedToDeficit).toLocaleString()}</div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {p.realEstateSold && (
+                            <div className="mt-2 p-2 rounded bg-cyan-500/10 border border-cyan-500/20">
+                              <p className="text-xs text-cyan-400 font-medium">🏠 Real Estate Sold</p>
+                              <div className="text-[10px] text-zinc-400 mt-1">
+                                <div>Sale Proceeds: ${(p.realEstateSaleProceeds || 0).toLocaleString()}</div>
+                                <div>Used for Withdrawal: ${(p.withdrawFromRealEstate || 0).toLocaleString()}</div>
+                                <div>Added to Taxable: ${((p.realEstateSaleProceeds || 0) - (p.withdrawFromRealEstate || 0)).toLocaleString()}</div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* Retirement cash flow */}
+                      {p.isWithdrawing && p.isRetired && (
+                        <div className="pt-3 mt-3 border-t border-zinc-700/70">
+                          <p className="text-zinc-400 mb-2 font-medium text-xs">Annual Cash Flow:</p>
+                          <div className="text-xs space-y-1.5 text-zinc-500 mb-2">
+                            <div className="flex justify-between gap-6">
+                              <span>Gross Income:</span>
+                              <span className="text-emerald-400 text-right">
+                                {(p.otherRetirementIncome || 0) > 0 ? `+$${(p.otherRetirementIncome || 0).toLocaleString()}` : '$0'}
+                              </span>
+                            </div>
+                            {p.lifeEventIncome > 0 && (
+                              <div className="flex justify-between gap-6">
+                                <span>Life Event Income:</span>
+                                <span className="text-emerald-400 text-right">+${p.lifeEventIncome.toLocaleString()}</span>
+                              </div>
+                            )}
+                            {p.totalDividendIncome > 0 && (
+                              <div className="flex justify-between gap-6">
+                                <span>Dividend Income:</span>
+                                <span className="text-emerald-400 text-right">+${(p.totalDividendIncome || 0).toLocaleString()}</span>
+                              </div>
+                            )}
+                            {p.socialSecurityIncome > 0 && (
+                              <div className="flex justify-between gap-6">
+                                <span>Social Security:</span>
+                                <span className="text-emerald-400 text-right">+${p.socialSecurityIncome.toLocaleString()}</span>
+                              </div>
+                            )}
+                            {p.rmdWithdrawn > 0 && (
+                              <div className="flex justify-between gap-6">
+                                <span>RMD (Required):</span>
+                                <span className="text-emerald-400 text-right">+${p.rmdWithdrawn.toLocaleString()}</span>
+                              </div>
+                            )}
+                            {p.excessRmdReinvested > 0 && (
+                              <div className="flex justify-between gap-6 text-xs">
+                                <span className="text-zinc-500">└ Excess RMD Reinvested:</span>
+                                <span className="text-zinc-400 text-right">${p.excessRmdReinvested.toLocaleString()}</span>
+                              </div>
+                            )}
+                            <div className="flex justify-between gap-6">
+                              <span>Spending:</span>
+                              <span className="text-zinc-300 text-right">-${(p.retirementSpendingOnly || 0).toLocaleString()}</span>
+                            </div>
+                            {p.goalFunding > 0 && (
+                              <div className="flex justify-between gap-6">
+                                <span>Goal Funding:</span>
+                                <span className="text-rose-300 text-right">-${p.goalFunding.toLocaleString()}</span>
+                              </div>
+                            )}
+                            {p.lifeEventExpense > 0 && (
+                              <div className="flex justify-between gap-6">
+                                <span>Life Event Expense:</span>
+                                <span className="text-rose-300 text-right">-${p.lifeEventExpense.toLocaleString()}</span>
+                              </div>
+                            )}
+                            {p.federalTaxPaid > 0 && (
+                              <div className="flex justify-between gap-6">
+                                <span>Federal Tax:</span>
+                                <span className="text-rose-300 text-right">-${p.federalTaxPaid.toLocaleString()}</span>
+                              </div>
+                            )}
+                            {p.stateTaxPaid > 0 && (
+                              <div className="flex justify-between gap-6">
+                                <span>{stateCode} State Tax:</span>
+                                <span className="text-rose-300 text-right">-${p.stateTaxPaid.toLocaleString()}</span>
+                              </div>
+                            )}
+                            {p.penaltyPaid > 0 && (
+                              <div className="flex justify-between gap-6">
+                                <span>Penalty Paid:</span>
+                                <span className="text-rose-300 text-right">-${p.penaltyPaid.toLocaleString()}</span>
+                              </div>
+                            )}
+                          </div>
+                          <div className="pt-2 border-t border-zinc-700/40">
+                            {p.netCashFlow > 0 ? (
+                              <p className="font-semibold text-emerald-400 text-sm">
+                                Net Surplus (Reinvested): +${Math.abs(p.netCashFlow).toLocaleString()}
+                              </p>
+                            ) : (
+                              <p className="font-semibold text-rose-400 text-sm">
+                                Net Withdrawal: -${(p.totalWithdrawalAmount || 0).toLocaleString()}
+                              </p>
+                            )}
+                          </div>
+                          {p.netCashFlow <= 0 && (p.withdrawFromTaxable > 0 || p.withdrawFromTaxDeferred > 0 || p.withdrawFromTaxFree > 0) && (
+                            <div className="text-xs space-y-1.5 text-zinc-500 mt-3 pt-3 border-t border-zinc-700/40">
+                              <p className="text-zinc-400 font-medium mb-1">Withdrawal Sources:</p>
+                              {p.withdrawFromTaxable > 0 && (
+                                <div className="flex justify-between gap-6">
+                                  <span>From Taxable:</span>
+                                  <span className="text-rose-400 text-right">-${p.withdrawFromTaxable.toLocaleString()}</span>
+                                </div>
+                              )}
+                              {p.withdrawFromTaxDeferred > 0 && (
+                                <div className="flex justify-between gap-6">
+                                  <span>From Tax-Deferred:</span>
+                                  <span className="text-rose-400 text-right">-${p.withdrawFromTaxDeferred.toLocaleString()}</span>
+                                </div>
+                              )}
+                              {p.withdrawFromTaxFree > 0 && (
+                                <div className="flex justify-between gap-6">
+                                  <span>From Tax-Free:</span>
+                                  <span className="text-rose-400 text-right">-${p.withdrawFromTaxFree.toLocaleString()}</span>
+                                </div>
+                              )}
+                              {p.withdrawFromRealEstate > 0 && (
+                                <div className="flex justify-between gap-6">
+                                  <span>From Real Estate:</span>
+                                  <span className="text-rose-400 text-right">-${p.withdrawFromRealEstate.toLocaleString()}</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      {!p.isWithdrawing && !p.isRetired && (
+                        <div className="pt-3 mt-3 border-t border-zinc-700/70">
+                          <p className="text-zinc-400 mb-2 font-medium text-xs">Annual Cash Flow:</p>
+                          <div className="text-xs space-y-1.5 text-zinc-500 mb-2">
+                            <div className="flex justify-between gap-6">
+                              <span>• Gross Income:</span>
+                              <span className="text-emerald-400 text-right">${(p.yearGrossIncome || 0).toLocaleString()}</span>
+                            </div>
+                            {p.lifeEventIncome > 0 && (
+                              <div className="flex justify-between gap-6">
+                                <span>• Life Event Income:</span>
+                                <span className="text-emerald-400 text-right">+${p.lifeEventIncome.toLocaleString()}</span>
+                              </div>
+                            )}
+                            {p.federalTaxPaid > 0 && (
+                              <div className="flex justify-between gap-6">
+                                <span>• Federal Tax:</span>
+                                <span className="text-rose-300 text-right">-${p.federalTaxPaid.toLocaleString()}</span>
+                              </div>
+                            )}
+                            {p.stateTaxPaid > 0 && (
+                              <div className="flex justify-between gap-6">
+                                <span>• {stateCode} State Tax:</span>
+                                <span className="text-rose-300 text-right">-${p.stateTaxPaid.toLocaleString()}</span>
+                              </div>
+                            )}
+                            {p.year401kContribution > 0 && (
+                              <div className="flex justify-between gap-6">
+                                <span>• 401k/403b:</span>
+                                <span className="text-rose-300 text-right">-${p.year401kContribution.toLocaleString()}</span>
+                              </div>
+                            )}
+                            {p.yearEmployer401kMatch > 0 && (
+                              <div className="flex justify-between gap-6">
+                                <span>• Employer Match:</span>
+                                <span className="text-emerald-400 text-right">+${p.yearEmployer401kMatch.toLocaleString()}</span>
+                              </div>
+                            )}
+                            {p.yearRothContribution > 0 && (
+                              <div className="flex justify-between gap-6">
+                                <span>• Roth IRA:</span>
+                                <span className="text-rose-300 text-right">-${p.yearRothContribution.toLocaleString()}</span>
+                              </div>
+                            )}
+                            {p.yearHSAContribution > 0 && (
+                              <div className="flex justify-between gap-6">
+                                <span>• HSA:</span>
+                                <span className="text-rose-300 text-right">-${p.yearHSAContribution.toLocaleString()}</span>
+                              </div>
+                            )}
+                            <div className="flex justify-between gap-6">
+                              <span>• Spending:</span>
+                              <span className="text-rose-300 text-right">-${(p.yearSpending || 0).toLocaleString()}</span>
+                            </div>
+                            {p.goalFunding > 0 && (
+                              <div className="flex justify-between gap-6">
+                                <span>• Goal Funding:</span>
+                                <span className="text-rose-300 text-right">-${p.goalFunding.toLocaleString()}</span>
+                              </div>
+                            )}
+                            {p.lifeEventExpense > 0 && (
+                              <div className="flex justify-between gap-6">
+                                <span>• Life Event Expense:</span>
+                                <span className="text-rose-300 text-right">-${p.lifeEventExpense.toLocaleString()}</span>
+                              </div>
+                            )}
+                          </div>
+                          {p.debtPayments > 0 && (
+                            <div className="text-xs text-zinc-500 mb-2">
+                              (Debt Payments: ${p.debtPayments.toLocaleString()} - tracked separately)
+                            </div>
+                          )}
+                          <div className="pt-2 border-t border-zinc-700/40">
+                            <p className="font-semibold text-emerald-400 text-sm">
+                              Net Savings: ${p.netCashFlow.toLocaleString()}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Debt Payoffs */}
+                      {p.debtPayoffs && p.debtPayoffs.length > 0 && (
+                        <div className="pt-3 mt-3 border-t border-zinc-700/70">
+                          <p className="text-xs font-semibold text-emerald-400 mb-2">🎉 Debt Paid Off This Year:</p>
+                          <div className="space-y-1">
+                            {p.debtPayoffs.map((d, idx) => {
+                              const monthName = d.month ? ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.month - 1] : '';
+                              return (
+                                <p key={idx} className="text-xs text-emerald-400 font-light">
+                                  ✓ {d.name || d.liability_name || 'Debt'}{monthName ? ` (${monthName})` : ''}
+                                </p>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Loan Events */}
+                      {p.liquidations && p.liquidations.length > 0 && (
+                        <div className="pt-3 mt-3 border-t border-zinc-700/70">
+                          {p.liquidations.map((liq, idx) => (
+                            <div key={idx} className="text-xs text-zinc-400 space-y-1 mb-2">
+                              {liq.type === 'top_up' ? (
+                                <>
+                                  <p className="text-xs font-semibold text-amber-400 mb-1">🔄 Collateral Top-Up:</p>
+                                  <p className="text-amber-400">• {liq.liabilityName}</p>
+                                  <p className="ml-3 text-zinc-500">{liq.message}</p>
+                                </>
+                              ) : liq.type === 'release' ? (
+                                <>
+                                  <p className="text-xs font-semibold text-cyan-400 mb-1">✅ Collateral Released:</p>
+                                  <p className="text-cyan-400">• {liq.liabilityName}</p>
+                                  <p className="ml-3 text-zinc-500">{liq.message}</p>
+                                </>
+                              ) : (
+                                <>
+                                  <p className="text-xs font-semibold text-rose-400 mb-1">
+                                    {liq.remainingDebt <= 0 ? '⚠️ Loan Liquidated:' : '⚠️ Partial Liquidation:'}
+                                  </p>
+                                  <p className="text-rose-400">• {liq.liabilityName}</p>
+                                  <p className="ml-3 text-zinc-500">{liq.message || `Liquidated: ${(liq.btcAmount || 0).toFixed(4)} BTC ($${(liq.proceeds || 0).toLocaleString()})`}</p>
+                                  {liq.remainingDebt > 0 && (
+                                    <p className="ml-3 text-zinc-500">Remaining debt: ${liq.remainingDebt?.toLocaleString()} • Collateral: {(liq.remainingCollateral || 0).toFixed(4)} BTC</p>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
+          )}
+          
+          {showChart && (
+            <p className="text-xs text-zinc-500 text-center mt-2">
+              💡 Click on a year to lock the tooltip. Click ✕ or outside to dismiss.
+            </p>
           )}
         </div>
       )}
