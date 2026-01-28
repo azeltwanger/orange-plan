@@ -75,9 +75,6 @@ export function buildProjectionParams(settings, overrides = {}, data) {
   const dividendIncome = effectiveSettings.dividend_income_override ?? 0;
   const dividendIncomeQualified = effectiveSettings.dividend_income_qualified ?? true;
 
-  // Debug: Log incoming one_time_events from overrides
-  console.log('[DEBUG buildProjectionParams] one_time_events from overrides:', JSON.stringify(overrides.one_time_events));
-
   // Process one-time events from scenario into lifeEvents format
   const scenarioOneTimeEvents = (effectiveSettings.one_time_events || []).map(event => {
     const originalAmount = parseFloat(event.amount) || 0;
@@ -99,15 +96,8 @@ export function buildProjectionParams(settings, overrides = {}, data) {
     };
   });
 
-  // Debug: Log transformed scenario events
-  console.log('[DEBUG buildProjectionParams] scenarioOneTimeEvents after transformation:', JSON.stringify(scenarioOneTimeEvents));
-
   // Combine with existing life events
   const combinedLifeEvents = [...(lifeEvents || []), ...scenarioOneTimeEvents];
-
-  // Debug: Log final combined events
-  console.log('[DEBUG buildProjectionParams] combinedLifeEvents count:', combinedLifeEvents.length);
-  console.log('[DEBUG buildProjectionParams] combinedLifeEvents (last 5):', JSON.stringify(combinedLifeEvents.slice(-5)));
 
   // Process liabilities - filter OUT btc_collateralized since they're in btcCollateralizedLoans
   // This prevents double-counting debt and collateral

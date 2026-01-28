@@ -444,9 +444,6 @@ export default function Scenarios() {
         future_btc_loan_rate_years: selectedScenario.future_btc_loan_rate_years,
       };
 
-      // Debug: Log one_time_events BEFORE cleanup
-      console.log('[DEBUG] rawOverrides.one_time_events:', JSON.stringify(rawOverrides.one_time_events));
-
       // Clean overrides: remove null, undefined, empty strings, and empty arrays/objects
       const overrides = Object.fromEntries(
         Object.entries(rawOverrides).filter(([key, value]) => {
@@ -456,10 +453,6 @@ export default function Scenarios() {
           return true;
         })
       );
-
-      // Debug: Log one_time_events AFTER cleanup
-      console.log('[DEBUG] overrides.one_time_events after cleanup:', JSON.stringify(overrides.one_time_events));
-      console.log('[DEBUG] Cleaned overrides:', overrides);
 
       const params = buildProjectionParams(settings, overrides, {
         holdings,
