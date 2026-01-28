@@ -1499,6 +1499,15 @@ export default function Scenarios() {
                       // Helper to render tooltip content for a projection
                       const renderTooltipContent = (p, projectionName, isScenario = false) => {
                         if (!p) return null;
+                        
+                        console.log('[DEBUG] Tooltip data for age', p?.age, {
+                          hasReallocation: p?.hasReallocation,
+                          reallocationDetails: p?.reallocationDetails,
+                          earlyWithdrawalTax: p?.earlyWithdrawalTax,
+                          earlyWithdrawalPenalty: p?.earlyWithdrawalPenalty,
+                          penaltyPaid: p?.penaltyPaid
+                        });
+                        
                         const hasLiquidation = p.liquidations && p.liquidations.length > 0;
                         const stateCode = isScenario 
                           ? (selectedScenario.state_override || settings.state_of_residence || 'TX')
@@ -2008,6 +2017,14 @@ export default function Scenarios() {
                 const isScenario = (scenarioData?.value != null && scenarioYearData);
                 
                 if (!p) return null;
+                
+                console.log('[DEBUG] Locked Tooltip data for age', p?.age, {
+                  hasReallocation: p?.hasReallocation,
+                  reallocationDetails: p?.reallocationDetails,
+                  earlyWithdrawalTax: p?.earlyWithdrawalTax,
+                  earlyWithdrawalPenalty: p?.earlyWithdrawalPenalty,
+                  penaltyPaid: p?.penaltyPaid
+                });
                 
                 const hasLiquidation = p.liquidations && p.liquidations.length > 0;
                 const stateCode = isScenario 
