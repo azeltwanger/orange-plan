@@ -870,7 +870,8 @@ export default function FinancialPlan() {
       getBtcGrowthRate, effectiveInflation, effectiveStocksCagr, bondsCagr, 
       realEstateCagr, cashCagr, otherCagr, savingsAllocationBtc, savingsAllocationStocks, savingsAllocationBonds,
       savingsAllocationCash, savingsAllocationOther, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv,
-      btcReleaseTriggerLtv, btcReleaseTargetLtv, goals, lifeEvents, getTaxTreatmentFromHolding, activeTaxLots, costBasisMethod]);
+      btcReleaseTriggerLtv, btcReleaseTargetLtv, goals, lifeEvents, getTaxTreatmentFromHolding, activeTaxLots, costBasisMethod,
+      futureBtcLoanRate, futureBtcLoanRateYears]);
 
 
 
@@ -930,6 +931,8 @@ export default function FinancialPlan() {
       assetWithdrawalStrategy,
       withdrawalPriorityOrder,
       withdrawalBlendPercentages,
+      futureBtcLoanRate,
+      futureBtcLoanRateYears,
       DEBUG: false,
     });
     
@@ -942,7 +945,7 @@ export default function FinancialPlan() {
       realEstateCagr, cashCagr, otherCagr, savingsAllocationBtc, savingsAllocationStocks, savingsAllocationBonds,
       savingsAllocationCash, savingsAllocationOther, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv,
       btcReleaseTriggerLtv, btcReleaseTargetLtv, goals, lifeEvents, getTaxTreatmentFromHolding, activeTaxLots, costBasisMethod,
-      assetWithdrawalStrategy, withdrawalPriorityOrder, withdrawalBlendPercentages]);
+      assetWithdrawalStrategy, withdrawalPriorityOrder, withdrawalBlendPercentages, futureBtcLoanRate, futureBtcLoanRateYears]);
 
   // Calculate 90% safe spending using Monte Carlo binary search - SEEDED
   const calculateSafeSpendingMonteCarlo = useCallback((numSimulations = 500) => {
