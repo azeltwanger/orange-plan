@@ -78,6 +78,8 @@ export function buildProjectionParams(settings, overrides = {}, data) {
   const dividendIncomeQualified = effectiveSettings.dividend_income_qualified ?? true;
 
   // Process one-time events from scenario into lifeEvents format
+  // IMPORTANT: one_time_events use AGE (e.g., 50), but lifeEvents use CALENDAR YEAR
+  const currentYear = new Date().getFullYear();
   const scenarioOneTimeEvents = (effectiveSettings.one_time_events || []).map(event => {
     const originalAmount = parseFloat(event.amount) || 0;
     const eventType = event.event_type || (originalAmount >= 0 ? 'income_change' : 'expense_change');
@@ -85,16 +87,21 @@ export function buildProjectionParams(settings, overrides = {}, data) {
     // For inheritance, windfall, gift - preserve event_type so runUnifiedProjection handles correctly
     const preserveEventType = ['inheritance', 'windfall', 'gift', 'asset_sale'].includes(eventType);
 
+    // Convert age to calendar year: event.year is AGE, we need CALENDAR YEAR
+    const eventAge = parseInt(event.year) || currentAge;
+    const eventCalendarYear = currentYear + (eventAge - currentAge);
+
     return {
       id: `scenario_event_${event.id || Date.now()}`,
-      name: event.description || `${eventType} at age ${event.year}`,
+      name: event.description || `${eventType} at age ${eventAge}`,
       event_type: preserveEventType ? eventType : (originalAmount >= 0 ? 'income_change' : 'expense_change'),
-      year: parseInt(event.year) || currentAge,
+      year: eventCalendarYear,
       amount: Math.abs(originalAmount),
       is_recurring: false,
-      affects: preserveEventType ? 'income' : (originalAmount >= 0 ? 'income' : 'expenses'),
+      affects: preserveEventType ? 'assets' : (originalAmount >= 0 ? 'income' : 'expenses'),
       _isOneTime: true,
-      _originalAmount: originalAmount
+      _originalAmount: originalAmount,
+      _originalAge: eventAge
     };
   });
   
