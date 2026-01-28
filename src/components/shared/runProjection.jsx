@@ -1083,11 +1083,20 @@ export function runUnifiedProjection({
             });
           }
         }
-        // Handle one-time expenses (major_expense with negative amount or affects='assets' with negative)
-        if ((event.event_type === 'major_expense' || (event.affects === 'assets' && event.amount < 0)) && event.year === year) {
-          const expenseAmount = Math.abs(event.amount);
-          yearGoalWithdrawal += expenseAmount; // Treat as withdrawal need
-          yearLifeEventExpense += expenseAmount; // Track for tooltip display
+        // Handle one-time expenses:
+        // 1. major_expense event type (always an expense)
+        // 2. expense_change with affects='expenses' and _isOneTime flag (from buildProjectionParams)
+        // Note: event.amount is always positive here (Math.abs applied in buildProjectionParams)
+        if (event.year === year) {
+          const isOneTimeExpense = event.event_type === 'major_expense' || 
+            (event.event_type === 'expense_change' && event.affects === 'expenses' && event._isOneTime);
+          
+          if (isOneTimeExpense) {
+            const expenseAmount = event.amount; // Already positive from buildProjectionParams
+            yearGoalWithdrawal += expenseAmount; // Treat as withdrawal need
+            yearLifeEventExpense += expenseAmount; // Track for tooltip display
+            if (DEBUG) console.log(`🔴 Processed one-time expense: $${expenseAmount.toLocaleString()} from ${event.event_type} (${event.name})`);
+          }
         }
         // Home purchase down payment
         if (event.event_type === 'home_purchase' && event.year === year) {

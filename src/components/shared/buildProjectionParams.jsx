@@ -83,22 +83,52 @@ export function buildProjectionParams(settings, overrides = {}, data) {
   const scenarioOneTimeEvents = (effectiveSettings.one_time_events || []).map(event => {
     const originalAmount = parseFloat(event.amount) || 0;
     const eventType = event.event_type || (originalAmount >= 0 ? 'income_change' : 'expense_change');
-    
-    // For inheritance, windfall, gift - preserve event_type so runUnifiedProjection handles correctly
-    const preserveEventType = ['inheritance', 'windfall', 'gift', 'asset_sale'].includes(eventType);
 
     // Convert age to calendar year: event.year is AGE, we need CALENDAR YEAR
     const eventAge = parseInt(event.year) || currentAge;
     const eventCalendarYear = currentYear + (eventAge - currentAge);
 
+    // Determine if this is an expense (negative amount OR expense event type)
+    const isExpense = originalAmount < 0 || eventType === 'expense';
+
+    // For inheritance, windfall, gift - preserve event_type so runUnifiedProjection handles correctly
+    const preserveEventType = ['inheritance', 'windfall', 'gift', 'asset_sale'].includes(eventType);
+
+    // Determine final event_type and affects
+    let finalEventType, finalAffects;
+    if (preserveEventType) {
+      finalEventType = eventType;
+      finalAffects = 'assets';
+    } else if (isExpense) {
+      finalEventType = 'expense_change';
+      finalAffects = 'expenses';
+    } else {
+      // Positive income (windfall, income, etc.)
+      finalEventType = eventType === 'income' ? 'income_change' : eventType;
+      finalAffects = 'assets'; // Income adds to assets
+    }
+
+    if (DEBUG) {
+      console.log(`🟡 Building one-time event: ${event.description || eventType}`, {
+        originalAmount,
+        eventType,
+        isExpense,
+        preserveEventType,
+        finalEventType,
+        finalAffects,
+        eventAge,
+        eventCalendarYear
+      });
+    }
+
     return {
       id: `scenario_event_${event.id || Date.now()}`,
       name: event.description || `${eventType} at age ${eventAge}`,
-      event_type: preserveEventType ? eventType : (originalAmount >= 0 ? 'income_change' : 'expense_change'),
+      event_type: finalEventType,
       year: eventCalendarYear,
-      amount: Math.abs(originalAmount),
+      amount: Math.abs(originalAmount), // Always positive - sign determined by event_type/affects
       is_recurring: false,
-      affects: preserveEventType ? 'assets' : (originalAmount >= 0 ? 'income' : 'expenses'),
+      affects: finalAffects,
       _isOneTime: true,
       _originalAmount: originalAmount,
       _originalAge: eventAge
