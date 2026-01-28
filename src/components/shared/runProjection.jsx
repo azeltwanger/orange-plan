@@ -1005,6 +1005,15 @@ export function runUnifiedProjection({
         console.log('🔵 Checking event:', event.event_type, 'event.year:', event.year, 'projection year:', year, 'age:', age, 'match year:', event.year === year, 'match age:', event.year === age);
       }
       if (event.year === year || (event.is_recurring && event.year <= year && year < event.year + (event.recurring_years || 1))) {
+        if (DEBUG && ['inheritance', 'windfall', 'gift'].includes(event.event_type)) {
+          console.log('🟢 EVENT MATCHED - Processing event:', event.event_type, event.amount);
+          console.log('  Portfolio BEFORE event processing:', {
+            taxableBtc: Math.round(portfolio.taxable?.btc || 0),
+            taxableStocks: Math.round(portfolio.taxable?.stocks || 0),
+            taxableCash: Math.round(portfolio.taxable?.cash || 0),
+            total: Math.round(getPortfolioTotal())
+          });
+        }
         // Handle assets-affecting events (inheritance, windfall, one-time inflows)
         if (event.affects === 'assets') {
           const eventAmount = event.amount;
