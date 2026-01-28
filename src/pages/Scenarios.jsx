@@ -434,17 +434,25 @@ export default function Scenarios() {
     const dividendIncomeQualified = effectiveSettings.dividend_income_qualified ?? true;
 
     // Process one-time events from scenario into lifeEvents format
-    const scenarioOneTimeEvents = (effectiveSettings.one_time_events || []).map(event => ({
-      id: `scenario_event_${event.id}`,
-      name: event.description || `${event.event_type} at age ${event.year}`,
-      event_type: event.amount >= 0 ? 'income_change' : 'expense_change',
-      year: parseInt(event.year) || currentAge,
-      amount: Math.abs(parseFloat(event.amount) || 0),
-      is_recurring: false,
-      affects: event.amount >= 0 ? 'income' : 'expenses',
-      _isOneTime: true,
-      _originalAmount: parseFloat(event.amount) || 0
-    }));
+    const scenarioOneTimeEvents = (effectiveSettings.one_time_events || []).map(event => {
+      const originalAmount = parseFloat(event.amount) || 0;
+      const eventType = event.event_type || (originalAmount >= 0 ? 'income_change' : 'expense_change');
+      
+      // For inheritance, windfall, gift - preserve event_type so runUnifiedProjection handles correctly
+      const preserveEventType = ['inheritance', 'windfall', 'gift', 'asset_sale'].includes(eventType);
+
+      return {
+        id: `scenario_event_${event.id || Date.now()}`,
+        name: event.description || `${eventType} at age ${event.year}`,
+        event_type: preserveEventType ? eventType : (originalAmount >= 0 ? 'income_change' : 'expense_change'),
+        year: parseInt(event.year) || currentAge,
+        amount: Math.abs(originalAmount),
+        is_recurring: false,
+        affects: preserveEventType ? 'income' : (originalAmount >= 0 ? 'income' : 'expenses'),
+        _isOneTime: true,
+        _originalAmount: originalAmount
+      };
+    });
 
     // Combine with existing life events
     const combinedLifeEvents = [...(lifeEvents || []), ...scenarioOneTimeEvents];
