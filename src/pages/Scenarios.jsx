@@ -411,7 +411,7 @@ export default function Scenarios() {
   const scenarioProjection = useMemo(() => {
     if (!selectedScenario || !holdings.length || !accounts.length || !userSettings.length || !currentPrice) return null;
     try {
-      const overrides = {
+      const rawOverrides = {
         retirement_age_override: selectedScenario.retirement_age_override,
         life_expectancy_override: selectedScenario.life_expectancy_override,
         annual_retirement_spending_override: selectedScenario.annual_retirement_spending_override,
@@ -443,6 +443,19 @@ export default function Scenarios() {
         future_btc_loan_rate: selectedScenario.future_btc_loan_rate,
         future_btc_loan_rate_years: selectedScenario.future_btc_loan_rate_years,
       };
+
+      // Clean overrides: remove null, undefined, empty strings, and empty arrays/objects
+      const overrides = Object.fromEntries(
+        Object.entries(rawOverrides).filter(([key, value]) => {
+          if (value === null || value === undefined || value === '') return false;
+          if (Array.isArray(value) && value.length === 0) return false;
+          if (typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 0) return false;
+          return true;
+        })
+      );
+
+      console.log('[DEBUG] Cleaned overrides:', overrides);
+
       const params = buildProjectionParams(settings, overrides, {
         holdings,
         accounts,
