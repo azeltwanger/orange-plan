@@ -583,21 +583,6 @@ export function runUnifiedProjection({
 
   // Process hypothetical BTC loan if provided (after all initializations)
   if (hypothetical_btc_loan?.enabled) {
-    console.log('=== HYPOTHETICAL LOAN INIT ===');
-    console.log('Loan Amount:', hypothetical_btc_loan.loan_amount);
-    console.log('Collateral BTC:', hypothetical_btc_loan.collateral_btc);
-    console.log('Interest Rate:', hypothetical_btc_loan.interest_rate);
-    console.log('LTV from form:', hypothetical_btc_loan.ltv);
-    console.log('Start Age:', hypothetical_btc_loan.start_age);
-    console.log('Use of Proceeds:', hypothetical_btc_loan.use_of_proceeds);
-    console.log('Current BTC Price:', currentPrice);
-    
-    // Verify LTV math
-    if (hypothetical_btc_loan.collateral_btc > 0) {
-      const actualLTV = (hypothetical_btc_loan.loan_amount / (hypothetical_btc_loan.collateral_btc * currentPrice)) * 100;
-      console.log('Calculated Actual LTV:', actualLTV.toFixed(2) + '%');
-    }
-    
     const loanStartAge = (hypothetical_btc_loan.start_age !== undefined && hypothetical_btc_loan.start_age !== null && hypothetical_btc_loan.start_age !== '')
       ? parseInt(hypothetical_btc_loan.start_age) 
       : currentAge;
@@ -621,19 +606,9 @@ export function runUnifiedProjection({
       entity_type: 'CollateralizedLoan',
     };
     
-    console.log('Loan Start Age:', loanStartAge, 'Current Age:', currentAge);
-    console.log('Will activate immediately:', loanStartAge <= currentAge);
-    
     if (loanStartAge > currentAge) {
       pendingHypotheticalLoans.push(hypotheticalLoanObj);
-      console.log('Loan added to pendingHypotheticalLoans for future activation');
     } else {
-      console.log('=== COLLATERAL TRANSFER (immediate activation) ===');
-      console.log('Liquid BTC before (value):', portfolio.taxable.btc);
-      console.log('Liquid BTC before (qty):', portfolio.taxable.btc / currentPrice);
-      console.log('Collateral being locked:', hypotheticalLoanObj.collateral_btc_amount, 'BTC');
-      console.log('Collateral value:', hypotheticalLoanObj.collateral_btc_amount * currentPrice);
-      
       tempRunningCollateralizedLoans[hypotheticalLoanObj.id] = hypotheticalLoanObj;
       const loanKey = `loan_${hypotheticalLoanObj.id}`;
       if (hypotheticalLoanObj.collateral_btc_amount > 0) {
@@ -641,16 +616,7 @@ export function runUnifiedProjection({
         releasedBtc[loanKey] = 0;
       }
       
-      console.log('Total encumbered BTC after:', Object.values(encumberedBtc).reduce((a,b) => a+b, 0));
-      
       const proceeds = hypotheticalLoanObj.current_balance;
-      console.log('=== LOAN PROCEEDS ===');
-      console.log('Proceeds amount:', proceeds);
-      console.log('Adding to:', hypotheticalLoanObj.use_of_proceeds);
-      console.log('Portfolio cash before:', portfolio.taxable.cash);
-      console.log('Portfolio stocks before:', portfolio.taxable.stocks);
-      console.log('Portfolio BTC before:', portfolio.taxable.btc);
-      
       if (proceeds > 0) {
         if (hypotheticalLoanObj.use_of_proceeds === 'btc') {
           portfolio.taxable.btc += proceeds;
@@ -661,10 +627,6 @@ export function runUnifiedProjection({
         }
         runningTaxableBasis += proceeds;
       }
-      
-      console.log('Portfolio cash after:', portfolio.taxable.cash);
-      console.log('Portfolio stocks after:', portfolio.taxable.stocks);
-      console.log('Portfolio BTC after:', portfolio.taxable.btc);
     }
   }
 
@@ -1369,16 +1331,6 @@ export function runUnifiedProjection({
         const collateralValue = encumberedBtc[loanKey] * cumulativeBtcPrice;
         let currentLTV = (loan.current_balance / collateralValue) * 100;
         
-        // DEBUG: Log loan status for first 5 years
-        if (i < 5 && loan.isHypothetical) {
-          console.log(`=== YEAR ${year} (Age ${age}) HYPOTHETICAL LOAN ===`);
-          console.log('Loan Balance:', loan.current_balance?.toFixed(2));
-          console.log('Collateral BTC:', encumberedBtc[loanKey]?.toFixed(4));
-          console.log('BTC Price:', cumulativeBtcPrice?.toFixed(2));
-          console.log('Collateral Value:', collateralValue?.toFixed(2));
-          console.log('Current LTV:', currentLTV?.toFixed(2) + '%');
-        }
-
         const liquidationLTV = loan.liquidation_ltv || 80;
         const releaseLTV = btcReleaseTriggerLtv || 30;
         const triggerLTV = btcTopUpTriggerLtv || 70;
@@ -1390,16 +1342,6 @@ export function runUnifiedProjection({
           const targetCollateralValue = loan.current_balance / (targetLTV / 100);
           const additionalBtcNeeded = (targetCollateralValue / cumulativeBtcPrice) - encumberedBtc[loanKey];
           const liquidBtcAvailable = portfolio.taxable.btc / cumulativeBtcPrice;
-          
-          console.log('=== LOAN TOP-UP TRIGGERED ===');
-          console.log('Year:', year, 'Age:', age);
-          console.log('Loan:', loan.name || loan.loan_name || 'Collateralized Loan');
-          console.log('LTV before top-up:', currentLTV.toFixed(2) + '%');
-          console.log('Trigger LTV:', triggerLTV);
-          console.log('Target LTV:', targetLTV);
-          console.log('Liquid BTC available:', liquidBtcAvailable.toFixed(4));
-          console.log('BTC needed for top-up:', additionalBtcNeeded.toFixed(4));
-          console.log('Top-up successful:', (additionalBtcNeeded > 0 && liquidBtcAvailable >= additionalBtcNeeded ? 'YES' : 'NO'));
           
           if (additionalBtcNeeded > 0 && liquidBtcAvailable >= additionalBtcNeeded) {
             // Transfer proportional basis from taxable to encumbered
@@ -1438,19 +1380,6 @@ export function runUnifiedProjection({
           const newDebtBalance = Math.max(0, debtBalance - proceedsFromSale);
           const remainingCollateralBtc = totalCollateralBtc - btcToSell;
           
-          console.log('=== LOAN LIQUIDATION ===');
-          console.log('Year:', year, 'Age:', age);
-          console.log('Loan:', loan.name || loan.loan_name || 'Collateralized Loan');
-          console.log('LTV at liquidation:', postTopUpLTV.toFixed(2) + '%');
-          console.log('Liquidation threshold:', liquidationLTV + '%');
-          console.log('Loan balance:', debtBalance.toFixed(2));
-          console.log('Collateral BTC:', totalCollateralBtc.toFixed(4));
-          console.log('Collateral value:', (totalCollateralBtc * cumulativeBtcPrice).toFixed(2));
-          console.log('BTC liquidated:', btcToSell.toFixed(4));
-          console.log('Proceeds from sale:', proceedsFromSale.toFixed(2));
-          console.log('Remaining debt:', newDebtBalance.toFixed(2));
-          console.log('Remaining collateral:', remainingCollateralBtc.toFixed(4));
-          
           // Reduce encumberedBtcBasis proportionally for liquidated BTC
           const totalEncumberedBtcAmount = Object.values(encumberedBtc).reduce((sum, btc) => sum + btc, 0);
           if (totalEncumberedBtcAmount > 0 && encumberedBtcBasis > 0) {
@@ -1487,17 +1416,9 @@ export function runUnifiedProjection({
         }
         // Release
         else if (postTopUpLTV <= releaseLTV) {
-          console.log('=== COLLATERAL RELEASE CHECK ===');
-          console.log('Year:', year, 'Age:', age);
-          console.log('Loan:', loan.name || loan.loan_name || 'Collateralized Loan');
-          console.log('LTV before release:', postTopUpLTV.toFixed(2) + '%');
-          console.log('Release threshold:', releaseLTV + '%');
-          console.log('Loan balance:', loan.current_balance.toFixed(2));
-          
           if (loan.current_balance <= 0) {
             if (!releasedBtc[loanKey]) {
               releasedBtc[loanKey] = encumberedBtc[loanKey];
-              console.log('BTC released (debt paid off):', releasedBtc[loanKey].toFixed(4));
               encumberedBtc[loanKey] = 0;
               liquidationEvents.push({
                 year,
@@ -1511,9 +1432,6 @@ export function runUnifiedProjection({
             const currentCollateral = encumberedBtc[loanKey];
             const targetCollateralForLoan = loan.current_balance / (releaseTargetLTV / 100) / cumulativeBtcPrice;
             const excessCollateral = Math.max(0, currentCollateral - targetCollateralForLoan);
-            console.log('Current collateral:', currentCollateral.toFixed(4));
-            console.log('Target collateral for', releaseTargetLTV + '% LTV:', targetCollateralForLoan.toFixed(4));
-            console.log('Excess collateral to release:', excessCollateral.toFixed(4));
             if (excessCollateral > 0) {
               releasedBtc[loanKey] = excessCollateral;
               encumberedBtc[loanKey] = targetCollateralForLoan;
@@ -1695,12 +1613,6 @@ export function runUnifiedProjection({
         // === STEP 3: NET PROCEEDS ===
         const netProceeds = actualSellAmount - reallocTaxes - reallocPenalties;
         
-        console.log('[REALLOC DEBUG] Year:', year, 'Age:', age);
-        console.log('[REALLOC DEBUG] actualSellAmount:', actualSellAmount);
-        console.log('[REALLOC DEBUG] reallocTaxes:', reallocTaxes);
-        console.log('[REALLOC DEBUG] reallocPenalties:', reallocPenalties);
-        console.log('[REALLOC DEBUG] netProceeds:', netProceeds);
-        
         // === STEP 4: BUY INTO DESTINATION ===
         const buyCategory = buyAssetType === 'btc' ? 'btc' : 
                            buyAssetType === 'stocks' ? 'stocks' : 
@@ -1712,13 +1624,7 @@ export function runUnifiedProjection({
         if (destinationAccountType === 'tax_deferred') destPortfolioKey = 'taxDeferred';
         else if (destinationAccountType === 'tax_free') destPortfolioKey = 'taxFree';
         
-        console.log('[REALLOC DEBUG] destPortfolioKey:', destPortfolioKey);
-        console.log('[REALLOC DEBUG] buyCategory:', buyCategory);
-        console.log('[REALLOC DEBUG] portfolio[destPortfolioKey][buyCategory] BEFORE:', portfolio[destPortfolioKey][buyCategory]);
-        
         portfolio[destPortfolioKey][buyCategory] += netProceeds;
-        
-        console.log('[REALLOC DEBUG] portfolio[destPortfolioKey][buyCategory] AFTER:', portfolio[destPortfolioKey][buyCategory]);
         if (destPortfolioKey === 'taxable') {
           runningTaxableBasis += netProceeds; // New basis = net proceeds (only for taxable)
         }
