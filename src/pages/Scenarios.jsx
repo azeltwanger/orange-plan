@@ -3403,7 +3403,7 @@ export default function Scenarios() {
                   <Label className="text-zinc-300 text-xs">Start Age</Label>
                   <Input
                     type="number"
-                    min={settings.current_age || 35}
+                    min={Math.max(62, settings.current_age || 35)}
                     max={70}
                     value={form.social_security_start_age_override}
                     onChange={(e) => setForm({ ...form, social_security_start_age_override: e.target.value })}
