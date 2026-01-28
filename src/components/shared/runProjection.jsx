@@ -556,16 +556,6 @@ export function runUnifiedProjection({
     };
   });
 
-  // DEBUG: Log existing debt at start of projection
-  console.log('=== EXISTING LIABILITIES (start of projection) ===');
-  Object.values(tempRunningDebt).forEach(l => {
-    console.log(`- ${l.name}: Balance $${l.current_balance?.toFixed(2)}, Type: ${l.type}, Collateral: ${l.collateral_btc_amount || 0} BTC`);
-  });
-  console.log('=== EXISTING COLLATERALIZED LOANS ===');
-  Object.values(tempRunningCollateralizedLoans).forEach(l => {
-    console.log(`- ${l.name || l.loan_name}: Balance $${l.current_balance?.toFixed(2)}, Collateral: ${l.collateral_btc_amount || 0} BTC`);
-  });
-
   // Initialize BTC collateral tracking (must be before hypothetical loan processing)
   const encumberedBtc = {};
   let releasedBtc = {};
@@ -2722,31 +2712,6 @@ export function runUnifiedProjection({
         // Calculate totals
     const currentTotalEncumberedBtc = Object.values(encumberedBtc).reduce((sum, amount) => sum + amount, 0);
     const encumberedBtcValueThisYear = currentTotalEncumberedBtc * cumulativeBtcPrice;
-    
-    // DEBUG: Year-end summary for first 10 years
-    if (i < 10) {
-      const liquidBtcQty = portfolio.taxable.btc / cumulativeBtcPrice;
-      console.log(`=== YEAR ${year} (Age ${age}) END SUMMARY ===`);
-      console.log('BTC Price:', cumulativeBtcPrice.toFixed(2));
-      console.log('Liquid BTC:', liquidBtcQty.toFixed(4));
-      console.log('Encumbered BTC:', currentTotalEncumberedBtc.toFixed(4));
-      console.log('Total BTC:', (liquidBtcQty + currentTotalEncumberedBtc).toFixed(4));
-      console.log('Cash:', portfolio.taxable.cash.toFixed(2));
-      console.log('Total Portfolio:', getTotalPortfolio(encumberedBtcValueThisYear).toFixed(2));
-      
-      // Log active loans
-      const activeLoans = Object.values(tempRunningCollateralizedLoans).filter(l => !l.paid_off);
-      if (activeLoans.length > 0) {
-        console.log('Active Loans:');
-        activeLoans.forEach(l => {
-          const lk = `loan_${l.id}`;
-          const collat = encumberedBtc[lk] || 0;
-          const collatVal = collat * cumulativeBtcPrice;
-          const ltv = collatVal > 0 ? (l.current_balance / collatVal) * 100 : 0;
-          console.log(`  - ${l.name || 'Loan'}: Balance $${l.current_balance.toFixed(2)}, Collateral ${collat.toFixed(4)} BTC, LTV ${ltv.toFixed(1)}%`);
-        });
-      }
-    }
     
     // End-of-year dust cleanup for all accounts to prevent compounding of near-zero balances
     const DUST_THRESHOLD_EOY = 10; // Increased threshold to catch more edge cases
