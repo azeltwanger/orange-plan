@@ -708,6 +708,10 @@ export function runUnifiedProjection({
   // Capture initial Roth balance for tracking withdrawals through projection
   const initialRothBalance = (portfolio.taxFree.btc || 0) + (portfolio.taxFree.stocks || 0) + 
     (portfolio.taxFree.bonds || 0) + (portfolio.taxFree.cash || 0) + (portfolio.taxFree.other || 0);
+  
+  // Track Roth contribution basis that gets depleted over time
+  // Conservative default: 0 assumes all Roth balance is earnings (most conservative for high-growth portfolios)
+  let runningRothContributionBasis = totalRothContributions;
 
   // Track individual holding values for dividend calculations
   // We need to track values through the projection since dividends are based on current value
@@ -2074,6 +2078,7 @@ export function runUnifiedProjection({
           taxDeferredBalance,
           taxFreeBalance,
           rothContributions: totalRothContributions,
+          rothContributionBasis: runningRothContributionBasis,
           shortTermGain: prelimTaxableWithdraw.shortTermGain,
           longTermGain: prelimTaxableWithdraw.longTermGain,
           qualifiedDividends: yearQualifiedDividends,
@@ -2084,6 +2089,9 @@ export function runUnifiedProjection({
           year: year,
           inflationRate: effectiveInflation / 100,
         });
+        
+        // Update Roth contribution basis after withdrawal
+        runningRothContributionBasis = taxEstimate.newRothContributionBasis || runningRothContributionBasis;
 
         const preRetireStateTax = calculateStateTaxOnRetirement({
           state: stateOfResidence,
@@ -2414,6 +2422,7 @@ export function runUnifiedProjection({
         taxDeferredBalance,
         taxFreeBalance,
         rothContributions: totalRothContributions,
+        rothContributionBasis: runningRothContributionBasis,
         shortTermGain: prelimRetirementTaxable.shortTermGain,
         longTermGain: prelimRetirementTaxable.longTermGain,
         qualifiedDividends: yearQualifiedDividends,
@@ -2424,6 +2433,9 @@ export function runUnifiedProjection({
         year: year,
         inflationRate: effectiveInflation / 100,
       });
+      
+      // Update Roth contribution basis after withdrawal
+      runningRothContributionBasis = taxEstimate.newRothContributionBasis || runningRothContributionBasis;
 
       const stateTax = calculateStateTaxOnRetirement({
         state: stateOfResidence,

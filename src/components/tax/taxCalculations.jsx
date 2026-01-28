@@ -362,6 +362,7 @@ export const estimateRetirementWithdrawalTaxes = ({
   taxDeferredBalance,
   taxFreeBalance,
   rothContributions = null, // Actual Roth contribution basis (accessible penalty-free)
+  rothContributionBasis = 0, // TRACKING: Remaining Roth contributions that haven't been withdrawn (defaults to 0 = conservative)
   taxableGainPercent = 0.5, // LEGACY: Portion of taxable account that is gains (dynamically calculated)
   shortTermGain = null, // NEW: Pre-calculated short-term gain from lot selection
   longTermGain = null, // NEW: Pre-calculated long-term gain from lot selection  
@@ -413,8 +414,10 @@ export const estimateRetirementWithdrawalTaxes = ({
     taxOnLongTermGains: 0,
     taxOnQualifiedDividends: 0,
     taxOnNonQualifiedDividends: 0,
+    taxFreeEarningsTax: 0, // NEW: Tax on Roth earnings withdrawn early
     niitTax: 0,
     penalty: 0,
+    newRothContributionBasis: rothContributionBasis, // Track for year-over-year
   };
   
   // Track cumulative taxable income for accurate bracket calculation
@@ -611,14 +614,43 @@ export const estimateRetirementWithdrawalTaxes = ({
       remainingWithdrawal -= fromTaxable;
     }
     
-    // 2. Tax-free (Roth contributions accessible)
-    // Use actual Roth contributions if provided, otherwise estimate 50%
-    const taxFreeContributions = rothContributions !== null 
-      ? Math.min(rothContributions, taxFreeBalance) 
-      : taxFreeBalance * 0.5;
-    const fromTaxFree = Math.min(remainingWithdrawal, taxFreeContributions);
-    withdrawalBreakdown.fromTaxFree = fromTaxFree;
-    remainingWithdrawal -= fromTaxFree;
+    // 2. Tax-free (Roth contributions accessible, earnings taxed if before 59.5)
+    const fromTaxFree = Math.min(remainingWithdrawal, taxFreeBalance);
+    if (fromTaxFree > 0) {
+      // IRS ordering: Contributions come out first (tax-free and penalty-free)
+      // Earnings come out second (taxed as ordinary income + 10% penalty if age < 59.5)
+      const fromContributions = Math.min(fromTaxFree, rothContributionBasis);
+      const fromEarnings = Math.max(0, fromTaxFree - fromContributions);
+      
+      if (fromEarnings > 0) {
+        // Earnings taxed as ORDINARY INCOME + 10% penalty
+        let earningsTax = 0;
+        let remainingEarnings = fromEarnings;
+        
+        // Calculate progressive income tax on Roth earnings
+        for (const bracket of incomeBrackets) {
+          if (remainingEarnings <= 0) break;
+          const roomInBracket = Math.max(0, bracket.max - cumulativeTaxableIncome);
+          const earningsInBracket = Math.min(remainingEarnings, roomInBracket);
+          earningsTax += earningsInBracket * bracket.rate;
+          cumulativeTaxableIncome += earningsInBracket;
+          remainingEarnings -= earningsInBracket;
+        }
+        
+        withdrawalBreakdown.taxFreeEarningsTax = earningsTax;
+        totalTax += earningsTax;
+        
+        // 10% early withdrawal penalty on earnings
+        const earningsPenalty = fromEarnings * 0.10;
+        withdrawalBreakdown.penalty += earningsPenalty;
+        totalPenalty += earningsPenalty;
+      }
+      
+      // Update contribution basis for next withdrawal
+      withdrawalBreakdown.newRothContributionBasis = Math.max(0, rothContributionBasis - fromContributions);
+      withdrawalBreakdown.fromTaxFree = fromTaxFree;
+      remainingWithdrawal -= fromTaxFree;
+    }
     
     // 3. Tax-deferred with penalty as last resort
     if (remainingWithdrawal > 0) {
