@@ -1674,6 +1674,18 @@ export default function Scenarios() {
                                         <span className="text-rose-300 text-right">-${p.stateTaxPaid.toLocaleString()}</span>
                                       </div>
                                     )}
+                                    {p.earlyWithdrawalTax > 0 && (
+                                      <div className="flex justify-between gap-6">
+                                        <span>Early Withdrawal Tax:</span>
+                                        <span className="text-rose-300 text-right">-${p.earlyWithdrawalTax.toLocaleString()}</span>
+                                      </div>
+                                    )}
+                                    {p.earlyWithdrawalPenalty > 0 && (
+                                      <div className="flex justify-between gap-6">
+                                        <span>Early Withdrawal Penalty (10%):</span>
+                                        <span className="text-rose-300 text-right">-${p.earlyWithdrawalPenalty.toLocaleString()}</span>
+                                      </div>
+                                    )}
                                     <div className="flex justify-between gap-6">
                                       <span>Spending:</span>
                                       <span className="text-zinc-300 text-right">-${(p.yearSpending || 0).toLocaleString()}</span>
@@ -1723,12 +1735,55 @@ export default function Scenarios() {
                                           <span className="text-rose-400 text-right">-${p.withdrawFromTaxFree.toLocaleString()}</span>
                                         </div>
                                       )}
-                                      {p.penaltyPaid > 0 && (
+                                      {p.earlyWithdrawalTax > 0 && (
                                         <div className="flex justify-between gap-6">
-                                          <span>Early Withdrawal Penalty:</span>
-                                          <span className="text-rose-300 text-right">-${p.penaltyPaid.toLocaleString()}</span>
+                                          <span>Early Withdrawal Tax:</span>
+                                          <span className="text-rose-300 text-right">-${p.earlyWithdrawalTax.toLocaleString()}</span>
                                         </div>
                                       )}
+                                      {p.earlyWithdrawalPenalty > 0 && (
+                                        <div className="flex justify-between gap-6">
+                                          <span>Early Withdrawal Penalty (10%):</span>
+                                          <span className="text-rose-300 text-right">-${p.earlyWithdrawalPenalty.toLocaleString()}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                  {p.hasReallocation && p.reallocationDetails && p.reallocationDetails.length > 0 && (
+                                    <div className="pt-3 mt-3 border-t border-zinc-700/70">
+                                      <p className="text-xs font-semibold text-amber-400 mb-2">
+                                        🔄 Asset Reallocation This Year:
+                                      </p>
+                                      <div className="space-y-2">
+                                        {p.reallocationDetails.map((r, idx) => (
+                                          <div key={idx} className="text-xs text-zinc-400">
+                                            <p className="text-amber-300">
+                                              {r.sellAsset} from {r.fromAccount} → {r.buyAsset} in {r.toAccount}
+                                            </p>
+                                            <p className="ml-3 text-zinc-500">
+                                              Sold: ${r.amount.toLocaleString()}
+                                            </p>
+                                            {r.capitalGains > 0 && (
+                                              <p className="ml-3 text-zinc-500">
+                                                Capital Gains: ${r.capitalGains.toLocaleString()}
+                                              </p>
+                                            )}
+                                            {r.taxPaid > 0 && (
+                                              <p className="ml-3 text-rose-400">
+                                                Tax: -${r.taxPaid.toLocaleString()}
+                                              </p>
+                                            )}
+                                            {r.penaltyPaid > 0 && (
+                                              <p className="ml-3 text-rose-400">
+                                                Penalty: -${r.penaltyPaid.toLocaleString()}
+                                              </p>
+                                            )}
+                                            <p className="ml-3 text-emerald-400">
+                                              Net Proceeds: ${r.netProceeds.toLocaleString()}
+                                            </p>
+                                          </div>
+                                        ))}
+                                      </div>
                                     </div>
                                   )}
                                   {p.loanPayoffs && p.loanPayoffs.length > 0 && (
@@ -1827,10 +1882,16 @@ export default function Scenarios() {
                                         <span className="text-rose-300 text-right">-${p.stateTaxPaid.toLocaleString()}</span>
                                       </div>
                                     )}
-                                    {p.penaltyPaid > 0 && (
+                                    {p.earlyWithdrawalTax > 0 && (
                                       <div className="flex justify-between gap-6">
-                                        <span>Penalty Paid:</span>
-                                        <span className="text-rose-300 text-right">-${p.penaltyPaid.toLocaleString()}</span>
+                                        <span>Early Withdrawal Tax:</span>
+                                        <span className="text-rose-300 text-right">-${p.earlyWithdrawalTax.toLocaleString()}</span>
+                                      </div>
+                                    )}
+                                    {p.earlyWithdrawalPenalty > 0 && (
+                                      <div className="flex justify-between gap-6">
+                                        <span>Early Withdrawal Penalty (10%):</span>
+                                        <span className="text-rose-300 text-right">-${p.earlyWithdrawalPenalty.toLocaleString()}</span>
                                       </div>
                                     )}
                                   </div>
@@ -1873,6 +1934,18 @@ export default function Scenarios() {
                                       <div className="flex justify-between gap-6">
                                         <span>• {stateCode} State Tax:</span>
                                         <span className="text-rose-300 text-right">-${p.stateTaxPaid.toLocaleString()}</span>
+                                      </div>
+                                    )}
+                                    {p.earlyWithdrawalTax > 0 && (
+                                      <div className="flex justify-between gap-6">
+                                        <span>• Early Withdrawal Tax:</span>
+                                        <span className="text-rose-300 text-right">-${p.earlyWithdrawalTax.toLocaleString()}</span>
+                                      </div>
+                                    )}
+                                    {p.earlyWithdrawalPenalty > 0 && (
+                                      <div className="flex justify-between gap-6">
+                                        <span>• Early Withdrawal Penalty (10%):</span>
+                                        <span className="text-rose-300 text-right">-${p.earlyWithdrawalPenalty.toLocaleString()}</span>
                                       </div>
                                     )}
                                     {p.year401kContribution > 0 && (
@@ -1925,6 +1998,45 @@ export default function Scenarios() {
                                     <p className="font-semibold text-emerald-400 text-sm">
                                       Net Savings: ${p.netCashFlow.toLocaleString()}
                                     </p>
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {/* Asset Reallocation */}
+                              {p.hasReallocation && p.reallocationDetails && p.reallocationDetails.length > 0 && (
+                                <div className="pt-3 mt-3 border-t border-zinc-700/70">
+                                  <p className="text-xs font-semibold text-amber-400 mb-2">
+                                    🔄 Asset Reallocation This Year:
+                                  </p>
+                                  <div className="space-y-2">
+                                    {p.reallocationDetails.map((r, idx) => (
+                                      <div key={idx} className="text-xs text-zinc-400">
+                                        <p className="text-amber-300">
+                                          {r.sellAsset} from {r.fromAccount} → {r.buyAsset} in {r.toAccount}
+                                        </p>
+                                        <p className="ml-3 text-zinc-500">
+                                          Sold: ${r.amount.toLocaleString()}
+                                        </p>
+                                        {r.capitalGains > 0 && (
+                                          <p className="ml-3 text-zinc-500">
+                                            Capital Gains: ${r.capitalGains.toLocaleString()}
+                                          </p>
+                                        )}
+                                        {r.taxPaid > 0 && (
+                                          <p className="ml-3 text-rose-400">
+                                            Tax: -${r.taxPaid.toLocaleString()}
+                                          </p>
+                                        )}
+                                        {r.penaltyPaid > 0 && (
+                                          <p className="ml-3 text-rose-400">
+                                            Penalty: -${r.penaltyPaid.toLocaleString()}
+                                          </p>
+                                        )}
+                                        <p className="ml-3 text-emerald-400">
+                                          Net Proceeds: ${r.netProceeds.toLocaleString()}
+                                        </p>
+                                      </div>
+                                    ))}
                                   </div>
                                 </div>
                               )}
@@ -2220,6 +2332,18 @@ export default function Scenarios() {
                                 <span className="text-rose-300 text-right">-${p.stateTaxPaid.toLocaleString()}</span>
                               </div>
                             )}
+                            {p.earlyWithdrawalTax > 0 && (
+                              <div className="flex justify-between gap-6">
+                                <span>Early Withdrawal Tax:</span>
+                                <span className="text-rose-300 text-right">-${p.earlyWithdrawalTax.toLocaleString()}</span>
+                              </div>
+                            )}
+                            {p.earlyWithdrawalPenalty > 0 && (
+                              <div className="flex justify-between gap-6">
+                                <span>Early Withdrawal Penalty (10%):</span>
+                                <span className="text-rose-300 text-right">-${p.earlyWithdrawalPenalty.toLocaleString()}</span>
+                              </div>
+                            )}
                             <div className="flex justify-between gap-6">
                               <span>Spending:</span>
                               <span className="text-zinc-300 text-right">-${(p.yearSpending || 0).toLocaleString()}</span>
@@ -2378,10 +2502,16 @@ export default function Scenarios() {
                                 <span className="text-rose-300 text-right">-${p.stateTaxPaid.toLocaleString()}</span>
                               </div>
                             )}
-                            {p.penaltyPaid > 0 && (
+                            {p.earlyWithdrawalTax > 0 && (
                               <div className="flex justify-between gap-6">
-                                <span>Penalty Paid:</span>
-                                <span className="text-rose-300 text-right">-${p.penaltyPaid.toLocaleString()}</span>
+                                <span>Early Withdrawal Tax:</span>
+                                <span className="text-rose-300 text-right">-${p.earlyWithdrawalTax.toLocaleString()}</span>
+                              </div>
+                            )}
+                            {p.earlyWithdrawalPenalty > 0 && (
+                              <div className="flex justify-between gap-6">
+                                <span>Early Withdrawal Penalty (10%):</span>
+                                <span className="text-rose-300 text-right">-${p.earlyWithdrawalPenalty.toLocaleString()}</span>
                               </div>
                             )}
                           </div>
