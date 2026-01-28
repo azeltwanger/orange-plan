@@ -1041,6 +1041,52 @@ export default function Scenarios() {
     }
   }, [baselineProjection, scenarioProjection]);
 
+  // Detailed Tax Debug: Compare key metrics between baseline and scenario
+  useEffect(() => {
+    if (!baselineProjection?.yearByYear || !scenarioProjection?.yearByYear) return;
+    
+    console.log('=== TAX DEBUG: Baseline vs Scenario ===');
+    
+    // Sum up key metrics
+    let baselineTotalTax = 0, scenarioTotalTax = 0;
+    let baselineTotalWithdrawals = 0, scenarioTotalWithdrawals = 0;
+    let baselineTotalGains = 0, scenarioTotalGains = 0;
+    let baselineTaxFreeWithdrawals = 0, scenarioTaxFreeWithdrawals = 0;
+    
+    const baseYears = baselineProjection.yearByYear;
+    const scenYears = scenarioProjection.yearByYear;
+    
+    // Log first 20 retirement years in detail
+    console.log('Year-by-year comparison (retirement years with tax differences):');
+    for (let i = 0; i < Math.min(baseYears.length, scenYears.length); i++) {
+      const b = baseYears[i];
+      const s = scenYears[i];
+      
+      baselineTotalTax += b.taxesPaid || 0;
+      scenarioTotalTax += s.taxesPaid || 0;
+      baselineTotalWithdrawals += (b.withdrawFromTaxable || 0) + (b.withdrawFromTaxDeferred || 0) + (b.withdrawFromTaxFree || 0);
+      scenarioTotalWithdrawals += (s.withdrawFromTaxable || 0) + (s.withdrawFromTaxDeferred || 0) + (s.withdrawFromTaxFree || 0);
+      baselineTaxFreeWithdrawals += b.withdrawFromTaxFree || 0;
+      scenarioTaxFreeWithdrawals += s.withdrawFromTaxFree || 0;
+      
+      // Log years where taxes differ significantly
+      if (b.isRetired && Math.abs((b.taxesPaid || 0) - (s.taxesPaid || 0)) > 1000) {
+        const bWithdrawal = (b.withdrawFromTaxable || 0) + (b.withdrawFromTaxDeferred || 0) + (b.withdrawFromTaxFree || 0);
+        const sWithdrawal = (s.withdrawFromTaxable || 0) + (s.withdrawFromTaxDeferred || 0) + (s.withdrawFromTaxFree || 0);
+        console.log(`Age ${b.age}: Base tax $${(b.taxesPaid || 0).toLocaleString()} vs Scen $${(s.taxesPaid || 0).toLocaleString()} | Base withdrawal $${bWithdrawal.toLocaleString()} vs Scen $${sWithdrawal.toLocaleString()}`);
+        console.log(`  → Base: Taxable $${(b.withdrawFromTaxable || 0).toLocaleString()}, TaxDef $${(b.withdrawFromTaxDeferred || 0).toLocaleString()}, TaxFree $${(b.withdrawFromTaxFree || 0).toLocaleString()}`);
+        console.log(`  → Scen: Taxable $${(s.withdrawFromTaxable || 0).toLocaleString()}, TaxDef $${(s.withdrawFromTaxDeferred || 0).toLocaleString()}, TaxFree $${(s.withdrawFromTaxFree || 0).toLocaleString()}`);
+      }
+    }
+    
+    console.log('--- TOTALS ---');
+    console.log(`Baseline: $${baselineTotalTax.toLocaleString()} taxes on $${baselineTotalWithdrawals.toLocaleString()} withdrawals`);
+    console.log(`Scenario: $${scenarioTotalTax.toLocaleString()} taxes on $${scenarioTotalWithdrawals.toLocaleString()} withdrawals`);
+    console.log(`Tax per $1 withdrawn - Baseline: ${baselineTotalWithdrawals > 0 ? (baselineTotalTax / baselineTotalWithdrawals).toFixed(4) : 'N/A'} | Scenario: ${scenarioTotalWithdrawals > 0 ? (scenarioTotalTax / scenarioTotalWithdrawals).toFixed(4) : 'N/A'}`);
+    console.log(`Tax-Free (Roth) Withdrawals - Baseline: $${baselineTaxFreeWithdrawals.toLocaleString()} | Scenario: $${scenarioTaxFreeWithdrawals.toLocaleString()}`);
+    
+  }, [baselineProjection, scenarioProjection]);
+
   // Format currency helper (moved up for use in holdingsOptions)
   const formatCurrency = (num) => {
     if (num === null || num === undefined) return '-';
