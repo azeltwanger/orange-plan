@@ -1046,6 +1046,16 @@ export function runUnifiedProjection({
             // Track cost basis for positive inflows
             runningTaxableBasis += eventAmount;
           }
+          
+          if (DEBUG && ['inheritance', 'windfall', 'gift'].includes(event.event_type)) {
+            console.log('🟢 PROCESSED EVENT via affects=assets block:', event.amount);
+            console.log('  Portfolio AFTER event processing:', {
+              taxableBtc: Math.round(portfolio.taxable?.btc || 0),
+              taxableStocks: Math.round(portfolio.taxable?.stocks || 0),
+              taxableCash: Math.round(portfolio.taxable?.cash || 0),
+              total: Math.round(getPortfolioTotal())
+            });
+          }
         }
         // Also track inheritance/windfall/gift event types - only if NOT already handled by affects === 'assets' block
         else if (['inheritance', 'windfall', 'gift', 'asset_sale'].includes(event.event_type) && event.amount > 0 && event.affects !== 'assets') {
