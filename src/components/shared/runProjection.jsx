@@ -985,7 +985,25 @@ export function runUnifiedProjection({
     const liabilitiesWithPayoffGoals = new Set();
     const loansWithPayoffGoals = new Set();
 
+    // DEBUG: Log life events being processed
+    if (i === 0 && DEBUG) {
+      console.log('🟡 LIFE EVENTS TO PROCESS:', lifeEvents.map(e => ({
+        name: e.name,
+        event_type: e.event_type,
+        year: e.year,
+        amount: e.amount,
+        affects: e.affects
+      })));
+    }
+    if (DEBUG) {
+      console.log('🟡 CURRENT PROJECTION YEAR:', year, 'AGE:', age);
+    }
+
     lifeEvents.forEach(event => {
+      // DEBUG: Check each event
+      if (DEBUG && ['inheritance', 'windfall', 'gift'].includes(event.event_type)) {
+        console.log('🔵 Checking event:', event.event_type, 'event.year:', event.year, 'projection year:', year, 'age:', age, 'match year:', event.year === year, 'match age:', event.year === age);
+      }
       if (event.year === year || (event.is_recurring && event.year <= year && year < event.year + (event.recurring_years || 1))) {
         // Handle assets-affecting events (inheritance, windfall, one-time inflows)
         if (event.affects === 'assets') {
