@@ -1028,6 +1028,96 @@ export default function Scenarios() {
     setScenarioMonteCarloResults(null);
   }, [selectedScenarioId]);
 
+  // Debug: Compare baseline vs scenario parameters to find discrepancies
+  useEffect(() => {
+    if (!baselineProjection || !scenarioProjection || !selectedScenario) return;
+    
+    // Build params for both to compare
+    const baseParams = buildProjectionParams();
+    const scenOverrides = {
+      retirement_age_override: selectedScenario.retirement_age_override,
+      life_expectancy_override: selectedScenario.life_expectancy_override,
+      annual_retirement_spending_override: selectedScenario.annual_retirement_spending_override,
+      state_override: selectedScenario.state_override,
+      btc_cagr_override: selectedScenario.btc_cagr_override,
+      stocks_cagr_override: selectedScenario.stocks_cagr_override,
+      bonds_cagr_override: selectedScenario.bonds_cagr_override,
+      real_estate_cagr_override: selectedScenario.real_estate_cagr_override,
+      cash_cagr_override: selectedScenario.cash_cagr_override,
+      inflation_override: selectedScenario.inflation_override,
+      income_growth_override: selectedScenario.income_growth_override,
+      social_security_start_age_override: selectedScenario.social_security_start_age_override,
+      social_security_amount_override: selectedScenario.social_security_amount_override,
+      savings_allocation_btc_override: selectedScenario.savings_allocation_btc_override,
+      savings_allocation_stocks_override: selectedScenario.savings_allocation_stocks_override,
+      savings_allocation_bonds_override: selectedScenario.savings_allocation_bonds_override,
+      savings_allocation_cash_override: selectedScenario.savings_allocation_cash_override,
+      savings_allocation_other_override: selectedScenario.savings_allocation_other_override,
+      btc_return_model_override: selectedScenario.btc_return_model_override,
+      custom_return_periods_override: selectedScenario.custom_return_periods_override,
+      ticker_returns_override: selectedScenario.ticker_returns_override,
+      gross_annual_income_override: selectedScenario.gross_annual_income_override,
+      current_annual_spending_override: selectedScenario.current_annual_spending_override,
+      dividend_income_override: selectedScenario.dividend_income_override,
+      dividend_income_qualified: selectedScenario.dividend_income_qualified,
+      one_time_events: selectedScenario.one_time_events,
+      asset_reallocations: selectedScenario.asset_reallocations,
+      hypothetical_btc_loan: selectedScenario.hypothetical_btc_loan,
+      future_btc_loan_rate: selectedScenario.future_btc_loan_rate,
+      future_btc_loan_rate_years: selectedScenario.future_btc_loan_rate_years,
+    };
+    const scenParams = buildProjectionParams(scenOverrides);
+    
+    console.log('=== BASELINE VS SCENARIO PARAM COMPARISON ===');
+    console.log('Selected Scenario:', selectedScenario.name);
+    console.log('Raw scenario overrides:', JSON.stringify(scenOverrides, null, 2));
+    
+    // Compare ALL parameters
+    const allKeys = new Set([...Object.keys(baseParams), ...Object.keys(scenParams)]);
+    const differences = [];
+    
+    allKeys.forEach(key => {
+      // Skip function comparisons
+      if (typeof baseParams[key] === 'function' || typeof scenParams[key] === 'function') return;
+      
+      const baseVal = JSON.stringify(baseParams[key]);
+      const scenVal = JSON.stringify(scenParams[key]);
+      if (baseVal !== scenVal) {
+        differences.push({
+          key,
+          baseline: baseParams[key],
+          scenario: scenParams[key]
+        });
+      }
+    });
+    
+    if (differences.length === 0) {
+      console.log('[IDENTICAL] All parameters match between baseline and scenario');
+    } else {
+      console.log(`[FOUND ${differences.length} DIFFERENCES]:`);
+      differences.forEach(diff => {
+        console.log(`  [DIFF] ${diff.key}:`);
+        console.log('    Baseline:', diff.baseline);
+        console.log('    Scenario:', diff.scenario);
+      });
+    }
+    
+    // Key array lengths
+    console.log('--- Array Lengths ---');
+    console.log('lifeEvents - Base:', baseParams.lifeEvents?.length, 'Scen:', scenParams.lifeEvents?.length);
+    console.log('assetReallocations - Base:', baseParams.assetReallocations?.length, 'Scen:', scenParams.assetReallocations?.length);
+    console.log('goals - Base:', baseParams.goals?.length, 'Scen:', scenParams.goals?.length);
+    console.log('collateralizedLoans - Base:', baseParams.collateralizedLoans?.length, 'Scen:', scenParams.collateralizedLoans?.length);
+    
+    // Final net worth comparison
+    const baseFinal = baselineProjection.yearByYear?.[baselineProjection.yearByYear.length - 1]?.total || 0;
+    const scenFinal = scenarioProjection.yearByYear?.[scenarioProjection.yearByYear.length - 1]?.total || 0;
+    console.log('--- Results ---');
+    console.log('Final Net Worth - Baseline:', baseFinal.toLocaleString(), 'Scenario:', scenFinal.toLocaleString());
+    console.log('Difference:', (scenFinal - baseFinal).toLocaleString());
+    
+  }, [baselineProjection, scenarioProjection, selectedScenario]);
+
   // Debug: Compare taxes year by year
   useEffect(() => {
     if (baselineProjection?.yearByYear && scenarioProjection?.yearByYear) {
