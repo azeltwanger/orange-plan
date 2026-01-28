@@ -1,6 +1,10 @@
 // ===========================================
 // CONSOLIDATED TAX DATA - ALL ANNUAL VALUES
 // ===========================================
+// Tax data updated for 2026 per IRS Revenue Procedure 2025-32 and OBBBA (One Big Beautiful Bill Act)
+// Base year for projections: 2026
+// Future years inflate using FALLBACK_INFLATION (2.5%)
+//
 // UPDATE CHECKLIST (Every January):
 // [ ] Federal income brackets
 // [ ] Federal LTCG brackets  
@@ -13,7 +17,7 @@
 // [ ] State tax updates (check each state)
 // ===========================================
 
-const CURRENT_YEAR = 2025;
+const CURRENT_YEAR = 2026;
 const FALLBACK_INFLATION = 0.025; // 2.5% for projecting unknown years
 
 // ===========================================
@@ -95,6 +99,46 @@ export const FEDERAL_INCOME_BRACKETS = {
       { min: 250500, max: 626350, rate: 35 },
       { min: 626350, max: Infinity, rate: 37 }
     ]
+  },
+  // 2026 brackets per IRS Revenue Procedure 2025-32 and OBBBA
+  // OBBBA provided ~4% inflation for bottom two brackets, ~2.3% for higher brackets
+  2026: {
+    single: [
+      { min: 0, max: 12400, rate: 10 },
+      { min: 12400, max: 50400, rate: 12 },
+      { min: 50400, max: 105725, rate: 22 },
+      { min: 105725, max: 201850, rate: 24 },
+      { min: 201850, max: 256300, rate: 32 },
+      { min: 256300, max: 640750, rate: 35 },
+      { min: 640750, max: Infinity, rate: 37 }
+    ],
+    married_filing_jointly: [
+      { min: 0, max: 24800, rate: 10 },
+      { min: 24800, max: 100800, rate: 12 },
+      { min: 100800, max: 211450, rate: 22 },
+      { min: 211450, max: 403700, rate: 24 },
+      { min: 403700, max: 512600, rate: 32 },
+      { min: 512600, max: 768900, rate: 35 },
+      { min: 768900, max: Infinity, rate: 37 }
+    ],
+    married_filing_separately: [
+      { min: 0, max: 12400, rate: 10 },
+      { min: 12400, max: 50400, rate: 12 },
+      { min: 50400, max: 105725, rate: 22 },
+      { min: 105725, max: 201850, rate: 24 },
+      { min: 201850, max: 256300, rate: 32 },
+      { min: 256300, max: 384450, rate: 35 },
+      { min: 384450, max: Infinity, rate: 37 }
+    ],
+    head_of_household: [
+      { min: 0, max: 17680, rate: 10 },
+      { min: 17680, max: 67450, rate: 12 },
+      { min: 67450, max: 105725, rate: 22 },
+      { min: 105725, max: 201850, rate: 24 },
+      { min: 201850, max: 256300, rate: 32 },
+      { min: 256300, max: 640750, rate: 35 },
+      { min: 640750, max: Infinity, rate: 37 }
+    ]
   }
 };
 
@@ -113,6 +157,13 @@ export const FEDERAL_LTCG_BRACKETS = {
     married_filing_jointly: { zeroMax: 96700, fifteenMax: 600050 },
     married_filing_separately: { zeroMax: 48350, fifteenMax: 300000 },
     head_of_household: { zeroMax: 64750, fifteenMax: 566700 }
+  },
+  // 2026 LTCG brackets per IRS Revenue Procedure 2025-32
+  2026: {
+    single: { zeroMax: 49550, fifteenMax: 545850 },
+    married_filing_jointly: { zeroMax: 99100, fifteenMax: 613850 },
+    married_filing_separately: { zeroMax: 49550, fifteenMax: 306925 },
+    head_of_household: { zeroMax: 66350, fifteenMax: 579650 }
   }
 };
 
@@ -130,20 +181,25 @@ export const STANDARD_DEDUCTIONS = {
     additional_married: 1550
   },
   2025: {
-    single: 15750,
-    married_filing_jointly: 31500,
-    married_filing_separately: 15750,
-    head_of_household: 23850,
-    additional_single: 2050,
-    additional_married: 1650
+    single: 15000,
+    married_filing_jointly: 30000,
+    married_filing_separately: 15000,
+    head_of_household: 22500,
+    additional_single: 2000,
+    additional_married: 1600
   },
+  // 2026 per IRS Revenue Procedure 2025-32 and OBBBA
   2026: {
     single: 16100,
     married_filing_jointly: 32200,
     married_filing_separately: 16100,
     head_of_household: 24150,
-    additional_single: 2100,
-    additional_married: 1700
+    additional_single: 2050,
+    additional_married: 1650,
+    // NEW for 2026 (OBBBA): Additional deduction for seniors 65+
+    senior_bonus_deduction: 6000,
+    senior_bonus_phaseout_start: 75000,  // Phases out above this AGI
+    senior_bonus_phaseout_rate: 0.06     // $1 reduction per ~$16.67 over threshold
   }
 };
 
@@ -396,10 +452,10 @@ export const ESTATE_GIFT_TAX = {
     lifetimeExemption: 13990000,
     topRate: 40
   },
-  // Note: Exemption scheduled to drop to ~$7M in 2026 when TCJA expires
+  // 2026: OBBBA made TCJA permanent and increased exemption
   2026: {
-    annualGiftExclusion: 19000, // Estimated
-    lifetimeExemption: 7000000, // Approximate if TCJA sunsets
+    annualGiftExclusion: 19000,
+    lifetimeExemption: 15000000, // OBBBA set at $15M (TCJA made permanent)
     topRate: 40
   }
 };
@@ -492,7 +548,8 @@ export function getLTCGBrackets(year, filingStatus = 'single', inflationRate = n
 }
 
 // Get standard deduction for a year
-export function getStandardDeduction(year, filingStatus = 'single', age = 0, isBlind = false, inflationRate = null) {
+// Note: income parameter is needed for senior bonus deduction phaseout (2026+)
+export function getStandardDeduction(year, filingStatus = 'single', age = 0, isBlind = false, inflationRate = null, income = 0) {
   const yearData = getYearData(STANDARD_DEDUCTIONS, year, inflationRate);
   const normalizedStatus = filingStatus === 'married' ? 'married_filing_jointly' : filingStatus;
   
@@ -508,6 +565,22 @@ export function getStandardDeduction(year, filingStatus = 'single', age = 0, isB
       if (age >= 65 && isBlind) {
         deduction += additional; // Double if both
       }
+    }
+  }
+  
+  // NEW for 2026+ (OBBBA): Senior bonus deduction with phaseout
+  // Additional $6,000 for 65+ that phases out above $75,000 AGI
+  if (age >= 65 && yearData.senior_bonus_deduction) {
+    const bonusDeduction = yearData.senior_bonus_deduction;
+    const phaseoutStart = yearData.senior_bonus_phaseout_start || 75000;
+    const phaseoutRate = yearData.senior_bonus_phaseout_rate || 0.06;
+    
+    if (income > phaseoutStart) {
+      const reduction = (income - phaseoutStart) * phaseoutRate;
+      const adjustedBonus = Math.max(0, bonusDeduction - reduction);
+      deduction += adjustedBonus;
+    } else {
+      deduction += bonusDeduction;
     }
   }
   
