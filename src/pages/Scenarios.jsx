@@ -444,15 +444,32 @@ export default function Scenarios() {
         future_btc_loan_rate_years: selectedScenario.future_btc_loan_rate_years,
       };
 
-      // Clean overrides: remove null, undefined, empty strings, and empty arrays/objects
+      // Clean ALL overrides - remove null, undefined, empty values so base settings are used
       const overrides = Object.fromEntries(
         Object.entries(rawOverrides).filter(([key, value]) => {
-          if (value === null || value === undefined || value === '') return false;
+          // Null or undefined - remove (use base setting)
+          if (value === null || value === undefined) return false;
+          
+          // Empty string - remove (use base setting)
+          if (value === '') return false;
+          
+          // Empty arrays - remove (no additional items from scenario)
           if (Array.isArray(value) && value.length === 0) return false;
+          
+          // Empty objects - remove (use base setting)
           if (typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 0) return false;
+          
+          // dividend_income_qualified - only include if different from base setting
+          if (key === 'dividend_income_qualified') {
+            const baseSetting = settings?.dividend_income_qualified ?? true;
+            if (value === baseSetting) return false;
+          }
+          
           return true;
         })
       );
+      
+      console.log('[DEBUG] Final cleaned overrides:', Object.keys(overrides));
       
       console.log('🟢 SCENARIO OVERRIDES:', overrides);
 
