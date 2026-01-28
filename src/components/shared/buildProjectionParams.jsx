@@ -17,8 +17,9 @@ import {
  * @param {Object} data - Required data dependencies
  * @returns {Object} - Complete params object for runUnifiedProjection
  */
+const DEBUG = false; // Set to true to enable debug logging
+
 export function buildProjectionParams(settings, overrides = {}, data) {
-  console.log('🔴 ONE_TIME_EVENTS:', overrides?.one_time_events);
   
   const {
     holdings,
