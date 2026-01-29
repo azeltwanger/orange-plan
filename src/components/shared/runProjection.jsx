@@ -745,6 +745,16 @@ export function runUnifiedProjection({
     const isRetired = age >= retirementAge;
     const yearsFromNow = i;
 
+    // Calculate spending reduction from debts paid off in PRIOR years
+    const paidOffDebtSpendingReduction = paidOffDebtReductions
+      .filter(d => d.year < year) // Only debts paid off in previous years
+      .reduce((sum, d) => {
+        // Adjust for inflation since the debt was paid off
+        const yearsOfInflation = year - d.year;
+        const inflationAdjustedPayment = d.annualPayment * Math.pow(1 + effectiveInflation / 100, yearsOfInflation);
+        return sum + inflationAdjustedPayment;
+      }, 0);
+
     // DEBUG: Log first 2 years to diagnose scenario comparison issues
     if (i <= 1 && DEBUG) {
       console.log(`\n=== runUnifiedProjection Year ${i} (Age ${age}) DEBUG ===`);
