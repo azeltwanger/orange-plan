@@ -4075,8 +4075,13 @@ export default function Scenarios() {
                     const taxableBtcHoldings = holdings
                       .filter(h => h.asset_type === 'btc' || h.asset_type === 'crypto' || h.ticker === 'BTC')
                       .filter(h => {
-                        const taxTreatment = sharedGetTaxTreatment(h, accounts);
-                        return taxTreatment === 'taxable';
+                        // Use the helper from buildProjectionParams instead of undefined sharedGetTaxTreatment
+                        const account = accounts.find(a => a.id === h.account_id);
+                        if (!account) return h.tax_treatment === 'taxable' || !h.tax_treatment;
+                        const accountType = account.account_type || '';
+                        if (['traditional_401k', 'traditional_ira', 'sep_ira', '403b', '401k_traditional', 'ira_traditional'].includes(accountType)) return false;
+                        if (['roth_401k', 'roth_ira', 'hsa', '529', '401k_roth', 'ira_roth'].includes(accountType)) return false;
+                        return account.tax_treatment === 'taxable' || !account.tax_treatment;
                       })
                       .reduce((sum, h) => sum + (h.quantity || 0), 0);
                     
