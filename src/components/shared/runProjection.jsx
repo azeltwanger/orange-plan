@@ -1209,6 +1209,17 @@ export function runUnifiedProjection({
           if (remainingBalance <= 0.01 && !liability.paid_off) {
             thisYearDebtPayoffs.push({ name: liability.name, liability_name: liability.name });
             liability.paid_off = true;
+            
+            // Record for spending reduction in future years
+            const annualPaymentForReduction = (liability.monthly_payment || 0) * 12;
+            if (annualPaymentForReduction > 0) {
+              paidOffDebtReductions.push({
+                year: year,
+                annualPayment: annualPaymentForReduction,
+                name: liability.name || 'Unknown debt'
+              });
+              if (DEBUG) console.log(`💰 Debt paid off: ${liability.name} - will reduce spending by $${annualPaymentForReduction.toLocaleString()}/year`);
+            }
           }
         } else if (hasInterest && !isBtcLoan) {
           const annualInterest = liability.current_balance * (liability.interest_rate / 100);
