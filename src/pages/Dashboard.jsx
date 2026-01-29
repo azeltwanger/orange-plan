@@ -238,15 +238,18 @@ export default function Dashboard() {
         return holding?.current_price || 0;
       };
 
-      // Group holdings by account
+      // Group holdings by account, filtering out zero-quantity holdings
+      // Zero-quantity holdings are preserved in DB for Tax Center history
       const holdingsByAccount = useMemo(() => {
         const groups = {};
         
-        // Group by account_id
+        // Group by account_id, filtering out zero-quantity holdings
         holdings.forEach(h => {
-          const accountId = h.account_id || '_unassigned_';
-          if (!groups[accountId]) groups[accountId] = [];
-          groups[accountId].push(h);
+          if (h.quantity > 0) {
+            const accountId = h.account_id || '_unassigned_';
+            if (!groups[accountId]) groups[accountId] = [];
+            groups[accountId].push(h);
+          }
         });
         
         return groups;
@@ -382,6 +385,15 @@ export default function Dashboard() {
             <span className="hidden sm:inline">Import CSV</span>
           </Button>
           <Button
+            variant="outline"
+            onClick={() => setShowCreateAccount(true)}
+            className="bg-transparent border-zinc-700 text-sm"
+            size="sm"
+          >
+            <Building2 className="w-4 h-4 mr-2" />
+            <span className="hidden sm:inline">Add Account</span>
+          </Button>
+          <Button
             onClick={() => { setEditingHolding(null); setFormOpen(true); }}
             className="brand-gradient text-white font-semibold hover:opacity-90 shadow-lg shadow-orange-500/20 text-sm"
             size="sm"
@@ -415,7 +427,7 @@ export default function Dashboard() {
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-semibold">Asset Allocation</h2>
           <div className="flex items-center gap-3">
-            <span className="text-sm text-zinc-500">{accounts.length} account{accounts.length !== 1 ? 's' : ''} • {holdings.length} position{holdings.length !== 1 ? 's' : ''}</span>
+            <span className="text-sm text-zinc-500">{accounts.length} account{accounts.length !== 1 ? 's' : ''} • {holdings.filter(h => h.quantity > 0).length} position{holdings.filter(h => h.quantity > 0).length !== 1 ? 's' : ''}</span>
             <Button
               variant="outline"
               size="sm"

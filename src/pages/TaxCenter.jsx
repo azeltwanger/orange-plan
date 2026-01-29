@@ -449,40 +449,53 @@ export default function TaxCenter() {
 
   const bulkDeleteTx = useMutation({
     mutationFn: async (ids) => {
-
-      
       // Track affected assets for sync
       const affectedAssets = new Set();
-      ids.forEach(id => {
-        const tx = allTransactions.find(t => t.id === id);
-        if (tx) {
-          affectedAssets.add(`${tx.asset_ticker}|${tx.account_id || ''}`);
-        }
-      });
       
-      // Delete in small batches with delays to avoid rate limits
+      // First pass: reverse sell transactions and track affected assets
+      for (const id of ids) {
+        const tx = allTransactions.find(t => t.id === id);
+        if (!tx) continue;
+        
+        // Track for later holding sync
+        affectedAssets.add(`${tx.asset_ticker}|${tx.account_id || ''}`);
+        
+        // CRITICAL: If this is a SELL transaction, reverse its impact on buy lots
+        if (tx.type === 'sell' && tx.lots_used && tx.lots_used.length > 0) {
+          for (const lotUsage of tx.lots_used) {
+            try {
+              const buyTx = await base44.entities.Transaction.get(lotUsage.lot_id);
+              if (buyTx) {
+                const currentRemaining = buyTx.remaining_quantity ?? buyTx.quantity;
+                const newRemaining = currentRemaining + (lotUsage.quantity_sold || 0);
+                await base44.entities.Transaction.update(buyTx.id, { 
+                  remaining_quantity: newRemaining 
+                });
+              }
+            } catch (err) {
+              console.warn(`Could not restore lot ${lotUsage.lot_id}:`, err);
+            }
+          }
+        }
+      }
+      
+      // Second pass: delete transactions in batches
       const batchSize = 10;
-      const delayMs = 1000; // 1 second between batches
+      const delayMs = 1000;
       
       for (let i = 0; i < ids.length; i += batchSize) {
         const batch = ids.slice(i, i + batchSize);
         
-        // Delete batch sequentially
         for (const id of batch) {
           await base44.entities.Transaction.delete(id);
         }
         
-        const progress = Math.min(i + batchSize, ids.length);
-
-        
-        // Wait between batches
         if (i + batchSize < ids.length) {
           await new Promise(resolve => setTimeout(resolve, delayMs));
         }
       }
       
       // Sync holdings for all affected tickers/accounts
-
       for (const key of affectedAssets) {
         const [ticker, accountId] = key.split('|');
         if (ticker && accountId) {
