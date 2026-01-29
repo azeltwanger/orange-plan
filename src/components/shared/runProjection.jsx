@@ -2437,34 +2437,31 @@ export function runUnifiedProjection({
               console.log('   storedBtc:', storedBtc);
               
               const saleProceeds = btcToSellForDebt * cumulativeBtcPrice;
+              console.log('📊 TAX CALC for ' + loan.name + ':');
+              console.log('   btcToSellForDebt:', btcToSellForDebt);
+              console.log('   cumulativeBtcPrice:', cumulativeBtcPrice);
+              console.log('   saleProceeds:', saleProceeds);
+              
               let costBasisForSale = 0;
               
               if (storedBtc > 0 && storedBasis > 0) {
                 // Use actual per-loan basis - proportional to amount being sold
                 const percentSold = Math.min(1, btcToSellForDebt / storedBtc);
                 costBasisForSale = storedBasis * percentSold;
-                
-                if (DEBUG) {
-                  console.log('Using stored basis - percentSold:', percentSold);
-                  console.log('costBasisForSale:', costBasisForSale);
-                }
+                console.log('   percentSold:', percentSold);
+                console.log('   costBasisForSale:', costBasisForSale);
                 
                 // Reduce stored basis for remaining collateral
                 loanCollateralBasis[loanKey] = storedBasis * (1 - percentSold);
               } else {
                 // Fallback to 50% basis for loans without stored lot data
+                console.log('   ⚠️ FALLBACK - storedBtc or storedBasis is 0');
                 costBasisForSale = saleProceeds * 0.5;
-                if (DEBUG) {
-                  console.log('Using 50% fallback basis - costBasisForSale:', costBasisForSale);
-                }
+                console.log('   costBasisForSale (50% fallback):', costBasisForSale);
               }
               
               const gainOnSale = Math.max(0, saleProceeds - costBasisForSale);
-              
-              if (DEBUG) {
-                console.log('saleProceeds:', saleProceeds);
-                console.log('gainOnSale:', gainOnSale);
-              }
+              console.log('   gainOnSale:', gainOnSale);
               
               // Also reduce global encumberedBtcBasis for tracking
               const totalEncumberedBtcAmount = Object.values(encumberedBtc).reduce((sum, btc) => sum + btc, 0);
@@ -2474,13 +2471,12 @@ export function runUnifiedProjection({
               }
               
               const taxableIncomeBase = withdrawFromTaxable + withdrawFromTaxDeferred;
-              const taxOnSale = gainOnSale * getLTCGRate(taxableIncomeBase, filingStatus, year);
+              const taxRate = getLTCGRate(taxableIncomeBase, filingStatus, year);
+              console.log('   taxableIncomeBase:', taxableIncomeBase);
+              console.log('   taxRate:', taxRate);
               
-              if (DEBUG) {
-                console.log('taxableIncomeBase:', taxableIncomeBase);
-                console.log('LTCG rate:', getLTCGRate(taxableIncomeBase, filingStatus, year));
-                console.log('taxOnSale:', taxOnSale);
-              }
+              const taxOnSale = gainOnSale * taxRate;
+              console.log('   taxOnSale:', taxOnSale);
               
               const netEquityAvailable = equityReleasedGross - taxOnSale;
               const appliedToDeficit = Math.min(netEquityAvailable, remainingShortfall);
@@ -2908,34 +2904,31 @@ export function runUnifiedProjection({
               console.log('   storedBtc:', storedBtc);
               
               const saleProceeds = btcToSellForDebt * cumulativeBtcPrice;
+              console.log('📊 TAX CALC for ' + loan.name + ':');
+              console.log('   btcToSellForDebt:', btcToSellForDebt);
+              console.log('   cumulativeBtcPrice:', cumulativeBtcPrice);
+              console.log('   saleProceeds:', saleProceeds);
+              
               let costBasisForSale = 0;
               
               if (storedBtc > 0 && storedBasis > 0) {
                 // Use actual per-loan basis - proportional to amount being sold
                 const percentSold = Math.min(1, btcToSellForDebt / storedBtc);
                 costBasisForSale = storedBasis * percentSold;
-                
-                if (DEBUG) {
-                  console.log('Using stored basis - percentSold:', percentSold);
-                  console.log('costBasisForSale:', costBasisForSale);
-                }
+                console.log('   percentSold:', percentSold);
+                console.log('   costBasisForSale:', costBasisForSale);
                 
                 // Reduce stored basis for remaining collateral
                 loanCollateralBasis[loanKey] = storedBasis * (1 - percentSold);
               } else {
                 // Fallback to 50% basis for loans without stored lot data
+                console.log('   ⚠️ FALLBACK - storedBtc or storedBasis is 0');
                 costBasisForSale = saleProceeds * 0.5;
-                if (DEBUG) {
-                  console.log('Using 50% fallback basis - costBasisForSale:', costBasisForSale);
-                }
+                console.log('   costBasisForSale (50% fallback):', costBasisForSale);
               }
               
               const gainOnSale = Math.max(0, saleProceeds - costBasisForSale);
-              
-              if (DEBUG) {
-                console.log('saleProceeds:', saleProceeds);
-                console.log('gainOnSale:', gainOnSale);
-              }
+              console.log('   gainOnSale:', gainOnSale);
               
               // Also reduce global encumberedBtcBasis for tracking
               const totalEncumberedBtcAmount = Object.values(encumberedBtc).reduce((sum, btc) => sum + btc, 0);
@@ -2945,13 +2938,12 @@ export function runUnifiedProjection({
               }
               
               const taxableIncomeBase = (totalOtherIncomeForTax || 0) + withdrawFromTaxable + withdrawFromTaxDeferred;
-              const taxOnSale = gainOnSale * getLTCGRate(taxableIncomeBase, filingStatus, year);
+              const taxRate = getLTCGRate(taxableIncomeBase, filingStatus, year);
+              console.log('   taxableIncomeBase:', taxableIncomeBase);
+              console.log('   taxRate:', taxRate);
               
-              if (DEBUG) {
-                console.log('taxableIncomeBase:', taxableIncomeBase);
-                console.log('LTCG rate:', getLTCGRate(taxableIncomeBase, filingStatus, year));
-                console.log('taxOnSale:', taxOnSale);
-              }
+              const taxOnSale = gainOnSale * taxRate;
+              console.log('   taxOnSale:', taxOnSale);
               
               const netEquityAvailable = equityReleasedGross - taxOnSale;
               const appliedToDeficit = Math.min(netEquityAvailable, remainingShortfall);
