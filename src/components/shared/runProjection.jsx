@@ -2504,10 +2504,19 @@ export function runUnifiedProjection({
               }
               
               // Return released BTC to taxable with restored basis
+              // But subtract the tax that needs to be paid on the sale
               const releasedBtcValue = btcReleased * cumulativeBtcPrice;
-              portfolio.taxable.btc += releasedBtcValue;
+              const netValueAfterTax = releasedBtcValue - taxOnSale;
+              portfolio.taxable.btc += netValueAfterTax;
+              
+              console.log('🔄 EQUITY RETURN for ' + loan.name + ':');
+              console.log('   releasedBtcValue (gross):', releasedBtcValue);
+              console.log('   taxOnSale:', taxOnSale);
+              console.log('   netValueAfterTax:', netValueAfterTax);
+              console.log('   portfolio.taxable.btc after:', portfolio.taxable.btc);
               
               // Restore proportional basis for released collateral to runningTaxableBasis
+              // Basis restored should also reflect the net after-tax value
               if (storedBtc > 0 && storedBasis > 0) {
                 const releasedBasisPortion = storedBasis * (btcReleased / storedBtc);
                 runningTaxableBasis += releasedBasisPortion;
@@ -2518,7 +2527,18 @@ export function runUnifiedProjection({
               delete loanCollateralLots[loanKey];
               taxesPaid += taxOnSale;
               
-              yearLoanPayoffs.push({ loanName: loan.name || loan.lender || 'BTC Loan', debtPaid: debtToPay, btcSold: btcToSellForDebt, btcReleased: btcReleased, equityReleased: equityReleasedGross, taxOnSale: taxOnSale, netEquity: netEquityAvailable, appliedToDeficit: appliedToDeficit, costBasis: costBasisForSale, capitalGain: gainOnSale });
+              yearLoanPayoffs.push({ 
+                loanName: loan.name || loan.lender || 'BTC Loan', 
+                debtPaid: debtToPay, 
+                btcSold: btcToSellForDebt, 
+                btcReleased: btcReleased, 
+                btcReleasedValue: releasedBtcValue,
+                taxOnSale: taxOnSale, 
+                netEquityReturned: netValueAfterTax,
+                appliedToDeficit: appliedToDeficit, 
+                costBasis: costBasisForSale, 
+                capitalGain: gainOnSale 
+              });
             }
           }
           
@@ -2976,10 +2996,19 @@ export function runUnifiedProjection({
               }
               
               // Return released BTC to taxable with restored basis
+              // But subtract the tax that needs to be paid on the sale
               const releasedBtcValue = btcReleased * cumulativeBtcPrice;
-              portfolio.taxable.btc += releasedBtcValue;
+              const netValueAfterTax = releasedBtcValue - taxOnSale;
+              portfolio.taxable.btc += netValueAfterTax;
+              
+              console.log('🔄 EQUITY RETURN for ' + loan.name + ':');
+              console.log('   releasedBtcValue (gross):', releasedBtcValue);
+              console.log('   taxOnSale:', taxOnSale);
+              console.log('   netValueAfterTax:', netValueAfterTax);
+              console.log('   portfolio.taxable.btc after:', portfolio.taxable.btc);
               
               // Restore proportional basis for released collateral to runningTaxableBasis
+              // Basis restored should also reflect the net after-tax value
               if (storedBtc > 0 && storedBasis > 0) {
                 const releasedBasisPortion = storedBasis * (btcReleased / storedBtc);
                 runningTaxableBasis += releasedBasisPortion;
@@ -2990,7 +3019,18 @@ export function runUnifiedProjection({
               delete loanCollateralLots[loanKey];
               taxesPaid += taxOnSale;
               
-              yearLoanPayoffs.push({ loanName: loan.name || loan.lender || 'BTC Loan', debtPaid: debtToPay, btcSold: btcToSellForDebt, btcReleased: btcReleased, equityReleased: equityReleasedGross, taxOnSale: taxOnSale, netEquity: netEquityAvailable, appliedToDeficit: appliedToDeficit, costBasis: costBasisForSale, capitalGain: gainOnSale });
+              yearLoanPayoffs.push({ 
+                loanName: loan.name || loan.lender || 'BTC Loan', 
+                debtPaid: debtToPay, 
+                btcSold: btcToSellForDebt, 
+                btcReleased: btcReleased, 
+                btcReleasedValue: releasedBtcValue,
+                taxOnSale: taxOnSale, 
+                netEquityReturned: netValueAfterTax,
+                appliedToDeficit: appliedToDeficit, 
+                costBasis: costBasisForSale, 
+                capitalGain: gainOnSale 
+              });
             }
           }
           
