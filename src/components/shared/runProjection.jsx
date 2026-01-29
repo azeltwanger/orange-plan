@@ -1385,6 +1385,17 @@ export function runUnifiedProjection({
           if (remainingBalance <= 0.01 && !loan.paid_off) {
             thisYearDebtPayoffs.push({ name: loan.name, liability_name: loan.name });
             loan.paid_off = true;
+            
+            // Record for spending reduction in future years
+            const loanAnnualPayment = (loan.minimum_monthly_payment || 0) * 12;
+            if (loanAnnualPayment > 0) {
+              paidOffDebtReductions.push({
+                year: year,
+                annualPayment: loanAnnualPayment,
+                name: loan.name || 'Unknown loan'
+              });
+              if (DEBUG) console.log(`💰 Loan paid off: ${loan.name} - will reduce spending by $${loanAnnualPayment.toLocaleString()}/year`);
+            }
           }
         } else if (hasInterest && i > 0) {
           // Apply declining rate if configured
