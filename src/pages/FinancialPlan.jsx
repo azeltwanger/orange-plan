@@ -1594,10 +1594,11 @@ export default function FinancialPlan() {
       btcReleaseTargetLtv, goals, lifeEvents, getTaxTreatmentFromHolding, runProjectionForRetirementAge,
       activeTaxLots, costBasisMethod]);
 
-  // Calculate lifetime tax burden in retirement
-  const lifetimeTaxesPaid = projections.filter(p => p.isRetired).reduce((sum, p) => sum + (p.taxesPaid || 0), 0);
-  const lifetimePenaltiesPaid = projections.filter(p => p.isRetired).reduce((sum, p) => sum + (p.penaltyPaid || 0), 0);
-  const avgAnnualTaxInRetirement = yearsInRetirement > 0 ? lifetimeTaxesPaid / yearsInRetirement : 0;
+  // Calculate lifetime tax burden (all years, not just retirement)
+  const lifetimeTaxesPaid = projections.reduce((sum, p) => sum + (p.taxesPaid || 0), 0);
+  const lifetimePenaltiesPaid = projections.reduce((sum, p) => sum + (p.penaltyPaid || 0), 0);
+  const retirementTaxesPaid = projections.filter(p => p.isRetired).reduce((sum, p) => sum + (p.taxesPaid || 0), 0);
+  const avgAnnualTaxInRetirement = yearsInRetirement > 0 ? retirementTaxesPaid / yearsInRetirement : 0;
 
   // Calculate projected portfolio return based on asset allocation and assumptions
   const projectedPortfolioReturn = useMemo(() => {
