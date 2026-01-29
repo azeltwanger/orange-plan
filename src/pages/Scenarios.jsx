@@ -102,31 +102,56 @@ function getLiquidationRiskDisplay(riskPercent) {
 }
 
 // Calculate earliest retirement age using binary search
-const calculateEarliestRetirementAge = (baseParams, overrides = {}) => {
-  const params = buildProjectionParams(settings, overrides, baseParams);
+const calculateEarliestRetirementAge = (baseParams, overrides = {}, settingsParam) => {
+  console.log('🔍 calculateEarliestRetirementAge called');
+  console.log('baseParams:', baseParams);
+  console.log('overrides:', overrides);
+  console.log('settingsParam:', settingsParam);
+  
+  const params = buildProjectionParams(settingsParam, overrides, baseParams);
+  console.log('params from buildProjectionParams:', params);
+  
   const currentAge = params.currentAge;
   const lifeExpectancy = params.lifeExpectancy;
+  
+  console.log('currentAge:', currentAge, 'lifeExpectancy:', lifeExpectancy);
+  
+  if (!currentAge || !lifeExpectancy) {
+    console.log('❌ Missing currentAge or lifeExpectancy');
+    return null;
+  }
   
   // Binary search for earliest sustainable retirement age
   let low = currentAge;
   let high = lifeExpectancy - 1;
   let earliest = null;
+  let iterations = 0;
   
   while (low <= high) {
+    iterations++;
     const mid = Math.floor((low + high) / 2);
     
     // Run projection with this test retirement age
-    const testParams = buildProjectionParams(settings, { ...overrides, retirement_age_override: mid }, baseParams);
+    const testParams = buildProjectionParams(settingsParam, { ...overrides, retirement_age_override: mid }, baseParams);
     const result = runUnifiedProjection(testParams);
     
-    if (result.survives) {
+    console.log(`Iteration ${iterations}: testing age ${mid}, survives: ${result?.survives}`);
+    
+    if (result?.survives) {
       earliest = mid;
       high = mid - 1; // Try earlier
     } else {
       low = mid + 1; // Need to work longer
     }
+    
+    // Safety limit
+    if (iterations > 20) {
+      console.log('❌ Too many iterations, breaking');
+      break;
+    }
   }
   
+  console.log('✅ Final earliest retirement age:', earliest);
   return earliest;
 };
 
@@ -521,7 +546,20 @@ export default function Scenarios() {
 
   // Calculate earliest retirement age for baseline
   const baselineEarliestAge = useMemo(() => {
-    if (!holdings.length || !accounts.length || !userSettings.length || !currentPrice) return null;
+    console.log('🔍 Calculating baseline earliest age...');
+    console.log('holdings.length:', holdings?.length);
+    console.log('accounts.length:', accounts?.length);
+    console.log('userSettings.length:', userSettings?.length);
+    console.log('currentPrice:', currentPrice);
+    console.log('settings:', settings);
+    console.log('settings.current_age:', settings?.current_age);
+    console.log('settings.life_expectancy:', settings?.life_expectancy);
+    
+    if (!holdings?.length || !accounts?.length || !userSettings?.length || !currentPrice) {
+      console.log('❌ Missing required data for earliest age calculation');
+      return null;
+    }
+    
     try {
       const baseParams = {
         holdings,
@@ -533,9 +571,12 @@ export default function Scenarios() {
         activeTaxLots,
         currentPrice,
       };
-      return calculateEarliestRetirementAge(baseParams, {});
+      console.log('🔍 Calling calculateEarliestRetirementAge with baseParams');
+      const result = calculateEarliestRetirementAge(baseParams, {}, settings);
+      console.log('✅ Baseline earliest age result:', result);
+      return result;
     } catch (error) {
-      console.error('Baseline earliest age calculation error:', error);
+      console.error('❌ Baseline earliest age calculation error:', error);
       return null;
     }
   }, [holdings, accounts, liabilities, btcCollateralizedLoans, goals, lifeEvents, userSettings, currentPrice, activeTaxLots, settings]);
@@ -593,7 +634,7 @@ export default function Scenarios() {
         Object.entries(overrides).filter(([_, value]) => value !== null && value !== undefined && value !== '')
       );
       
-      return calculateEarliestRetirementAge(baseParams, cleanedOverrides);
+      return calculateEarliestRetirementAge(baseParams, cleanedOverrides, settings);
     } catch (error) {
       console.error('Scenario earliest age calculation error:', error);
       return null;
