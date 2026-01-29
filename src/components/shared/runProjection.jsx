@@ -2044,7 +2044,8 @@ export function runUnifiedProjection({
       const yearNetIncome = yearGrossIncome - taxesPaid - year401k - yearTraditionalIRA - yearHSA + estimatedDividendIncome + yearLifeEventIncome;
 
       // Calculate base spending WITHOUT one-time life event expenses (for tooltip display)
-      const baseSpendingOnly = (currentAnnualSpending * Math.pow(1 + effectiveInflation / 100, i)) + activeExpenseAdjustment;
+      // Subtract spending reduction from debts paid off in prior years
+      const baseSpendingOnly = Math.max(0, (currentAnnualSpending * Math.pow(1 + effectiveInflation / 100, i)) + activeExpenseAdjustment - paidOffDebtSpendingReduction);
       // Total spending need includes one-time life event expenses
       const totalSpendingNeed = (baseSpendingOnly + yearLifeEventExpense);
       const proRatedTotalSpending = i === 0 ? totalSpendingNeed * currentYearProRataFactor : totalSpendingNeed;
