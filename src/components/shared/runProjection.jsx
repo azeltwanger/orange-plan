@@ -2959,6 +2959,7 @@ export function runUnifiedProjection({
       lifeEventIncome: Math.round(yearLifeEventIncome),
       lifeEventExpense: Math.round(yearLifeEventExpense),
       loanProceeds: Math.round(yearLoanProceeds),
+      paidOffDebtSpendingReduction: Math.round(paidOffDebtSpendingReduction),
       
       // Dividend income
       qualifiedDividends: Math.round(yearQualifiedDividends),
