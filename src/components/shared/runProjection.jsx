@@ -2551,6 +2551,8 @@ export function runUnifiedProjection({
                 costBasis: costBasisForSale, 
                 capitalGain: gainOnSale 
               });
+              
+              console.log('📝 Added to yearLoanPayoffs (pre-retire):', loan.name, yearLoanPayoffs.length, 'total');
             }
           }
           
@@ -3055,6 +3057,8 @@ export function runUnifiedProjection({
                 costBasis: costBasisForSale, 
                 capitalGain: gainOnSale 
               });
+              
+              console.log('📝 Added to yearLoanPayoffs (retirement):', loan.name, yearLoanPayoffs.length, 'total');
             }
           }
           
@@ -3230,6 +3234,11 @@ export function runUnifiedProjection({
       : yearSavings < 0 
         ? Math.round((withdrawFromTaxable || 0) + (withdrawFromTaxDeferred || 0) + (withdrawFromTaxFree || 0) + (withdrawFromRealEstate || 0) + (fromLoanPayoff || 0))
         : 0;
+
+    // Debug: Log yearLoanPayoffs before pushing to results
+    if (yearLoanPayoffs.length > 0) {
+      console.log('📋 Year', year, 'age', age, 'yearLoanPayoffs:', yearLoanPayoffs.length, yearLoanPayoffs.map(p => p.loanName));
+    }
 
     results.push({
       year,
