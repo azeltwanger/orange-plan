@@ -850,6 +850,7 @@ export function runUnifiedProjection({
     let yearSpending = 0;
     let desiredWithdrawal = 0;
     let yearLifeEventIncome = 0;
+    let yearLifeEventTaxableIncome = 0; // Track taxable one-time income (bonuses, etc.)
     let year401k = 0;
     let yearRoth = 0;
     let yearTraditionalIRA = 0;
@@ -1015,73 +1016,38 @@ export function runUnifiedProjection({
           });
         }
         // Handle assets-affecting events (inheritance, windfall, one-time inflows)
-        if (event.affects === 'assets') {
+        // These flow through yearLifeEventIncome to cover spending first, then excess goes to savings
+        // DO NOT directly invest here - that causes double-counting
+        if (event.affects === 'assets' && event.amount > 0) {
           const eventAmount = event.amount;
+          const eventType = event.event_type;
           eventImpact += eventAmount;
           
-          // Track positive life event income for tooltip display
-          if (eventAmount > 0) {
-            yearLifeEventIncome += eventAmount;
-          }
+          // Check if this is taxable income (income_change) or non-taxable (inheritance, windfall, gift)
+          const isTaxableIncome = ['income_change', 'bonus', 'income'].includes(eventType);
           
-          // Invest according to allocation
-          if (eventAmount > 0 && event.allocation_method === 'custom') {
-            portfolio.taxable.btc += eventAmount * ((event.btc_allocation || 0) / 100);
-            portfolio.taxable.stocks += eventAmount * ((event.stocks_allocation || 0) / 100);
-            portfolio.realEstate += eventAmount * ((event.real_estate_allocation || 0) / 100);
-            portfolio.taxable.bonds += eventAmount * ((event.bonds_allocation || 0) / 100);
-            portfolio.taxable.other += eventAmount * (((event.cash_allocation || 0) + (event.other_allocation || 0)) / 100);
-          } else if (eventAmount > 0) {
-            // Proportionate allocation to existing taxable portfolio
-            const totalAllocation = savingsAllocationBtc + savingsAllocationStocks + savingsAllocationBonds + savingsAllocationCash + savingsAllocationOther;
-            if (totalAllocation > 0) {
-              portfolio.taxable.btc += eventAmount * (savingsAllocationBtc / totalAllocation);
-              portfolio.taxable.stocks += eventAmount * (savingsAllocationStocks / totalAllocation);
-              portfolio.taxable.bonds += eventAmount * (savingsAllocationBonds / totalAllocation);
-              portfolio.taxable.cash += eventAmount * (savingsAllocationCash / totalAllocation);
-              portfolio.taxable.other += eventAmount * (savingsAllocationOther / totalAllocation);
-            } else {
-              portfolio.taxable.cash += eventAmount;
-            }
-            // Track cost basis for positive inflows
-            runningTaxableBasis += eventAmount;
-          }
-          
-          if (DEBUG && ['inheritance', 'windfall', 'gift'].includes(event.event_type)) {
-            console.log('🟢 PROCESSED EVENT via affects=assets block:', event.amount);
-            console.log('  Portfolio AFTER event processing:', {
-              taxableBtc: Math.round(portfolio.taxable?.btc || 0),
-              taxableStocks: Math.round(portfolio.taxable?.stocks || 0),
-              taxableCash: Math.round(portfolio.taxable?.cash || 0),
-              total: Math.round(getPortfolioTotal())
-            });
-          }
-        }
-        // Also track inheritance/windfall/gift event types - only if NOT already handled by affects === 'assets' block
-        else if (['inheritance', 'windfall', 'gift', 'asset_sale'].includes(event.event_type) && event.amount > 0 && event.affects !== 'assets') {
-          yearLifeEventIncome += event.amount;
-          // Add to portfolio proportionately
-          const totalAllocation = savingsAllocationBtc + savingsAllocationStocks + savingsAllocationBonds + savingsAllocationCash + savingsAllocationOther;
-          if (totalAllocation > 0) {
-            portfolio.taxable.btc += event.amount * (savingsAllocationBtc / totalAllocation);
-            portfolio.taxable.stocks += event.amount * (savingsAllocationStocks / totalAllocation);
-            portfolio.taxable.bonds += event.amount * (savingsAllocationBonds / totalAllocation);
-            portfolio.taxable.cash += event.amount * (savingsAllocationCash / totalAllocation);
-            portfolio.taxable.other += event.amount * (savingsAllocationOther / totalAllocation);
+          if (isTaxableIncome) {
+            // Track separately for tax calculation
+            yearLifeEventTaxableIncome += eventAmount;
+            if (DEBUG) console.log(`💰 Taxable life event: $${eventAmount.toLocaleString()} from ${event.name}`);
           } else {
-            portfolio.taxable.cash += event.amount;
+            if (DEBUG) console.log(`💰 Non-taxable life event (${eventType}): $${eventAmount.toLocaleString()} from ${event.name}`);
           }
-          runningTaxableBasis += event.amount;
           
-          if (DEBUG && ['inheritance', 'windfall', 'gift'].includes(event.event_type)) {
-            console.log('🟢 PROCESSED INHERITANCE via else-if block:', event.amount);
-            console.log('  Portfolio AFTER event processing:', {
-              taxableBtc: Math.round(portfolio.taxable?.btc || 0),
-              taxableStocks: Math.round(portfolio.taxable?.stocks || 0),
-              taxableCash: Math.round(portfolio.taxable?.cash || 0),
-              total: Math.round(getPortfolioTotal())
-            });
-          }
+          // Track as life event income - will cover spending first, excess flows to savings
+          yearLifeEventIncome += eventAmount;
+          
+          // DO NOT directly invest here - let it flow through normal income/savings logic
+        }
+        // Also handle inheritance/windfall/gift event types if NOT already handled above
+        else if (['inheritance', 'windfall', 'gift', 'asset_sale'].includes(event.event_type) && event.amount > 0 && event.affects !== 'assets') {
+          const eventType = event.event_type;
+          
+          // asset_sale might have capital gains implications, but for simplicity treat as non-taxable inflow
+          // (the gain would have been taxed at sale, this is just the proceeds)
+          if (DEBUG) console.log(`💰 Non-taxable life event (${eventType}): $${event.amount.toLocaleString()} from ${event.name}`);
+          
+          yearLifeEventIncome += event.amount;
         }
         // Handle one-time expenses:
         // 1. major_expense event type (always an expense)
@@ -1984,10 +1950,10 @@ export function runUnifiedProjection({
       
       yearEmployerMatch = (employer401kMatch || 0) * Math.pow(1 + incomeGrowth / 100, i);
       
-      const yearTaxableIncome = Math.max(0, yearGrossIncome - year401k - yearTraditionalIRA - yearHSA - currentStandardDeduction);
+      const yearTaxableIncome = Math.max(0, yearGrossIncome + yearLifeEventTaxableIncome - year401k - yearTraditionalIRA - yearHSA - currentStandardDeduction);
       const yearFederalTax = calculateProgressiveIncomeTax(yearTaxableIncome, filingStatus, year);
       const yearStateTax = calculateStateIncomeTax({ 
-        income: yearGrossIncome - year401k - yearTraditionalIRA - yearHSA, 
+        income: yearGrossIncome + yearLifeEventTaxableIncome - year401k - yearTraditionalIRA - yearHSA, 
         filingStatus, 
         state: stateOfResidence, 
         year,
@@ -2476,15 +2442,41 @@ export function runUnifiedProjection({
       if (retirementNetCashFlow > 0) {
         const totalAllocation = savingsAllocationBtc + savingsAllocationStocks + savingsAllocationBonds + savingsAllocationCash + savingsAllocationOther;
         if (totalAllocation > 0) {
-          portfolio.taxable.btc += retirementNetCashFlow * (savingsAllocationBtc / totalAllocation);
-          portfolio.taxable.stocks += retirementNetCashFlow * (savingsAllocationStocks / totalAllocation);
-          portfolio.taxable.bonds += retirementNetCashFlow * (savingsAllocationBonds / totalAllocation);
-          portfolio.taxable.cash += retirementNetCashFlow * (savingsAllocationCash / totalAllocation);
-          portfolio.taxable.other += retirementNetCashFlow * (savingsAllocationOther / totalAllocation);
+          const btcInvest = retirementNetCashFlow * (savingsAllocationBtc / totalAllocation);
+          const stocksInvest = retirementNetCashFlow * (savingsAllocationStocks / totalAllocation);
+          const bondsInvest = retirementNetCashFlow * (savingsAllocationBonds / totalAllocation);
+          const cashInvest = retirementNetCashFlow * (savingsAllocationCash / totalAllocation);
+          const otherInvest = retirementNetCashFlow * (savingsAllocationOther / totalAllocation);
+          
+          portfolio.taxable.btc += btcInvest;
+          portfolio.taxable.stocks += stocksInvest;
+          portfolio.taxable.bonds += bondsInvest;
+          portfolio.taxable.cash += cashInvest;
+          portfolio.taxable.other += otherInvest;
+          
+          // Create tax lot for BTC surplus investment
+          if (btcInvest > 0 && cumulativeBtcPrice > 0) {
+            const btcQuantityPurchased = btcInvest / cumulativeBtcPrice;
+            runningTaxLots.push({
+              id: `retirement-surplus-year-${i}`,
+              lot_id: `retirement-surplus-year-${i}`,
+              asset_ticker: 'BTC',
+              quantity: btcQuantityPurchased,
+              remaining_quantity: btcQuantityPurchased,
+              price_per_unit: cumulativeBtcPrice,
+              cost_basis: btcInvest,
+              date: `${year}-01-01`,
+              account_type: 'taxable',
+              source: 'retirement_surplus',
+            });
+            if (DEBUG) console.log(`💰 Retirement surplus: Created tax lot for ${btcQuantityPurchased.toFixed(6)} BTC @ $${cumulativeBtcPrice.toLocaleString()}`);
+          }
         } else {
           portfolio.taxable.cash += retirementNetCashFlow;
         }
         runningTaxableBasis += retirementNetCashFlow;
+        
+        if (DEBUG) console.log(`💰 Retirement surplus: $${retirementNetCashFlow.toLocaleString()} invested per savings allocation`);
       }
 
       // Only withdraw from portfolio if there's an actual deficit (not for taxes that income covers)
