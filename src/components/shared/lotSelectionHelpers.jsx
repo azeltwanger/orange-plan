@@ -119,29 +119,42 @@ export function getWeightedAverageCostBasis(lots, ticker) {
  * @returns {Object} { success, lots, totalBasis, error }
  */
 export function assignCollateralLots(taxLots, btcAmountNeeded, costBasisMethod = 'HIFO', existingCollateralLotIds = []) {
+  console.log('=== assignCollateralLots ===');
+  console.log('BTC needed:', btcAmountNeeded);
+  console.log('Cost basis method:', costBasisMethod);
+  console.log('Lot IDs to exclude:', existingCollateralLotIds?.length || 0, existingCollateralLotIds);
+  
   if (!btcAmountNeeded || btcAmountNeeded <= 0) {
     return { success: false, lots: [], totalBasis: 0, error: 'Invalid collateral amount' };
   }
   
   // Filter to available BTC lots (taxable, not already fully collateralized)
+  // CRITICAL: Exclude lots that are already used as collateral by other loans
   const availableLots = (taxLots || []).filter(lot => {
     if (lot.asset_ticker !== 'BTC') return false;
     if (lot.type && lot.type !== 'buy') return false;
     if (lot.account_type && lot.account_type !== 'taxable') return false;
     
+    // Check if this lot is already collateralized by another loan
+    const isAlreadyCollateralized = existingCollateralLotIds && existingCollateralLotIds.includes(lot.id);
+    if (isAlreadyCollateralized) {
+      console.log('  Excluding lot (already collateralized):', lot.id);
+      return false;
+    }
+    
     const availableQty = lot.remaining_quantity ?? lot.quantity ?? 0;
     return availableQty > 0;
   });
   
+  console.log('Available lots after filtering:', availableLots.length);
+  
   if (availableLots.length === 0) {
-    return { success: false, lots: [], totalBasis: 0, error: 'No available BTC tax lots found' };
+    return { success: false, lots: [], totalBasis: 0, error: 'No available BTC tax lots found (all may be collateralized by other loans)' };
   }
   
   // Calculate total available BTC (excluding amounts already collateralized)
   const totalAvailable = availableLots.reduce((sum, lot) => {
     const availableQty = lot.remaining_quantity ?? lot.quantity ?? 0;
-    // If this lot is already partially collateralized by another loan, reduce available
-    // For now, we track by lot_id - if fully collateralized, it's excluded
     return sum + availableQty;
   }, 0);
   
@@ -218,13 +231,26 @@ export function assignCollateralLots(taxLots, btcAmountNeeded, costBasisMethod =
 export function getCollateralizedLotIds(liabilities, collateralizedLoans, excludeLoanId = null) {
   const lotIds = [];
   
+  console.log('=== getCollateralizedLotIds ===');
+  console.log('Excluding loan ID:', excludeLoanId);
+  console.log('Liabilities count:', liabilities?.length || 0);
+  
   // From Liabilities
   (liabilities || []).forEach(liability => {
-    if (liability.id === excludeLoanId) return;
-    if (liability.type === 'btc_collateralized' && liability.collateral_lots) {
+    if (liability.id === excludeLoanId) {
+      console.log('  Skipping (excluded):', liability.name);
+      return;
+    }
+    if (liability.type === 'btc_collateralized' && liability.collateral_lots && liability.collateral_lots.length > 0) {
+      console.log('  Found loan with collateral:', liability.name);
+      console.log('    Lots count:', liability.collateral_lots.length);
       liability.collateral_lots.forEach(lot => {
-        if (lot.lot_id) lotIds.push(lot.lot_id);
+        if (lot.lot_id) {
+          lotIds.push(lot.lot_id);
+        }
       });
+    } else {
+      console.log('  Skipping (no collateral_lots):', liability.name, liability.type);
     }
   });
   
@@ -232,13 +258,15 @@ export function getCollateralizedLotIds(liabilities, collateralizedLoans, exclud
   (collateralizedLoans || []).forEach(loan => {
     if (loan.id === excludeLoanId) return;
     if (`loan_${loan.id}` === excludeLoanId) return;
-    if (loan.collateral_lots) {
+    if (loan.collateral_lots && loan.collateral_lots.length > 0) {
+      console.log('  Found CollateralizedLoan with collateral:', loan.name);
       loan.collateral_lots.forEach(lot => {
         if (lot.lot_id) lotIds.push(lot.lot_id);
       });
     }
   });
   
+  console.log('Total excluded lot IDs:', lotIds.length);
   return lotIds;
 }
 

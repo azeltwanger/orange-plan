@@ -241,9 +241,17 @@ export default function Liabilities() {
 
     // For BTC collateralized loans, assign specific tax lots
     if (data.type === 'btc_collateralized' && data.collateral_btc_amount > 0) {
+      console.log('=== SAVING BTC LOAN ===');
+      console.log('Loan name:', data.name);
+      console.log('Loan ID (if editing):', editingLiability?.id);
+      console.log('Collateral BTC needed:', data.collateral_btc_amount);
+      
       // Get user's cost basis method
       const settings = userSettings[0];
       const costBasisMethod = settings?.cost_basis_method || 'HIFO';
+      
+      console.log('All liabilities loaded:', liabilities.length);
+      console.log('Liabilities with collateral_lots:', liabilities.filter(l => l.collateral_lots?.length > 0).map(l => ({ name: l.name, id: l.id, lotsCount: l.collateral_lots.length })));
       
       // Get lot IDs already used as collateral (exclude current loan if editing)
       const existingCollateralIds = getCollateralizedLotIds(
@@ -252,12 +260,16 @@ export default function Liabilities() {
         editingLiability?.id
       );
       
+      console.log('Existing collateral IDs to exclude:', existingCollateralIds.length);
+      
       // Filter to BTC buy transactions only
       const btcLots = transactions.filter(t => 
         t.type === 'buy' && 
         t.asset_ticker === 'BTC' &&
         (t.account_type === 'taxable' || !t.account_type)
       );
+      
+      console.log('BTC lots available for collateral:', btcLots.length);
       
       // Assign lots based on cost basis method
       const result = assignCollateralLots(
@@ -266,6 +278,17 @@ export default function Liabilities() {
         costBasisMethod,
         existingCollateralIds
       );
+      
+      console.log('Assignment result:', {
+        success: result.success,
+        lotsAssigned: result.lots?.length,
+        totalBasis: result.totalBasis,
+        error: result.error
+      });
+      
+      if (result.lots) {
+        console.log('Assigned lot IDs:', result.lots.map(l => l.lot_id));
+      }
       
       if (!result.success) {
         alert(result.error || 'Could not assign collateral lots. Make sure you have enough BTC in taxable accounts.');
