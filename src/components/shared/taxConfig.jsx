@@ -583,3 +583,6 @@ export const getTaxDataForYear = (year) => {
     },
   };
 };
+
+// Re-export getFederalBrackets from taxData for use in other modules
+export { getFederalBrackets };
