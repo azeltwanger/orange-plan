@@ -2,7 +2,7 @@ import {
   calculateComprehensiveAnnualSavings, 
   deriveEffectiveSocialSecurity, 
   createBtcGrowthRateFunction,
-  getTaxTreatmentFromHolding as sharedGetTaxTreatment
+  getTaxTreatmentFromHolding
 } from '@/components/shared/projectionHelpers';
 
 /**
@@ -225,7 +225,7 @@ export function buildProjectionParams(settings, overrides = {}, data) {
     btcReleaseTargetLtv: effectiveSettings.btc_release_target_ltv ?? settings.btc_release_target_ltv ?? 40,
     goals: goals || [],
     lifeEvents: combinedLifeEvents,
-    getTaxTreatmentFromHolding: (holding) => sharedGetTaxTreatment(holding, accounts),
+    getTaxTreatmentFromHolding: (holding) => getTaxTreatmentFromHolding(holding, accounts),
     customReturnPeriods: effectiveSettings.custom_return_periods_override || effectiveSettings.custom_return_periods || {},
     tickerReturns: effectiveSettings.ticker_returns_override || effectiveSettings.ticker_returns || {},
     dividendIncomeQualified,
