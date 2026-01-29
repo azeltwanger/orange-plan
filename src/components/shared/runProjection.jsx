@@ -563,6 +563,7 @@ export function runUnifiedProjection({
   // Track per-loan collateral basis for accurate tax calculations on liquidation
   const loanCollateralBasis = {}; // { loanKey: total cost basis }
   const loanCollateralLots = {}; // { loanKey: array of lot assignments }
+  let encumberedBtcBasis = 0; // CRITICAL: Must be declared before any code uses it
 
   // Populate encumberedBtc from existing liabilities/loans BEFORE hypothetical loan processing
   liabilities.forEach(liability => {
@@ -778,7 +779,6 @@ export function runUnifiedProjection({
   // This tracks the cost basis "locked" in collateral separately
   // For loans WITH stored lot data, we already have per-loan basis in loanCollateralBasis
   // For legacy loans WITHOUT lot data, calculate proportional basis as fallback
-  let encumberedBtcBasis = 0;
   
   // Sum up basis from loans that have stored lot data
   const loansWithStoredBasis = Object.values(loanCollateralBasis).reduce((sum, basis) => sum + basis, 0);
