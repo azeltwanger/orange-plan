@@ -2213,6 +2213,12 @@ export default function Scenarios() {
                                       <span>• Spending:</span>
                                       <span className="text-rose-300 text-right">-${(p.yearSpending || 0).toLocaleString()}</span>
                                     </div>
+                                    {p.paidOffDebtSpendingReduction > 0 && (
+                                      <div className="flex justify-between gap-6 text-xs pl-4">
+                                        <span className="text-zinc-500">└ Debt Payoff Savings:</span>
+                                        <span className="text-emerald-400 text-right">-${p.paidOffDebtSpendingReduction.toLocaleString()}</span>
+                                      </div>
+                                    )}
                                     {p.goalFunding > 0 && (
                                       <div className="flex justify-between gap-6">
                                         <span>• Goal Funding:</span>
