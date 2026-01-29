@@ -55,7 +55,7 @@ export default function AddAssetWithTransaction({
   const [includeTransaction, setIncludeTransaction] = useState(true);
   const [fetchingPrice, setFetchingPrice] = useState(false);
 
-  // Fetch live price for stocks/crypto tickers using InvokeLLM with internet context
+  // Fetch live price for stocks/crypto tickers
   const fetchTickerPrice = async (ticker, assetType) => {
     if (!ticker || ticker.length < 2) return;
     
@@ -71,20 +71,45 @@ export default function AddAssetWithTransaction({
           setAssetData(prev => ({ ...prev, current_price: data[coinId].usd }));
         }
       } else if (assetType === 'stocks') {
-        // Use LLM with internet for stock prices (works around CORS)
+        // Use getStockPrices backend function (Yahoo Finance) for reliable stock/ETF prices
         const { base44 } = await import('@/api/base44Client');
-        const result = await base44.integrations.Core.InvokeLLM({
-          prompt: `What is the current stock price for ticker symbol ${ticker}? Return ONLY the price as a number, nothing else.`,
-          add_context_from_internet: true,
-          response_json_schema: {
-            type: "object",
-            properties: {
-              price: { type: "number", description: "Current stock price in USD" }
-            }
+        let fetchedPrice = null;
+
+        try {
+          // Primary: Use Yahoo Finance via backend function
+          const response = await base44.functions.invoke('getStockPrices', {
+            tickers: [ticker.toUpperCase()],
+            days: 1
+          });
+
+          if (response?.data && response.data[ticker.toUpperCase()]?.currentPrice > 0) {
+            fetchedPrice = response.data[ticker.toUpperCase()].currentPrice;
           }
-        });
-        if (result?.price && result.price > 0) {
-          setAssetData(prev => ({ ...prev, current_price: result.price }));
+        } catch (apiErr) {
+          console.warn(`Yahoo Finance fetch for ${ticker} failed:`, apiErr);
+          
+          // Fallback: Use LLM with specific prompt for ETF share prices
+          try {
+            const result = await base44.integrations.Core.InvokeLLM({
+              prompt: `What is the current SHARE PRICE for the stock or ETF with ticker symbol ${ticker}? This is an exchange-traded security. Return ONLY the numerical share price in USD (typically between $1-$1000 for most stocks/ETFs), nothing else. Do NOT return the price of any underlying asset.`,
+              add_context_from_internet: true,
+              response_json_schema: {
+                type: "object",
+                properties: {
+                  price: { type: "number", description: "Current share price in USD" }
+                }
+              }
+            });
+            if (result?.price && result.price > 0 && result.price < 10000) {
+              fetchedPrice = result.price;
+            }
+          } catch (llmErr) {
+            console.warn(`LLM fallback for ${ticker} also failed:`, llmErr);
+          }
+        }
+
+        if (fetchedPrice !== null) {
+          setAssetData(prev => ({ ...prev, current_price: fetchedPrice }));
         }
       }
     } catch (err) {
