@@ -2506,7 +2506,19 @@ export function runUnifiedProjection({
               // Return released BTC to taxable with restored basis
               // But subtract the tax that needs to be paid on the sale
               const releasedBtcValue = btcReleased * cumulativeBtcPrice;
-              const netValueAfterTax = releasedBtcValue - taxOnSale;
+              const netValueAfterTax = Math.max(0, releasedBtcValue - taxOnSale);
+              
+              // Safety check
+              if (isNaN(releasedBtcValue) || isNaN(netValueAfterTax)) {
+                console.error('NaN detected in equity calculation:', {
+                  btcReleased,
+                  cumulativeBtcPrice,
+                  releasedBtcValue,
+                  taxOnSale,
+                  netValueAfterTax
+                });
+              }
+              
               portfolio.taxable.btc += netValueAfterTax;
               
               console.log('🔄 EQUITY RETURN for ' + loan.name + ':');
@@ -2532,9 +2544,9 @@ export function runUnifiedProjection({
                 debtPaid: debtToPay, 
                 btcSold: btcToSellForDebt, 
                 btcReleased: btcReleased, 
-                btcReleasedValue: releasedBtcValue,
+                equityReleased: releasedBtcValue,
                 taxOnSale: taxOnSale, 
-                netEquityReturned: netValueAfterTax,
+                netEquity: netValueAfterTax,
                 appliedToDeficit: appliedToDeficit, 
                 costBasis: costBasisForSale, 
                 capitalGain: gainOnSale 
@@ -2998,7 +3010,19 @@ export function runUnifiedProjection({
               // Return released BTC to taxable with restored basis
               // But subtract the tax that needs to be paid on the sale
               const releasedBtcValue = btcReleased * cumulativeBtcPrice;
-              const netValueAfterTax = releasedBtcValue - taxOnSale;
+              const netValueAfterTax = Math.max(0, releasedBtcValue - taxOnSale);
+              
+              // Safety check
+              if (isNaN(releasedBtcValue) || isNaN(netValueAfterTax)) {
+                console.error('NaN detected in equity calculation:', {
+                  btcReleased,
+                  cumulativeBtcPrice,
+                  releasedBtcValue,
+                  taxOnSale,
+                  netValueAfterTax
+                });
+              }
+              
               portfolio.taxable.btc += netValueAfterTax;
               
               console.log('🔄 EQUITY RETURN for ' + loan.name + ':');
@@ -3024,9 +3048,9 @@ export function runUnifiedProjection({
                 debtPaid: debtToPay, 
                 btcSold: btcToSellForDebt, 
                 btcReleased: btcReleased, 
-                btcReleasedValue: releasedBtcValue,
+                equityReleased: releasedBtcValue,
                 taxOnSale: taxOnSale, 
-                netEquityReturned: netValueAfterTax,
+                netEquity: netValueAfterTax,
                 appliedToDeficit: appliedToDeficit, 
                 costBasis: costBasisForSale, 
                 capitalGain: gainOnSale 
