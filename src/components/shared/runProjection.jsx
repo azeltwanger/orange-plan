@@ -2470,9 +2470,13 @@ export function runUnifiedProjection({
                 encumberedBtcBasis = Math.max(0, encumberedBtcBasis - basisReduction);
               }
               
+              // Include the capital gain in the income base for determining the LTCG rate
+              // The gain "stacks" on top of other income to determine the marginal rate
               const taxableIncomeBase = withdrawFromTaxable + withdrawFromTaxDeferred;
-              const taxRate = getLTCGRate(taxableIncomeBase, filingStatus, year);
-              console.log('   taxableIncomeBase:', taxableIncomeBase);
+              const incomeBaseForLTCGRate = taxableIncomeBase + gainOnSale;
+              const taxRate = getLTCGRate(incomeBaseForLTCGRate, filingStatus, year);
+              console.log('   taxableIncomeBase (before gain):', taxableIncomeBase);
+              console.log('   incomeBaseForLTCGRate (with gain):', incomeBaseForLTCGRate);
               console.log('   taxRate:', taxRate);
               
               const taxOnSale = gainOnSale * taxRate;
@@ -2937,9 +2941,13 @@ export function runUnifiedProjection({
                 encumberedBtcBasis = Math.max(0, encumberedBtcBasis - basisReduction);
               }
               
+              // Include the capital gain in the income base for determining the LTCG rate
+              // The gain "stacks" on top of other income to determine the marginal rate
               const taxableIncomeBase = (totalOtherIncomeForTax || 0) + withdrawFromTaxable + withdrawFromTaxDeferred;
-              const taxRate = getLTCGRate(taxableIncomeBase, filingStatus, year);
-              console.log('   taxableIncomeBase:', taxableIncomeBase);
+              const incomeBaseForLTCGRate = taxableIncomeBase + gainOnSale;
+              const taxRate = getLTCGRate(incomeBaseForLTCGRate, filingStatus, year);
+              console.log('   taxableIncomeBase (before gain):', taxableIncomeBase);
+              console.log('   incomeBaseForLTCGRate (with gain):', incomeBaseForLTCGRate);
               console.log('   taxRate:', taxRate);
               
               const taxOnSale = gainOnSale * taxRate;
