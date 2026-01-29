@@ -101,6 +101,35 @@ function getLiquidationRiskDisplay(riskPercent) {
   }
 }
 
+// Calculate earliest retirement age using binary search
+const calculateEarliestRetirementAge = (baseParams, overrides = {}) => {
+  const params = buildProjectionParams(settings, overrides, baseParams);
+  const currentAge = params.currentAge;
+  const lifeExpectancy = params.lifeExpectancy;
+  
+  // Binary search for earliest sustainable retirement age
+  let low = currentAge;
+  let high = lifeExpectancy - 1;
+  let earliest = null;
+  
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2);
+    
+    // Run projection with this test retirement age
+    const testParams = buildProjectionParams(settings, { ...overrides, retirement_age_override: mid }, baseParams);
+    const result = runUnifiedProjection(testParams);
+    
+    if (result.survives) {
+      earliest = mid;
+      high = mid - 1; // Try earlier
+    } else {
+      low = mid + 1; // Need to work longer
+    }
+  }
+  
+  return earliest;
+};
+
 // State list for state comparison feature
 const US_STATES = [
   { value: 'AL', label: 'Alabama' }, { value: 'AK', label: 'Alaska' }, { value: 'AZ', label: 'Arizona' },
@@ -489,6 +518,87 @@ export default function Scenarios() {
       return null;
     }
   }, [selectedScenario, holdings, accounts, liabilities, btcCollateralizedLoans, goals, lifeEvents, userSettings, budgetItems, currentPrice, activeTaxLots]);
+
+  // Calculate earliest retirement age for baseline
+  const baselineEarliestAge = useMemo(() => {
+    if (!holdings.length || !accounts.length || !userSettings.length || !currentPrice) return null;
+    try {
+      const baseParams = {
+        holdings,
+        accounts,
+        liabilities,
+        btcCollateralizedLoans,
+        goals,
+        lifeEvents,
+        activeTaxLots,
+        currentPrice,
+      };
+      return calculateEarliestRetirementAge(baseParams, {});
+    } catch (error) {
+      console.error('Baseline earliest age calculation error:', error);
+      return null;
+    }
+  }, [holdings, accounts, liabilities, btcCollateralizedLoans, goals, lifeEvents, userSettings, currentPrice, activeTaxLots, settings]);
+
+  // Calculate earliest retirement age for selected scenario
+  const scenarioEarliestAge = useMemo(() => {
+    if (!selectedScenario || !holdings.length || !accounts.length || !userSettings.length || !currentPrice) return null;
+    try {
+      const baseParams = {
+        holdings,
+        accounts,
+        liabilities,
+        btcCollateralizedLoans,
+        goals,
+        lifeEvents,
+        activeTaxLots,
+        currentPrice,
+      };
+      
+      // Build scenario overrides (same logic as scenarioProjection)
+      const overrides = {
+        retirement_age_override: selectedScenario.retirement_age_override,
+        life_expectancy_override: selectedScenario.life_expectancy_override,
+        annual_retirement_spending_override: selectedScenario.annual_retirement_spending_override,
+        state_override: selectedScenario.state_override,
+        btc_cagr_override: selectedScenario.btc_cagr_override,
+        stocks_cagr_override: selectedScenario.stocks_cagr_override,
+        bonds_cagr_override: selectedScenario.bonds_cagr_override,
+        real_estate_cagr_override: selectedScenario.real_estate_cagr_override,
+        cash_cagr_override: selectedScenario.cash_cagr_override,
+        other_cagr_override: selectedScenario.other_cagr_override,
+        inflation_override: selectedScenario.inflation_override,
+        income_growth_override: selectedScenario.income_growth_override,
+        social_security_start_age_override: selectedScenario.social_security_start_age_override,
+        social_security_amount_override: selectedScenario.social_security_amount_override,
+        gross_annual_income_override: selectedScenario.gross_annual_income_override,
+        current_annual_spending_override: selectedScenario.current_annual_spending_override,
+        savings_allocation_btc_override: selectedScenario.savings_allocation_btc_override,
+        savings_allocation_stocks_override: selectedScenario.savings_allocation_stocks_override,
+        savings_allocation_bonds_override: selectedScenario.savings_allocation_bonds_override,
+        savings_allocation_cash_override: selectedScenario.savings_allocation_cash_override,
+        savings_allocation_other_override: selectedScenario.savings_allocation_other_override,
+        btc_return_model_override: selectedScenario.btc_return_model_override,
+        custom_return_periods_override: selectedScenario.custom_return_periods_override,
+        ticker_returns_override: selectedScenario.ticker_returns_override,
+        future_btc_loan_rate: selectedScenario.future_btc_loan_rate,
+        future_btc_loan_rate_years: selectedScenario.future_btc_loan_rate_years,
+        hypothetical_btc_loan: selectedScenario.hypothetical_btc_loan,
+        one_time_events: selectedScenario.one_time_events,
+        asset_reallocations: selectedScenario.asset_reallocations,
+      };
+      
+      // Clean overrides - remove null/undefined
+      const cleanedOverrides = Object.fromEntries(
+        Object.entries(overrides).filter(([_, value]) => value !== null && value !== undefined && value !== '')
+      );
+      
+      return calculateEarliestRetirementAge(baseParams, cleanedOverrides);
+    } catch (error) {
+      console.error('Scenario earliest age calculation error:', error);
+      return null;
+    }
+  }, [selectedScenario, holdings, accounts, liabilities, btcCollateralizedLoans, goals, lifeEvents, userSettings, currentPrice, activeTaxLots, settings]);
 
   // Calculate max drawdown BTC can survive without liquidation
   const calculateMaxDrawdownSurvived = useCallback(() => {
@@ -2843,6 +2953,30 @@ export default function Scenarios() {
                     </tr>
                   </thead>
                   <tbody>
+                    <tr className="border-b border-zinc-800/50">
+                      <td className="py-3 px-4 text-zinc-200 font-medium">Earliest Retirement Age</td>
+                      <td className="py-3 px-4 text-right font-mono text-amber-400">
+                        {baselineEarliestAge !== null ? `Age ${baselineEarliestAge}` : '—'}
+                      </td>
+                      <td className="py-3 px-4 text-right font-mono text-amber-400">
+                        {scenarioEarliestAge !== null ? `Age ${scenarioEarliestAge}` : '—'}
+                      </td>
+                      <td className={cn("py-3 px-4 text-right font-mono", 
+                        baselineEarliestAge !== null && scenarioEarliestAge !== null
+                          ? (scenarioEarliestAge < baselineEarliestAge 
+                              ? "text-emerald-400" 
+                              : scenarioEarliestAge > baselineEarliestAge 
+                                ? "text-rose-400" 
+                                : "text-zinc-400")
+                          : "text-zinc-400"
+                      )}>
+                        {baselineEarliestAge !== null && scenarioEarliestAge !== null 
+                          ? (scenarioEarliestAge === baselineEarliestAge 
+                              ? '—' 
+                              : `${scenarioEarliestAge < baselineEarliestAge ? '' : '+'}${scenarioEarliestAge - baselineEarliestAge} years`)
+                          : '—'}
+                      </td>
+                    </tr>
                     <tr className="border-b border-zinc-800/50">
                       <td className="py-3 px-4 text-zinc-200">Net Worth at Retirement</td>
                       <td className="py-3 px-4 text-right font-mono text-zinc-200">{formatCurrency(baselineMetrics.portfolioAtRetirement)}</td>
