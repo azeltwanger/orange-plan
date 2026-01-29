@@ -659,6 +659,59 @@ export function runUnifiedProjection({
       if (hypotheticalLoanObj.collateral_btc_amount > 0) {
         encumberedBtc[loanKey] = hypotheticalLoanObj.collateral_btc_amount;
         releasedBtc[loanKey] = 0;
+        
+        // Assign lots at runtime for hypothetical loans using selectLots
+        const availableBtcLots = runningTaxLots.filter(lot => 
+          lot.asset_ticker === 'BTC' && 
+          (lot.account_type === 'taxable' || !lot.account_type) &&
+          (lot.remaining_quantity ?? lot.quantity ?? 0) > 0
+        );
+        
+        if (availableBtcLots.length > 0) {
+          const lotResult = selectLots(
+            availableBtcLots, 
+            'BTC', 
+            hypotheticalLoanObj.collateral_btc_amount, 
+            costBasisMethod
+          );
+          
+          const assignedLots = [];
+          let totalBasis = 0;
+          
+          for (const selected of lotResult.selectedLots) {
+            assignedLots.push({
+              lot_id: selected.lot.id,
+              btc_amount: selected.quantityFromLot,
+              cost_basis: selected.costBasis,
+              price_per_unit: selected.costPerUnit,
+              acquired_date: selected.lot.date
+            });
+            totalBasis += selected.costBasis;
+            
+            // Remove from runningTaxLots
+            const lotIndex = runningTaxLots.findIndex(t => t.id === selected.lot.id);
+            if (lotIndex !== -1) {
+              runningTaxLots[lotIndex].remaining_quantity = Math.max(0, 
+                (runningTaxLots[lotIndex].remaining_quantity ?? runningTaxLots[lotIndex].quantity ?? 0) - selected.quantityFromLot
+              );
+              if (runningTaxLots[lotIndex].remaining_quantity <= 0.00000001) {
+                runningTaxLots.splice(lotIndex, 1);
+              }
+            }
+          }
+          
+          loanCollateralLots[loanKey] = assignedLots;
+          loanCollateralBasis[loanKey] = totalBasis;
+          
+          // Reduce runningTaxableBasis by the basis now locked in collateral
+          runningTaxableBasis = Math.max(0, runningTaxableBasis - totalBasis);
+          encumberedBtcBasis += totalBasis;
+        } else {
+          // Fallback if no lots available - use 50% of collateral value as basis
+          const collateralValue = hypotheticalLoanObj.collateral_btc_amount * currentPrice;
+          loanCollateralBasis[loanKey] = collateralValue * 0.5;
+          loanCollateralLots[loanKey] = [];
+        }
       }
       
       const proceeds = hypotheticalLoanObj.current_balance;
