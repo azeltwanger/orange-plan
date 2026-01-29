@@ -1301,7 +1301,7 @@ export function runUnifiedProjection({
           eventImpact += eventAmount;
           
           // Check if this is taxable income (income_change) or non-taxable (inheritance, windfall, gift)
-          const isTaxableIncome = ['income_change', 'bonus', 'income'].includes(eventType);
+          const isTaxableIncome = ['income_change', 'bonus', 'income', 'pension', 'rental_income', 'business_income'].includes(eventType);
           
           if (isTaxableIncome) {
             // Track separately for tax calculation
@@ -2724,7 +2724,7 @@ export function runUnifiedProjection({
       // Include life event income (inheritance, windfall, etc.) AND loan proceeds - already invested but also reduces withdrawal need
       const totalRetirementIncome = otherRetirementIncome + socialSecurityIncome + estimatedDividendIncome + yearLifeEventIncome + yearLoanProceeds;
       const taxableSocialSecurity = calculateTaxableSocialSecurity(socialSecurityIncome, otherRetirementIncome + desiredWithdrawal, filingStatus);
-      const totalOtherIncomeForTax = otherRetirementIncome + taxableSocialSecurity + rmdWithdrawn;
+      const totalOtherIncomeForTax = otherRetirementIncome + taxableSocialSecurity + rmdWithdrawn + yearLifeEventTaxableIncome;
 
       const federalTaxOnOtherIncome = calculateProgressiveIncomeTax(Math.max(0, totalOtherIncomeForTax - currentStandardDeduction), filingStatus, year);
       
@@ -3344,6 +3344,7 @@ export function runUnifiedProjection({
       goalNames: [],
       goalFunding: Math.round(yearGoalWithdrawal),
       lifeEventIncome: Math.round(yearLifeEventIncome),
+      lifeEventTaxableIncome: Math.round(yearLifeEventTaxableIncome),
       lifeEventExpense: Math.round(yearLifeEventExpense),
       loanProceeds: Math.round(yearLoanProceeds),
       
