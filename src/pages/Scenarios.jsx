@@ -2031,19 +2031,25 @@ export default function Scenarios() {
                                 <div className="pt-3 mt-3 border-t border-zinc-700/70">
                                   <p className="text-zinc-400 mb-2 font-medium text-xs">Annual Cash Flow:</p>
                                   <div className="text-xs space-y-1.5 text-zinc-500 mb-2">
-                                    <div className="flex justify-between gap-6">
-                                      <span>Gross Income:</span>
-                                      <span className="text-emerald-400 text-right">
-                                        {(p.otherRetirementIncome || 0) > 0 ? `+$${(p.otherRetirementIncome || 0).toLocaleString()}` : '$0'}
-                                      </span>
-                                    </div>
-                                    {p.lifeEventIncome > 0 && (
-                                      <div className="flex justify-between gap-6">
-                                        <span>Life Event Income:</span>
-                                        <span className="text-emerald-400 text-right">+${p.lifeEventIncome.toLocaleString()}</span>
-                                      </div>
-                                    )}
-                                    {p.totalDividendIncome > 0 && (
+                                   <div className="flex justify-between gap-6">
+                                     <span>Gross Income:</span>
+                                     <span className="text-emerald-400 text-right">
+                                       {(p.otherRetirementIncome || 0) > 0 ? `+$${(p.otherRetirementIncome || 0).toLocaleString()}` : '$0'}
+                                     </span>
+                                   </div>
+                                   {p.lifeEventIncome > 0 && (
+                                     <div className="flex justify-between gap-6">
+                                       <span>Life Event Income:</span>
+                                       <span className="text-emerald-400 text-right">+${p.lifeEventIncome.toLocaleString()}</span>
+                                     </div>
+                                   )}
+                                   {p.loanProceeds > 0 && (
+                                     <div className="flex justify-between gap-6">
+                                       <span>Loan Proceeds:</span>
+                                       <span className="text-emerald-400 text-right">+${p.loanProceeds.toLocaleString()}</span>
+                                     </div>
+                                   )}
+                                   {p.totalDividendIncome > 0 && (
                                       <div className="flex justify-between gap-6">
                                         <span>Dividend Income:</span>
                                         <span className="text-emerald-400 text-right">+${(p.totalDividendIncome || 0).toLocaleString()}</span>
@@ -2669,6 +2675,12 @@ export default function Scenarios() {
                                 <span className="text-emerald-400 text-right">+${p.lifeEventIncome.toLocaleString()}</span>
                               </div>
                             )}
+                            {p.loanProceeds > 0 && (
+                              <div className="flex justify-between gap-6">
+                                <span>Loan Proceeds:</span>
+                                <span className="text-emerald-400 text-right">+${p.loanProceeds.toLocaleString()}</span>
+                              </div>
+                            )}
                             {p.totalDividendIncome > 0 && (
                               <div className="flex justify-between gap-6">
                                 <span>Dividend Income:</span>
@@ -2789,6 +2801,12 @@ export default function Scenarios() {
                               <div className="flex justify-between gap-6">
                                 <span>• Life Event Income:</span>
                                 <span className="text-emerald-400 text-right">+${p.lifeEventIncome.toLocaleString()}</span>
+                              </div>
+                            )}
+                            {p.loanProceeds > 0 && (
+                              <div className="flex justify-between gap-6">
+                                <span>• Loan Proceeds:</span>
+                                <span className="text-emerald-400 text-right">+${p.loanProceeds.toLocaleString()}</span>
                               </div>
                             )}
                             {p.federalTaxPaid > 0 && (
