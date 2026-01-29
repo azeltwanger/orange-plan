@@ -2768,6 +2768,19 @@ export function runUnifiedProjection({
     }
     // Once depleted, stay depleted - don't reset firstDepletionAge
 
+    // Debug tax logging - compare scenarios
+    if (DEBUG) {
+      console.log(`📊 Year ${year} (Age ${age}) Tax Summary:`);
+      console.log(`   isRetired: ${isRetired}`);
+      console.log(`   taxesPaid: $${Math.round(taxesPaid || 0).toLocaleString()}`);
+      console.log(`   federalTaxPaid: $${Math.round(federalTaxPaid || 0).toLocaleString()}`);
+      console.log(`   stateTaxPaid: $${Math.round(stateTaxPaid || 0).toLocaleString()}`);
+      console.log(`   yearLifeEventIncome: $${Math.round(yearLifeEventIncome || 0).toLocaleString()}`);
+      console.log(`   yearLoanProceeds: $${Math.round(yearLoanProceeds || 0).toLocaleString()}`);
+      console.log(`   totalWithdrawal: $${Math.round(totalWithdrawalAmount || 0).toLocaleString()}`);
+      console.log(`   portfolioTotal: $${Math.round(getTotalPortfolio(encumberedBtcValueThisYear) || 0).toLocaleString()}`);
+    }
+
     // Get asset totals
     const getAssetTotal = (assetKey) => {
       return portfolio.taxable[assetKey] + portfolio.taxDeferred[assetKey] + portfolio.taxFree[assetKey];
