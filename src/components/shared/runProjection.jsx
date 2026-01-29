@@ -2002,7 +2002,7 @@ export function runUnifiedProjection({
       // Add life event income (inheritance, windfall, etc.) - this is already invested in portfolio, but also adds to cash flow
       const yearNetIncome = yearGrossIncome - taxesPaid - year401k - yearTraditionalIRA - yearHSA + estimatedDividendIncome + yearLifeEventIncome;
 
-      const baseYearSpending = (currentAnnualSpending * Math.pow(1 + effectiveInflation / 100, i)) + activeExpenseAdjustment;
+      const baseYearSpending = (currentAnnualSpending * Math.pow(1 + effectiveInflation / 100, i)) + activeExpenseAdjustment + yearLifeEventExpense;
       yearSpending = i === 0 ? baseYearSpending * currentYearProRataFactor : baseYearSpending;
       
       const proRatedNetIncome = i === 0 ? yearNetIncome * currentYearProRataFactor : yearNetIncome;
@@ -2357,7 +2357,8 @@ export function runUnifiedProjection({
     } else {
       // RETIREMENT
       const nominalSpendingAtRetirement = retirementAnnualSpending * Math.pow(1 + effectiveInflation / 100, Math.max(0, retirementAge - currentAge));
-      const baseDesiredWithdrawal = nominalSpendingAtRetirement * Math.pow(1 + effectiveInflation / 100, age - retirementAge);
+      // Add one-time expenses to the withdrawal need for this specific year
+      const baseDesiredWithdrawal = nominalSpendingAtRetirement * Math.pow(1 + effectiveInflation / 100, age - retirementAge) + yearLifeEventExpense;
       desiredWithdrawal = i === 0 ? baseDesiredWithdrawal * currentYearProRataFactor : baseDesiredWithdrawal;
       yearSpending = desiredWithdrawal;
 
