@@ -1968,12 +1968,18 @@ export function runUnifiedProjection({
       // Add life event income (inheritance, windfall, etc.) - this is already invested in portfolio, but also adds to cash flow
       const yearNetIncome = yearGrossIncome - taxesPaid - year401k - yearTraditionalIRA - yearHSA + estimatedDividendIncome + yearLifeEventIncome;
 
-      const baseYearSpending = (currentAnnualSpending * Math.pow(1 + effectiveInflation / 100, i)) + activeExpenseAdjustment + yearLifeEventExpense;
-      yearSpending = i === 0 ? baseYearSpending * currentYearProRataFactor : baseYearSpending;
+      // Calculate base spending WITHOUT one-time life event expenses (for tooltip display)
+      const baseSpendingOnly = (currentAnnualSpending * Math.pow(1 + effectiveInflation / 100, i)) + activeExpenseAdjustment;
+      // Total spending need includes one-time life event expenses
+      const totalSpendingNeed = (baseSpendingOnly + yearLifeEventExpense);
+      const proRatedTotalSpending = i === 0 ? totalSpendingNeed * currentYearProRataFactor : totalSpendingNeed;
+      // yearSpending for tooltip should be just base spending (life event expense shown separately)
+      yearSpending = i === 0 ? baseSpendingOnly * currentYearProRataFactor : baseSpendingOnly;
       
       const proRatedNetIncome = i === 0 ? yearNetIncome * currentYearProRataFactor : yearNetIncome;
       const proRatedYearRoth = i === 0 ? yearRoth * currentYearProRataFactor : yearRoth;
-      yearSavings = proRatedNetIncome - yearSpending - proRatedYearRoth - yearGoalWithdrawal;
+      // Use proRatedTotalSpending (includes life event expenses) for actual savings calculation
+      yearSavings = proRatedNetIncome - proRatedTotalSpending - proRatedYearRoth - yearGoalWithdrawal;
 
       cumulativeSavings += yearSavings;
 
@@ -2323,10 +2329,13 @@ export function runUnifiedProjection({
     } else {
       // RETIREMENT
       const nominalSpendingAtRetirement = retirementAnnualSpending * Math.pow(1 + effectiveInflation / 100, Math.max(0, retirementAge - currentAge));
-      // Add one-time expenses to the withdrawal need for this specific year
-      const baseDesiredWithdrawal = nominalSpendingAtRetirement * Math.pow(1 + effectiveInflation / 100, age - retirementAge) + yearLifeEventExpense;
+      // Calculate base spending WITHOUT life event expenses (for tooltip display)
+      const baseSpendingOnly = nominalSpendingAtRetirement * Math.pow(1 + effectiveInflation / 100, age - retirementAge);
+      // Total withdrawal need includes life event expenses
+      const baseDesiredWithdrawal = baseSpendingOnly + yearLifeEventExpense;
       desiredWithdrawal = i === 0 ? baseDesiredWithdrawal * currentYearProRataFactor : baseDesiredWithdrawal;
-      yearSpending = desiredWithdrawal;
+      // yearSpending should be just the base spending (for tooltip), NOT including life event expenses
+      yearSpending = i === 0 ? baseSpendingOnly * currentYearProRataFactor : baseSpendingOnly;
 
       // RMD calculation
       const taxDeferredBalanceForRMD = getAccountTotal('taxDeferred');
