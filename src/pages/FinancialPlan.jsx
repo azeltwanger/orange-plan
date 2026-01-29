@@ -2954,6 +2954,12 @@ export default function FinancialPlan() {
                                         <span className="text-emerald-400 text-right">+${p.lifeEventIncome.toLocaleString()}</span>
                                       </div>
                                     )}
+                                    {p.loanProceeds > 0 && (
+                                      <div className="flex justify-between gap-6">
+                                        <span>• Loan Proceeds:</span>
+                                        <span className="text-emerald-400 text-right">+${p.loanProceeds.toLocaleString()}</span>
+                                      </div>
+                                    )}
                                     {p.federalTaxPaid > 0 && (
                                      <div className="flex justify-between gap-6">
                                        <span>• Federal Tax:</span>
