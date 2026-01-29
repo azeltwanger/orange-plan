@@ -578,18 +578,23 @@ export function runUnifiedProjection({
         console.log('ID:', liability.id);
         console.log('loanKey:', loanKey);
         console.log('collateral_btc_amount:', liability.collateral_btc_amount);
-        console.log('collateral_lots count:', liability.collateral_lots?.length || 'NONE');
-        console.log('collateral_total_basis:', liability.collateral_total_basis);
+        console.log('collateral_lots count:', liability.collateral_lots?.length || 0);
+        console.log('collateral_total_basis from entity:', liability.collateral_total_basis);
       }
       
       // Use stored lot data if available (new loans)
       if (liability.collateral_lots && liability.collateral_lots.length > 0) {
+        const calculatedBasis = liability.collateral_lots.reduce((sum, lot) => sum + (lot.cost_basis || 0), 0);
+        if (DEBUG) console.log('Calculated basis from lots:', calculatedBasis);
+        
+        const basisToUse = liability.collateral_total_basis || calculatedBasis;
+        if (DEBUG) console.log('Basis to use:', basisToUse);
+        
         loanCollateralLots[loanKey] = liability.collateral_lots;
-        loanCollateralBasis[loanKey] = liability.collateral_total_basis || 
-          liability.collateral_lots.reduce((sum, lot) => sum + (lot.cost_basis || 0), 0);
+        loanCollateralBasis[loanKey] = basisToUse;
         
         if (DEBUG) {
-          console.log('Setting loanCollateralBasis[' + loanKey + '] =', loanCollateralBasis[loanKey]);
+          console.log('Set loanCollateralBasis[' + loanKey + '] =', loanCollateralBasis[loanKey]);
         }
         
         // Remove these lots from runningTaxLots (they're locked as collateral)
@@ -622,18 +627,23 @@ export function runUnifiedProjection({
         console.log('ID:', loan.id);
         console.log('loanKey:', loanKey);
         console.log('collateral_btc_amount:', loan.collateral_btc_amount);
-        console.log('collateral_lots count:', loan.collateral_lots?.length || 'NONE');
-        console.log('collateral_total_basis:', loan.collateral_total_basis);
+        console.log('collateral_lots count:', loan.collateral_lots?.length || 0);
+        console.log('collateral_total_basis from entity:', loan.collateral_total_basis);
       }
       
       // Use stored lot data if available (new loans)
       if (loan.collateral_lots && loan.collateral_lots.length > 0) {
+        const calculatedBasis = loan.collateral_lots.reduce((sum, lot) => sum + (lot.cost_basis || 0), 0);
+        if (DEBUG) console.log('Calculated basis from lots:', calculatedBasis);
+        
+        const basisToUse = loan.collateral_total_basis || calculatedBasis;
+        if (DEBUG) console.log('Basis to use:', basisToUse);
+        
         loanCollateralLots[loanKey] = loan.collateral_lots;
-        loanCollateralBasis[loanKey] = loan.collateral_total_basis || 
-          loan.collateral_lots.reduce((sum, lot) => sum + (lot.cost_basis || 0), 0);
+        loanCollateralBasis[loanKey] = basisToUse;
         
         if (DEBUG) {
-          console.log('Setting loanCollateralBasis[' + loanKey + '] =', loanCollateralBasis[loanKey]);
+          console.log('Set loanCollateralBasis[' + loanKey + '] =', loanCollateralBasis[loanKey]);
         }
         
         // Remove these lots from runningTaxLots (they're locked as collateral)
@@ -658,6 +668,12 @@ export function runUnifiedProjection({
   const taxableHoldings = holdings.filter(h => getTaxTreatmentFromHolding(h) === 'taxable');
   const initialTaxableCostBasis = taxableHoldings.reduce((sum, h) => sum + (h.cost_basis_total || 0), 0);
   let runningTaxableBasis = initialTaxableCostBasis;
+
+  if (DEBUG) {
+    console.log('=== FINAL LOAN COLLATERAL STATE ===');
+    console.log('loanCollateralBasis:', JSON.stringify(loanCollateralBasis));
+    console.log('encumberedBtc:', JSON.stringify(encumberedBtc));
+  }
 
   // Process hypothetical BTC loan if provided (after all initializations)
   if (hypothetical_btc_loan?.enabled) {
@@ -2416,18 +2432,13 @@ export function runUnifiedProjection({
               const storedBtc = encumberedBtc[loanKey] || loan.collateral_btc_amount || 0;
               
               if (DEBUG) {
-                console.log('=== LIQUIDATING LOAN (pre-retirement deficit) ===');
+                console.log('=== LIQUIDATING ===');
                 console.log('Loan name:', loan.name);
-                console.log('loanKey:', loanKey);
-                console.log('loanCollateralBasis[loanKey]:', loanCollateralBasis[loanKey]);
-                console.log('storedBasis variable:', storedBasis);
-                console.log('storedBtc variable:', storedBtc);
-                console.log('encumberedBtc[loanKey]:', encumberedBtc[loanKey]);
-                console.log('loan.collateral_btc_amount:', loan.collateral_btc_amount);
-                console.log('debtToPay:', debtToPay);
-                console.log('btcToSellForDebt:', btcToSellForDebt);
-                console.log('btcReleased:', btcReleased);
-                console.log('equityReleasedGross:', equityReleasedGross);
+                console.log('loan.id:', loan.id);
+                console.log('loan.loanKey:', loan.loanKey);
+                console.log('Looking up loanCollateralBasis[' + loanKey + ']:', loanCollateralBasis[loanKey]);
+                console.log('storedBasis:', storedBasis);
+                console.log('storedBtc:', storedBtc);
               }
               
               const saleProceeds = btcToSellForDebt * cumulativeBtcPrice;
@@ -2892,18 +2903,13 @@ export function runUnifiedProjection({
               const storedBtc = encumberedBtc[loanKey] || loan.collateral_btc_amount || 0;
               
               if (DEBUG) {
-                console.log('=== LIQUIDATING LOAN (retirement) ===');
+                console.log('=== LIQUIDATING ===');
                 console.log('Loan name:', loan.name);
-                console.log('loanKey:', loanKey);
-                console.log('loanCollateralBasis[loanKey]:', loanCollateralBasis[loanKey]);
-                console.log('storedBasis variable:', storedBasis);
-                console.log('storedBtc variable:', storedBtc);
-                console.log('encumberedBtc[loanKey]:', encumberedBtc[loanKey]);
-                console.log('loan.collateral_btc_amount:', loan.collateral_btc_amount);
-                console.log('debtToPay:', debtToPay);
-                console.log('btcToSellForDebt:', btcToSellForDebt);
-                console.log('btcReleased:', btcReleased);
-                console.log('equityReleasedGross:', equityReleasedGross);
+                console.log('loan.id:', loan.id);
+                console.log('loan.loanKey:', loan.loanKey);
+                console.log('Looking up loanCollateralBasis[' + loanKey + ']:', loanCollateralBasis[loanKey]);
+                console.log('storedBasis:', storedBasis);
+                console.log('storedBtc:', storedBtc);
               }
               
               const saleProceeds = btcToSellForDebt * cumulativeBtcPrice;
