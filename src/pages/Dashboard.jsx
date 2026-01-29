@@ -426,18 +426,9 @@ export default function Dashboard() {
       <div>
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-semibold">Asset Allocation</h2>
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-zinc-500">{accounts.length} account{accounts.length !== 1 ? 's' : ''} • {holdings.filter(h => h.quantity > 0).length} position{holdings.filter(h => h.quantity > 0).length !== 1 ? 's' : ''}</span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowCreateAccount(true)}
-              className="bg-transparent border-zinc-700 text-xs"
-            >
-              <Building2 className="w-3 h-3 mr-1" />
-              New Account
-            </Button>
-          </div>
+          <span className="text-sm text-zinc-500">
+            {accounts.length} account{accounts.length !== 1 ? 's' : ''} • {holdings.filter(h => h.quantity > 0).length} position{holdings.filter(h => h.quantity > 0).length !== 1 ? 's' : ''}
+          </span>
         </div>
 
         {holdingsLoading ? (
