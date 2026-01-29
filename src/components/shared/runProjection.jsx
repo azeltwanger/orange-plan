@@ -520,6 +520,10 @@ export function runUnifiedProjection({
   let cumulativeBtcPrice = currentPrice;
   let cumulativeSavings = 0;
   const liquidationEvents = [];
+  
+  // Track paid-off debts to reduce spending in future years
+  // Each entry: { year: number, annualPayment: number, name: string }
+  const paidOffDebtReductions = [];
 
   // Initialize for Average Balance Method for dividends (declared outside loop)
   let beginningYearValues = [];
