@@ -669,10 +669,65 @@ export function runUnifiedProjection({
   const initialTaxableCostBasis = taxableHoldings.reduce((sum, h) => sum + (h.cost_basis_total || 0), 0);
   let runningTaxableBasis = initialTaxableCostBasis;
 
+  // Calculate initial taxable value BEFORE subtracting encumbered
+  const initialTaxableValueBeforeEncumbered = portfolio.taxable.btc + portfolio.taxable.stocks + portfolio.taxable.bonds + portfolio.taxable.cash + portfolio.taxable.other;
+
+  // Subtract encumbered BTC from taxable
+  const totalInitialEncumberedBtc = Object.values(encumberedBtc).reduce((sum, amount) => sum + amount, 0);
+  const initialEncumberedBtcValue = totalInitialEncumberedBtc * currentPrice;
+  portfolio.taxable.btc = Math.max(0, portfolio.taxable.btc - initialEncumberedBtcValue);
+
+  // Calculate and subtract proportional basis for encumbered BTC
+  // This tracks the cost basis "locked" in collateral separately
+  // For loans WITH stored lot data, we already have per-loan basis in loanCollateralBasis
+  // For legacy loans WITHOUT lot data, calculate proportional basis as fallback
+  
+  // Sum up basis from loans that have stored lot data
+  const loansWithStoredBasis = Object.values(loanCollateralBasis).reduce((sum, basis) => sum + basis, 0);
+  
+  // For loans without stored lot data, calculate proportional fallback
+  let legacyCollateralBtc = 0;
+  [...liabilities, ...collateralizedLoans].forEach(loan => {
+    const loanKey = loan.collateral_btc_amount ? (liabilities.includes(loan) ? loan.id : `loan_${loan.id}`) : null;
+    if (loanKey && !loanCollateralBasis[loanKey] && loan.collateral_btc_amount > 0) {
+      legacyCollateralBtc += loan.collateral_btc_amount;
+    }
+  });
+  
+  const legacyCollateralValue = legacyCollateralBtc * currentPrice;
+  let legacyProportionalBasis = 0;
+  if (initialTaxableValueBeforeEncumbered > 0 && legacyCollateralValue > 0) {
+    legacyProportionalBasis = runningTaxableBasis * (legacyCollateralValue / initialTaxableValueBeforeEncumbered);
+    
+    // Assign proportional basis to each legacy loan
+    [...liabilities, ...collateralizedLoans].forEach(loan => {
+      const loanKey = loan.collateral_btc_amount ? (liabilities.includes(loan) ? loan.id : `loan_${loan.id}`) : null;
+      if (loanKey && !loanCollateralBasis[loanKey] && loan.collateral_btc_amount > 0) {
+        const loanCollateralValue = loan.collateral_btc_amount * currentPrice;
+        loanCollateralBasis[loanKey] = legacyProportionalBasis * (loanCollateralValue / legacyCollateralValue);
+        loanCollateralLots[loanKey] = []; // No specific lots for legacy
+      }
+    });
+  }
+  
+  // CRITICAL: Set initial encumberedBtcBasis BEFORE hypothetical loan processing
+  encumberedBtcBasis = loansWithStoredBasis + legacyProportionalBasis;
+  
   if (DEBUG) {
-    console.log('=== FINAL LOAN COLLATERAL STATE ===');
-    console.log('loanCollateralBasis:', JSON.stringify(loanCollateralBasis));
-    console.log('encumberedBtc:', JSON.stringify(encumberedBtc));
+    console.log('=== FINAL COLLATERAL BASIS STATE ===');
+    console.log('loansWithStoredBasis:', loansWithStoredBasis);
+    console.log('legacyProportionalBasis:', legacyProportionalBasis);
+    console.log('encumberedBtcBasis (total):', encumberedBtcBasis);
+    Object.keys(loanCollateralBasis).forEach(key => {
+      console.log('loanCollateralBasis[' + key + ']:', {
+        basis: loanCollateralBasis[key],
+        btc: encumberedBtc[key]
+      });
+    });
+  }
+  
+  if (initialTaxableValueBeforeEncumbered > 0 && initialEncumberedBtcValue > 0) {
+    runningTaxableBasis = Math.max(0, runningTaxableBasis - encumberedBtcBasis);
   }
 
   // Process hypothetical BTC loan if provided (after all initializations)
@@ -781,66 +836,6 @@ export function runUnifiedProjection({
         runningTaxableBasis += proceeds;
       }
     }
-  }
-
-  // Calculate initial taxable value BEFORE subtracting encumbered
-  const initialTaxableValueBeforeEncumbered = portfolio.taxable.btc + portfolio.taxable.stocks + portfolio.taxable.bonds + portfolio.taxable.cash + portfolio.taxable.other;
-
-  // Subtract encumbered BTC from taxable
-  const totalInitialEncumberedBtc = Object.values(encumberedBtc).reduce((sum, amount) => sum + amount, 0);
-  const initialEncumberedBtcValue = totalInitialEncumberedBtc * currentPrice;
-  portfolio.taxable.btc = Math.max(0, portfolio.taxable.btc - initialEncumberedBtcValue);
-
-  // Calculate and subtract proportional basis for encumbered BTC
-  // This tracks the cost basis "locked" in collateral separately
-  // For loans WITH stored lot data, we already have per-loan basis in loanCollateralBasis
-  // For legacy loans WITHOUT lot data, calculate proportional basis as fallback
-  
-  // Sum up basis from loans that have stored lot data
-  const loansWithStoredBasis = Object.values(loanCollateralBasis).reduce((sum, basis) => sum + basis, 0);
-  
-  // For loans without stored lot data, calculate proportional fallback
-  let legacyCollateralBtc = 0;
-  [...liabilities, ...collateralizedLoans].forEach(loan => {
-    const loanKey = loan.collateral_btc_amount ? (liabilities.includes(loan) ? loan.id : `loan_${loan.id}`) : null;
-    if (loanKey && !loanCollateralBasis[loanKey] && loan.collateral_btc_amount > 0) {
-      legacyCollateralBtc += loan.collateral_btc_amount;
-    }
-  });
-  
-  const legacyCollateralValue = legacyCollateralBtc * currentPrice;
-  let legacyProportionalBasis = 0;
-  if (initialTaxableValueBeforeEncumbered > 0 && legacyCollateralValue > 0) {
-    legacyProportionalBasis = runningTaxableBasis * (legacyCollateralValue / initialTaxableValueBeforeEncumbered);
-    
-    // Assign proportional basis to each legacy loan
-    [...liabilities, ...collateralizedLoans].forEach(loan => {
-      const loanKey = loan.collateral_btc_amount ? (liabilities.includes(loan) ? loan.id : `loan_${loan.id}`) : null;
-      if (loanKey && !loanCollateralBasis[loanKey] && loan.collateral_btc_amount > 0) {
-        const loanCollateralValue = loan.collateral_btc_amount * currentPrice;
-        loanCollateralBasis[loanKey] = legacyProportionalBasis * (loanCollateralValue / legacyCollateralValue);
-        loanCollateralLots[loanKey] = []; // No specific lots for legacy
-      }
-    });
-  }
-  
-  encumberedBtcBasis = loansWithStoredBasis + legacyProportionalBasis;
-  
-  if (DEBUG) {
-    console.log('=== FINAL COLLATERAL BASIS STATE ===');
-    console.log('loansWithStoredBasis:', loansWithStoredBasis);
-    console.log('legacyProportionalBasis:', legacyProportionalBasis);
-    console.log('encumberedBtcBasis (total):', encumberedBtcBasis);
-    Object.keys(loanCollateralBasis).forEach(key => {
-      console.log('loanCollateralBasis[' + key + ']:', {
-        basis: loanCollateralBasis[key],
-        btc: encumberedBtc[key]
-      });
-    });
-  }
-  
-  if (initialTaxableValueBeforeEncumbered > 0 && initialEncumberedBtcValue > 0) {
-    runningTaxableBasis = Math.max(0, runningTaxableBasis - encumberedBtcBasis);
   }
 
   // Get standard deduction
