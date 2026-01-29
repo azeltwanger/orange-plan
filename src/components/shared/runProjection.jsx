@@ -619,11 +619,17 @@ export function runUnifiedProjection({
       const proceeds = hypotheticalLoanObj.current_balance;
       if (proceeds > 0) {
         if (hypotheticalLoanObj.use_of_proceeds === 'btc') {
+          // Buy BTC with loan proceeds
           portfolio.taxable.btc += proceeds;
+          runningTaxableBasis += proceeds;
         } else if (hypotheticalLoanObj.use_of_proceeds === 'stocks') {
+          // Buy stocks with loan proceeds
           portfolio.taxable.stocks += proceeds;
+          runningTaxableBasis += proceeds;
         } else {
-          portfolio.taxable.cash += proceeds;
+          // 'cash' (for spending) - This will be added to yearLifeEventIncome in Year 0
+          // For now, just mark it with a flag so we can add it to yearLifeEventIncome in the loop
+          portfolio.taxable.cash += proceeds; // Temporary - will be converted to income in Year 0
         }
         runningTaxableBasis += proceeds;
       }
@@ -664,6 +670,19 @@ export function runUnifiedProjection({
   // Track Roth contribution basis that gets depleted over time
   // Conservative default: 0 assumes all Roth balance is earnings (most conservative for high-growth portfolios)
   let runningRothContributionBasis = totalRothContributions;
+
+  // Track loan proceeds that should be treated as income (use_of_proceeds === 'cash')
+  let immediateUseCashProceeds = 0;
+  if (hypothetical_btc_loan?.enabled) {
+    const loanStartAge = (hypothetical_btc_loan.start_age !== undefined && hypothetical_btc_loan.start_age !== null && hypothetical_btc_loan.start_age !== '')
+      ? parseInt(hypothetical_btc_loan.start_age) 
+      : currentAge;
+    
+    // If loan starts immediately (at currentAge) and use_of_proceeds is 'cash', track it
+    if (loanStartAge === currentAge && hypothetical_btc_loan.use_of_proceeds === 'cash') {
+      immediateUseCashProceeds = hypothetical_btc_loan.loan_amount || 0;
+    }
+  }
 
   // Track individual holding values for dividend calculations
   // We need to track values through the projection since dividends are based on current value
@@ -851,6 +870,7 @@ export function runUnifiedProjection({
     let desiredWithdrawal = 0;
     let yearLifeEventIncome = 0;
     let yearLifeEventTaxableIncome = 0; // Track taxable one-time income (bonuses, etc.)
+    let yearLoanProceeds = 0; // Track loan proceeds used for spending
     let year401k = 0;
     let yearRoth = 0;
     let yearTraditionalIRA = 0;
@@ -876,6 +896,17 @@ export function runUnifiedProjection({
         : getBtcGrowthRate(yearsFromNow, effectiveInflation);
     if (i > 0) {
       cumulativeBtcPrice = cumulativeBtcPrice * (1 + yearBtcGrowth / 100);
+    }
+
+    // === IMMEDIATE LOAN PROCEEDS (Year 0 only) ===
+    // If a loan was activated immediately with use_of_proceeds === 'cash', add to income
+    if (i === 0 && immediateUseCashProceeds > 0) {
+      yearLifeEventIncome += immediateUseCashProceeds;
+      yearLoanProceeds += immediateUseCashProceeds;
+      // Remove from portfolio.taxable.cash since we're treating it as income instead
+      portfolio.taxable.cash = Math.max(0, portfolio.taxable.cash - immediateUseCashProceeds);
+      runningTaxableBasis = Math.max(0, runningTaxableBasis - immediateUseCashProceeds);
+      if (DEBUG) console.log(`💰 Immediate loan proceeds for spending (Year 0): $${immediateUseCashProceeds.toLocaleString()}`);
     }
 
     // === HYPOTHETICAL LOAN ACTIVATION ===
@@ -912,13 +943,19 @@ export function runUnifiedProjection({
       const proceeds = newLoan.current_balance;
       if (proceeds > 0) {
         if (newLoan.use_of_proceeds === 'btc') {
+          // Buy BTC with loan proceeds
           portfolio.taxable.btc += proceeds;
+          runningTaxableBasis += proceeds;
         } else if (newLoan.use_of_proceeds === 'stocks') {
+          // Buy stocks with loan proceeds
           portfolio.taxable.stocks += proceeds;
+          runningTaxableBasis += proceeds;
         } else {
-          portfolio.taxable.cash += proceeds;
+          // 'cash' (for spending) - Treat as income to cover spending first
+          yearLifeEventIncome += proceeds;
+          yearLoanProceeds += proceeds;
+          if (DEBUG) console.log(`💰 Loan proceeds for spending: $${proceeds.toLocaleString()}`);
         }
-        runningTaxableBasis += proceeds;
         
         liquidationEvents.push({
           year, age, type: 'loan_activation',
@@ -2868,6 +2905,7 @@ export function runUnifiedProjection({
       goalFunding: Math.round(yearGoalWithdrawal),
       lifeEventIncome: Math.round(yearLifeEventIncome),
       lifeEventExpense: Math.round(yearLifeEventExpense),
+      loanProceeds: Math.round(yearLoanProceeds),
       
       // Dividend income
       qualifiedDividends: Math.round(yearQualifiedDividends),
