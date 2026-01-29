@@ -2406,7 +2406,8 @@ export function runUnifiedProjection({
       // RETIREMENT
       const nominalSpendingAtRetirement = retirementAnnualSpending * Math.pow(1 + effectiveInflation / 100, Math.max(0, retirementAge - currentAge));
       // Calculate base spending WITHOUT life event expenses (for tooltip display)
-      const baseSpendingOnly = nominalSpendingAtRetirement * Math.pow(1 + effectiveInflation / 100, age - retirementAge);
+      // Subtract spending reduction from debts paid off in prior years
+      const baseSpendingOnly = Math.max(0, (nominalSpendingAtRetirement * Math.pow(1 + effectiveInflation / 100, age - retirementAge)) - paidOffDebtSpendingReduction);
       // Total withdrawal need includes life event expenses
       const baseDesiredWithdrawal = baseSpendingOnly + yearLifeEventExpense;
       desiredWithdrawal = i === 0 ? baseDesiredWithdrawal * currentYearProRataFactor : baseDesiredWithdrawal;
