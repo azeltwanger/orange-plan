@@ -26,7 +26,6 @@ export default function CreateAccountDialog({ open, onClose, onCreated }) {
     name: '',
     account_type: 'taxable_brokerage',
     institution: '',
-    notes: '',
     roth_contributions: '',
   });
 
@@ -42,7 +41,7 @@ export default function CreateAccountDialog({ open, onClose, onCreated }) {
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
       onCreated?.(newAccount);
       onClose();
-      setForm({ name: '', account_type: 'taxable_brokerage', institution: '', notes: '', roth_contributions: '' });
+      setForm({ name: '', account_type: 'taxable_brokerage', institution: '', roth_contributions: '' });
     },
   });
 

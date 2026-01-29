@@ -40,7 +40,6 @@ export default function AddAssetWithTransaction({
     current_price: '',
     account_type: 'taxable',
     account_id: '',
-    notes: '',
   });
 
   const [lots, setLots] = useState([{
@@ -129,7 +128,6 @@ export default function AddAssetWithTransaction({
         current_price: initialData.current_price || '',
         account_type: initialData.account_type || 'taxable',
         account_id: initialData.account_id || '',
-        notes: initialData.notes || '',
       });
       setIncludeTransaction(false);
       setStep(1);
@@ -151,7 +149,6 @@ export default function AddAssetWithTransaction({
       current_price: '',
       account_type: 'taxable',
       account_id: '',
-      notes: '',
     });
     setLots([{
       id: Date.now(),
