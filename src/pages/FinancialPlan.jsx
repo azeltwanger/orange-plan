@@ -2929,9 +2929,9 @@ export default function FinancialPlan() {
                                         <div key={lpIdx} className="text-[10px] text-zinc-400 mt-1">
                                           <div className="font-medium text-orange-300">{lp.loanName}</div>
                                           <div>Debt Cleared: ${Math.round(lp.debtPaid).toLocaleString()}</div>
-                                          <div>BTC Released: {lp.btcReleased.toFixed(4)} BTC (${Math.round(lp.equityReleased).toLocaleString()})</div>
-                                          <div>Tax on Sale: ${Math.round(lp.taxOnSale).toLocaleString()}</div>
-                                          <div>Net Equity Applied: ${Math.round(lp.appliedToDeficit).toLocaleString()}</div>
+                                          <div>BTC Released: {(lp.btcReleased || 0).toFixed(4)} BTC (${Math.round(lp.equityReleased || 0).toLocaleString()})</div>
+                                          <div>Tax on Sale: ${Math.round(lp.taxOnSale || 0).toLocaleString()}</div>
+                                          <div>Net Equity Applied: ${Math.round(lp.appliedToDeficit || 0).toLocaleString()}</div>
                                         </div>
                                       ))}
                                     </div>
@@ -3726,9 +3726,9 @@ export default function FinancialPlan() {
                               <div key={lpIdx} className="text-[10px] text-zinc-400 mt-1">
                                 <div className="font-medium text-orange-300">{lp.loanName}</div>
                                 <div>Debt Cleared: ${Math.round(lp.debtPaid).toLocaleString()}</div>
-                                <div>BTC Released: {lp.btcReleased.toFixed(4)} BTC (${Math.round(lp.equityReleased).toLocaleString()})</div>
-                                <div>Tax on Sale: ${Math.round(lp.taxOnSale).toLocaleString()}</div>
-                                <div>Net Equity Applied: ${Math.round(lp.appliedToDeficit).toLocaleString()}</div>
+                                <div>BTC Released: {(lp.btcReleased || 0).toFixed(4)} BTC (${Math.round(lp.equityReleased || 0).toLocaleString()})</div>
+                                <div>Tax on Sale: ${Math.round(lp.taxOnSale || 0).toLocaleString()}</div>
+                                <div>Net Equity Applied: ${Math.round(lp.appliedToDeficit || 0).toLocaleString()}</div>
                               </div>
                             ))}
                           </div>
