@@ -2698,18 +2698,29 @@ export function runUnifiedProjection({
               const btcReleased = loan.lockedBtc - btcToSellForDebt;
               const equityReleasedGross = btcReleased * cumulativeBtcPrice;
               
-              // Calculate actual cost basis percentage from encumbered BTC
-              const totalEncumberedBtcValue = Object.values(encumberedBtc).reduce((sum, btc) => sum + (btc * cumulativeBtcPrice), 0);
-              const actualCostBasisPercent = totalEncumberedBtcValue > 0 
-                ? Math.min(1, encumberedBtcBasis / totalEncumberedBtcValue) 
-                : 0.5; // fallback to 50% if no data
-
-              // Calculate gain based on actual cost basis
+              // Use per-loan stored basis for accurate tax calculation
+              const loanKey = loan.loanKey;
+              const storedBasis = loanCollateralBasis[loanKey] || 0;
+              const storedBtc = encumberedBtc[loanKey] || loan.collateral_btc_amount || 0;
+              
               const saleProceeds = btcToSellForDebt * cumulativeBtcPrice;
-              const costBasisForSale = saleProceeds * actualCostBasisPercent;
+              let costBasisForSale = 0;
+              
+              if (storedBtc > 0 && storedBasis > 0) {
+                // Use actual per-loan basis - proportional to amount being sold
+                const percentSold = Math.min(1, btcToSellForDebt / storedBtc);
+                costBasisForSale = storedBasis * percentSold;
+                
+                // Reduce stored basis for remaining collateral
+                loanCollateralBasis[loanKey] = storedBasis * (1 - percentSold);
+              } else {
+                // Fallback to 50% basis for loans without stored lot data
+                costBasisForSale = saleProceeds * 0.5;
+              }
+              
               const gainOnSale = Math.max(0, saleProceeds - costBasisForSale);
               
-              // Reduce encumberedBtcBasis proportionally for sold BTC
+              // Also reduce global encumberedBtcBasis for tracking
               const totalEncumberedBtcAmount = Object.values(encumberedBtc).reduce((sum, btc) => sum + btc, 0);
               if (totalEncumberedBtcAmount > 0 && encumberedBtcBasis > 0) {
                 const basisReduction = encumberedBtcBasis * (btcToSellForDebt / totalEncumberedBtcAmount);
@@ -2735,11 +2746,22 @@ export function runUnifiedProjection({
                 tempRunningCollateralizedLoans[loan.id].paid_off = true;
               }
               
-              portfolio.taxable.btc += btcReleased * cumulativeBtcPrice;
-              encumberedBtc[loan.loanKey] = 0;
+              // Return released BTC to taxable with restored basis
+              const releasedBtcValue = btcReleased * cumulativeBtcPrice;
+              portfolio.taxable.btc += releasedBtcValue;
+              
+              // Restore proportional basis for released collateral to runningTaxableBasis
+              if (storedBtc > 0 && storedBasis > 0) {
+                const releasedBasisPortion = storedBasis * (btcReleased / storedBtc);
+                runningTaxableBasis += releasedBasisPortion;
+              }
+              
+              encumberedBtc[loanKey] = 0;
+              delete loanCollateralBasis[loanKey];
+              delete loanCollateralLots[loanKey];
               taxesPaid += taxOnSale;
               
-              yearLoanPayoffs.push({ loanName: loan.name || loan.lender || 'BTC Loan', debtPaid: debtToPay, btcSold: btcToSellForDebt, btcReleased: btcReleased, equityReleased: equityReleasedGross, taxOnSale: taxOnSale, netEquity: netEquityAvailable, appliedToDeficit: appliedToDeficit });
+              yearLoanPayoffs.push({ loanName: loan.name || loan.lender || 'BTC Loan', debtPaid: debtToPay, btcSold: btcToSellForDebt, btcReleased: btcReleased, equityReleased: equityReleasedGross, taxOnSale: taxOnSale, netEquity: netEquityAvailable, appliedToDeficit: appliedToDeficit, costBasis: costBasisForSale, capitalGain: gainOnSale });
             }
           }
           
