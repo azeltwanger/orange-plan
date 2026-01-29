@@ -83,6 +83,7 @@ export function getCustomReturnForYear(assetType, yearIndex, customReturnPeriods
  */
 export function runUnifiedProjection({
   holdings,
+  projectionId = 'unknown',
   accounts,
   liabilities,
   collateralizedLoans,
@@ -143,6 +144,8 @@ export function runUnifiedProjection({
   futureBtcLoanRateYears = null,
   DEBUG = false,
 }) {
+  console.log('🚀 Starting projection:', projectionId);
+  
   const results = [];
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth();
@@ -2427,7 +2430,7 @@ export function runUnifiedProjection({
               const storedBtc = encumberedBtc[loanKey] || loan.collateral_btc_amount || 0;
               
               // DETAILED DEBUG: Trace key mismatch (pre-retirement deficit)
-              console.log('💰 LIQUIDATING LOAN (pre-retire):', loan.name);
+              console.log('💰 LIQUIDATING LOAN (' + projectionId + ' pre-retire):', loan.name);
               console.log('   loan.id:', loan.id);
               console.log('   loan.entity_type:', loan.entity_type);
               console.log('   loan.loanKey:', loan.loanKey);
@@ -2932,7 +2935,7 @@ export function runUnifiedProjection({
               const storedBtc = encumberedBtc[loanKey] || loan.collateral_btc_amount || 0;
               
               // DETAILED DEBUG: Trace key mismatch (retirement)
-              console.log('💰 LIQUIDATING LOAN (retirement):', loan.name);
+              console.log('💰 LIQUIDATING LOAN (' + projectionId + ' retirement):', loan.name);
               console.log('   loan.id:', loan.id);
               console.log('   loan.entity_type:', loan.entity_type);
               console.log('   loan.loanKey:', loan.loanKey);
@@ -3237,7 +3240,7 @@ export function runUnifiedProjection({
 
     // Debug: Log yearLoanPayoffs before pushing to results
     if (yearLoanPayoffs.length > 0) {
-      console.log('📋 Year', year, 'age', age, 'yearLoanPayoffs:', yearLoanPayoffs.length, yearLoanPayoffs.map(p => p.loanName));
+      console.log('📋 Year', year, 'age', age, 'yearLoanPayoffs (' + projectionId + '):', yearLoanPayoffs.length, yearLoanPayoffs.map(p => p.loanName));
     }
 
     results.push({
