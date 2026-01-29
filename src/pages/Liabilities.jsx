@@ -15,6 +15,7 @@ import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import EmptyState from '@/components/ui/EmptyState';
 import { LoadingSkeleton } from '@/components/ui/LoadingSkeleton';
+import { assignCollateralLots, getCollateralizedLotIds } from '@/components/shared/lotSelectionHelpers';
 
 // BTC Collateral Loan Constants
 const INITIAL_LTV = 0.50; // 50% LTV at loan origination
@@ -92,6 +93,11 @@ export default function Liabilities() {
   const { data: userSettings = [] } = useQuery({
     queryKey: ['userSettings'],
     queryFn: () => base44.entities.UserSettings.list(),
+  });
+
+  const { data: transactions = [] } = useQuery({
+    queryKey: ['transactions'],
+    queryFn: () => base44.entities.Transaction.list(),
   });
 
   // Check if critical data is loading
@@ -219,7 +225,7 @@ export default function Liabilities() {
     }
   }, [formData.collateral_btc_amount, formData.current_balance, formData.type]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const data = {
       ...formData,
@@ -232,6 +238,49 @@ export default function Liabilities() {
       collateral_release_ltv: parseFloat(formData.collateral_release_ltv) || 30,
       renewal_date: formData.renewal_date || null,
     };
+
+    // For BTC collateralized loans, assign specific tax lots
+    if (data.type === 'btc_collateralized' && data.collateral_btc_amount > 0) {
+      // Get user's cost basis method
+      const settings = userSettings[0];
+      const costBasisMethod = settings?.cost_basis_method || 'HIFO';
+      
+      // Get lot IDs already used as collateral (exclude current loan if editing)
+      const existingCollateralIds = getCollateralizedLotIds(
+        liabilities, 
+        collateralizedLoans, 
+        editingLiability?.id
+      );
+      
+      // Filter to BTC buy transactions only
+      const btcLots = transactions.filter(t => 
+        t.type === 'buy' && 
+        t.asset_ticker === 'BTC' &&
+        (t.account_type === 'taxable' || !t.account_type)
+      );
+      
+      // Assign lots based on cost basis method
+      const result = assignCollateralLots(
+        btcLots,
+        data.collateral_btc_amount,
+        costBasisMethod,
+        existingCollateralIds
+      );
+      
+      if (!result.success) {
+        alert(result.error || 'Could not assign collateral lots. Make sure you have enough BTC in taxable accounts.');
+        return;
+      }
+      
+      // Add lot assignment to loan data
+      data.collateral_lots = result.lots;
+      data.collateral_total_basis = result.totalBasis;
+    } else {
+      // Clear collateral lot data if not a BTC loan
+      data.collateral_lots = null;
+      data.collateral_total_basis = null;
+    }
+
     if (editingLiability) {
       updateLiability.mutate({ id: editingLiability.id, data });
     } else {
