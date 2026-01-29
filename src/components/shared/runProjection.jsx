@@ -559,12 +559,37 @@ export function runUnifiedProjection({
   // Initialize BTC collateral tracking (must be before hypothetical loan processing)
   const encumberedBtc = {};
   let releasedBtc = {};
+  
+  // Track per-loan collateral basis for accurate tax calculations on liquidation
+  const loanCollateralBasis = {}; // { loanKey: total cost basis }
+  const loanCollateralLots = {}; // { loanKey: array of lot assignments }
 
   // Populate encumberedBtc from existing liabilities/loans BEFORE hypothetical loan processing
   liabilities.forEach(liability => {
     if (liability.type === 'btc_collateralized' && liability.collateral_btc_amount) {
-      encumberedBtc[liability.id] = liability.collateral_btc_amount;
-      releasedBtc[liability.id] = 0;
+      const loanKey = liability.id;
+      encumberedBtc[loanKey] = liability.collateral_btc_amount;
+      releasedBtc[loanKey] = 0;
+      
+      // Use stored lot data if available (new loans)
+      if (liability.collateral_lots && liability.collateral_lots.length > 0) {
+        loanCollateralLots[loanKey] = liability.collateral_lots;
+        loanCollateralBasis[loanKey] = liability.collateral_total_basis || 
+          liability.collateral_lots.reduce((sum, lot) => sum + (lot.cost_basis || 0), 0);
+        
+        // Remove these lots from runningTaxLots (they're locked as collateral)
+        liability.collateral_lots.forEach(collateralLot => {
+          const lotIndex = runningTaxLots.findIndex(t => t.id === collateralLot.lot_id);
+          if (lotIndex !== -1) {
+            const currentRemaining = runningTaxLots[lotIndex].remaining_quantity ?? runningTaxLots[lotIndex].quantity ?? 0;
+            runningTaxLots[lotIndex].remaining_quantity = Math.max(0, currentRemaining - collateralLot.btc_amount);
+            if (runningTaxLots[lotIndex].remaining_quantity <= 0.00000001) {
+              runningTaxLots.splice(lotIndex, 1);
+            }
+          }
+        });
+      }
+      // Legacy loans without lot data will use proportional basis (calculated later)
     }
   });
 
@@ -573,6 +598,26 @@ export function runUnifiedProjection({
       const loanKey = `loan_${loan.id}`;
       encumberedBtc[loanKey] = loan.collateral_btc_amount;
       releasedBtc[loanKey] = 0;
+      
+      // Use stored lot data if available (new loans)
+      if (loan.collateral_lots && loan.collateral_lots.length > 0) {
+        loanCollateralLots[loanKey] = loan.collateral_lots;
+        loanCollateralBasis[loanKey] = loan.collateral_total_basis || 
+          loan.collateral_lots.reduce((sum, lot) => sum + (lot.cost_basis || 0), 0);
+        
+        // Remove these lots from runningTaxLots (they're locked as collateral)
+        loan.collateral_lots.forEach(collateralLot => {
+          const lotIndex = runningTaxLots.findIndex(t => t.id === collateralLot.lot_id);
+          if (lotIndex !== -1) {
+            const currentRemaining = runningTaxLots[lotIndex].remaining_quantity ?? runningTaxLots[lotIndex].quantity ?? 0;
+            runningTaxLots[lotIndex].remaining_quantity = Math.max(0, currentRemaining - collateralLot.btc_amount);
+            if (runningTaxLots[lotIndex].remaining_quantity <= 0.00000001) {
+              runningTaxLots.splice(lotIndex, 1);
+            }
+          }
+        });
+      }
+      // Legacy loans without lot data will use proportional basis (calculated later)
     }
   });
 
