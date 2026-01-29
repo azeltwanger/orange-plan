@@ -2155,6 +2155,12 @@ export default function Scenarios() {
                                         <span className="text-emerald-400 text-right">+${p.loanProceeds.toLocaleString()}</span>
                                       </div>
                                     )}
+                                    {p.totalDividendIncome > 0 && (
+                                      <div className="flex justify-between gap-6">
+                                        <span>• Dividend Income:</span>
+                                        <span className="text-emerald-400 text-right">+${(p.totalDividendIncome || 0).toLocaleString()}</span>
+                                      </div>
+                                    )}
                                     {p.federalTaxPaid > 0 && (
                                       <div className="flex justify-between gap-6">
                                         <span>• Federal Tax:</span>
