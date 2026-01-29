@@ -901,7 +901,6 @@ export function runUnifiedProjection({
     // === IMMEDIATE LOAN PROCEEDS (Year 0 only) ===
     // If a loan was activated immediately with use_of_proceeds === 'cash', add to income
     if (i === 0 && immediateUseCashProceeds > 0) {
-      yearLifeEventIncome += immediateUseCashProceeds;
       yearLoanProceeds += immediateUseCashProceeds;
       // Remove from portfolio.taxable.cash since we're treating it as income instead
       portfolio.taxable.cash = Math.max(0, portfolio.taxable.cash - immediateUseCashProceeds);
@@ -954,8 +953,8 @@ export function runUnifiedProjection({
           portfolio.taxable.stocks += proceeds;
           runningTaxableBasis += proceeds;
         } else {
-          // 'cash' (for spending) - Treat as income to cover spending first
-          yearLifeEventIncome += proceeds;
+          // 'cash' (for spending) - Don't add to yearLifeEventIncome, only yearLoanProceeds
+          // yearLoanProceeds was already incremented above at line 946
           if (DEBUG) console.log(`💰 Loan proceeds for spending: $${proceeds.toLocaleString()}`);
         }
         
@@ -2004,8 +2003,8 @@ export function runUnifiedProjection({
       taxesPaid = yearFederalTax + yearStateTax;
       // Net income = gross - taxes - pre-tax contributions (401k, Traditional IRA, HSA come from paycheck)
       // Add estimated dividend income (calculated before withdrawals) for cash flow decisions
-      // Add life event income (inheritance, windfall, etc.) - this is already invested in portfolio, but also adds to cash flow
-      const yearNetIncome = yearGrossIncome - taxesPaid - year401k - yearTraditionalIRA - yearHSA + estimatedDividendIncome + yearLifeEventIncome;
+      // Add life event income (inheritance, windfall, etc.) AND loan proceeds - already invested in portfolio but also adds to cash flow
+      const yearNetIncome = yearGrossIncome - taxesPaid - year401k - yearTraditionalIRA - yearHSA + estimatedDividendIncome + yearLifeEventIncome + yearLoanProceeds;
 
       // Calculate base spending WITHOUT one-time life event expenses (for tooltip display)
       const baseSpendingOnly = (currentAnnualSpending * Math.pow(1 + effectiveInflation / 100, i)) + activeExpenseAdjustment;
@@ -2392,8 +2391,8 @@ export function runUnifiedProjection({
       // Social Security is now calculated earlier (before retirement/pre-retirement split)
       // In retirement, dividend income adds to available income to fund spending
       // Use estimatedDividendIncome here (calculated before withdrawals) to properly reduce withdrawal needs
-      // Include life event income (inheritance, windfall, etc.) - already invested but also reduces withdrawal need
-      const totalRetirementIncome = otherRetirementIncome + socialSecurityIncome + estimatedDividendIncome + yearLifeEventIncome;
+      // Include life event income (inheritance, windfall, etc.) AND loan proceeds - already invested but also reduces withdrawal need
+      const totalRetirementIncome = otherRetirementIncome + socialSecurityIncome + estimatedDividendIncome + yearLifeEventIncome + yearLoanProceeds;
       const taxableSocialSecurity = calculateTaxableSocialSecurity(socialSecurityIncome, otherRetirementIncome + desiredWithdrawal, filingStatus);
       const totalOtherIncomeForTax = otherRetirementIncome + taxableSocialSecurity + rmdWithdrawn;
 
