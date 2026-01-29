@@ -942,6 +942,9 @@ export function runUnifiedProjection({
       
       const proceeds = newLoan.current_balance;
       if (proceeds > 0) {
+        // Track loan proceeds regardless of use
+        yearLoanProceeds += proceeds;
+        
         if (newLoan.use_of_proceeds === 'btc') {
           // Buy BTC with loan proceeds
           portfolio.taxable.btc += proceeds;
@@ -953,7 +956,6 @@ export function runUnifiedProjection({
         } else {
           // 'cash' (for spending) - Treat as income to cover spending first
           yearLifeEventIncome += proceeds;
-          yearLoanProceeds += proceeds;
           if (DEBUG) console.log(`💰 Loan proceeds for spending: $${proceeds.toLocaleString()}`);
         }
         
