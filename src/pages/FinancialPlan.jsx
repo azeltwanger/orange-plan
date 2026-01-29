@@ -938,6 +938,7 @@ export default function FinancialPlan() {
       withdrawalBlendPercentages,
       futureBtcLoanRate,
       futureBtcLoanRateYears,
+      projectionId: 'MAIN',
       DEBUG: false,
     });
     
