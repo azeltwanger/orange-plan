@@ -2415,6 +2415,21 @@ export function runUnifiedProjection({
               const storedBasis = loanCollateralBasis[loanKey] || 0;
               const storedBtc = encumberedBtc[loanKey] || loan.collateral_btc_amount || 0;
               
+              if (DEBUG) {
+                console.log('=== LIQUIDATING LOAN (pre-retirement deficit) ===');
+                console.log('Loan name:', loan.name);
+                console.log('loanKey:', loanKey);
+                console.log('loanCollateralBasis[loanKey]:', loanCollateralBasis[loanKey]);
+                console.log('storedBasis variable:', storedBasis);
+                console.log('storedBtc variable:', storedBtc);
+                console.log('encumberedBtc[loanKey]:', encumberedBtc[loanKey]);
+                console.log('loan.collateral_btc_amount:', loan.collateral_btc_amount);
+                console.log('debtToPay:', debtToPay);
+                console.log('btcToSellForDebt:', btcToSellForDebt);
+                console.log('btcReleased:', btcReleased);
+                console.log('equityReleasedGross:', equityReleasedGross);
+              }
+              
               const saleProceeds = btcToSellForDebt * cumulativeBtcPrice;
               let costBasisForSale = 0;
               
@@ -2423,14 +2438,27 @@ export function runUnifiedProjection({
                 const percentSold = Math.min(1, btcToSellForDebt / storedBtc);
                 costBasisForSale = storedBasis * percentSold;
                 
+                if (DEBUG) {
+                  console.log('Using stored basis - percentSold:', percentSold);
+                  console.log('costBasisForSale:', costBasisForSale);
+                }
+                
                 // Reduce stored basis for remaining collateral
                 loanCollateralBasis[loanKey] = storedBasis * (1 - percentSold);
               } else {
                 // Fallback to 50% basis for loans without stored lot data
                 costBasisForSale = saleProceeds * 0.5;
+                if (DEBUG) {
+                  console.log('Using 50% fallback basis - costBasisForSale:', costBasisForSale);
+                }
               }
               
               const gainOnSale = Math.max(0, saleProceeds - costBasisForSale);
+              
+              if (DEBUG) {
+                console.log('saleProceeds:', saleProceeds);
+                console.log('gainOnSale:', gainOnSale);
+              }
               
               // Also reduce global encumberedBtcBasis for tracking
               const totalEncumberedBtcAmount = Object.values(encumberedBtc).reduce((sum, btc) => sum + btc, 0);
@@ -2442,8 +2470,20 @@ export function runUnifiedProjection({
               const taxableIncomeBase = withdrawFromTaxable + withdrawFromTaxDeferred;
               const taxOnSale = gainOnSale * getLTCGRate(taxableIncomeBase, filingStatus, year);
               
+              if (DEBUG) {
+                console.log('taxableIncomeBase:', taxableIncomeBase);
+                console.log('LTCG rate:', getLTCGRate(taxableIncomeBase, filingStatus, year));
+                console.log('taxOnSale:', taxOnSale);
+              }
+              
               const netEquityAvailable = equityReleasedGross - taxOnSale;
               const appliedToDeficit = Math.min(netEquityAvailable, remainingShortfall);
+              
+              if (DEBUG) {
+                console.log('netEquityAvailable:', netEquityAvailable);
+                console.log('appliedToDeficit:', appliedToDeficit);
+                console.log('remainingShortfall before:', remainingShortfall);
+              }
               
               remainingShortfall -= appliedToDeficit;
               fromLoanPayoff += appliedToDeficit;
