@@ -2426,15 +2426,15 @@ export function runUnifiedProjection({
               const storedBasis = loanCollateralBasis[loanKey] || 0;
               const storedBtc = encumberedBtc[loanKey] || loan.collateral_btc_amount || 0;
               
-              if (DEBUG) {
-                console.log('=== LIQUIDATING ===');
-                console.log('Loan name:', loan.name);
-                console.log('loan.id:', loan.id);
-                console.log('loan.loanKey:', loan.loanKey);
-                console.log('Looking up loanCollateralBasis[' + loanKey + ']:', loanCollateralBasis[loanKey]);
-                console.log('storedBasis:', storedBasis);
-                console.log('storedBtc:', storedBtc);
-              }
+              // DETAILED DEBUG: Trace key mismatch (pre-retirement deficit)
+              console.log('💰 LIQUIDATING LOAN (pre-retire):', loan.name);
+              console.log('   loan.id:', loan.id);
+              console.log('   loan.entity_type:', loan.entity_type);
+              console.log('   loan.loanKey:', loan.loanKey);
+              console.log('   All keys in loanCollateralBasis:', Object.keys(loanCollateralBasis));
+              console.log('   loanCollateralBasis[loanKey]:', loanCollateralBasis[loanKey]);
+              console.log('   storedBasis:', storedBasis);
+              console.log('   storedBtc:', storedBtc);
               
               const saleProceeds = btcToSellForDebt * cumulativeBtcPrice;
               let costBasisForSale = 0;
@@ -2897,15 +2897,15 @@ export function runUnifiedProjection({
               const storedBasis = loanCollateralBasis[loanKey] || 0;
               const storedBtc = encumberedBtc[loanKey] || loan.collateral_btc_amount || 0;
               
-              if (DEBUG) {
-                console.log('=== LIQUIDATING ===');
-                console.log('Loan name:', loan.name);
-                console.log('loan.id:', loan.id);
-                console.log('loan.loanKey:', loan.loanKey);
-                console.log('Looking up loanCollateralBasis[' + loanKey + ']:', loanCollateralBasis[loanKey]);
-                console.log('storedBasis:', storedBasis);
-                console.log('storedBtc:', storedBtc);
-              }
+              // DETAILED DEBUG: Trace key mismatch (retirement)
+              console.log('💰 LIQUIDATING LOAN (retirement):', loan.name);
+              console.log('   loan.id:', loan.id);
+              console.log('   loan.entity_type:', loan.entity_type);
+              console.log('   loan.loanKey:', loan.loanKey);
+              console.log('   All keys in loanCollateralBasis:', Object.keys(loanCollateralBasis));
+              console.log('   loanCollateralBasis[loanKey]:', loanCollateralBasis[loanKey]);
+              console.log('   storedBasis:', storedBasis);
+              console.log('   storedBtc:', storedBtc);
               
               const saleProceeds = btcToSellForDebt * cumulativeBtcPrice;
               let costBasisForSale = 0;
