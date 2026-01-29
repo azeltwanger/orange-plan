@@ -6,7 +6,7 @@ import {
   getLTCGRate
 } from '@/components/tax/taxCalculations';
 import { calculateStateTaxOnRetirement, calculateStateIncomeTax } from '@/components/shared/stateTaxConfig';
-import { getTaxConfigForYear, get401kLimit, getRothIRALimit, getTraditionalIRALimit, getHSALimit, getRothIRAIncomeLimit } from '@/components/shared/taxConfig';
+import { getTaxConfigForYear, get401kLimit, getRothIRALimit, getTraditionalIRALimit, getHSALimit, getRothIRAIncomeLimit, getFederalBrackets } from '@/components/shared/taxConfig';
 import { selectLots } from '@/components/shared/lotSelectionHelpers';
 
 /**
@@ -1657,10 +1657,36 @@ export function runUnifiedProjection({
           // After 59.5: All Roth withdrawals are tax-free and penalty-free
           
         } else if (sourcePortfolioKey === 'taxDeferred') {
-          // Traditional/401k: Full amount taxed as ordinary income
-          reallocTaxes = actualSellAmount * 0.24; // Simplified marginal rate
+          // Traditional IRA/401k: Full amount taxed as ordinary income using progressive brackets
+          // Get inflation-adjusted income brackets for the projection year
+          const incomeBracketsData = getFederalBrackets(year, filingStatus, effectiveInflation / 100);
+          const incomeBrackets = incomeBracketsData.map(b => ({
+            max: b.max,
+            rate: b.rate / 100
+          }));
+
+          // Estimate cumulative taxable income for this year (for proper bracket stacking)
+          // Use current year's gross income as base, adjusted for growth
+          let cumulativeTaxableIncomeForRealloc = Math.max(0, grossAnnualIncome * Math.pow(1 + incomeGrowth / 100, i));
+
+          // Calculate progressive income tax on the withdrawal
+          let taxOnTaxDeferred = 0;
+          let remainingAmount = actualSellAmount;
+          
+          for (const bracket of incomeBrackets) {
+            if (remainingAmount <= 0) break;
+            const roomInBracket = Math.max(0, bracket.max - cumulativeTaxableIncomeForRealloc);
+            const amountInBracket = Math.min(remainingAmount, roomInBracket);
+            taxOnTaxDeferred += amountInBracket * bracket.rate;
+            cumulativeTaxableIncomeForRealloc += amountInBracket;
+            remainingAmount -= amountInBracket;
+          }
+          
+          reallocTaxes = taxOnTaxDeferred;
+          
+          // 10% early withdrawal penalty if under 59.5
           if (age < PENALTY_FREE_AGE) {
-            reallocPenalties = actualSellAmount * 0.10; // 10% early withdrawal penalty
+            reallocPenalties = actualSellAmount * 0.10;
           }
         }
         
