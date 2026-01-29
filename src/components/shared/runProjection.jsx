@@ -520,10 +520,6 @@ export function runUnifiedProjection({
   let cumulativeBtcPrice = currentPrice;
   let cumulativeSavings = 0;
   const liquidationEvents = [];
-  
-  // Track paid-off debts to reduce spending in future years
-  // Each entry: { year: number, annualPayment: number, name: string }
-  const paidOffDebtReductions = [];
 
   // Initialize for Average Balance Method for dividends (declared outside loop)
   let beginningYearValues = [];
@@ -744,16 +740,6 @@ export function runUnifiedProjection({
     const age = currentAge + i;
     const isRetired = age >= retirementAge;
     const yearsFromNow = i;
-
-    // Calculate spending reduction from debts paid off in PRIOR years
-    const paidOffDebtSpendingReduction = paidOffDebtReductions
-      .filter(d => d.year < year) // Only debts paid off in previous years
-      .reduce((sum, d) => {
-        // Adjust for inflation since the debt was paid off
-        const yearsOfInflation = year - d.year;
-        const inflationAdjustedPayment = d.annualPayment * Math.pow(1 + effectiveInflation / 100, yearsOfInflation);
-        return sum + inflationAdjustedPayment;
-      }, 0);
 
     // DEBUG: Log first 2 years to diagnose scenario comparison issues
     if (i <= 1 && DEBUG) {
@@ -1219,17 +1205,6 @@ export function runUnifiedProjection({
           if (remainingBalance <= 0.01 && !liability.paid_off) {
             thisYearDebtPayoffs.push({ name: liability.name, liability_name: liability.name });
             liability.paid_off = true;
-            
-            // Record for spending reduction in future years
-            const annualPaymentForReduction = (liability.monthly_payment || 0) * 12;
-            if (annualPaymentForReduction > 0) {
-              paidOffDebtReductions.push({
-                year: year,
-                annualPayment: annualPaymentForReduction,
-                name: liability.name || 'Unknown debt'
-              });
-              if (DEBUG) console.log(`💰 Debt paid off: ${liability.name} - will reduce spending by $${annualPaymentForReduction.toLocaleString()}/year`);
-            }
           }
         } else if (hasInterest && !isBtcLoan) {
           const annualInterest = liability.current_balance * (liability.interest_rate / 100);
@@ -1395,17 +1370,6 @@ export function runUnifiedProjection({
           if (remainingBalance <= 0.01 && !loan.paid_off) {
             thisYearDebtPayoffs.push({ name: loan.name, liability_name: loan.name });
             loan.paid_off = true;
-            
-            // Record for spending reduction in future years
-            const loanAnnualPayment = (loan.minimum_monthly_payment || 0) * 12;
-            if (loanAnnualPayment > 0) {
-              paidOffDebtReductions.push({
-                year: year,
-                annualPayment: loanAnnualPayment,
-                name: loan.name || 'Unknown loan'
-              });
-              if (DEBUG) console.log(`💰 Loan paid off: ${loan.name} - will reduce spending by $${loanAnnualPayment.toLocaleString()}/year`);
-            }
           }
         } else if (hasInterest && i > 0) {
           // Apply declining rate if configured
@@ -2044,8 +2008,7 @@ export function runUnifiedProjection({
       const yearNetIncome = yearGrossIncome - taxesPaid - year401k - yearTraditionalIRA - yearHSA + estimatedDividendIncome + yearLifeEventIncome;
 
       // Calculate base spending WITHOUT one-time life event expenses (for tooltip display)
-      // Subtract spending reduction from debts paid off in prior years
-      const baseSpendingOnly = Math.max(0, (currentAnnualSpending * Math.pow(1 + effectiveInflation / 100, i)) + activeExpenseAdjustment - paidOffDebtSpendingReduction);
+      const baseSpendingOnly = (currentAnnualSpending * Math.pow(1 + effectiveInflation / 100, i)) + activeExpenseAdjustment;
       // Total spending need includes one-time life event expenses
       const totalSpendingNeed = (baseSpendingOnly + yearLifeEventExpense);
       const proRatedTotalSpending = i === 0 ? totalSpendingNeed * currentYearProRataFactor : totalSpendingNeed;
@@ -2406,8 +2369,7 @@ export function runUnifiedProjection({
       // RETIREMENT
       const nominalSpendingAtRetirement = retirementAnnualSpending * Math.pow(1 + effectiveInflation / 100, Math.max(0, retirementAge - currentAge));
       // Calculate base spending WITHOUT life event expenses (for tooltip display)
-      // Subtract spending reduction from debts paid off in prior years
-      const baseSpendingOnly = Math.max(0, (nominalSpendingAtRetirement * Math.pow(1 + effectiveInflation / 100, age - retirementAge)) - paidOffDebtSpendingReduction);
+      const baseSpendingOnly = nominalSpendingAtRetirement * Math.pow(1 + effectiveInflation / 100, age - retirementAge);
       // Total withdrawal need includes life event expenses
       const baseDesiredWithdrawal = baseSpendingOnly + yearLifeEventExpense;
       desiredWithdrawal = i === 0 ? baseDesiredWithdrawal * currentYearProRataFactor : baseDesiredWithdrawal;
@@ -2959,7 +2921,6 @@ export function runUnifiedProjection({
       lifeEventIncome: Math.round(yearLifeEventIncome),
       lifeEventExpense: Math.round(yearLifeEventExpense),
       loanProceeds: Math.round(yearLoanProceeds),
-      paidOffDebtSpendingReduction: Math.round(paidOffDebtSpendingReduction),
       
       // Dividend income
       qualifiedDividends: Math.round(yearQualifiedDividends),
