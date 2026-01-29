@@ -654,7 +654,7 @@ export function runUnifiedProjection({
     }
   });
 
-  // Track cost basis for taxable accounts BEFORE subtracting encumbered BTC
+  // Track cost basis for taxable accounts
   const taxableHoldings = holdings.filter(h => getTaxTreatmentFromHolding(h) === 'taxable');
   const initialTaxableCostBasis = taxableHoldings.reduce((sum, h) => sum + (h.cost_basis_total || 0), 0);
   let runningTaxableBasis = initialTaxableCostBasis;
