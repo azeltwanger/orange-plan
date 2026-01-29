@@ -1061,11 +1061,61 @@ export function runUnifiedProjection({
         portfolio.taxable.btc -= collateralValue;
         encumberedBtc[loanKey] = collateralNeeded;
         releasedBtc[loanKey] = 0;
-        const taxableTotal = getAccountTotal('taxable');
-        if (taxableTotal > 0 && runningTaxableBasis > 0) {
-          const basisToTransfer = runningTaxableBasis * (collateralValue / (taxableTotal + collateralValue));
-          encumberedBtcBasis += basisToTransfer;
-          runningTaxableBasis -= basisToTransfer;
+        
+        // Assign lots at activation time using selectLots for accurate basis tracking
+        const availableBtcLotsForActivation = runningTaxLots.filter(lot => 
+          lot.asset_ticker === 'BTC' && 
+          (lot.account_type === 'taxable' || !lot.account_type) &&
+          (lot.remaining_quantity ?? lot.quantity ?? 0) > 0
+        );
+        
+        if (availableBtcLotsForActivation.length > 0) {
+          const lotResult = selectLots(
+            availableBtcLotsForActivation, 
+            'BTC', 
+            collateralNeeded, 
+            costBasisMethod
+          );
+          
+          const assignedLots = [];
+          let totalBasis = 0;
+          
+          for (const selected of lotResult.selectedLots) {
+            assignedLots.push({
+              lot_id: selected.lot.id,
+              btc_amount: selected.quantityFromLot,
+              cost_basis: selected.costBasis,
+              price_per_unit: selected.costPerUnit,
+              acquired_date: selected.lot.date
+            });
+            totalBasis += selected.costBasis;
+            
+            // Remove from runningTaxLots
+            const lotIndex = runningTaxLots.findIndex(t => t.id === selected.lot.id);
+            if (lotIndex !== -1) {
+              runningTaxLots[lotIndex].remaining_quantity = Math.max(0, 
+                (runningTaxLots[lotIndex].remaining_quantity ?? runningTaxLots[lotIndex].quantity ?? 0) - selected.quantityFromLot
+              );
+              if (runningTaxLots[lotIndex].remaining_quantity <= 0.00000001) {
+                runningTaxLots.splice(lotIndex, 1);
+              }
+            }
+          }
+          
+          loanCollateralLots[loanKey] = assignedLots;
+          loanCollateralBasis[loanKey] = totalBasis;
+          encumberedBtcBasis += totalBasis;
+          runningTaxableBasis = Math.max(0, runningTaxableBasis - totalBasis);
+        } else {
+          // Fallback: proportional basis if no lots available
+          const taxableTotal = getAccountTotal('taxable');
+          if (taxableTotal > 0 && runningTaxableBasis > 0) {
+            const basisToTransfer = runningTaxableBasis * (collateralValue / (taxableTotal + collateralValue));
+            encumberedBtcBasis += basisToTransfer;
+            runningTaxableBasis -= basisToTransfer;
+            loanCollateralBasis[loanKey] = basisToTransfer;
+            loanCollateralLots[loanKey] = [];
+          }
         }
       }
       
