@@ -22,17 +22,29 @@ export function selectLots(lots, ticker, quantityToSell, method = 'HIFO') {
   let sortedLots;
   switch (method) {
     case 'FIFO':
-      // First In, First Out - oldest lots first (earliest date)
-      sortedLots = [...availableLots].sort((a, b) => a.purchaseDate - b.purchaseDate);
+      // First In, First Out - oldest lots first, with ID tie-breaker
+      sortedLots = [...availableLots].sort((a, b) => {
+        const dateDiff = a.purchaseDate - b.purchaseDate;
+        if (dateDiff !== 0) return dateDiff;
+        return (a.id || '').localeCompare(b.id || '');
+      });
       break;
     case 'LIFO':
-      // Last In, First Out - newest lots first (latest date)
-      sortedLots = [...availableLots].sort((a, b) => b.purchaseDate - a.purchaseDate);
+      // Last In, First Out - newest lots first, with ID tie-breaker
+      sortedLots = [...availableLots].sort((a, b) => {
+        const dateDiff = b.purchaseDate - a.purchaseDate;
+        if (dateDiff !== 0) return dateDiff;
+        return (a.id || '').localeCompare(b.id || '');
+      });
       break;
     case 'HIFO':
     default:
-      // Highest In, First Out - highest cost basis first (minimizes gains)
-      sortedLots = [...availableLots].sort((a, b) => b.costPerUnit - a.costPerUnit);
+      // Highest In, First Out - highest cost first, with ID tie-breaker
+      sortedLots = [...availableLots].sort((a, b) => {
+        const costDiff = b.costPerUnit - a.costPerUnit;
+        if (costDiff !== 0) return costDiff;
+        return (a.id || '').localeCompare(b.id || '');
+      });
       break;
   }
 
