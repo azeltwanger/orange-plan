@@ -4180,6 +4180,16 @@ export default function FinancialPlan() {
                 const yearsUntilPenaltyFree = Math.ceil(PENALTY_FREE_AGE - retirementAge);
                 const annualNeedAtRetirement = retirementAnnualSpending * Math.pow(1 + inflationRate / 100, retirementAge - currentAge);
 
+                // Calculate total collateralized BTC value that must be EXCLUDED from accessible funds
+                const totalCollateralizedBtcValue = liabilities
+                  .filter(l => l.type === 'btc_collateralized' && l.collateral_btc_amount > 0)
+                  .reduce((sum, l) => sum + (l.collateral_btc_amount * currentPrice), 0);
+
+                console.log('📊 Early Retirement Warning Calculation:');
+                console.log('   Total taxable value:', taxableValue);
+                console.log('   Collateralized BTC value:', totalCollateralizedBtcValue);
+                console.log('   Net liquid taxable:', taxableValue - totalCollateralizedBtcValue);
+
                 // Calculate blended growth rate based on actual LIQUID taxable portfolio composition
                 const taxableBtc = taxableLiquidHoldings.filter(h => h.ticker === 'BTC').reduce((sum, h) => sum + h.quantity * currentPrice, 0);
                 const taxableStocks = taxableLiquidHoldings.filter(h => h.asset_type === 'stocks').reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
@@ -4230,9 +4240,10 @@ export default function FinancialPlan() {
                   );
                 }
 
-                // Project today's accessible funds forward to retirement age
+                // Project today's ACCESSIBLE funds (excluding collateral) forward to retirement age
                 const yearsToRetirement = Math.max(0, retirementAge - currentAge);
-                const projectedAccessibleFunds = (taxableLiquidValue + totalRothContributions) * Math.pow(1 + bridgeGrowthRate, yearsToRetirement);
+                const netAccessibleTaxableToday = taxableLiquidValue - totalCollateralizedBtcValue;
+                const projectedAccessibleFunds = (netAccessibleTaxableToday + totalRothContributions) * Math.pow(1 + bridgeGrowthRate, yearsToRetirement);
                 const shortfall = Math.max(0, bridgeFundsNeeded - projectedAccessibleFunds);
 
                 return (
@@ -4246,8 +4257,12 @@ export default function FinancialPlan() {
                     </p>
                     <div className="text-xs text-zinc-400 mt-2 space-y-1">
                       <div>• Liquid Taxable (today): {formatNumber(taxableLiquidValue)}</div>
+                      {totalCollateralizedBtcValue > 0 && (
+                        <div className="text-amber-500">• Less: Collateralized BTC: -{formatNumber(totalCollateralizedBtcValue)}</div>
+                      )}
+                      <div className="font-medium text-zinc-300">• Net Accessible Taxable: {formatNumber(netAccessibleTaxableToday)}</div>
                       <div>• Roth Contributions (today): {formatNumber(totalRothContributions)}</div>
-                      <div className="font-medium">• Projected Accessible at {retirementAge}: {formatNumber(projectedAccessibleFunds)}</div>
+                      <div className="font-medium border-t border-zinc-700 pt-1 mt-1">• Projected Accessible at {retirementAge}: {formatNumber(projectedAccessibleFunds)}</div>
                       {totalRothContributions === 0 && taxFreeValue > 0 && (
                         <div className="text-amber-400 mt-1">⚠️ Set Roth contributions in Account settings for accurate early retirement planning</div>
                       )}
