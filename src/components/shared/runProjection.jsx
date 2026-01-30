@@ -352,19 +352,30 @@ export function runUnifiedProjection({
       cashTarget = acct.cash * ratio;
       otherTarget = acct.other * ratio;
     } else if (assetWithdrawalStrategy === 'priority') {
-      // Withdraw in priority order until amount is met
-      // Only set targets here - actual deductions happen in BTC/Other sections below
       let remaining = actualWithdrawal;
+      
+      // STEP 1: Always withdraw cash FIRST (automatic, not user-configurable)
+      const availableCash = acct.cash || 0;
+      if (availableCash > 0 && remaining > 0) {
+        cashTarget = Math.min(remaining, availableCash);
+        remaining -= cashTarget;
+      }
+      
+      // STEP 2: Then withdraw from priority order (excluding cash since it's handled above)
       for (const assetType of withdrawalPriorityOrder) {
         if (remaining <= 0) break;
+        if (assetType === 'cash') continue; // Skip cash, already handled
+        
         const available = acct[assetType] || 0;
-        if (available <= 0) continue; // Skip empty assets
+        if (available <= 0) continue;
+        
         const take = Math.min(remaining, available);
+        
         if (assetType === 'btc') btcTarget = take;
         else if (assetType === 'stocks') stocksTarget = take;
         else if (assetType === 'bonds') bondsTarget = take;
-        else if (assetType === 'cash') cashTarget = take;
         else if (assetType === 'other') otherTarget = take;
+        
         remaining -= take;
       }
     } else if (assetWithdrawalStrategy === 'blended') {
