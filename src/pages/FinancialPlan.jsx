@@ -5025,8 +5025,9 @@ export default function FinancialPlan() {
                         </p>
                       </div>
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
+              </div>
 
               {/* Section 5: Social Security */}
               <div className="border border-zinc-800 rounded-xl overflow-hidden">
