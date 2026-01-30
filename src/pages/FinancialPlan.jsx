@@ -4342,6 +4342,20 @@ export default function FinancialPlan() {
           {/* Retirement Planning Settings */}
           <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
             <h3 className="font-semibold mb-6">Retirement Planning Settings</h3>
+            
+            <div className="space-y-4">
+              {/* Section 1: Basic Settings */}
+              <div className="border border-zinc-800 rounded-xl overflow-hidden">
+                <button
+                  onClick={() => setSectionsExpanded(prev => ({ ...prev, basic: !prev.basic }))}
+                  className="w-full flex items-center justify-between p-4 bg-zinc-800/30 hover:bg-zinc-800/50 transition-colors"
+                >
+                  <h4 className="font-semibold text-zinc-200">Basic Settings</h4>
+                  {sectionsExpanded.basic ? <ChevronUp className="w-5 h-5 text-zinc-400" /> : <ChevronDown className="w-5 h-5 text-zinc-400" />}
+                </button>
+                {sectionsExpanded.basic && (
+                  <div className="p-4 bg-zinc-900/30">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label className="text-zinc-400">Current Age</Label>
@@ -4406,9 +4420,66 @@ export default function FinancialPlan() {
                     {costBasisMethod === 'HIFO' && 'Sells highest cost lots first'}
                   </p>
                 </div>
-                
-                {/* Asset Withdrawal Strategy */}
-                <div className="col-span-full mt-4 pt-4 border-t border-zinc-800">
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Section 2: Income & Spending */}
+              <div className="border border-zinc-800 rounded-xl overflow-hidden">
+                <button
+                  onClick={() => setSectionsExpanded(prev => ({ ...prev, incomeSpending: !prev.incomeSpending }))}
+                  className="w-full flex items-center justify-between p-4 bg-zinc-800/30 hover:bg-zinc-800/50 transition-colors"
+                >
+                  <h4 className="font-semibold text-zinc-200">Income & Spending</h4>
+                  {sectionsExpanded.incomeSpending ? <ChevronUp className="w-5 h-5 text-zinc-400" /> : <ChevronDown className="w-5 h-5 text-zinc-400" />}
+                </button>
+                {sectionsExpanded.incomeSpending && (
+                  <div className="p-4 bg-zinc-900/30">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-zinc-400">Gross Income (Pre-Retirement)</Label>
+                        <Input type="number" value={grossAnnualIncome} onChange={(e) => setGrossAnnualIncome(parseFloat(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
+                        <p className="text-xs text-zinc-500">Salary/wages used until retirement age</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-zinc-400">Gross Income (In Retirement)</Label>
+                        <Input 
+                          type="number" 
+                          value={otherRetirementIncome} 
+                          onChange={(e) => setOtherRetirementIncome(parseFloat(e.target.value) || 0)} 
+                          className="bg-zinc-900 border-zinc-800" 
+                          placeholder="0"
+                        />
+                        <p className="text-xs text-zinc-500">Pension, part-time work, rental (excl. SS)</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-zinc-400">Annual Spending (After Tax)</Label>
+                        <Input type="number" value={currentAnnualSpending} onChange={(e) => setCurrentAnnualSpending(parseFloat(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-zinc-400">Target Retirement Spending</Label>
+                        <Input type="number" value={retirementAnnualSpending} onChange={(e) => setRetirementAnnualSpending(parseFloat(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
+                        <p className="text-xs text-zinc-500">Annual spending goal in retirement</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Section 3: Withdrawal Strategy */}
+              <div className="border border-zinc-800 rounded-xl overflow-hidden">
+                <button
+                  onClick={() => setSectionsExpanded(prev => ({ ...prev, withdrawalStrategy: !prev.withdrawalStrategy }))}
+                  className="w-full flex items-center justify-between p-4 bg-zinc-800/30 hover:bg-zinc-800/50 transition-colors"
+                >
+                  <h4 className="font-semibold text-zinc-200">Withdrawal Strategy</h4>
+                  {sectionsExpanded.withdrawalStrategy ? <ChevronUp className="w-5 h-5 text-zinc-400" /> : <ChevronDown className="w-5 h-5 text-zinc-400" />}
+                </button>
+                {sectionsExpanded.withdrawalStrategy && (
+                  <div className="p-4 bg-zinc-900/30 space-y-6">
+                    {/* Asset Withdrawal */}
+                    <div>
                   <Label className="text-zinc-400 text-sm mb-3 block">Asset Withdrawal Strategy</Label>
                   <p className="text-xs text-zinc-500 mb-3">When selling assets to fund retirement spending, how should they be sold? (Cash is always used first before selling assets)</p>
                   <div className="grid grid-cols-3 gap-3">
@@ -4572,8 +4643,33 @@ export default function FinancialPlan() {
                       <p className="text-xs text-zinc-500 mt-3">Cash is used first, then assets are sold in this order.</p>
                     </div>
                   )}
-                </div>
-                <div className="space-y-2">
+                    </div>
+
+                    {/* Account Withdrawal - Coming Soon */}
+                    <div>
+                      <Label className="text-zinc-300 text-sm mb-2 block">Account Withdrawal</Label>
+                      <div className="p-4 rounded-lg bg-zinc-800/20 border border-zinc-700/50">
+                        <p className="text-sm text-zinc-400">Coming Soon</p>
+                        <p className="text-xs text-zinc-500 mt-1">Configure which account types to withdraw from first (taxable, tax-deferred, tax-free)</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Section 4: Savings & Contributions */}
+              <div className="border border-zinc-800 rounded-xl overflow-hidden">
+                <button
+                  onClick={() => setSectionsExpanded(prev => ({ ...prev, savingsContributions: !prev.savingsContributions }))}
+                  className="w-full flex items-center justify-between p-4 bg-zinc-800/30 hover:bg-zinc-800/50 transition-colors"
+                >
+                  <h4 className="font-semibold text-zinc-200">Savings & Contributions</h4>
+                  {sectionsExpanded.savingsContributions ? <ChevronUp className="w-5 h-5 text-zinc-400" /> : <ChevronDown className="w-5 h-5 text-zinc-400" />}
+                </button>
+                {sectionsExpanded.savingsContributions && (
+                  <div className="p-4 bg-zinc-900/30 space-y-6">
+                    {/* Monthly Investment Amount */}
+                    <div className="space-y-2">
                   <Label className="text-zinc-400">Gross Income (Pre-Retirement)</Label>
                   <Input type="number" value={grossAnnualIncome} onChange={(e) => setGrossAnnualIncome(parseFloat(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
                   <p className="text-xs text-zinc-500">Salary/wages used until retirement age</p>
@@ -4600,13 +4696,7 @@ export default function FinancialPlan() {
                 </div>
               </div>
 
-              {/* New Savings Allocation */}
-              <div className="mt-6 pt-6 border-t border-zinc-800">
-                <div className="space-y-3 mb-6">
-                  <h4 className="font-semibold text-zinc-300">New Savings Allocation</h4>
-                  
-                  {/* Investment Mode Controls */}
-                  <div className="space-y-4 mb-6 p-4 rounded-lg bg-zinc-800/30 border border-zinc-700">
+                    <div className="space-y-4 p-4 rounded-lg bg-zinc-800/30 border border-zinc-700">
                     <Label className="text-zinc-300">Monthly Investment Amount</Label>
                     <div className="flex gap-4">
                       <label className="flex items-center gap-2 cursor-pointer">
@@ -4746,11 +4836,12 @@ export default function FinancialPlan() {
                       ⚠️ Total: {savingsAllocationBtc + savingsAllocationStocks + savingsAllocationBonds + savingsAllocationCash + savingsAllocationOther}% (should be 100%)
                     </p>
                   )}
-                </div>
+                    </div>
 
-                {/* Retirement Savings Allocation */}
-                <h4 className="font-semibold mb-4">Retirement Account Contributions</h4>
-                <p className="text-xs text-zinc-500 mb-4">These contributions continue annually until retirement age {retirementAge}</p>
+                    {/* Retirement Account Contributions */}
+                    <div>
+                      <Label className="text-zinc-300 text-sm mb-2 block">Retirement Account Contributions</Label>
+                      <p className="text-xs text-zinc-500 mb-4">These contributions continue annually until retirement age {retirementAge}</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label className="text-zinc-400">401k/403b Contribution</Label>
@@ -4866,14 +4957,33 @@ export default function FinancialPlan() {
                         <SelectItem value="individual">Individual</SelectItem>
                         <SelectItem value="family">Family</SelectItem>
                       </SelectContent>
-                    </Select>
-                  </div>
-                  </div>
+                      </Select>
+                      </div>
+                      </div>
 
-                  {/* Social Security Settings */}
-                  <div className="mt-6 pt-6 border-t border-zinc-800">
-                  <h4 className="font-semibold mb-4">Social Security</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="mt-4 space-y-2">
+                        <p className="text-xs text-zinc-500">
+                          💡 Pre-tax contributions (401k: {formatNumber(actual401k)}, Traditional IRA: {formatNumber(actualTraditionalIRA)}, HSA: {formatNumber(actualHSA)}) reduce your taxable income. 
+                          Roth IRA comes from after-tax income. Employer match ({formatNumber(employer401kMatch || 0)}) goes to tax-deferred.
+                          Debt payments ({formatNumber(monthlyDebtPayments * 12)}/yr) are tracked separately.
+                        </p>
+                      </div>
+                      </div>
+                      )}
+                      </div>
+
+                      {/* Section 5: Social Security */}
+                      <div className="border border-zinc-800 rounded-xl overflow-hidden">
+                      <button
+                      onClick={() => setSectionsExpanded(prev => ({ ...prev, socialSecurity: !prev.socialSecurity }))}
+                      className="w-full flex items-center justify-between p-4 bg-zinc-800/30 hover:bg-zinc-800/50 transition-colors"
+                      >
+                      <h4 className="font-semibold text-zinc-200">Social Security</h4>
+                      {sectionsExpanded.socialSecurity ? <ChevronUp className="w-5 h-5 text-zinc-400" /> : <ChevronDown className="w-5 h-5 text-zinc-400" />}
+                      </button>
+                      {sectionsExpanded.socialSecurity && (
+                      <div className="p-4 bg-zinc-900/30">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <Label className="text-zinc-400">Social Security (Annual)</Label>
                       {useCustomSocialSecurity ? (
@@ -4927,18 +5037,11 @@ export default function FinancialPlan() {
                     <div className="flex items-end pb-2">
                       <p className="text-xs text-zinc-500">Based on current income. Get exact amount at ssa.gov</p>
                     </div>
+                    </div>
                   </div>
-                  </div>
-
-
-
-              <div className="mt-4 space-y-2">
-              <p className="text-xs text-zinc-500">
-                  💡 Pre-tax contributions (401k: {formatNumber(actual401k)}, Traditional IRA: {formatNumber(actualTraditionalIRA)}, HSA: {formatNumber(actualHSA)}) reduce your taxable income. 
-                  Roth IRA comes from after-tax income. Employer match ({formatNumber(employer401kMatch || 0)}) goes to tax-deferred.
-                  Debt payments ({formatNumber(monthlyDebtPayments * 12)}/yr) are tracked separately.
-                </p>
+                )}
               </div>
+            </div>
           </div>
           </div>
         </TabsContent>
