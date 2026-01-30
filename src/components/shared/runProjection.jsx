@@ -2063,8 +2063,9 @@ export function runUnifiedProjection({
         });
         
         // Add taxes/penalties to year totals
-        taxesPaid += reallocTaxes + reallocPenalties;
-        federalTaxPaid += reallocTaxes + reallocPenalties; // Simplified - add to federal
+        taxesPaid += reallocTaxes;
+        federalTaxPaid += reallocTaxes;
+        penaltyPaid += reallocPenalties;
         
         // Track early withdrawal details separately for tooltips
         if (age < PENALTY_FREE_AGE) {
@@ -2412,9 +2413,9 @@ export function runUnifiedProjection({
           state: stateOfResidence,
           age: age,
           filingStatus: filingStatus,
-          totalAGI: deficit + rothEarningsForStateTax, // Include Roth earnings in AGI
+          totalAGI: (grossAnnualIncome * Math.pow(1 + incomeGrowth / 100, i)) + yearLifeEventTaxableIncome + deficit + rothEarningsForStateTax,
           socialSecurityIncome: 0,
-          taxDeferredWithdrawal: (taxEstimate.fromTaxDeferred || 0) + rothEarningsForStateTax, // Roth earnings taxed as ordinary income
+          taxDeferredWithdrawal: (taxEstimate.fromTaxDeferred || 0) + rothEarningsForStateTax,
           taxableWithdrawal: prelimTaxableWithdraw.withdrawn,
           taxableGainPortion: prelimTaxableWithdraw.shortTermGain + prelimTaxableWithdraw.longTermGain,
           pensionIncome: 0,
@@ -2422,9 +2423,11 @@ export function runUnifiedProjection({
           inflationRate: effectiveInflation / 100
         });
 
-        federalTaxPaid += (taxEstimate.totalTax || 0);
+        // Separate penalties from taxes in pre-retirement deficit
+        const preRetireWithdrawalTaxOnly = (taxEstimate.totalTax || 0) - (taxEstimate.totalPenalty || 0);
+        federalTaxPaid += preRetireWithdrawalTaxOnly;
         stateTaxPaid += preRetireStateTax;
-        taxesPaid += (taxEstimate.totalTax || 0) + preRetireStateTax;
+        taxesPaid += preRetireWithdrawalTaxOnly + preRetireStateTax;
         penaltyPaid = taxEstimate.totalPenalty || 0;
         shortTermGainsTax += (taxEstimate.taxOnShortTermGains || 0);
         longTermGainsTax += (taxEstimate.taxOnLongTermGains || 0);
@@ -2895,9 +2898,11 @@ export function runUnifiedProjection({
         inflationRate: effectiveInflation / 100
       });
 
-      federalTaxPaid = federalTaxOnOtherIncome + (taxEstimate.totalTax || 0);
+      // Separate penalties from taxes (taxEstimate.totalTax includes penalties)
+      const withdrawalTaxOnly = (taxEstimate.totalTax || 0) - (taxEstimate.totalPenalty || 0);
+      federalTaxPaid = federalTaxOnOtherIncome + withdrawalTaxOnly;
       stateTaxPaid = stateTax;
-      taxesPaid = federalTaxOnOtherIncome + (taxEstimate.totalTax || 0) + stateTax;
+      taxesPaid = federalTaxOnOtherIncome + withdrawalTaxOnly + stateTax;
       penaltyPaid = taxEstimate.totalPenalty || 0;
       shortTermGainsTax += (taxEstimate.taxOnShortTermGains || 0);
       longTermGainsTax += (taxEstimate.taxOnLongTermGains || 0);

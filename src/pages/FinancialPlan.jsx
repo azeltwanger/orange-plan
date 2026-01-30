@@ -4097,8 +4097,14 @@ export default function FinancialPlan() {
                   const retirementYears = projections.filter(p => p.age >= retirementAge);
                   const totalTaxes = retirementYears.reduce((sum, y) => sum + (y.taxesPaid || 0), 0);
                   const totalIncome = retirementYears.reduce((sum, y) => {
-                    return sum + (y.grossIncome || 0) + (y.lifeEventIncome || 0) + 
-                           (y.socialSecurityIncome || 0) + (y.withdrawals || 0);
+                    return sum + 
+                      (y.yearGrossIncome || 0) + 
+                      (y.otherRetirementIncome || 0) +
+                      (y.socialSecurityIncome || 0) + 
+                      (y.totalWithdrawalAmount || 0) +
+                      (y.lifeEventIncome || 0) +
+                      (y.loanProceeds || 0) +
+                      (y.totalDividendIncome || 0);
                   }, 0);
                   const effectiveRate = totalIncome > 0 ? ((totalTaxes / totalIncome) * 100).toFixed(1) : '0.0';
                   return `${effectiveRate}%`;
