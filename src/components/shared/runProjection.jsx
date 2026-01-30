@@ -554,6 +554,49 @@ export function runUnifiedProjection({
     }
   };
 
+  // Simulate withdrawal WITHOUT modifying portfolio - for tax estimation only
+  const simulateWithdrawalFromTaxable = (amount) => {
+    const acct = portfolio.taxable;
+    const totalValue = acct.btc + acct.stocks + acct.bonds + acct.cash + acct.other;
+    if (totalValue <= 0 || amount <= 0) {
+      return { withdrawn: 0, shortTermGain: 0, longTermGain: 0, totalCostBasis: 0 };
+    }
+    
+    const actualWithdrawal = Math.min(amount, totalValue);
+    
+    // Estimate proportional withdrawal
+    const btcValue = acct.btc || 0;
+    const stocksValue = acct.stocks || 0;
+    const bondsValue = acct.bonds || 0;
+    const cashValue = acct.cash || 0;
+    const otherValue = acct.other || 0;
+    
+    // Cash used first
+    const cashUsed = Math.min(cashValue, actualWithdrawal);
+    const remainingFromAssets = actualWithdrawal - cashUsed;
+    
+    if (remainingFromAssets <= 0) {
+      return { withdrawn: actualWithdrawal, shortTermGain: 0, longTermGain: 0, totalCostBasis: actualWithdrawal };
+    }
+    
+    // Proportional from non-cash assets
+    const assetTotal = btcValue + stocksValue + bondsValue + otherValue;
+    const btcPortion = assetTotal > 0 ? (btcValue / assetTotal) * remainingFromAssets : 0;
+    const otherPortion = remainingFromAssets - btcPortion;
+    
+    // Estimate cost basis (use runningTaxableBasis ratio)
+    const basisRatio = totalValue > 0 && runningTaxableBasis > 0 ? runningTaxableBasis / totalValue : 0.5;
+    const estimatedBasis = (btcPortion + otherPortion) * Math.min(1, basisRatio);
+    const estimatedGains = Math.max(0, (btcPortion + otherPortion) - estimatedBasis);
+    
+    return {
+      withdrawn: actualWithdrawal,
+      shortTermGain: 0, // Conservative: assume all long-term for simulation
+      longTermGain: estimatedGains,
+      totalCostBasis: cashUsed + estimatedBasis
+    };
+  };
+
   let firstDepletionAge = null;
   const birthYear = currentYear - currentAge;
   const rmdStartAge = birthYear <= 1950 ? 72 : birthYear <= 1959 ? 73 : 75;
@@ -2906,11 +2949,9 @@ export function runUnifiedProjection({
       const effectiveRunningTaxableBasis = Math.min(taxableBalance, runningTaxableBasis);
       const estimatedCurrentGainRatio = taxableBalance > 0 ? Math.max(0, (taxableBalance - effectiveRunningTaxableBasis) / taxableBalance) : 0;
 
-      // Simulate taxable withdrawal first to get accurate gain breakdown
-      const prelimRetirementTaxable = withdrawFromTaxableWithLots(
-        Math.min(cappedWithdrawal, taxableBalance),
-        cumulativeBtcPrice,
-        year
+      // SIMULATE taxable withdrawal for tax estimation (does NOT modify portfolio)
+      const prelimRetirementTaxable = simulateWithdrawalFromTaxable(
+        Math.min(cappedWithdrawal, taxableBalance)
       );
 
       const taxEstimate = estimateRetirementWithdrawalTaxes({
@@ -3025,10 +3066,14 @@ export function runUnifiedProjection({
       
       // Only process withdrawals if there's actually a deficit
       if (totalNeededFromAccounts > 0) {
-        // Use the preliminary withdrawal results we already calculated
-        // (prelimRetirementTaxable already updated lots and portfolio)
-        withdrawFromTaxable = prelimRetirementTaxable.withdrawn;
-        runningTaxableBasis = Math.max(0, runningTaxableBasis - prelimRetirementTaxable.totalCostBasis);
+        // NOW execute the REAL withdrawal since we confirmed there's a deficit
+        const actualTaxableWithdrawal = withdrawFromTaxableWithLots(
+          Math.min(totalNeededFromAccounts, taxableBalance),
+          cumulativeBtcPrice,
+          year
+        );
+        withdrawFromTaxable = actualTaxableWithdrawal.withdrawn;
+        runningTaxableBasis = Math.max(0, runningTaxableBasis - actualTaxableWithdrawal.totalCostBasis);
         
         const requestedFromTaxDeferred = taxEstimate.fromTaxDeferred || 0;
         const requestedFromTaxFree = taxEstimate.fromTaxFree || 0;
