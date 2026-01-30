@@ -204,7 +204,7 @@ export default function FinancialPlan() {
   // Asset withdrawal strategy
   const [assetWithdrawalStrategy, setAssetWithdrawalStrategy] = useState('proportional');
   const [withdrawalPriorityOrder, setWithdrawalPriorityOrder] = useState(['cash', 'bonds', 'stocks', 'other', 'btc']);
-  const [withdrawalBlendPercentages, setWithdrawalBlendPercentages] = useState({ cash: 0, bonds: 25, stocks: 35, other: 10, btc: 30 });
+  const [withdrawalBlendPercentages, setWithdrawalBlendPercentages] = useState({ bonds: 25, stocks: 35, other: 10, btc: 30 });
 
   // Settings loaded flag
   const [settingsLoaded, setSettingsLoaded] = useState(false);
@@ -4625,7 +4625,7 @@ export default function FinancialPlan() {
                           const total = Object.values(withdrawalBlendPercentages).reduce((a, b) => a + b, 0);
                           if (total !== 100 && total > 0) {
                             const factor = 100 / total;
-                            const keys = ['cash', 'bonds', 'stocks', 'other', 'btc'];
+                            const keys = ['bonds', 'stocks', 'other', 'btc'];
                             const normalized = {};
                             let sum = 0;
                             keys.forEach((key, i) => {
@@ -4655,7 +4655,6 @@ export default function FinancialPlan() {
                       </div>
                       <div className="space-y-3">
                         {[
-                          { key: 'cash', label: 'Cash', color: 'text-cyan-400' },
                           { key: 'bonds', label: 'Bonds', color: 'text-purple-400' },
                           { key: 'stocks', label: 'Stocks', color: 'text-blue-400' },
                           { key: 'other', label: 'Other', color: 'text-zinc-400' },
@@ -4686,9 +4685,6 @@ export default function FinancialPlan() {
                       
                       {/* Visual bar */}
                       <div className="mt-4 h-2 rounded-full overflow-hidden flex bg-zinc-700">
-                        {withdrawalBlendPercentages.cash > 0 && (
-                          <div className="bg-cyan-500 h-full transition-all" style={{ width: `${Math.min(withdrawalBlendPercentages.cash, 100)}%` }} />
-                        )}
                         {withdrawalBlendPercentages.bonds > 0 && (
                           <div className="bg-purple-500 h-full transition-all" style={{ width: `${Math.min(withdrawalBlendPercentages.bonds, 100)}%` }} />
                         )}
@@ -4702,7 +4698,7 @@ export default function FinancialPlan() {
                           <div className="bg-orange-500 h-full transition-all" style={{ width: `${Math.min(withdrawalBlendPercentages.btc, 100)}%` }} />
                         )}
                       </div>
-                      <p className="text-xs text-zinc-500 mt-2">Drag sliders to set split. Auto-balances to 100% when you click away.</p>
+                      <p className="text-xs text-zinc-500 mt-2">Cash is always withdrawn first. Drag sliders to set split for remaining assets. Auto-balances to 100% when you click away.</p>
                     </div>
                   )}
 

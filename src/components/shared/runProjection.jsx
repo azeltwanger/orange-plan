@@ -379,44 +379,54 @@ export function runUnifiedProjection({
         remaining -= take;
       }
     } else if (assetWithdrawalStrategy === 'blended') {
-      // Withdraw according to blend percentages
+      let remaining = actualWithdrawal;
+      
+      // STEP 1: Always withdraw cash FIRST (automatic, not user-configurable)
+      const availableCash = acct.cash || 0;
+      if (availableCash > 0 && remaining > 0) {
+        cashTarget = Math.min(remaining, availableCash);
+        remaining -= cashTarget;
+      }
+      
+      // STEP 2: Apply blended percentages to remaining amount (excluding cash)
+      const amountAfterCash = remaining;
+      
       const totalPct = (withdrawalBlendPercentages.btc || 0) + 
                        (withdrawalBlendPercentages.stocks || 0) + 
                        (withdrawalBlendPercentages.bonds || 0) + 
-                       (withdrawalBlendPercentages.cash || 0) + 
                        (withdrawalBlendPercentages.other || 0);
       
-      if (totalPct > 0) {
-        btcTarget = Math.min(acct.btc, actualWithdrawal * (withdrawalBlendPercentages.btc || 0) / totalPct);
-        stocksTarget = Math.min(acct.stocks, actualWithdrawal * (withdrawalBlendPercentages.stocks || 0) / totalPct);
-        bondsTarget = Math.min(acct.bonds, actualWithdrawal * (withdrawalBlendPercentages.bonds || 0) / totalPct);
-        cashTarget = Math.min(acct.cash, actualWithdrawal * (withdrawalBlendPercentages.cash || 0) / totalPct);
-        otherTarget = Math.min(acct.other, actualWithdrawal * (withdrawalBlendPercentages.other || 0) / totalPct);
+      if (totalPct > 0 && amountAfterCash > 0) {
+        btcTarget = Math.min(acct.btc, amountAfterCash * (withdrawalBlendPercentages.btc || 0) / totalPct);
+        stocksTarget = Math.min(acct.stocks, amountAfterCash * (withdrawalBlendPercentages.stocks || 0) / totalPct);
+        bondsTarget = Math.min(acct.bonds, amountAfterCash * (withdrawalBlendPercentages.bonds || 0) / totalPct);
+        otherTarget = Math.min(acct.other, amountAfterCash * (withdrawalBlendPercentages.other || 0) / totalPct);
         
         // If blend doesn't cover full amount (due to min constraints), take remainder proportionally
-        const blendTotal = btcTarget + stocksTarget + bondsTarget + cashTarget + otherTarget;
+        const blendTotal = btcTarget + stocksTarget + bondsTarget + otherTarget;
         
-        if (blendTotal < actualWithdrawal) {
-          const shortfall = actualWithdrawal - blendTotal;
+        if (blendTotal < amountAfterCash) {
+          const shortfall = amountAfterCash - blendTotal;
           const remainingTotal = (acct.btc - btcTarget) + (acct.stocks - stocksTarget) + 
-                                  (acct.bonds - bondsTarget) + (acct.cash - cashTarget) + (acct.other - otherTarget);
+                                  (acct.bonds - bondsTarget) + (acct.other - otherTarget);
           if (remainingTotal > 0) {
             const ratio = Math.min(1, shortfall / remainingTotal);
             btcTarget += (acct.btc - btcTarget) * ratio;
             stocksTarget += (acct.stocks - stocksTarget) * ratio;
             bondsTarget += (acct.bonds - bondsTarget) * ratio;
-            cashTarget += (acct.cash - cashTarget) * ratio;
             otherTarget += (acct.other - otherTarget) * ratio;
           }
         }
-      } else {
-        // Fallback to proportional if no percentages set
-        const ratio = actualWithdrawal / total;
-        btcTarget = acct.btc * ratio;
-        stocksTarget = acct.stocks * ratio;
-        bondsTarget = acct.bonds * ratio;
-        cashTarget = acct.cash * ratio;
-        otherTarget = acct.other * ratio;
+      } else if (amountAfterCash > 0) {
+        // Fallback to proportional if no percentages set (excluding cash)
+        const totalNonCash = acct.btc + acct.stocks + acct.bonds + acct.other;
+        if (totalNonCash > 0) {
+          const ratio = amountAfterCash / totalNonCash;
+          btcTarget = acct.btc * ratio;
+          stocksTarget = acct.stocks * ratio;
+          bondsTarget = acct.bonds * ratio;
+          otherTarget = acct.other * ratio;
+        }
       }
     }
     
