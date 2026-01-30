@@ -184,6 +184,7 @@ export default function FinancialPlan() {
     socialSecurity: false,
     loanModeling: false,
   });
+  const [earlyRetirementWarningExpanded, setEarlyRetirementWarningExpanded] = useState(true);
 
   // Asset withdrawal strategy
   const [assetWithdrawalStrategy, setAssetWithdrawalStrategy] = useState('proportional');
@@ -2489,7 +2490,7 @@ export default function FinancialPlan() {
             );
           })()}
 
-          {/* Early Retirement Warning */}
+          {/* Early Retirement Warning - Collapsible */}
           {retirementAge < PENALTY_FREE_AGE && (() => {
             const yearsUntilPenaltyFree = Math.ceil(PENALTY_FREE_AGE - retirementAge);
             const annualNeedAtRetirement = retirementAnnualSpending * Math.pow(1 + inflationRate / 100, retirementAge - currentAge);
@@ -2546,34 +2547,46 @@ export default function FinancialPlan() {
             const shortfall = Math.max(0, bridgeFundsNeeded - projectedAccessibleFunds);
 
             return (
-              <div className="card-premium rounded-xl p-4 border border-amber-500/30 bg-amber-500/5">
-                <p className="text-sm text-amber-400 font-medium mb-2">
-                  ⚠️ Early Retirement Warning (Before Age {PENALTY_FREE_AGE})
-                </p>
-                <p className="text-sm text-zinc-300">
-                  Retiring at {retirementAge} means {yearsUntilPenaltyFree} years before penalty-free access to retirement account earnings.
-                  At {formatNumber(annualNeedAtRetirement)}/yr spending for {yearsUntilPenaltyFree} years, you'll need approximately <span className="font-bold text-amber-400">{formatNumber(bridgeFundsNeeded)}</span> in accessible funds (liquid taxable + Roth contributions), assuming {(bridgeGrowthRate * 100).toFixed(1)}% portfolio growth during this period.
-                </p>
-                <div className="text-xs text-zinc-400 mt-2 space-y-1">
-                  <div>• Liquid Taxable (today): {formatNumber(taxableLiquidValue)}</div>
-                  {totalCollateralizedBtcValue > 0 && (
-                    <div className="text-amber-500">• Less: Collateralized BTC: -{formatNumber(totalCollateralizedBtcValue)}</div>
-                  )}
-                  <div className="font-medium text-zinc-300">• Net Accessible Taxable: {formatNumber(netAccessibleTaxableToday)}</div>
-                  <div>• Roth Contributions (today): {formatNumber(totalRothContributions)}</div>
-                  <div className="font-medium border-t border-zinc-700 pt-1 mt-1">• Projected Accessible at {retirementAge}: {formatNumber(projectedAccessibleFunds)}</div>
-                  {totalRothContributions === 0 && taxFreeValue > 0 && (
-                    <div className="text-amber-400 mt-1">⚠️ Set Roth contributions in Account settings for accurate early retirement planning</div>
-                  )}
-                </div>
-                {shortfall > 0 ? (
-                  <p className="text-sm text-rose-400 mt-2 font-semibold">
-                    Shortfall: {formatNumber(shortfall)} — You may need to withdraw Roth earnings or tax-deferred funds early (incurring penalties).
-                  </p>
-                ) : (
-                  <p className="text-sm text-emerald-400 mt-2 font-semibold">
-                    ✓ Sufficient accessible funds for early retirement bridge period!
-                  </p>
+              <div className="card-premium rounded-xl border border-amber-500/30 bg-amber-500/5 overflow-hidden">
+                <button
+                  onClick={() => setEarlyRetirementWarningExpanded(!earlyRetirementWarningExpanded)}
+                  className="w-full px-5 py-4 flex items-center justify-between hover:bg-amber-500/10 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-amber-400">⚠️</span>
+                    <span className="text-sm text-amber-400 font-medium">Early Retirement Warning (Before Age {PENALTY_FREE_AGE})</span>
+                  </div>
+                  {earlyRetirementWarningExpanded ? <ChevronUp className="w-4 h-4 text-zinc-400" /> : <ChevronDown className="w-4 h-4 text-zinc-400" />}
+                </button>
+                
+                {earlyRetirementWarningExpanded && (
+                  <div className="px-5 pb-4">
+                    <p className="text-sm text-zinc-300">
+                      Retiring at {retirementAge} means {yearsUntilPenaltyFree} years before penalty-free access to retirement account earnings.
+                      At {formatNumber(annualNeedAtRetirement)}/yr spending for {yearsUntilPenaltyFree} years, you'll need approximately <span className="font-bold text-amber-400">{formatNumber(bridgeFundsNeeded)}</span> in accessible funds (liquid taxable + Roth contributions), assuming {(bridgeGrowthRate * 100).toFixed(1)}% portfolio growth during this period.
+                    </p>
+                    <div className="text-xs text-zinc-400 mt-2 space-y-1">
+                      <div>• Liquid Taxable (today): {formatNumber(taxableLiquidValue)}</div>
+                      {totalCollateralizedBtcValue > 0 && (
+                        <div className="text-amber-500">• Less: Collateralized BTC: -{formatNumber(totalCollateralizedBtcValue)}</div>
+                      )}
+                      <div className="font-medium text-zinc-300">• Net Accessible Taxable: {formatNumber(netAccessibleTaxableToday)}</div>
+                      <div>• Roth Contributions (today): {formatNumber(totalRothContributions)}</div>
+                      <div className="font-medium border-t border-zinc-700 pt-1 mt-1">• Projected Accessible at {retirementAge}: {formatNumber(projectedAccessibleFunds)}</div>
+                      {totalRothContributions === 0 && taxFreeValue > 0 && (
+                        <div className="text-amber-400 mt-1">⚠️ Set Roth contributions in Account settings for accurate early retirement planning</div>
+                      )}
+                    </div>
+                    {shortfall > 0 ? (
+                      <p className="text-sm text-rose-400 mt-2 font-semibold">
+                        Shortfall: {formatNumber(shortfall)} — You may need to withdraw Roth earnings or tax-deferred funds early (incurring penalties).
+                      </p>
+                    ) : (
+                      <p className="text-sm text-emerald-400 mt-2 font-semibold">
+                        ✓ Sufficient accessible funds for early retirement bridge period!
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
             );
