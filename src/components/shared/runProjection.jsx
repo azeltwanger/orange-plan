@@ -755,7 +755,7 @@ export function runUnifiedProjection({
   // For loans without stored lot data, calculate proportional fallback
   let legacyCollateralBtc = 0;
   [...sortedLiabilities, ...sortedCollateralizedLoans].forEach(loan => {
-    const loanKey = loan.collateral_btc_amount ? (liabilities.includes(loan) ? loan.id : `loan_${loan.id}`) : null;
+    const loanKey = loan.collateral_btc_amount ? (sortedLiabilities.includes(loan) ? loan.id : `loan_${loan.id}`) : null;
     if (loanKey && !loanCollateralBasis[loanKey] && loan.collateral_btc_amount > 0) {
       legacyCollateralBtc += loan.collateral_btc_amount;
     }
@@ -768,7 +768,7 @@ export function runUnifiedProjection({
     
     // Assign proportional basis to each legacy loan
     [...sortedLiabilities, ...sortedCollateralizedLoans].forEach(loan => {
-      const loanKey = loan.collateral_btc_amount ? (liabilities.includes(loan) ? loan.id : `loan_${loan.id}`) : null;
+      const loanKey = loan.collateral_btc_amount ? (sortedLiabilities.includes(loan) ? loan.id : `loan_${loan.id}`) : null;
       if (loanKey && !loanCollateralBasis[loanKey] && loan.collateral_btc_amount > 0) {
         const loanCollateralValue = loan.collateral_btc_amount * currentPrice;
         loanCollateralBasis[loanKey] = legacyProportionalBasis * (loanCollateralValue / legacyCollateralValue);
@@ -813,7 +813,7 @@ export function runUnifiedProjection({
       : currentAge;
     
     const hypotheticalLoanObj = {
-      id: 'hypothetical_btc_loan_' + Date.now(),
+      id: 'hypothetical_btc_loan',
       name: 'Hypothetical BTC Loan',
       type: 'btc_collateralized',
       current_balance: hypothetical_btc_loan.loan_amount || 0,
@@ -1904,8 +1904,8 @@ export function runUnifiedProjection({
         let sourceAccountType = realloc.source_account_type;
         let sellAssetType = realloc.sell_asset_type;
         
-        if (realloc.sell_holding_id && holdings) {
-          const holdingToSell = holdings.find(h => h.id === realloc.sell_holding_id);
+        if (realloc.sell_holding_id && sortedHoldings) {
+          const holdingToSell = sortedHoldings.find(h => h.id === realloc.sell_holding_id);
           if (holdingToSell) {
             if (!sourceAccountType) {
               const taxTreatment = getTaxTreatmentFromHolding(holdingToSell);
