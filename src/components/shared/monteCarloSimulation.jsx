@@ -350,6 +350,20 @@ export function runMonteCarloSimulation(
 
     if (baseResult.survives) baselineSuccess++;
     
+    // DEBUG: Log first 5 iterations to verify each produces different results
+    if (i < 5) {
+      const finalYear = baseResult.yearByYear?.[baseResult.yearByYear.length - 1];
+      console.log(`MC Iteration ${i}`, {
+        seed: seed,
+        survives: baseResult.survives,
+        finalNetWorth: finalYear?.total,
+        btcPriceYear1: baseResult.yearByYear?.[1]?.btcPrice,
+        btcPriceFinal: finalYear?.btcPrice,
+        btcGrowthYear1: paths[i].btc[1],
+        stocksGrowthYear1: paths[i].stocks[1],
+      });
+    }
+    
     // Check for liquidation events (excluding top_up and release)
     const baseHasLiquidation = baseResult.yearByYear?.some(y => 
       y.liquidations?.some(l => l.type !== 'top_up' && l.type !== 'release')
