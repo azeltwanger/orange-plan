@@ -4439,13 +4439,15 @@ export default function FinancialPlan() {
                     <span className="text-cyan-400">●</span>
                     <p><span className="text-cyan-400">LTV ≤ {btcReleaseTriggerLtv}%:</span> <span className="text-zinc-400">Excess collateral released (LTV → {btcReleaseTargetLtv}%)</span></p>
                   </div>
-                  <div className="flex items-start gap-2">
-                    <span className="text-amber-400">●</span>
-                    <p><span className="text-amber-400">LTV ≥ {btcTopUpTriggerLtv}%:</span> <span className="text-zinc-400">Auto top-up from liquid BTC (→ {btcTopUpTargetLtv}%)</span></p>
-                  </div>
+                  {autoTopUpBtcCollateral && (
+                    <div className="flex items-start gap-2">
+                      <span className="text-amber-400">●</span>
+                      <p><span className="text-amber-400">LTV ≥ {btcTopUpTriggerLtv}%:</span> <span className="text-zinc-400">Auto top-up from liquid BTC (→ {btcTopUpTargetLtv}%)</span></p>
+                    </div>
+                  )}
                   <div className="flex items-start gap-2">
                     <span className="text-rose-400">●</span>
-                    <p><span className="text-rose-400">LTV ≥ 80%:</span> <span className="text-zinc-400">Collateral liquidated to pay off loan entirely</span></p>
+                    <p><span className="text-rose-400">LTV ≥ {userSettings[0]?.btc_liquidation_ltv || 80}%:</span> <span className="text-zinc-400">Collateral liquidated to pay off loan entirely</span></p>
                   </div>
                 </div>
                 <p className="text-xs text-zinc-500 mt-3">
