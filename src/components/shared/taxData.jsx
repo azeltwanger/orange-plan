@@ -187,18 +187,14 @@ export const STANDARD_DEDUCTIONS = {
     additional_single: 2000,
     additional_married: 1600
   },
-  // 2026 per IRS Revenue Procedure 2025-32 and OBBBA
+  // 2026 per IRS Revenue Procedure 2025-32
   2026: {
     single: 16100,
     married_filing_jointly: 32200,
     married_filing_separately: 16100,
     head_of_household: 24150,
     additional_single: 2050,
-    additional_married: 1650,
-    // NEW for 2026 (OBBBA): Additional deduction for seniors 65+
-    senior_bonus_deduction: 6000,
-    senior_bonus_phaseout_start: 75000,  // Phases out above this AGI
-    senior_bonus_phaseout_rate: 0.06     // $1 reduction per ~$16.67 over threshold
+    additional_married: 1650
   }
 };
 
@@ -620,8 +616,8 @@ export function getLTCGBrackets(year, filingStatus = 'single', inflationRate = n
 }
 
 // Get standard deduction for a year
-// Note: income parameter is needed for senior bonus deduction phaseout (2026+)
-export function getStandardDeduction(year, filingStatus = 'single', age = 0, isBlind = false, inflationRate = null, income = 0) {
+// Includes additional deduction for seniors (65+) and blind taxpayers
+export function getStandardDeduction(year, filingStatus = 'single', age = 0, isBlind = false, inflationRate = null) {
   const yearData = getYearData(STANDARD_DEDUCTIONS, year, inflationRate);
   const normalizedStatus = filingStatus === 'married' ? 'married_filing_jointly' : filingStatus;
   const isMarried = normalizedStatus === 'married_filing_jointly';
@@ -638,31 +634,6 @@ export function getStandardDeduction(year, filingStatus = 'single', age = 0, isB
       if (age >= 65 && isBlind) {
         deduction += additional; // Double if both
       }
-    }
-  }
-  
-  // NEW for 2026+ (OBBBA): Senior bonus deduction with phaseout
-  // Additional $6,000 for 65+ that phases out above $75,000 AGI
-  if (age >= 65 && yearData.senior_bonus_deduction) {
-    let bonusDeduction = yearData.senior_bonus_deduction;
-    const phaseoutStart = yearData.senior_bonus_phaseout_start || 75000;
-    const phaseoutRate = yearData.senior_bonus_phaseout_rate || 0.06;
-    
-    // Apply inflation to phaseout threshold for future years beyond 2026
-    const yearsFromBase = Math.max(0, year - 2026);
-    const effectiveInflationRate = inflationRate !== null ? inflationRate : FALLBACK_INFLATION;
-    const inflatedPhaseoutStart = phaseoutStart * Math.pow(1 + effectiveInflationRate, yearsFromBase);
-    
-    if (income > inflatedPhaseoutStart) {
-      const reduction = (income - inflatedPhaseoutStart) * phaseoutRate;
-      bonusDeduction = Math.max(0, bonusDeduction - reduction);
-    }
-    
-    // Both spouses get the bonus if married filing jointly
-    if (isMarried) {
-      deduction += bonusDeduction * 2;
-    } else {
-      deduction += bonusDeduction;
     }
   }
   

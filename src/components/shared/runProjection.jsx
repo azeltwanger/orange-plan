@@ -841,10 +841,11 @@ export function runUnifiedProjection({
     }
   }
 
-  // Get standard deduction
+  // Get standard deduction - this is the BASE deduction
+  // Age-based senior additions are applied per-year in the loop since age changes
   const taxConfigForYear = getTaxConfigForYear(currentYear);
-  const standardDeductions = taxConfigForYear?.standardDeduction || { single: 15000, married: 30000 };
-  const currentStandardDeduction = standardDeductions[filingStatus] || standardDeductions.single;
+  const standardDeductions = taxConfigForYear?.standardDeduction || { single: 16100, married: 32200 };
+  const baseStandardDeduction = standardDeductions[filingStatus] || standardDeductions.single;
 
   // Track Roth contributions for accurate early withdrawal tax calculations
   // This must be defined BEFORE the main loop so it's accessible in asset reallocation
