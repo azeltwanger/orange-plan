@@ -4417,11 +4417,10 @@ export default function FinancialPlan() {
                       </p>
                     )}
                   </div>
-                );
-              })()}
-          </div>
+                  );
+                  })()}
 
-          {/* Retirement Planning Settings */}
+                  {/* Retirement Planning Settings */}
           <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
             <h3 className="font-semibold mb-6">Retirement Planning Settings</h3>
             
@@ -5019,15 +5018,15 @@ export default function FinancialPlan() {
                     </div>
 
                     <div className="mt-4 space-y-2">
-                    <p className="text-xs text-zinc-500">
-                    💡 Pre-tax contributions (401k: {formatNumber(actual401k)}, Traditional IRA: {formatNumber(actualTraditionalIRA)}, HSA: {formatNumber(actualHSA)}) reduce your taxable income. 
-                    Roth IRA comes from after-tax income. Employer match ({formatNumber(employer401kMatch || 0)}) goes to tax-deferred.
-                    Debt payments ({formatNumber(monthlyDebtPayments * 12)}/yr) are tracked separately.
-                    </p>
+                        <p className="text-xs text-zinc-500">
+                          💡 Pre-tax contributions (401k: {formatNumber(actual401k)}, Traditional IRA: {formatNumber(actualTraditionalIRA)}, HSA: {formatNumber(actualHSA)}) reduce your taxable income. 
+                          Roth IRA comes from after-tax income. Employer match ({formatNumber(employer401kMatch || 0)}) goes to tax-deferred.
+                          Debt payments ({formatNumber(monthlyDebtPayments * 12)}/yr) are tracked separately.
+                        </p>
+                      </div>
                     </div>
-                    </div>
-                    )}
-                    </div>
+                  )}
+                </div>
 
               {/* Section 5: Social Security */}
               <div className="border border-zinc-800 rounded-xl overflow-hidden">
