@@ -1128,6 +1128,7 @@ export function runUnifiedProjection({
     let yearReallocationDetails = [];
     let shortTermGainsTax = 0;
     let longTermGainsTax = 0;
+    let yearTaxableIncome = 0; // Track taxable income for bracket visualization
     
     // Calculate age-specific standard deduction (includes 65+ additional)
     let currentStandardDeduction = baseStandardDeduction;
@@ -2303,7 +2304,7 @@ export function runUnifiedProjection({
       
       yearEmployerMatch = (employer401kMatch || 0) * Math.pow(1 + incomeGrowth / 100, i);
       
-      const yearTaxableIncome = Math.max(0, yearGrossIncome + yearLifeEventTaxableIncome - year401k - yearTraditionalIRA - yearHSA - currentStandardDeduction);
+      yearTaxableIncome = Math.max(0, yearGrossIncome + yearLifeEventTaxableIncome - year401k - yearTraditionalIRA - yearHSA - currentStandardDeduction);
       const yearFederalTax = calculateProgressiveIncomeTax(yearTaxableIncome, filingStatus, year);
       const yearStateTax = calculateStateIncomeTax({ 
         income: yearGrossIncome + yearLifeEventTaxableIncome - year401k - yearTraditionalIRA - yearHSA, 
@@ -2828,7 +2829,9 @@ export function runUnifiedProjection({
         console.log('   totalOtherIncomeForTax (includes life events):', totalOtherIncomeForTax);
       }
 
-      const federalTaxOnOtherIncome = calculateProgressiveIncomeTax(Math.max(0, totalOtherIncomeForTax - currentStandardDeduction), filingStatus, year);
+      // Calculate taxable income for retirement year (ordinary income portion)
+      yearTaxableIncome = Math.max(0, totalOtherIncomeForTax - currentStandardDeduction);
+      const federalTaxOnOtherIncome = calculateProgressiveIncomeTax(yearTaxableIncome, filingStatus, year);
       
       const netSpendingNeed = Math.max(0, desiredWithdrawal - totalRetirementIncome - rmdWithdrawn);
       
@@ -3409,6 +3412,7 @@ export function runUnifiedProjection({
       federalTaxPaid: Math.round(federalTaxPaid),
       stateTaxPaid: Math.round(stateTaxPaid),
       penaltyPaid: Math.round(penaltyPaid),
+      taxableIncome: Math.round(yearTaxableIncome),
       canAccessPenaltyFree: age >= PENALTY_FREE_AGE,
       
       // RMD
