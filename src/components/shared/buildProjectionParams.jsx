@@ -221,6 +221,7 @@ export function buildProjectionParams(settings, overrides = {}, data) {
     autoTopUpBtcCollateral: effectiveSettings.auto_top_up_btc_collateral ?? settings.auto_top_up_btc_collateral ?? true,
     btcTopUpTriggerLtv: effectiveSettings.btc_top_up_trigger_ltv ?? settings.btc_top_up_trigger_ltv ?? 70,
     btcTopUpTargetLtv: effectiveSettings.btc_top_up_target_ltv ?? settings.btc_top_up_target_ltv ?? 50,
+    btcLiquidationLtv: effectiveSettings.btc_liquidation_ltv ?? settings.btc_liquidation_ltv ?? 80,
     btcReleaseTriggerLtv: effectiveSettings.btc_release_trigger_ltv ?? settings.btc_release_trigger_ltv ?? 30,
     btcReleaseTargetLtv: effectiveSettings.btc_release_target_ltv ?? settings.btc_release_target_ltv ?? 40,
     goals: goals || [],

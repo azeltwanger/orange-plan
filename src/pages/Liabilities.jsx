@@ -35,6 +35,7 @@ export default function Liabilities() {
   const [autoTopUp, setAutoTopUp] = useState(true);
   const [topUpTriggerLtv, setTopUpTriggerLtv] = useState(70);
   const [topUpTargetLtv, setTopUpTargetLtv] = useState(50); // Ledn resets to 50% LTV after top-up
+  const [liquidationLtv, setLiquidationLtv] = useState(80);
   const [releaseTriggerLtv, setReleaseTriggerLtv] = useState(30);
   const [releaseTargetLtv, setReleaseTargetLtv] = useState(40);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
@@ -110,6 +111,7 @@ export default function Liabilities() {
       if (settings.auto_top_up_btc_collateral !== undefined) setAutoTopUp(settings.auto_top_up_btc_collateral);
       if (settings.btc_top_up_trigger_ltv !== undefined) setTopUpTriggerLtv(settings.btc_top_up_trigger_ltv);
       if (settings.btc_top_up_target_ltv !== undefined) setTopUpTargetLtv(settings.btc_top_up_target_ltv);
+      if (settings.btc_liquidation_ltv !== undefined) setLiquidationLtv(settings.btc_liquidation_ltv);
       if (settings.btc_release_trigger_ltv !== undefined) setReleaseTriggerLtv(settings.btc_release_trigger_ltv);
       if (settings.btc_release_target_ltv !== undefined) setReleaseTargetLtv(settings.btc_release_target_ltv);
       setSettingsLoaded(true);
@@ -136,12 +138,13 @@ export default function Liabilities() {
         auto_top_up_btc_collateral: autoTopUp,
         btc_top_up_trigger_ltv: topUpTriggerLtv,
         btc_top_up_target_ltv: topUpTargetLtv,
+        btc_liquidation_ltv: liquidationLtv,
         btc_release_trigger_ltv: releaseTriggerLtv,
         btc_release_target_ltv: releaseTargetLtv,
       });
     }, 1000);
     return () => clearTimeout(timeoutId);
-  }, [settingsLoaded, autoTopUp, topUpTriggerLtv, topUpTargetLtv, releaseTriggerLtv, releaseTargetLtv]);
+  }, [settingsLoaded, autoTopUp, topUpTriggerLtv, topUpTargetLtv, liquidationLtv, releaseTriggerLtv, releaseTargetLtv]);
 
   const createLiability = useMutation({
     mutationFn: (data) => base44.entities.Liability.create(data),
@@ -426,7 +429,7 @@ export default function Liabilities() {
               </div>
 
               {autoTopUp && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-4 rounded-xl bg-zinc-800/30">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 p-4 rounded-xl bg-zinc-800/30">
                   <div className="space-y-2">
                     <Label className="text-zinc-400 text-xs uppercase tracking-wider">Top-Up Trigger LTV (%)</Label>
                     <Input
@@ -444,12 +447,24 @@ export default function Liabilities() {
                     <Input
                       type="number"
                       value={topUpTargetLtv}
-                      onChange={(e) => setTopUpTargetLtv(parseInt(e.target.value) || 65)}
+                      onChange={(e) => setTopUpTargetLtv(parseInt(e.target.value) || 50)}
                       min={20}
                       max={70}
                       className="bg-zinc-900 border-zinc-700"
                     />
                     <p className="text-[10px] text-zinc-500">Top-up brings LTV back to this level</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-zinc-400 text-xs uppercase tracking-wider">Liquidation LTV (%)</Label>
+                    <Input
+                      type="number"
+                      value={liquidationLtv}
+                      onChange={(e) => setLiquidationLtv(parseInt(e.target.value) || 80)}
+                      min={75}
+                      max={95}
+                      className="bg-zinc-900 border-zinc-700"
+                    />
+                    <p className="text-[10px] text-zinc-500">Full liquidation if top-up fails at this level</p>
                   </div>
                   <div className="space-y-2">
                     <Label className="text-zinc-400 text-xs uppercase tracking-wider">Release Trigger LTV (%)</Label>
@@ -486,16 +501,19 @@ export default function Liabilities() {
                     <>
                       <li>• When LTV reaches <span className="text-amber-400">{topUpTriggerLtv}%</span>, liquid BTC is used to add collateral</li>
                       <li>• Collateral is added until LTV drops to <span className="text-emerald-400">{topUpTargetLtv}%</span></li>
-                      <li>• If insufficient liquid BTC and LTV reaches <span className="text-rose-400">80%</span>, <span className="text-rose-400">full liquidation</span> occurs (loan paid off, excess collateral returned)</li>
+                      <li>• If insufficient liquid BTC and LTV reaches <span className="text-rose-400">{liquidationLtv}%</span>, <span className="text-rose-400">full liquidation</span> occurs (loan paid off, excess collateral returned)</li>
                     </>
                   ) : (
                     <>
                       <li>• No automatic collateral management</li>
-                      <li>• At <span className="text-rose-400">80% LTV</span>, lender sells collateral to pay off loan entirely</li>
+                      <li>• At <span className="text-rose-400">{liquidationLtv}% LTV</span>, lender sells collateral to pay off loan entirely</li>
                     </>
                   )}
                   <li>• When LTV drops below <span className="text-purple-400">{releaseTriggerLtv}%</span>, excess collateral is released back to liquid (bringing LTV up to <span className="text-emerald-400">{releaseTargetLtv}%</span>)</li>
                 </ul>
+                <p className="text-xs text-zinc-500 mt-2 italic">
+                  Note: Full liquidation is modeled (loan paid off, excess returned). Partial liquidation (Nexo-style) coming in future update.
+                </p>
               </div>
             </div>
           )}

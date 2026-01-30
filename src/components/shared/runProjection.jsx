@@ -126,6 +126,7 @@ export function runUnifiedProjection({
   autoTopUpBtcCollateral,
   btcTopUpTriggerLtv,
   btcTopUpTargetLtv,
+  btcLiquidationLtv,
   btcReleaseTriggerLtv,
   btcReleaseTargetLtv,
   goals = [],
@@ -804,7 +805,7 @@ export function runUnifiedProjection({
       current_balance: hypothetical_btc_loan.loan_amount || 0,
       interest_rate: hypothetical_btc_loan.interest_rate || 12,
       collateral_btc_amount: hypothetical_btc_loan.collateral_btc || 0,
-      liquidation_ltv: 80,
+      liquidation_ltv: btcLiquidationLtv || 80,
       start_age: loanStartAge,
       pay_off_age: (hypothetical_btc_loan.pay_off_age !== undefined && hypothetical_btc_loan.pay_off_age !== null && hypothetical_btc_loan.pay_off_age !== '') 
         ? parseInt(hypothetical_btc_loan.pay_off_age) 
