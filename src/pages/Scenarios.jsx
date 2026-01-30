@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -415,12 +416,21 @@ export default function Scenarios() {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Filter for active tax lots (buys with remaining quantity)
+  // Filter for active tax lots (buys with remaining quantity) - DETERMINISTIC SORT
   const activeTaxLots = useMemo(() => {
-    return (transactions || []).filter(t => 
-      t.type === 'buy' && 
-      (t.remaining_quantity ?? t.quantity) > 0
-    );
+    return (transactions || [])
+      .filter(t => 
+        t.type === 'buy' && 
+        (t.remaining_quantity ?? t.quantity) > 0
+      )
+      .sort((a, b) => {
+        // Primary: sort by date (oldest first for consistency)
+        const dateA = new Date(a.date || '1970-01-01').getTime();
+        const dateB = new Date(b.date || '1970-01-01').getTime();
+        if (dateA !== dateB) return dateA - dateB;
+        // Secondary: sort by id for stability when dates are equal
+        return (a.id || '').localeCompare(b.id || '');
+      });
   }, [transactions]);
 
   const isLoading = holdingsLoading || accountsLoading || liabilitiesLoading || goalsLoading || eventsLoading || settingsLoading || scenariosLoading || priceLoading;
@@ -673,7 +683,6 @@ export default function Scenarios() {
     return worstDrawdown;
   }, [btcCollateralizedLoans, currentPrice]);
 
-  // Extract metrics from projection
   const extractMetrics = (projection, retirementAge, startAgeForProjection) => {
     if (!projection || !projection.yearByYear) return null;
     
