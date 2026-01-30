@@ -53,7 +53,6 @@ import Dashboard from './pages/Dashboard';
 import EstateSecurity from './pages/EstateSecurity';
 import Features from './pages/Features';
 import FeeAnalysis from './pages/FeeAnalysis';
-import FinancialPlan from './pages/FinancialPlan';
 import Goals from './pages/Goals';
 import Home from './pages/Home';
 import Landing from './pages/Landing';
@@ -63,6 +62,7 @@ import Pricing from './pages/Pricing';
 import Scenarios from './pages/Scenarios';
 import Settings from './pages/Settings';
 import TaxCenter from './pages/TaxCenter';
+import FinancialPlan from './pages/FinancialPlan';
 import __Layout from './Layout.jsx';
 
 
@@ -73,7 +73,6 @@ export const PAGES = {
     "EstateSecurity": EstateSecurity,
     "Features": Features,
     "FeeAnalysis": FeeAnalysis,
-    "FinancialPlan": FinancialPlan,
     "Goals": Goals,
     "Home": Home,
     "Landing": Landing,
@@ -83,6 +82,7 @@ export const PAGES = {
     "Scenarios": Scenarios,
     "Settings": Settings,
     "TaxCenter": TaxCenter,
+    "FinancialPlan": FinancialPlan,
 }
 
 export const pagesConfig = {

@@ -82,6 +82,19 @@ const calculatePercentiles = (simulations, percentiles = [10, 25, 50, 75, 90]) =
 export default function FinancialPlan() {
   // Use shared BTC price hook for consistency across pages
   const { btcPrice, priceChange, loading: priceLoading } = useBtcPrice();
+  
+  // DETERMINISTIC: Snapshot BTC price on first load to prevent fluctuations during projection
+  const [snapshotPrice, setSnapshotPrice] = useState(null);
+  
+  useEffect(() => {
+    if (btcPrice && snapshotPrice === null) {
+      setSnapshotPrice(btcPrice);
+    }
+  }, [btcPrice, snapshotPrice]);
+  
+  // Use snapshot price for projections (deterministic), fall back to live price, then fallback
+  const projectionPrice = snapshotPrice || btcPrice || 82000;
+  
   const [activeTab, setActiveTab] = useState('projections');
   const [showMonteCarloSettings, setShowMonteCarloSettings] = useState(false);
   const [earliestRetirementAge, setEarliestRetirementAge] = useState(null);
@@ -240,49 +253,70 @@ export default function FinancialPlan() {
 
 
 
-  // Use live price - no fallback to ensure consistency
-  const currentPrice = btcPrice;
+  // Use snapshot price for deterministic projections
+  const currentPrice = projectionPrice;
   
   // Queries
   const { data: holdings = [] } = useQuery({
     queryKey: ['holdings'],
-    queryFn: () => base44.entities.Holding.list(),
+    queryFn: async () => {
+      const res = await base44.entities.Holding.list();
+      return res.sort((a, b) => (a.id || '').localeCompare(b.id || ''));
+    },
     staleTime: 5 * 60 * 1000,
   });
 
   const { data: goals = [] } = useQuery({
     queryKey: ['goals'],
-    queryFn: () => base44.entities.FinancialGoal.list(),
+    queryFn: async () => {
+      const res = await base44.entities.FinancialGoal.list();
+      return res.sort((a, b) => (a.id || '').localeCompare(b.id || ''));
+    },
     staleTime: 5 * 60 * 1000,
   });
 
   const { data: lifeEvents = [] } = useQuery({
     queryKey: ['lifeEvents'],
-    queryFn: () => base44.entities.LifeEvent.list(),
+    queryFn: async () => {
+      const res = await base44.entities.LifeEvent.list();
+      return res.sort((a, b) => (a.id || '').localeCompare(b.id || ''));
+    },
     staleTime: 5 * 60 * 1000,
   });
 
   const { data: budgetItems = [] } = useQuery({
     queryKey: ['budgetItems'],
-    queryFn: () => base44.entities.BudgetItem.list(),
+    queryFn: async () => {
+      const res = await base44.entities.BudgetItem.list();
+      return res.sort((a, b) => (a.id || '').localeCompare(b.id || ''));
+    },
     staleTime: 5 * 60 * 1000,
   });
 
   const { data: liabilities = [] } = useQuery({
     queryKey: ['liabilities'],
-    queryFn: () => base44.entities.Liability.list(),
+    queryFn: async () => {
+      const res = await base44.entities.Liability.list();
+      return res.sort((a, b) => (a.id || '').localeCompare(b.id || ''));
+    },
     staleTime: 5 * 60 * 1000,
   });
 
   const { data: collateralizedLoans = [] } = useQuery({
     queryKey: ['collateralizedLoans'],
-    queryFn: () => base44.entities.CollateralizedLoan.list(),
+    queryFn: async () => {
+      const res = await base44.entities.CollateralizedLoan.list();
+      return res.sort((a, b) => (a.id || '').localeCompare(b.id || ''));
+    },
     staleTime: 5 * 60 * 1000,
   });
 
   const { data: accounts = [] } = useQuery({
     queryKey: ['accounts'],
-    queryFn: () => base44.entities.Account.list(),
+    queryFn: async () => {
+      const res = await base44.entities.Account.list();
+      return res.sort((a, b) => (a.id || '').localeCompare(b.id || ''));
+    },
     staleTime: 5 * 60 * 1000,
   });
 
@@ -294,7 +328,10 @@ export default function FinancialPlan() {
 
   const { data: transactions = [] } = useQuery({
     queryKey: ['transactions'],
-    queryFn: () => base44.entities.Transaction.list(),
+    queryFn: async () => {
+      const res = await base44.entities.Transaction.list();
+      return res.sort((a, b) => (a.id || '').localeCompare(b.id || ''));
+    },
     staleTime: 5 * 60 * 1000,
   });
 
