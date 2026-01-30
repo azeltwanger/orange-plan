@@ -1235,16 +1235,11 @@ export function runUnifiedProjection({
     }
     releasedBtc = {};
 
-    // Life events: income/expense adjustments
-    let activeIncomeAdjustment = 0;
+    // Life events: expense adjustments only
+    // NOTE: income_change events are handled later via yearLifeEventIncome for consistent display
     let activeExpenseAdjustment = 0;
     
     lifeEvents.forEach(event => {
-      // Recurring income changes
-      if (event.event_type === 'income_change') {
-        const eventEndYear = event.year + (event.is_recurring ? (event.recurring_years || 1) : 1);
-        if (year >= event.year && year < eventEndYear) activeIncomeAdjustment += event.amount;
-      }
       // Recurring expense changes
       if (event.event_type === 'expense_change') {
         const eventEndYear = event.year + (event.is_recurring ? (event.recurring_years || 1) : 1);
@@ -1299,28 +1294,20 @@ export function runUnifiedProjection({
           const eventAmount = event.amount;
           const eventType = event.event_type;
           
-          // CRITICAL: income_change events already flow through activeIncomeAdjustment → yearGrossIncome
-          // Adding them to yearLifeEventIncome would DOUBLE-COUNT the income
-          // Only process non-income_change events here
-          const isIncomeChangeEvent = eventType === 'income_change';
+          // All taxable income life events go through yearLifeEventIncome
+          // This ensures consistent display in both pre-retirement and retirement
+          const isTaxableIncome = ['income_change', 'bonus', 'income', 'pension', 'rental_income', 'business_income', 'annuity'].includes(eventType);
           
-          if (!isIncomeChangeEvent) {
-            // Check if this is taxable income or non-taxable (inheritance, windfall, gift)
-            const isTaxableIncome = ['bonus', 'income', 'pension', 'rental_income', 'business_income', 'annuity'].includes(eventType);
-            
-            if (isTaxableIncome) {
-              // Track separately for tax calculation
-              yearLifeEventTaxableIncome += eventAmount;
-              if (DEBUG) console.log(`💰 Taxable life event: $${eventAmount.toLocaleString()} from ${event.name}`);
-            } else {
-              if (DEBUG) console.log(`💰 Non-taxable life event (${eventType}): $${eventAmount.toLocaleString()} from ${event.name}`);
-            }
-            
-            // Track as life event income - will cover spending first, excess flows to savings
+          if (isTaxableIncome) {
+            // Track separately for tax calculation
+            yearLifeEventTaxableIncome += eventAmount;
+            yearLifeEventIncome += eventAmount;
+            if (DEBUG) console.log(`💰 Taxable life event: $${eventAmount.toLocaleString()} from ${event.name}`);
+          } else {
+            // Non-taxable inflows (inheritance, gift, windfall)
+            if (DEBUG) console.log(`💰 Non-taxable life event (${eventType}): $${eventAmount.toLocaleString()} from ${event.name}`);
             yearLifeEventIncome += eventAmount;
           }
-          // income_change events: already handled via activeIncomeAdjustment (lines 1244-1247)
-          // They flow into yearGrossIncome and are taxed there - no action needed here
         }
         // Also handle inheritance/windfall/gift event types if NOT already handled above
         else if (['inheritance', 'windfall', 'gift', 'asset_sale'].includes(event.event_type) && event.amount > 0 && event.affects !== 'assets') {
@@ -2179,7 +2166,7 @@ export function runUnifiedProjection({
     // PRE-RETIREMENT
     if (!isRetired) {
       const baseGrossIncome = grossAnnualIncome * Math.pow(1 + incomeGrowth / 100, i);
-      yearGrossIncome = baseGrossIncome + activeIncomeAdjustment;
+      yearGrossIncome = baseGrossIncome; // Life event income shows separately via yearLifeEventIncome
       
       // Calculate contribution limits
       const yearLimit401k = get401kLimit(year, age);
