@@ -1167,17 +1167,7 @@ export function runUnifiedProjection({
     if (i > 0) {
       cumulativeBtcPrice = cumulativeBtcPrice * (1 + yearBtcGrowth / 100);
       
-      // Sanity check for extreme BTC prices (likely Monte Carlo outlier)
-      if (cumulativeBtcPrice > 10000000 && shouldLog) {
-        console.warn(`⚠️ EXTREME BTC PRICE in ${runLabel} projection:`, {
-          year,
-          age,
-          price: `$${cumulativeBtcPrice.toLocaleString()}`,
-          growthRate: `${yearBtcGrowth.toFixed(1)}%`,
-          projectionType,
-          iteration: monteCarloIteration
-        });
-      }
+
     }
 
     // === IMMEDIATE LOAN PROCEEDS (Year 0 only) ===
