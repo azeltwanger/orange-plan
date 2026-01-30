@@ -913,7 +913,6 @@ export function runUnifiedProjection({
           // 'cash' (for spending) - This will be added to yearLifeEventIncome in Year 0
           // For now, just mark it with a flag so we can add it to yearLifeEventIncome in the loop
           portfolio.taxable.cash += proceeds; // Temporary - will be converted to income in Year 0
-          runningTaxableBasis += proceeds;
         }
       }
     }
@@ -1321,7 +1320,6 @@ export function runUnifiedProjection({
         } else {
           // 'cash' (for spending) - Don't add to yearLifeEventIncome, only yearLoanProceeds
           // yearLoanProceeds was already incremented above at line 946
-          runningTaxableBasis += proceeds;
           if (DEBUG) console.log(`💰 Loan proceeds for spending: $${proceeds.toLocaleString()}`);
         }
         
