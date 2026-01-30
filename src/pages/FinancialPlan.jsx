@@ -1120,10 +1120,12 @@ export default function FinancialPlan() {
       const debugSpending = 40000;
       let failCount = 0;
       let failDetails = [];
-      
+
       for (let i = 0; i < paths.length; i++) {
         const result = runUnifiedProjection({
           holdings,
+          projectionType: 'monteCarlo',
+          monteCarloIteration: i,
           accounts,
           liabilities,
           collateralizedLoans,
@@ -1200,11 +1202,13 @@ export default function FinancialPlan() {
     if (retirementAge === 32 || retirementAge === 35) {
       console.log(`\n=== Comparing individual sims at $25K for Retire ${retirementAge} ===`);
       const debugSpending = 25000;
-      
+
       let failedSims = [];
       for (let i = 0; i < Math.min(paths.length, 20); i++) {
         const result = runUnifiedProjection({
           holdings,
+          projectionType: 'monteCarlo',
+          monteCarloIteration: i,
           accounts,
           liabilities,
           collateralizedLoans,
