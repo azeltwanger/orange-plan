@@ -2610,11 +2610,13 @@ export function runUnifiedProjection({
               
               portfolio.taxable.btc += netValueAfterTax;
               
-              console.log('🔄 EQUITY RETURN for ' + loan.name + ':');
-              console.log('   releasedBtcValue (gross):', releasedBtcValue);
-              console.log('   taxOnSale:', taxOnSale);
-              console.log('   netValueAfterTax:', netValueAfterTax);
-              console.log('   portfolio.taxable.btc after:', portfolio.taxable.btc);
+              if (DEBUG) {
+                console.log('🔄 EQUITY RETURN for ' + loan.name + ':');
+                console.log('   releasedBtcValue (gross):', releasedBtcValue);
+                console.log('   taxOnSale:', taxOnSale);
+                console.log('   netValueAfterTax:', netValueAfterTax);
+                console.log('   portfolio.taxable.btc after:', portfolio.taxable.btc);
+              }
               
               // Restore proportional basis for released collateral to runningTaxableBasis
               // Basis restored should also reflect the net after-tax value
@@ -3101,11 +3103,13 @@ export function runUnifiedProjection({
               
               portfolio.taxable.btc += netValueAfterTax;
               
-              console.log('🔄 EQUITY RETURN for ' + loan.name + ':');
-              console.log('   releasedBtcValue (gross):', releasedBtcValue);
-              console.log('   taxOnSale:', taxOnSale);
-              console.log('   netValueAfterTax:', netValueAfterTax);
-              console.log('   portfolio.taxable.btc after:', portfolio.taxable.btc);
+              if (DEBUG) {
+                console.log('🔄 EQUITY RETURN for ' + loan.name + ':');
+                console.log('   releasedBtcValue (gross):', releasedBtcValue);
+                console.log('   taxOnSale:', taxOnSale);
+                console.log('   netValueAfterTax:', netValueAfterTax);
+                console.log('   portfolio.taxable.btc after:', portfolio.taxable.btc);
+              }
               
               // Restore proportional basis for released collateral to runningTaxableBasis
               // Basis restored should also reflect the net after-tax value
