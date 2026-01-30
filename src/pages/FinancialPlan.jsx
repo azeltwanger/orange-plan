@@ -4944,11 +4944,11 @@ export default function FinancialPlan() {
                   </p>
                 </div>
               </div>
-            )}
-          </div>
+              )}
+              </div>
 
-                      {/* Section 5: Social Security */}
-                      <div className="border border-zinc-800 rounded-xl overflow-hidden">
+              {/* Section 5: Social Security */}
+              <div className="border border-zinc-800 rounded-xl overflow-hidden">
                       <button
                       onClick={() => setSectionsExpanded(prev => ({ ...prev, socialSecurity: !prev.socialSecurity }))}
                       className="w-full flex items-center justify-between p-4 bg-zinc-800/30 hover:bg-zinc-800/50 transition-colors"
