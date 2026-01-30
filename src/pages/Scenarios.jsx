@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -76,7 +77,10 @@ function getBtcAtAge(projectionResults, targetAge, startAge) {
   if (!yearData || yearData.total <= 0) {
     return { quantity: 0, value: 0, depleted: true };
   }
-  const btcPrice = yearData.btcPrice || 97000;
+  const btcPrice = yearData.btcPrice;
+  if (!btcPrice || btcPrice <= 0) {
+    return { quantity: 0, value: 0, depleted: true };
+  }
   const btcLiquidQty = (yearData.btcLiquid || 0) / btcPrice;
   const btcEncumberedQty = (yearData.btcEncumbered || 0) / btcPrice;
   const btcQuantity = btcLiquidQty + btcEncumberedQty;
@@ -671,7 +675,7 @@ export default function Scenarios() {
   }, [btcCollateralizedLoans, currentPrice]);
 
   // Extract metrics from projection
-  const extractMetrics = (projection, retirementAge) => {
+  const extractMetrics = (projection, retirementAge, startAgeForProjection) => {
     if (!projection || !projection.yearByYear) return null;
     
     const yearByYear = projection.yearByYear;
@@ -705,8 +709,8 @@ export default function Scenarios() {
       portfolioAtRetirement: retirementNetWorth,
       finalNetWorth: finalNetWorth,
       lifetimeTaxes,
-      btcAtRetirement: retirementYear?.liquidBtc || 0,
-      btcAtEnd: finalYear?.liquidBtc || 0,
+      btcAtRetirement: getBtcAtAge(yearByYear, retirementAge, startAgeForProjection).quantity || 0,
+      btcAtEnd: getBtcAtAge(yearByYear, finalYear.age, startAgeForProjection).quantity || 0,
       // Also include gross values for reference
       totalAssetsAtRetirement: retirementYear?.total || 0,
       totalDebtAtRetirement: retirementYear?.totalDebt || 0,
@@ -718,9 +722,10 @@ export default function Scenarios() {
 
   const baselineRetirementAge = settings.retirement_age || 65;
   const scenarioRetirementAge = selectedScenario?.retirement_age_override || baselineRetirementAge;
+  const currentAgeSettings = settings.current_age || 35;
   
-  const baselineMetrics = extractMetrics(baselineProjection, baselineRetirementAge);
-  const scenarioMetrics = extractMetrics(scenarioProjection, scenarioRetirementAge);
+  const baselineMetrics = extractMetrics(baselineProjection, baselineRetirementAge, currentAgeSettings);
+  const scenarioMetrics = extractMetrics(scenarioProjection, scenarioRetirementAge, currentAgeSettings);
 
   // Calculate BTC milestones based on retirement status
   const currentAge = settings.current_age || 35;
@@ -1068,7 +1073,7 @@ export default function Scenarios() {
         setMonteCarloRunning(false);
       }
     }, 50);
-  }, [buildProjectionParams, runMonteCarloComparison, findMaxSustainableSpendingWithPaths, selectedScenario, scenarioAffectsLiquidation]);
+  }, [buildProjectionParams, runMonteCarloComparison, findMaxSustainableSpendingWithPaths, selectedScenario, scenarioAffectsLiquidation, settings, holdings, accounts, liabilities, btcCollateralizedLoans, goals, lifeEvents, activeTaxLots, currentPrice, queryClient]);
 
   // Clear Monte Carlo results when scenario changes
   useEffect(() => {
@@ -1181,7 +1186,7 @@ export default function Scenarios() {
     console.log('Final Net Worth - Baseline:', baseFinal.toLocaleString(), 'Scenario:', scenFinal.toLocaleString());
     console.log('Difference:', (scenFinal - baseFinal).toLocaleString());
     
-  }, [baselineProjection, scenarioProjection, selectedScenario]);
+  }, [baselineProjection, scenarioProjection, selectedScenario, settings, holdings, accounts, liabilities, btcCollateralizedLoans, goals, lifeEvents, activeTaxLots, currentPrice]);
 
   // Debug: Compare taxes year by year
   useEffect(() => {
@@ -1624,7 +1629,7 @@ export default function Scenarios() {
                     className="h-8 w-8 text-rose-400 hover:text-rose-300"
                     onClick={() => deleteScenario.mutate(scenario.id)}
                   >
-                    <Trash2 className="w-3 h-3" />
+                    <Trash2 className="h-3 w-3" />
                   </Button>
                 </div>
               ))}
@@ -3103,10 +3108,10 @@ export default function Scenarios() {
                     </tr>
                     <tr className="border-b border-zinc-800/50">
                       <td className="py-3 px-4 text-zinc-200">Final Net Worth</td>
-                      <td className="py-3 px-4 text-right font-mono text-zinc-200">{formatCurrency(baselineMetrics.finalNetWorth)}</td>
-                      <td className="py-3 px-4 text-right font-mono text-zinc-200">{formatCurrency(scenarioMetrics.finalNetWorth)}</td>
-                      <td className={cn("py-3 px-4 text-right font-mono", scenarioMetrics.finalNetWorth >= baselineMetrics.finalNetWorth ? "text-emerald-400" : "text-rose-400")}>
-                        {formatDelta(baselineMetrics.finalNetWorth, scenarioMetrics.finalNetWorth)}
+                      <td className="py-3 px-4 text-right font-mono text-zinc-200">{formatCurrency(baselineMetrics.finalNet Worth)}</td>
+                      <td className="py-3 px-4 text-right font-mono text-zinc-200">{formatCurrency(scenarioMetrics.finalNet Worth)}</td>
+                      <td className={cn("py-3 px-4 text-right font-mono", scenarioMetrics.finalNet Worth >= baselineMetrics.finalNet Worth ? "text-emerald-400" : "text-rose-400")}>
+                        {formatDelta(baselineMetrics.finalNet Worth, scenarioMetrics.finalNet Worth)}
                       </td>
                     </tr>
                     <tr className="border-b border-zinc-800/50">
