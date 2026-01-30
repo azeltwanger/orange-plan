@@ -18,6 +18,7 @@ import {
   estimateSocialSecurityBenefit
 } from '@/components/tax/taxCalculations';
 import { runUnifiedProjection, getCustomReturnForYear } from '@/components/shared/runProjection';
+import { buildProjectionParams } from '@/components/shared/buildProjectionParams';
 import { selectLots, getAvailableQuantity } from '../components/shared/lotSelectionHelpers';
 import { getRMDFactor } from '@/components/shared/taxData';
 import { get401kLimit, getRothIRALimit, getTraditionalIRALimit, getHSALimit, getTaxConfigForYear, getRothIRAIncomeLimit } from '@/components/shared/taxConfig';
@@ -310,6 +311,24 @@ export default function FinancialPlan() {
     },
     staleTime: 5 * 60 * 1000,
   });
+
+  // Derive BTC-backed loans from Liability entity (same as Scenarios.jsx)
+  const btcCollateralizedLoans = useMemo(() => {
+    if (!liabilities) return [];
+    return liabilities
+      .filter(l => l.type === 'btc_collateralized')
+      .map(l => ({
+        id: l.id,
+        loan_name: l.name,
+        current_balance: l.current_balance || 0,
+        collateral_btc_amount: l.collateral_btc_amount || 0,
+        liquidation_ltv: l.liquidation_ltv || 80,
+        margin_call_ltv: l.margin_call_ltv || 70,
+        interest_rate: l.interest_rate || 12.4,
+        collateral_release_ltv: l.collateral_release_ltv || 30,
+      }))
+      .sort((a, b) => (a.id || '').localeCompare(b.id || ''));
+  }, [liabilities]);
 
   const { data: accounts = [] } = useQuery({
     queryKey: ['accounts'],
@@ -871,169 +890,69 @@ export default function FinancialPlan() {
     activeTaxLots, costBasisMethod, btcReturnModel
   ]);
 
-  // Reusable projection function using unified projection engine
+  // Reusable projection function using buildProjectionParams
   const runProjectionForRetirementAge = useCallback((testRetirementAge, testSpending = null) => {
-    const spendingToUse = testSpending !== null ? testSpending : retirementAnnualSpending;
+    const overrides = {
+      retirement_age_override: testRetirementAge,
+    };
+    if (testSpending !== null) {
+      overrides.annual_retirement_spending_override = testSpending;
+    }
     
-    const result = runUnifiedProjection({
+    const params = buildProjectionParams(settings, overrides, {
       holdings,
-      projectionType: testSpending !== null ? 'maxSpending' : 'earliestAge',
       accounts,
       liabilities,
-      collateralizedLoans,
-      currentPrice,
-      currentAge,
-      retirementAge: testRetirementAge,
-      lifeExpectancy,
-      retirementAnnualSpending: spendingToUse,
-      effectiveSocialSecurity,
-      socialSecurityStartAge,
-      otherRetirementIncome,
-      annualSavings,
-      incomeGrowth,
-      grossAnnualIncome,
-      currentAnnualSpending,
-      filingStatus,
-      stateOfResidence,
-      contribution401k,
-      employer401kMatch,
-      contributionRothIRA,
-      contributionTraditionalIRA,
-      contributionHSA,
-      hsaFamilyCoverage,
-      getBtcGrowthRate,
-      effectiveInflation,
-      effectiveStocksCagr,
-      bondsCagr,
-      realEstateCagr,
-      cashCagr,
-      otherCagr,
-      savingsAllocationBtc,
-      savingsAllocationStocks,
-      savingsAllocationBonds,
-      savingsAllocationCash,
-      savingsAllocationOther,
-      investmentMode,
-      monthlyInvestmentAmount,
-      autoTopUpBtcCollateral,
-      btcTopUpTriggerLtv,
-      btcTopUpTargetLtv,
-      btcReleaseTriggerLtv,
-      btcReleaseTargetLtv,
+      btcCollateralizedLoans,
       goals,
       lifeEvents,
-      getTaxTreatmentFromHolding,
-      customReturnPeriods,
-      tickerReturns,
-      taxLots: activeTaxLots,
-      costBasisMethod,
-      assetWithdrawalStrategy,
-      withdrawalPriorityOrder,
-      withdrawalBlendPercentages,
-      futureBtcLoanRate,
-      futureBtcLoanRateYears,
+      activeTaxLots,
+      currentPrice,
+    });
+    
+    const result = runUnifiedProjection({
+      ...params,
+      projectionType: testSpending !== null ? 'maxSpending' : 'earliestAge',
       DEBUG: false,
     });
     
     return result;
-  }, [holdings, accounts, liabilities, collateralizedLoans, currentPrice, currentAge, lifeExpectancy, customReturnPeriods, tickerReturns, 
-      retirementAnnualSpending, effectiveSocialSecurity, socialSecurityStartAge, otherRetirementIncome,
-      annualSavings, incomeGrowth, grossAnnualIncome, currentAnnualSpending, filingStatus, stateOfResidence,
-      contribution401k, employer401kMatch, contributionRothIRA, contributionTraditionalIRA, contributionHSA, hsaFamilyCoverage,
-      getBtcGrowthRate, effectiveInflation, effectiveStocksCagr, bondsCagr, 
-      realEstateCagr, cashCagr, otherCagr, savingsAllocationBtc, savingsAllocationStocks, savingsAllocationBonds,
-      savingsAllocationCash, savingsAllocationOther, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv,
-      btcReleaseTriggerLtv, btcReleaseTargetLtv, goals, lifeEvents, getTaxTreatmentFromHolding, activeTaxLots, costBasisMethod,
-      futureBtcLoanRate, futureBtcLoanRateYears]);
+  }, [holdings, accounts, liabilities, btcCollateralizedLoans, goals, lifeEvents, activeTaxLots, currentPrice, settings]);
 
 
 
   // Generate projection data using unified projection engine
   const projections = useMemo(() => {
-    console.log('🟠 FINANCIALPLAN direct params:', {
-      holdingsCount: holdings?.length,
-      accountsCount: accounts?.length,
-      liabilitiesCount: liabilities?.length,
-      collateralizedLoansCount: collateralizedLoans?.length,
-      activeTaxLotsCount: activeTaxLots?.length,
-      currentPrice,
-      retirementAge,
-      grossAnnualIncome,
-      currentAnnualSpending,
-      otherRetirementIncome,
-      annualSavings,
-    });
-    const result = runUnifiedProjection({
+    if (!holdings.length || !accounts.length || !userSettings.length || !currentPrice) return [];
+    
+    const params = buildProjectionParams(settings, {}, {
       holdings,
-      projectionType: 'main',
       accounts,
       liabilities,
-      collateralizedLoans,
-      currentPrice,
-      currentAge,
-      retirementAge,
-      lifeExpectancy,
-      retirementAnnualSpending,
-      effectiveSocialSecurity,
-      socialSecurityStartAge,
-      otherRetirementIncome,
-      annualSavings,
-      incomeGrowth,
-      grossAnnualIncome,
-      currentAnnualSpending,
-      filingStatus,
-      stateOfResidence,
-      contribution401k,
-      employer401kMatch,
-      contributionRothIRA,
-      contributionTraditionalIRA,
-      contributionHSA,
-      hsaFamilyCoverage,
-      getBtcGrowthRate,
-      effectiveInflation,
-      effectiveStocksCagr,
-      bondsCagr,
-      realEstateCagr,
-      cashCagr,
-      otherCagr,
-      savingsAllocationBtc,
-      savingsAllocationStocks,
-      savingsAllocationBonds,
-      savingsAllocationCash,
-      savingsAllocationOther,
-      investmentMode,
-      monthlyInvestmentAmount,
-      autoTopUpBtcCollateral,
-      btcTopUpTriggerLtv,
-      btcTopUpTargetLtv,
-      btcReleaseTriggerLtv,
-      btcReleaseTargetLtv,
+      btcCollateralizedLoans,
       goals,
       lifeEvents,
-      getTaxTreatmentFromHolding,
-      customReturnPeriods,
-      tickerReturns,
-      taxLots: activeTaxLots,
-      costBasisMethod,
-      assetWithdrawalStrategy,
-      withdrawalPriorityOrder,
-      withdrawalBlendPercentages,
-      futureBtcLoanRate,
-      futureBtcLoanRateYears,
-      projectionId: 'MAIN',
-      DEBUG: false,
+      activeTaxLots,
+      currentPrice,
     });
     
+    console.log('🟠 FINANCIALPLAN buildProjectionParams output:', {
+      holdingsCount: params.holdings?.length,
+      accountsCount: params.accounts?.length,
+      liabilitiesCount: params.liabilities?.length,
+      collateralizedLoansCount: params.collateralizedLoans?.length,
+      activeTaxLotsCount: params.taxLots?.length,
+      currentPrice: params.currentPrice,
+      retirementAge: params.retirementAge,
+      grossAnnualIncome: params.grossAnnualIncome,
+      currentAnnualSpending: params.currentAnnualSpending,
+      otherRetirementIncome: params.otherRetirementIncome,
+      annualSavings: params.annualSavings,
+    });
+    
+    const result = runUnifiedProjection({ ...params, projectionType: 'main', projectionId: 'MAIN', DEBUG: false });
     return result.yearByYear;
-  }, [holdings, accounts, liabilities, collateralizedLoans, currentPrice, currentAge, retirementAge, lifeExpectancy, customReturnPeriods, tickerReturns,
-      retirementAnnualSpending, effectiveSocialSecurity, socialSecurityStartAge, otherRetirementIncome,
-      annualSavings, incomeGrowth, grossAnnualIncome, currentAnnualSpending, filingStatus, stateOfResidence,
-      contribution401k, employer401kMatch, contributionRothIRA, contributionTraditionalIRA, contributionHSA, hsaFamilyCoverage,
-      getBtcGrowthRate, effectiveInflation, effectiveStocksCagr, bondsCagr, 
-      realEstateCagr, cashCagr, otherCagr, savingsAllocationBtc, savingsAllocationStocks, savingsAllocationBonds,
-      savingsAllocationCash, savingsAllocationOther, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv,
-      btcReleaseTriggerLtv, btcReleaseTargetLtv, goals, lifeEvents, getTaxTreatmentFromHolding, activeTaxLots, costBasisMethod,
-      assetWithdrawalStrategy, withdrawalPriorityOrder, withdrawalBlendPercentages, futureBtcLoanRate, futureBtcLoanRateYears]);
+  }, [holdings, accounts, liabilities, btcCollateralizedLoans, goals, lifeEvents, activeTaxLots, currentPrice, userSettings, settings]);
 
   // Calculate 90% safe spending using Monte Carlo binary search - SEEDED
   const calculateSafeSpendingMonteCarlo = useCallback((numSimulations = 500) => {
