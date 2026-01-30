@@ -4356,8 +4356,7 @@ export default function FinancialPlan() {
                 {sectionsExpanded.basic && (
                   <div className="p-4 bg-zinc-900/30">
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div className="space-y-2">
+                      <div className="space-y-2">
                   <Label className="text-zinc-400">Current Age</Label>
                   <Input type="number" value={currentAge} onChange={(e) => setCurrentAge(parseInt(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
                 </div>
@@ -4419,7 +4418,7 @@ export default function FinancialPlan() {
                     {costBasisMethod === 'LIFO' && 'Sells newest lots first'}
                     {costBasisMethod === 'HIFO' && 'Sells highest cost lots first'}
                   </p>
-                </div>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -4480,7 +4479,7 @@ export default function FinancialPlan() {
                   <div className="p-4 bg-zinc-900/30 space-y-6">
                     {/* Asset Withdrawal */}
                     <div>
-                  <Label className="text-zinc-400 text-sm mb-3 block">Asset Withdrawal Strategy</Label>
+                      <Label className="text-zinc-300 text-sm mb-3 block">Asset Withdrawal</Label>
                   <p className="text-xs text-zinc-500 mb-3">When selling assets to fund retirement spending, how should they be sold? (Cash is always used first before selling assets)</p>
                   <div className="grid grid-cols-3 gap-3">
                     {[
@@ -4669,33 +4668,6 @@ export default function FinancialPlan() {
                 {sectionsExpanded.savingsContributions && (
                   <div className="p-4 bg-zinc-900/30 space-y-6">
                     {/* Monthly Investment Amount */}
-                    <div className="space-y-2">
-                  <Label className="text-zinc-400">Gross Income (Pre-Retirement)</Label>
-                  <Input type="number" value={grossAnnualIncome} onChange={(e) => setGrossAnnualIncome(parseFloat(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
-                  <p className="text-xs text-zinc-500">Salary/wages used until retirement age</p>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-zinc-400">Annual Spending (After Tax)</Label>
-                  <Input type="number" value={currentAnnualSpending} onChange={(e) => setCurrentAnnualSpending(parseFloat(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-zinc-400">Target Retirement Spending</Label>
-                  <Input type="number" value={retirementAnnualSpending} onChange={(e) => setRetirementAnnualSpending(parseFloat(e.target.value) || 0)} className="bg-zinc-900 border-zinc-800" />
-                  <p className="text-xs text-zinc-500">Annual spending goal in retirement</p>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-zinc-400">Gross Income (In Retirement)</Label>
-                  <Input 
-                    type="number" 
-                    value={otherRetirementIncome} 
-                    onChange={(e) => setOtherRetirementIncome(parseFloat(e.target.value) || 0)} 
-                    className="bg-zinc-900 border-zinc-800" 
-                    placeholder="0"
-                  />
-                  <p className="text-xs text-zinc-500">Pension, part-time work, rental (excl. SS)</p>
-                </div>
-              </div>
-
                     <div className="space-y-4 p-4 rounded-lg bg-zinc-800/30 border border-zinc-700">
                     <Label className="text-zinc-300">Monthly Investment Amount</Label>
                     <div className="flex gap-4">
@@ -4769,11 +4741,14 @@ export default function FinancialPlan() {
                         })()}
                       </p>
                     )}
-                  </div>
-                  
-                  <p className="text-xs text-zinc-500">How to invest new savings (must total 100%)</p>
-                  
-                  <div className="grid grid-cols-5 gap-2">
+                    </div>
+
+                    {/* Allocation Percentages */}
+                    <div>
+                      <Label className="text-zinc-300 text-sm mb-2 block">New Savings Allocation</Label>
+                      <p className="text-xs text-zinc-500 mb-3">How to invest new savings (must total 100%)</p>
+
+                      <div className="grid grid-cols-5 gap-2">
                     <div>
                       <Label className="text-xs text-zinc-400">BTC %</Label>
                       <Input
@@ -4834,12 +4809,13 @@ export default function FinancialPlan() {
                   {(savingsAllocationBtc + savingsAllocationStocks + savingsAllocationBonds + savingsAllocationCash + savingsAllocationOther) !== 100 && (
                     <p className="text-xs text-amber-400">
                       ⚠️ Total: {savingsAllocationBtc + savingsAllocationStocks + savingsAllocationBonds + savingsAllocationCash + savingsAllocationOther}% (should be 100%)
-                    </p>
-                  )}
-                    </div>
+                      </p>
+                      )}
+                      </div>
+                      </div>
 
-                    {/* Retirement Account Contributions */}
-                    <div>
+                      {/* Retirement Account Contributions */}
+                      <div>
                       <Label className="text-zinc-300 text-sm mb-2 block">Retirement Account Contributions</Label>
                       <p className="text-xs text-zinc-500 mb-4">These contributions continue annually until retirement age {retirementAge}</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -4962,11 +4938,11 @@ export default function FinancialPlan() {
                       </div>
 
                       <div className="mt-4 space-y-2">
-                        <p className="text-xs text-zinc-500">
-                          💡 Pre-tax contributions (401k: {formatNumber(actual401k)}, Traditional IRA: {formatNumber(actualTraditionalIRA)}, HSA: {formatNumber(actualHSA)}) reduce your taxable income. 
-                          Roth IRA comes from after-tax income. Employer match ({formatNumber(employer401kMatch || 0)}) goes to tax-deferred.
-                          Debt payments ({formatNumber(monthlyDebtPayments * 12)}/yr) are tracked separately.
-                        </p>
+                       <p className="text-xs text-zinc-500">
+                         💡 Pre-tax contributions (401k: {formatNumber(actual401k)}, Traditional IRA: {formatNumber(actualTraditionalIRA)}, HSA: {formatNumber(actualHSA)}) reduce your taxable income. 
+                         Roth IRA comes from after-tax income. Employer match ({formatNumber(employer401kMatch || 0)}) goes to tax-deferred.
+                         Debt payments ({formatNumber(monthlyDebtPayments * 12)}/yr) are tracked separately.
+                       </p>
                       </div>
                       </div>
                       )}
