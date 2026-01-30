@@ -1392,13 +1392,8 @@ export default function Scenarios() {
         ? loanAmt / (ltv / 100 * currentPrice)
         : 0;
       
-      console.log('=== CALCULATING LOAN COLLATERAL ===');
-      console.log('loan_amount:', loanAmt);
-      console.log('ltv:', ltv);
-      console.log('currentPrice used:', currentPrice);
-      console.log('calculated collateral_btc:', calculatedCollateral);
-      console.log('Verify: $' + loanAmt + ' / (' + ltv + '% × $' + currentPrice + ') = ' + calculatedCollateral.toFixed(4) + ' BTC');
-      console.log('Double-check LTV: $' + loanAmt + ' / (' + calculatedCollateral.toFixed(4) + ' BTC × $' + currentPrice + ') = ' + ((loanAmt / (calculatedCollateral * currentPrice)) * 100).toFixed(2) + '%');
+      console.log('[SCENARIO SAVE] btcPrice:', btcPrice, 'currentPrice:', currentPrice);
+      console.log('[SCENARIO SAVE] Loan calc: $' + loanAmt + ' / (' + ltv + '% * $' + currentPrice + ') = ' + calculatedCollateral + ' BTC');
       
       cleanedHypotheticalLoan = {
         enabled: true,

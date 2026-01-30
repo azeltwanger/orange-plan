@@ -595,9 +595,7 @@ export function runUnifiedProjection({
   const loanCollateralLots = {}; // { loanKey: array of lot assignments }
   let encumberedBtcBasis = 0; // CRITICAL: Must be declared before any code uses it
   
-  if (shouldLog) {
-    console.log('📋 Loan tracking initialized (empty objects) - Run ID:', _runId);
-  }
+
 
   // Populate encumberedBtc from existing liabilities/loans BEFORE hypothetical loan processing
   liabilities.forEach(liability => {
