@@ -600,7 +600,7 @@ export function runUnifiedProjection({
 
   // Initialize BTC collateral tracking (must be before hypothetical loan processing)
   const encumberedBtc = {};
-  // Note: releasedBtc object is no longer used - collateral is added to liquid immediately when released
+  let releasedBtc = {}; // Used for tracking released amounts for display/logging only (not for delayed processing)
   
   // Track per-loan collateral basis for accurate tax calculations on liquidation
   const loanCollateralBasis = {}; // { loanKey: total cost basis }
