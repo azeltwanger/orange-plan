@@ -679,6 +679,21 @@ export default function Scenarios() {
     
     const lifetimeTaxes = yearByYear.reduce((sum, y) => sum + (y.taxesPaid || 0), 0);
     
+    // Calculate effective tax rate for retirement years only
+    const retirementYears = yearByYear.filter(y => y.age >= retirementAge);
+    const totalTaxesInRetirement = retirementYears.reduce((sum, y) => sum + (y.taxesPaid || 0), 0);
+    const totalIncomeInRetirement = retirementYears.reduce((sum, y) => {
+      return sum +
+        (y.yearGrossIncome || 0) +
+        (y.otherRetirementIncome || 0) +
+        (y.socialSecurityIncome || 0) +
+        (y.totalWithdrawalAmount || 0) +
+        (y.lifeEventIncome || 0) +
+        (y.loanProceeds || 0) +
+        (y.totalDividendIncome || 0);
+    }, 0);
+    const effectiveTaxRate = totalIncomeInRetirement > 0 ? (totalTaxesInRetirement / totalIncomeInRetirement) * 100 : 0;
+    
     // Calculate Net Worth = Total Assets - Total Debt
     const retirementNetWorth = (retirementYear?.total || 0) - (retirementYear?.totalDebt || 0);
     const finalNetWorth = (finalYear?.total || 0) - (finalYear?.totalDebt || 0);
@@ -694,6 +709,7 @@ export default function Scenarios() {
       // Also include gross values for reference
       totalAssetsAtRetirement: retirementYear?.total || 0,
       totalDebtAtRetirement: retirementYear?.totalDebt || 0,
+      effectiveTaxRate,
     };
   };
 
@@ -3084,12 +3100,30 @@ export default function Scenarios() {
                         {formatDelta(baselineMetrics.finalNetWorth, scenarioMetrics.finalNetWorth)}
                       </td>
                     </tr>
-                    <tr>
+                    <tr className="border-b border-zinc-800/50">
                       <td className="py-3 px-4 text-zinc-200">Lifetime Taxes Paid</td>
                       <td className="py-3 px-4 text-right font-mono text-zinc-200">{formatCurrency(baselineMetrics.lifetimeTaxes)}</td>
                       <td className="py-3 px-4 text-right font-mono text-zinc-200">{formatCurrency(scenarioMetrics.lifetimeTaxes)}</td>
                       <td className={cn("py-3 px-4 text-right font-mono", scenarioMetrics.lifetimeTaxes <= baselineMetrics.lifetimeTaxes ? "text-emerald-400" : "text-rose-400")}>
                         {formatDelta(baselineMetrics.lifetimeTaxes, scenarioMetrics.lifetimeTaxes)}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="py-3 px-4 text-zinc-200">Effective Tax Rate</td>
+                      <td className="py-3 px-4 text-right font-mono text-zinc-200">
+                        {baselineMetrics?.effectiveTaxRate?.toFixed(1) || '0.0'}%
+                      </td>
+                      <td className="py-3 px-4 text-right font-mono text-zinc-200">
+                        {scenarioMetrics?.effectiveTaxRate?.toFixed(1) || '0.0'}%
+                      </td>
+                      <td className={cn(
+                        "py-3 px-4 text-right font-mono",
+                        (scenarioMetrics?.effectiveTaxRate || 0) <= (baselineMetrics?.effectiveTaxRate || 0) ? "text-emerald-400" : "text-rose-400"
+                      )}>
+                        {Math.abs((scenarioMetrics?.effectiveTaxRate || 0) - (baselineMetrics?.effectiveTaxRate || 0)) < 0.1 
+                          ? '—' 
+                          : `${((scenarioMetrics?.effectiveTaxRate || 0) - (baselineMetrics?.effectiveTaxRate || 0)) > 0 ? '+' : ''}${((scenarioMetrics?.effectiveTaxRate || 0) - (baselineMetrics?.effectiveTaxRate || 0)).toFixed(1)}%`
+                        }
                       </td>
                     </tr>
                   </tbody>
