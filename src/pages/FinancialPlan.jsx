@@ -182,7 +182,7 @@ export default function FinancialPlan() {
     withdrawalStrategy: true,
     savingsContributions: false,
     socialSecurity: false,
-    loanModeling: false,
+    loanModeling: liabilities.some(l => l.type === 'btc_collateralized') || collateralizedLoans.length > 0, // Default open if has loans
   });
 
   // Asset withdrawal strategy
@@ -2482,6 +2482,96 @@ export default function FinancialPlan() {
             );
           })()}
 
+          {/* Early Retirement Warning */}
+          {retirementAge < PENALTY_FREE_AGE && (() => {
+            const yearsUntilPenaltyFree = Math.ceil(PENALTY_FREE_AGE - retirementAge);
+            const annualNeedAtRetirement = retirementAnnualSpending * Math.pow(1 + inflationRate / 100, retirementAge - currentAge);
+
+            const totalCollateralizedBtcValue = liabilities
+              .filter(l => l.type === 'btc_collateralized' && l.collateral_btc_amount > 0)
+              .reduce((sum, l) => sum + (l.collateral_btc_amount * currentPrice), 0);
+
+            const taxableBtc = taxableLiquidHoldings.filter(h => h.ticker === 'BTC').reduce((sum, h) => sum + h.quantity * currentPrice, 0);
+            const taxableStocks = taxableLiquidHoldings.filter(h => h.asset_type === 'stocks').reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
+            const taxableBonds = taxableLiquidHoldings.filter(h => h.asset_type === 'bonds').reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
+            const taxableOther = taxableLiquidValue - taxableBtc - taxableStocks - taxableBonds;
+
+            const avgBtcGrowthForBridge = (() => {
+              if (btcReturnModel === 'custom') return effectiveBtcCagr;
+              let totalGrowth = 0;
+              const yearsToRetire = retirementAge - currentAge;
+              for (let y = yearsToRetire; y < yearsToRetire + yearsUntilPenaltyFree; y++) {
+                totalGrowth += getBtcGrowthRate(y, effectiveInflation);
+              }
+              return totalGrowth / yearsUntilPenaltyFree;
+            })();
+
+            let bridgeGrowthRate = 0.05;
+            if (taxableLiquidValue > 0) {
+              bridgeGrowthRate = (
+                (taxableBtc / taxableLiquidValue) * (avgBtcGrowthForBridge / 100) +
+                (taxableStocks / taxableLiquidValue) * (effectiveStocksCagr / 100) +
+                (taxableBonds / taxableLiquidValue) * (bondsCagr / 100) +
+                (taxableOther / taxableLiquidValue) * (effectiveStocksCagr / 100)
+              );
+            }
+
+            const nominalBridgeGrowthRate = bridgeGrowthRate;
+            const inflationRateDecimal = inflationRate / 100;
+
+            const totalRothContributions = accounts
+              .filter(a => ['401k_roth', 'ira_roth', 'hsa'].includes(a.account_type))
+              .reduce((sum, a) => sum + (a.roth_contributions || 0), 0);
+
+            let bridgeFundsNeeded;
+            if (Math.abs(nominalBridgeGrowthRate - inflationRateDecimal) < 0.000001) {
+              bridgeFundsNeeded = annualNeedAtRetirement * yearsUntilPenaltyFree;
+            } else {
+              bridgeFundsNeeded = annualNeedAtRetirement * (
+                (1 - Math.pow((1 + inflationRateDecimal) / (1 + nominalBridgeGrowthRate), yearsUntilPenaltyFree)) /
+                (nominalBridgeGrowthRate - inflationRateDecimal)
+              );
+            }
+
+            const yearsToRetirement = Math.max(0, retirementAge - currentAge);
+            const netAccessibleTaxableToday = taxableLiquidValue - totalCollateralizedBtcValue;
+            const projectedAccessibleFunds = (netAccessibleTaxableToday + totalRothContributions) * Math.pow(1 + bridgeGrowthRate, yearsToRetirement);
+            const shortfall = Math.max(0, bridgeFundsNeeded - projectedAccessibleFunds);
+
+            return (
+              <div className="card-premium rounded-xl p-4 border border-amber-500/30 bg-amber-500/5">
+                <p className="text-sm text-amber-400 font-medium mb-2">
+                  ⚠️ Early Retirement Warning (Before Age {PENALTY_FREE_AGE})
+                </p>
+                <p className="text-sm text-zinc-300">
+                  Retiring at {retirementAge} means {yearsUntilPenaltyFree} years before penalty-free access to retirement account earnings.
+                  At {formatNumber(annualNeedAtRetirement)}/yr spending for {yearsUntilPenaltyFree} years, you'll need approximately <span className="font-bold text-amber-400">{formatNumber(bridgeFundsNeeded)}</span> in accessible funds (liquid taxable + Roth contributions), assuming {(bridgeGrowthRate * 100).toFixed(1)}% portfolio growth during this period.
+                </p>
+                <div className="text-xs text-zinc-400 mt-2 space-y-1">
+                  <div>• Liquid Taxable (today): {formatNumber(taxableLiquidValue)}</div>
+                  {totalCollateralizedBtcValue > 0 && (
+                    <div className="text-amber-500">• Less: Collateralized BTC: -{formatNumber(totalCollateralizedBtcValue)}</div>
+                  )}
+                  <div className="font-medium text-zinc-300">• Net Accessible Taxable: {formatNumber(netAccessibleTaxableToday)}</div>
+                  <div>• Roth Contributions (today): {formatNumber(totalRothContributions)}</div>
+                  <div className="font-medium border-t border-zinc-700 pt-1 mt-1">• Projected Accessible at {retirementAge}: {formatNumber(projectedAccessibleFunds)}</div>
+                  {totalRothContributions === 0 && taxFreeValue > 0 && (
+                    <div className="text-amber-400 mt-1">⚠️ Set Roth contributions in Account settings for accurate early retirement planning</div>
+                  )}
+                </div>
+                {shortfall > 0 ? (
+                  <p className="text-sm text-rose-400 mt-2 font-semibold">
+                    Shortfall: {formatNumber(shortfall)} — You may need to withdraw Roth earnings or tax-deferred funds early (incurring penalties).
+                  </p>
+                ) : (
+                  <p className="text-sm text-emerald-400 mt-2 font-semibold">
+                    ✓ Sufficient accessible funds for early retirement bridge period!
+                  </p>
+                )}
+              </div>
+            );
+          })()}
+
           {/* Projection Chart */}
           <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
             <h3 className="font-semibold mb-2">Wealth Projection</h3>
@@ -4038,18 +4128,107 @@ export default function FinancialPlan() {
             </div>
           </div>
 
-          {/* BTC Loans Status Card */}
-          {liabilities.some(l => l.type === 'btc_collateralized') && projections.length > 0 && (
-            <div className="card-premium rounded-2xl p-6 border border-orange-500/20 bg-gradient-to-br from-orange-500/5 to-transparent">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold flex items-center gap-2">
-                  <span className="text-orange-400">₿</span>
-                  BTC-Backed Loans Projection
-                </h3>
-                <Badge className="bg-orange-500/20 text-orange-400 text-xs">
-                  {liabilities.filter(l => l.type === 'btc_collateralized').length} Active Loan{liabilities.filter(l => l.type === 'btc_collateralized').length !== 1 ? 's' : ''}
-                </Badge>
+          {/* Tax Bracket Room - Compact */}
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h3 className="text-lg font-semibold text-white">Tax Bracket Room</h3>
+                <p className="text-sm text-zinc-400">{currentYear} • {filingStatus === 'married' ? 'Married Filing Jointly' : 'Single'}</p>
               </div>
+            </div>
+            
+            {(() => {
+              const firstYear = projections[0] || {};
+              const grossIncome = (firstYear.yearGrossIncome || grossAnnualIncome) + (firstYear.lifeEventIncome || 0);
+              const taxableIncome = Math.max(0, grossIncome - actual401k - actualTraditionalIRA - actualHSA - currentStandardDeduction);
+              
+              const config = getTaxConfigForYear(currentYear);
+              const brackets = config.federalBrackets[filingStatus] || config.federalBrackets.single;
+              
+              // Find current bracket
+              let currentBracketIdx = 0;
+              let cumulativeIncome = 0;
+              
+              for (let i = 0; i < brackets.length; i++) {
+                const bracketMin = i === 0 ? 0 : brackets[i - 1].max;
+                const bracketMax = brackets[i].max === Infinity ? null : brackets[i].max;
+                
+                if (taxableIncome <= (bracketMax || Infinity)) {
+                  currentBracketIdx = i;
+                  break;
+                }
+              }
+              
+              const currentBracket = brackets[currentBracketIdx];
+              const currentBracketRate = currentBracket.label;
+              const bracketMin = currentBracketIdx === 0 ? 0 : brackets[currentBracketIdx - 1].max;
+              const bracketMax = currentBracket.max === Infinity ? null : currentBracket.max;
+              const bracketSize = bracketMax ? bracketMax - bracketMin : 100000;
+              
+              const amountFilled = Math.max(0, taxableIncome - bracketMin);
+              const roomInBracket = bracketMax ? Math.max(0, bracketMax - taxableIncome) : 0;
+              const percentFilled = bracketMax ? Math.min(100, (amountFilled / bracketSize) * 100) : 0;
+              const nextBracketRate = brackets[currentBracketIdx + 1]?.label || currentBracketRate;
+              
+              return (
+                <div className="space-y-3">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-zinc-400">Your taxable income:</span>
+                    <span className="text-white font-medium">${taxableIncome.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-zinc-400">Current bracket:</span>
+                    <span className="text-orange-400 font-medium">{currentBracketRate}</span>
+                  </div>
+                  
+                  <div className="mt-4">
+                    <div className="flex justify-between text-xs text-zinc-500 mb-1">
+                      <span>{currentBracketRate} bracket (${bracketMin.toLocaleString()} - {bracketMax ? `$${bracketMax.toLocaleString()}` : '∞'})</span>
+                    </div>
+                    <div className="h-3 bg-zinc-800 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-gradient-to-r from-orange-500 to-orange-400 rounded-full transition-all"
+                        style={{ width: `${percentFilled}%` }}
+                      />
+                    </div>
+                    <div className="flex justify-between text-xs mt-1">
+                      <span className="text-zinc-400">${amountFilled.toLocaleString()} filled</span>
+                      {roomInBracket > 0 && <span className="text-green-400">${roomInBracket.toLocaleString()} room</span>}
+                    </div>
+                  </div>
+                  
+                  {roomInBracket > 0 && (
+                    <div className="mt-4 p-3 bg-zinc-800/50 rounded-lg">
+                      <p className="text-sm">
+                        <span className="text-yellow-400">💡</span>
+                        <span className="text-zinc-300 ml-2">
+                          You have ${roomInBracket.toLocaleString()} room before the {nextBracketRate} bracket
+                          {roomInBracket > 10000 && currentBracketRate === '12%' && " — consider Roth conversion to fill it"}
+                        </span>
+                      </p>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* BTC Loans Status Card - Collapsible */}
+          {(liabilities.some(l => l.type === 'btc_collateralized') || collateralizedLoans.length > 0) && projections.length > 0 && (
+            <div className="card-premium rounded-2xl border border-orange-500/20 bg-gradient-to-br from-orange-500/5 to-transparent overflow-hidden">
+              <button
+                onClick={() => setSectionsExpanded(prev => ({ ...prev, loanModeling: !prev.loanModeling }))}
+                className="w-full flex items-center justify-between p-6 hover:bg-zinc-800/30 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-orange-400">₿</span>
+                  <h3 className="font-semibold">BTC-Backed Loans ({liabilities.filter(l => l.type === 'btc_collateralized').length + collateralizedLoans.length} Active)</h3>
+                </div>
+                {sectionsExpanded.loanModeling ? <ChevronUp className="w-5 h-5 text-zinc-400" /> : <ChevronDown className="w-5 h-5 text-zinc-400" />}
+              </button>
+              
+              {sectionsExpanded.loanModeling && (
+                <div className="px-6 pb-6">
               
               {/* LTV Snapshots Over Time */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
@@ -4136,190 +4315,50 @@ export default function FinancialPlan() {
                 <span className="text-emerald-400">●</span> Healthy &lt;40% • <span className="text-amber-400">●</span> Moderate 40-60% • <span className="text-rose-400">●</span> Elevated &gt;60% • Releases at ≤{btcReleaseTriggerLtv}% • Liquidates at ≥80%
               </p>
 
-              {/* Collapsible Explanation */}
-              <div className="border border-zinc-700/50 rounded-lg overflow-hidden">
-                <button
-                  onClick={() => setSectionsExpanded(prev => ({ ...prev, loanModeling: !prev.loanModeling }))}
-                  className="w-full flex items-center justify-between p-3 bg-zinc-800/30 hover:bg-zinc-800/50 transition-colors"
-                >
-                  <span className="text-sm text-zinc-300 font-medium">How loan modeling works</span>
-                  {sectionsExpanded.loanModeling ? <ChevronUp className="w-4 h-4 text-zinc-400" /> : <ChevronDown className="w-4 h-4 text-zinc-400" />}
-                </button>
-                {sectionsExpanded.loanModeling && (
-                  <div className="p-4 bg-zinc-900/30">
-                    <p className="text-sm text-zinc-400 mb-3">
-                      {(() => {
-                        const btcLoans = liabilities.filter(l => l.type === 'btc_collateralized');
-                        if (btcLoans.length === 1) {
-                          return `Loan compounds daily at ${btcLoans[0].interest_rate || 12.4}% APR. Your collateral adjusts automatically:`;
-                        } else if (btcLoans.length > 1) {
-                          const rates = btcLoans.map(l => l.interest_rate || 12.4);
-                          const minRate = Math.min(...rates);
-                          const maxRate = Math.max(...rates);
-                          if (minRate === maxRate) {
-                            return `Loans compound daily at ${minRate}% APR. Your collateral adjusts automatically:`;
-                          }
-                          return `Loans compound daily at ${minRate}-${maxRate}% APR. Your collateral adjusts automatically:`;
-                        }
-                        return `Loans compound daily. Your collateral adjusts automatically:`;
-                      })()}
-                    </p>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex items-start gap-2">
-                        <span className="text-cyan-400">●</span>
-                        <p><span className="text-cyan-400">LTV ≤ {btcReleaseTriggerLtv}%:</span> <span className="text-zinc-400">Excess collateral released (LTV → {btcReleaseTargetLtv}%)</span></p>
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <span className="text-amber-400">●</span>
-                        <p><span className="text-amber-400">LTV ≥ {btcTopUpTriggerLtv}%:</span> <span className="text-zinc-400">Auto top-up from liquid BTC (→ {btcTopUpTargetLtv}%)</span></p>
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <span className="text-rose-400">●</span>
-                        <p><span className="text-rose-400">LTV ≥ 80%:</span> <span className="text-zinc-400">Collateral liquidated to pay off loan entirely</span></p>
-                      </div>
-                    </div>
-                    <p className="text-xs text-zinc-500 mt-3">
-                      To model paying off a loan early, create a Debt Payoff Goal linked to the loan.
-                    </p>
+              {/* How it Works Section */}
+              <div className="p-4 rounded-lg bg-zinc-800/30 border border-zinc-700/50">
+                <p className="text-xs text-zinc-500 font-medium mb-3">How loan modeling works:</p>
+                <p className="text-sm text-zinc-400 mb-3">
+                  {(() => {
+                    const btcLoans = liabilities.filter(l => l.type === 'btc_collateralized');
+                    if (btcLoans.length === 1) {
+                      return `Loan compounds daily at ${btcLoans[0].interest_rate || 12.4}% APR. Your collateral adjusts automatically:`;
+                    } else if (btcLoans.length > 1) {
+                      const rates = btcLoans.map(l => l.interest_rate || 12.4);
+                      const minRate = Math.min(...rates);
+                      const maxRate = Math.max(...rates);
+                      if (minRate === maxRate) {
+                        return `Loans compound daily at ${minRate}% APR. Your collateral adjusts automatically:`;
+                      }
+                      return `Loans compound daily at ${minRate}-${maxRate}% APR. Your collateral adjusts automatically:`;
+                    }
+                    return `Loans compound daily. Your collateral adjusts automatically:`;
+                  })()}
+                </p>
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-start gap-2">
+                    <span className="text-cyan-400">●</span>
+                    <p><span className="text-cyan-400">LTV ≤ {btcReleaseTriggerLtv}%:</span> <span className="text-zinc-400">Excess collateral released (LTV → {btcReleaseTargetLtv}%)</span></p>
                   </div>
-                )}
+                  <div className="flex items-start gap-2">
+                    <span className="text-amber-400">●</span>
+                    <p><span className="text-amber-400">LTV ≥ {btcTopUpTriggerLtv}%:</span> <span className="text-zinc-400">Auto top-up from liquid BTC (→ {btcTopUpTargetLtv}%)</span></p>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="text-rose-400">●</span>
+                    <p><span className="text-rose-400">LTV ≥ 80%:</span> <span className="text-zinc-400">Collateral liquidated to pay off loan entirely</span></p>
+                  </div>
+                </div>
+                <p className="text-xs text-zinc-500 mt-3">
+                  To model paying off a loan early, create a Debt Payoff Goal linked to the loan.
+                </p>
               </div>
+                </div>
             </div>
           )}
 
-          {/* Tax Bracket Room */}
+          {/* Projection Chart */}
           <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="font-semibold">Tax Bracket Room</h3>
-                <p className="text-sm text-zinc-500 mt-1">
-                  {currentYear} • {filingStatus === 'married' ? 'Married Filing Jointly' : 'Single'}
-                </p>
-              </div>
-            </div>
-
-            {(() => {
-              // Calculate current taxable income (first year of projection)
-              const firstYear = projections[0] || {};
-              const grossIncome = firstYear.yearGrossIncome || grossAnnualIncome;
-              const taxableIncome = Math.max(0, grossIncome - actual401k - actualTraditionalIRA - actualHSA - currentStandardDeduction);
-              
-              // Get current year brackets
-              const config = getTaxConfigForYear(currentYear);
-              const brackets = config.federalBrackets[filingStatus] || config.federalBrackets.single;
-              
-              // Calculate bracket usage
-              const bracketData = [];
-              let cumulativeIncome = 0;
-              
-              brackets.forEach((bracket, idx) => {
-                const bracketMin = idx === 0 ? 0 : brackets[idx - 1].max;
-                const bracketMax = bracket.max === Infinity ? null : bracket.max;
-                const bracketSize = bracketMax ? bracketMax - bracketMin : 100000;
-                
-                const incomeInBracket = Math.max(0, Math.min(
-                  taxableIncome - cumulativeIncome,
-                  bracketSize
-                ));
-                const isCurrent = taxableIncome > cumulativeIncome && taxableIncome <= (bracketMax || Infinity);
-                const roomRemaining = bracketMax ? Math.max(0, bracketMax - Math.max(taxableIncome, bracketMin)) : 0;
-                
-                cumulativeIncome += bracketSize;
-                
-                // Only show brackets up to current + 2
-                if (idx <= 5) {
-                  bracketData.push({
-                    rate: bracket.label,
-                    rangeStart: bracketMin,
-                    rangeEnd: bracketMax,
-                    filled: incomeInBracket,
-                    max: bracketSize,
-                    room: roomRemaining,
-                    isCurrent,
-                    status: incomeInBracket >= bracketSize ? 'filled' : incomeInBracket > 0 ? 'partial' : 'empty'
-                  });
-                }
-              });
-              
-              return (
-                <div className="space-y-4">
-                  {/* Current Income Display */}
-                  <div className="flex items-center justify-between p-3 rounded-lg bg-zinc-800/30 border border-zinc-700">
-                    <span className="text-sm text-zinc-400">Your taxable income:</span>
-                    <span className="text-lg font-bold text-orange-400">${taxableIncome.toLocaleString()}</span>
-                  </div>
-                  
-                  {/* Bracket Bars */}
-                  <div className="space-y-3">
-                    {bracketData.map((bracket, idx) => (
-                      <div key={idx} className={cn(
-                        "p-3 rounded-lg border transition-all",
-                        bracket.isCurrent ? "bg-orange-500/10 border-orange-500/30" : "bg-zinc-800/20 border-zinc-700/50"
-                      )}>
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <span className={cn(
-                              "text-sm font-bold",
-                              bracket.isCurrent ? "text-orange-400" : "text-zinc-400"
-                            )}>
-                              {bracket.rate}
-                            </span>
-                            <span className="text-xs text-zinc-500">
-                              ${bracket.rangeStart.toLocaleString()} - {bracket.rangeEnd ? `$${bracket.rangeEnd.toLocaleString()}` : '∞'}
-                            </span>
-                          </div>
-                          {bracket.status !== 'empty' && bracket.room > 0 && (
-                            <span className="text-xs text-emerald-400">
-                              ${bracket.room.toLocaleString()} room
-                            </span>
-                          )}
-                        </div>
-                        
-                        {/* Progress Bar */}
-                        <div className="h-2 bg-zinc-700/50 rounded-full overflow-hidden">
-                          <div 
-                            className={cn(
-                              "h-full transition-all",
-                              bracket.isCurrent ? "bg-orange-500" : "bg-emerald-500"
-                            )}
-                            style={{ width: `${(bracket.filled / bracket.max) * 100}%` }}
-                          />
-                        </div>
-                        
-                        {bracket.status === 'filled' && (
-                          <p className="text-xs text-zinc-500 mt-1">✓ Bracket filled</p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                  
-                  {/* Insights */}
-                  {(() => {
-                    const currentBracket = bracketData.find(b => b.isCurrent);
-                    if (currentBracket && currentBracket.room > 0 && currentBracket.rate === '12%') {
-                      return (
-                        <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
-                          <p className="text-sm text-blue-400">
-                            💡 You have ${currentBracket.room.toLocaleString()} room in the 12% bracket — consider Roth conversion to fill it
-                          </p>
-                        </div>
-                      );
-                    }
-                    if (currentBracket && currentBracket.room > 0) {
-                      return (
-                        <div className="p-3 rounded-lg bg-zinc-800/30 border border-zinc-700">
-                          <p className="text-sm text-zinc-400">
-                            💡 You have ${currentBracket.room.toLocaleString()} room in the {currentBracket.rate} bracket
-                          </p>
-                        </div>
-                      );
-                    }
-                    return null;
-                  })()}
-                </div>
-              );
-            })()}
-          </div>
 
           {/* RMD Notice */}
           {taxDeferredValue > 0 && (
@@ -4346,109 +4385,7 @@ export default function FinancialPlan() {
             </div>
           )}
 
-            {retirementAge < PENALTY_FREE_AGE && (() => {
-                const yearsUntilPenaltyFree = Math.ceil(PENALTY_FREE_AGE - retirementAge);
-                const annualNeedAtRetirement = retirementAnnualSpending * Math.pow(1 + inflationRate / 100, retirementAge - currentAge);
 
-                // Calculate total collateralized BTC value that must be EXCLUDED from accessible funds
-                const totalCollateralizedBtcValue = liabilities
-                  .filter(l => l.type === 'btc_collateralized' && l.collateral_btc_amount > 0)
-                  .reduce((sum, l) => sum + (l.collateral_btc_amount * currentPrice), 0);
-
-                console.log('📊 Early Retirement Warning Calculation:');
-                console.log('   Total taxable value:', taxableValue);
-                console.log('   Collateralized BTC value:', totalCollateralizedBtcValue);
-                console.log('   Net liquid taxable:', taxableValue - totalCollateralizedBtcValue);
-
-                // Calculate blended growth rate based on actual LIQUID taxable portfolio composition
-                const taxableBtc = taxableLiquidHoldings.filter(h => h.ticker === 'BTC').reduce((sum, h) => sum + h.quantity * currentPrice, 0);
-                const taxableStocks = taxableLiquidHoldings.filter(h => h.asset_type === 'stocks').reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
-                const taxableBonds = taxableLiquidHoldings.filter(h => h.asset_type === 'bonds').reduce((sum, h) => sum + h.quantity * (h.current_price || 0), 0);
-                const taxableOther = taxableLiquidValue - taxableBtc - taxableStocks - taxableBonds;
-
-                // Weighted average growth rate based on taxable portfolio allocation
-                const avgBtcGrowthForBridge = (() => {
-                  if (btcReturnModel === 'custom') return effectiveBtcCagr;
-                  let totalGrowth = 0;
-                  const yearsToRetire = retirementAge - currentAge;
-                  for (let y = yearsToRetire; y < yearsToRetire + yearsUntilPenaltyFree; y++) {
-                    totalGrowth += getBtcGrowthRate(y, effectiveInflation);
-                  }
-                  return totalGrowth / yearsUntilPenaltyFree;
-                })();
-
-                let bridgeGrowthRate = 0.05;
-                if (taxableLiquidValue > 0) {
-                  bridgeGrowthRate = (
-                    (taxableBtc / taxableLiquidValue) * (avgBtcGrowthForBridge / 100) +
-                    (taxableStocks / taxableLiquidValue) * (effectiveStocksCagr / 100) +
-                    (taxableBonds / taxableLiquidValue) * (bondsCagr / 100) +
-                    (taxableOther / taxableLiquidValue) * (effectiveStocksCagr / 100)
-                  );
-                }
-
-                // Use growing annuity formula: payments grow with inflation, discounted by nominal growth
-                const nominalBridgeGrowthRate = bridgeGrowthRate;
-                const inflationRateDecimal = inflationRate / 100;
-
-                // Get actual Roth contributions from accounts (default to 0 if not specified)
-                const totalRothContributions = accounts
-                  .filter(a => ['401k_roth', 'ira_roth', 'hsa'].includes(a.account_type))
-                  .reduce((sum, a) => sum + (a.roth_contributions || 0), 0);
-
-                // Present value of withdrawals needed from taxable + Roth contributions
-                // Using growing annuity: annualNeedAtRetirement inflates each year during bridge
-                let bridgeFundsNeeded;
-                if (Math.abs(nominalBridgeGrowthRate - inflationRateDecimal) < 0.000001) {
-                  // When growth rate equals inflation rate
-                  bridgeFundsNeeded = annualNeedAtRetirement * yearsUntilPenaltyFree;
-                } else {
-                  // Growing annuity present value formula
-                  bridgeFundsNeeded = annualNeedAtRetirement * (
-                    (1 - Math.pow((1 + inflationRateDecimal) / (1 + nominalBridgeGrowthRate), yearsUntilPenaltyFree)) /
-                    (nominalBridgeGrowthRate - inflationRateDecimal)
-                  );
-                }
-
-                // Project today's ACCESSIBLE funds (excluding collateral) forward to retirement age
-                const yearsToRetirement = Math.max(0, retirementAge - currentAge);
-                const netAccessibleTaxableToday = taxableLiquidValue - totalCollateralizedBtcValue;
-                const projectedAccessibleFunds = (netAccessibleTaxableToday + totalRothContributions) * Math.pow(1 + bridgeGrowthRate, yearsToRetirement);
-                const shortfall = Math.max(0, bridgeFundsNeeded - projectedAccessibleFunds);
-
-                return (
-                  <div className="mt-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                    <p className="text-sm text-amber-400 font-medium mb-2">
-                      ⚠️ Early Retirement Warning (Before Age {PENALTY_FREE_AGE})
-                    </p>
-                    <p className="text-sm text-zinc-300">
-                      Retiring at {retirementAge} means {yearsUntilPenaltyFree} years before penalty-free access to retirement account earnings.
-                      At {formatNumber(annualNeedAtRetirement)}/yr spending for {yearsUntilPenaltyFree} years, you'll need approximately <span className="font-bold text-amber-400">{formatNumber(bridgeFundsNeeded)}</span> in accessible funds (liquid taxable + Roth contributions), assuming {(bridgeGrowthRate * 100).toFixed(1)}% portfolio growth during this period.
-                    </p>
-                    <div className="text-xs text-zinc-400 mt-2 space-y-1">
-                      <div>• Liquid Taxable (today): {formatNumber(taxableLiquidValue)}</div>
-                      {totalCollateralizedBtcValue > 0 && (
-                        <div className="text-amber-500">• Less: Collateralized BTC: -{formatNumber(totalCollateralizedBtcValue)}</div>
-                      )}
-                      <div className="font-medium text-zinc-300">• Net Accessible Taxable: {formatNumber(netAccessibleTaxableToday)}</div>
-                      <div>• Roth Contributions (today): {formatNumber(totalRothContributions)}</div>
-                      <div className="font-medium border-t border-zinc-700 pt-1 mt-1">• Projected Accessible at {retirementAge}: {formatNumber(projectedAccessibleFunds)}</div>
-                      {totalRothContributions === 0 && taxFreeValue > 0 && (
-                        <div className="text-amber-400 mt-1">⚠️ Set Roth contributions in Account settings for accurate early retirement planning</div>
-                      )}
-                    </div>
-                    {shortfall > 0 ? (
-                      <p className="text-sm text-rose-400 mt-2 font-semibold">
-                        Shortfall: {formatNumber(shortfall)} — You may need to withdraw Roth earnings or tax-deferred funds early (incurring penalties).
-                      </p>
-                    ) : (
-                      <p className="text-sm text-emerald-400 mt-2 font-semibold">
-                        ✓ Sufficient accessible funds for early retirement bridge period!
-                      </p>
-                    )}
-                  </div>
-                  );
-                  })()}
 
                   {/* Retirement Planning Settings */}
           <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
