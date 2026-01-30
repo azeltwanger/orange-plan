@@ -1866,6 +1866,19 @@ export function runUnifiedProjection({
             const targetCollateralForLoan = loan.current_balance / (releaseTargetLTV / 100) / cumulativeBtcPrice;
             const excessCollateral = Math.max(0, currentCollateral - targetCollateralForLoan);
             if (excessCollateral > 0) {
+              // DEBUG: Trace collateral release
+              console.log(`COLLATERAL RELEASE DEBUG Year ${year} (Age ${age}):`, {
+                loanKey,
+                loanName: loan.name || loan.lender,
+                currentCollateral,
+                targetCollateralForLoan,
+                excessCollateral,
+                encumberedBtcBEFORE: encumberedBtc[loanKey],
+                cumulativeBtcPrice,
+                loanBalance: loan.current_balance,
+                releaseTargetLTV
+              });
+              
               const excessCollateralValue = excessCollateral * cumulativeBtcPrice;
               portfolio.taxable.btc += excessCollateralValue; // Add to liquid immediately (same year)
               
@@ -1879,6 +1892,13 @@ export function runUnifiedProjection({
               }
               
               encumberedBtc[loanKey] = targetCollateralForLoan;
+              
+              // DEBUG: After update
+              console.log(`COLLATERAL RELEASE DEBUG Year ${year} AFTER:`, {
+                encumberedBtcAFTER: encumberedBtc[loanKey],
+                totalEncumberedBtc: Object.values(encumberedBtc).reduce((s,v) => s+v, 0)
+              });
+              
               liquidationEvents.push({
                 year,
                 age,
@@ -1891,6 +1911,9 @@ export function runUnifiedProjection({
         }
       }
     });
+    
+    // DEBUG: Log encumberedBtc state at end of collateral processing
+    console.log(`YEAR ${year} (Age ${age}) - encumberedBtc after collateral processing:`, JSON.stringify(encumberedBtc));
 
     // ============================================
     // PROCESS ASSET REALLOCATIONS (Scenario-specific)
@@ -3281,6 +3304,10 @@ export function runUnifiedProjection({
         // Calculate totals
     const currentTotalEncumberedBtc = Object.values(encumberedBtc).reduce((sum, amount) => sum + amount, 0);
     const encumberedBtcValueThisYear = currentTotalEncumberedBtc * cumulativeBtcPrice;
+    
+    // DEBUG: Log final encumberedBtc state for yearByYear output
+    console.log(`YEAR ${year} END - encumberedBtc state:`, JSON.stringify(encumberedBtc));
+    console.log(`YEAR ${year} END - totalEncumberedBtc: ${currentTotalEncumberedBtc}, value: $${Math.round(encumberedBtcValueThisYear)}, btcPrice: $${Math.round(cumulativeBtcPrice)}`);
     
     // End-of-year dust cleanup for all accounts to prevent compounding of near-zero balances
     const DUST_THRESHOLD_EOY = 10; // Increased threshold to catch more edge cases
