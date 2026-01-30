@@ -488,15 +488,17 @@ export function runUnifiedProjection({
     const preWithdrawalCash = acct.cash;
     const preWithdrawalOther = acct.other;
     
-    const nonBtcWithdrawn = stocksTarget + bondsTarget + cashTarget + otherTarget;
+    // Cash has no capital gains - exclude from gain calculations
+    const nonBtcWithdrawnForGains = stocksTarget + bondsTarget + otherTarget; // Exclude cashTarget
+    const nonBtcWithdrawn = stocksTarget + bondsTarget + cashTarget + otherTarget; // Total for tracking
     let otherLongTermGain = 0;
-    if (nonBtcWithdrawn > 0) {
-      const nonBtcTotal = acct.stocks + acct.bonds + acct.cash + acct.other;
-      const basisRatio = (nonBtcTotal > 0 && runningTaxableBasis > 0) ? 
-        ((runningTaxableBasis - btcCostBasis) / nonBtcTotal) : 0;
+    if (nonBtcWithdrawnForGains > 0) {
+      const nonBtcTotalForGains = acct.stocks + acct.bonds + acct.other; // Exclude acct.cash
+      const basisRatio = (nonBtcTotalForGains > 0 && runningTaxableBasis > 0) ? 
+        ((runningTaxableBasis - btcCostBasis) / nonBtcTotalForGains) : 0;
       
-      otherCostBasis = nonBtcWithdrawn * Math.min(1, basisRatio);
-      otherWithdrawn = nonBtcWithdrawn;
+      otherCostBasis = nonBtcWithdrawnForGains * Math.min(1, basisRatio);
+      otherWithdrawn = nonBtcWithdrawnForGains;
       otherLongTermGain = Math.max(0, otherWithdrawn - otherCostBasis); // Assume long-term for non-BTC
       
       acct.stocks = Math.max(0, acct.stocks - stocksTarget);
