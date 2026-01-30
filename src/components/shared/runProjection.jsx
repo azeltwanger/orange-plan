@@ -2538,13 +2538,19 @@ export function runUnifiedProjection({
                 loanCollateralBasis[loanKey] = storedBasis * (1 - percentSold);
               } else {
                 // Fallback to 50% basis for loans without stored lot data
-                console.log('   ⚠️ FALLBACK - storedBtc or storedBasis is 0');
+                if (shouldLog) {
+                  console.log('   ⚠️ FALLBACK - storedBtc or storedBasis is 0');
+                }
                 costBasisForSale = saleProceeds * 0.5;
-                console.log('   costBasisForSale (50% fallback):', costBasisForSale);
+                if (shouldLog) {
+                  console.log('   costBasisForSale (50% fallback):', costBasisForSale);
+                }
               }
               
               const gainOnSale = Math.max(0, saleProceeds - costBasisForSale);
-              console.log('   gainOnSale:', gainOnSale);
+              if (shouldLog) {
+                console.log('   gainOnSale:', gainOnSale);
+              }
               
               // Also reduce global encumberedBtcBasis for tracking
               const totalEncumberedBtcAmount = Object.values(encumberedBtc).reduce((sum, btc) => sum + btc, 0);
