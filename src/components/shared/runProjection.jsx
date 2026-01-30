@@ -84,6 +84,7 @@ export function getCustomReturnForYear(assetType, yearIndex, customReturnPeriods
 export function runUnifiedProjection({
   holdings,
   projectionId = 'unknown',
+  _runId = Date.now(), // Unique identifier for this run
   accounts,
   liabilities,
   collateralizedLoans,
@@ -144,7 +145,14 @@ export function runUnifiedProjection({
   futureBtcLoanRateYears = null,
   DEBUG = false,
 }) {
-  console.log('🚀 Starting projection:', projectionId);
+  console.log('🚀 ========================================');
+  console.log('🚀 PROJECTION START - Run ID:', _runId);
+  console.log('🚀 projectionId:', projectionId);
+  console.log('🚀 Timestamp:', new Date().toISOString());
+  console.log('🚀 Liabilities count:', liabilities?.length);
+  console.log('🚀 CollateralizedLoans count:', collateralizedLoans?.length);
+  console.log('🚀 Holdings count:', holdings?.length);
+  console.log('🚀 ========================================');
   
   const results = [];
   const currentYear = new Date().getFullYear();
@@ -567,6 +575,8 @@ export function runUnifiedProjection({
   const loanCollateralBasis = {}; // { loanKey: total cost basis }
   const loanCollateralLots = {}; // { loanKey: array of lot assignments }
   let encumberedBtcBasis = 0; // CRITICAL: Must be declared before any code uses it
+  
+  console.log('📋 Loan tracking initialized (empty objects) - Run ID:', _runId);
 
   // Populate encumberedBtc from existing liabilities/loans BEFORE hypothetical loan processing
   liabilities.forEach(liability => {
@@ -574,6 +584,14 @@ export function runUnifiedProjection({
       const loanKey = liability.id;
       encumberedBtc[loanKey] = liability.collateral_btc_amount;
       releasedBtc[loanKey] = 0;
+      
+      console.log('📥 LOADING LOAN (Liability) - Run ID:', _runId);
+      console.log('   Name:', liability.name);
+      console.log('   ID:', liability.id);
+      console.log('   loanKey:', loanKey);
+      console.log('   Collateral BTC:', liability.collateral_btc_amount);
+      console.log('   Collateral Basis:', liability.collateral_total_basis);
+      console.log('   Lots count:', liability.collateral_lots?.length || 0);
       
       if (DEBUG) {
         console.log('=== LOADING BTC LOAN (Liability) ===');
@@ -623,6 +641,14 @@ export function runUnifiedProjection({
       const loanKey = `loan_${loan.id}`;
       encumberedBtc[loanKey] = loan.collateral_btc_amount;
       releasedBtc[loanKey] = 0;
+      
+      console.log('📥 LOADING LOAN (CollateralizedLoan) - Run ID:', _runId);
+      console.log('   Name:', loan.name);
+      console.log('   ID:', loan.id);
+      console.log('   loanKey:', loanKey);
+      console.log('   Collateral BTC:', loan.collateral_btc_amount);
+      console.log('   Collateral Basis:', loan.collateral_total_basis);
+      console.log('   Lots count:', loan.collateral_lots?.length || 0);
       
       if (DEBUG) {
         console.log('=== LOADING BTC LOAN (CollateralizedLoan) ===');
@@ -715,6 +741,13 @@ export function runUnifiedProjection({
   
   // CRITICAL: Set initial encumberedBtcBasis BEFORE hypothetical loan processing
   encumberedBtcBasis = loansWithStoredBasis + legacyProportionalBasis;
+  
+  console.log('📊 FINAL LOAN STATE after loading - Run ID:', _runId);
+  console.log('   encumberedBtc keys:', Object.keys(encumberedBtc));
+  console.log('   loanCollateralBasis keys:', Object.keys(loanCollateralBasis));
+  console.log('   Total encumbered BTC:', Object.values(encumberedBtc).reduce((a,b) => a+b, 0));
+  console.log('   Total basis:', Object.values(loanCollateralBasis).reduce((a,b) => a+b, 0));
+  console.log('   encumberedBtcBasis:', encumberedBtcBasis);
   
   if (DEBUG) {
     console.log('=== FINAL COLLATERAL BASIS STATE ===');
@@ -2445,6 +2478,7 @@ export function runUnifiedProjection({
               const storedBtc = encumberedBtc[loanKey] || loan.collateral_btc_amount || 0;
               
               // DETAILED DEBUG: Trace key mismatch (pre-retirement deficit)
+              console.log('💰 LIQUIDATING - Run ID:', _runId, 'Year:', year, 'Age:', age, 'Loan:', loan.name, '(pre-retire)');
               console.log('💰 LIQUIDATING LOAN (' + projectionId + ' pre-retire):', loan.name);
               console.log('   loan.id:', loan.id);
               console.log('   loan.entity_type:', loan.entity_type);
@@ -2959,6 +2993,7 @@ export function runUnifiedProjection({
               const storedBtc = encumberedBtc[loanKey] || loan.collateral_btc_amount || 0;
               
               // DETAILED DEBUG: Trace key mismatch (retirement)
+              console.log('💰 LIQUIDATING - Run ID:', _runId, 'Year:', year, 'Age:', age, 'Loan:', loan.name, '(retirement)');
               console.log('💰 LIQUIDATING LOAN (' + projectionId + ' retirement):', loan.name);
               console.log('   loan.id:', loan.id);
               console.log('   loan.entity_type:', loan.entity_type);
@@ -3398,6 +3433,23 @@ export function runUnifiedProjection({
   
   const survives = firstDepletionAge === null;
   const finalYear = results[results.length - 1];
+  
+  const liquidationYears = results.filter(r => r.loanPayoffs?.length > 0);
+  console.log('🏁 ========================================');
+  console.log('🏁 PROJECTION END - Run ID:', _runId);
+  console.log('🏁 projectionId:', projectionId);
+  console.log('🏁 Total years processed:', results.length);
+  console.log('🏁 Years with liquidations:', liquidationYears.length);
+  if (liquidationYears.length > 0) {
+    console.log('🏁 Liquidation details:', liquidationYears.map(y => ({
+      year: y.year,
+      age: y.age,
+      payoffs: y.loanPayoffs?.map(p => p.loanName)
+    })));
+  }
+  console.log('🏁 survives:', survives);
+  console.log('🏁 finalPortfolio:', finalYear?.total || 0);
+  console.log('🏁 ========================================');
   
   return {
     survives,
