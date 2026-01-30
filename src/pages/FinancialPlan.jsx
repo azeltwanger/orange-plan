@@ -4354,11 +4354,9 @@ export default function FinancialPlan() {
                 </p>
               </div>
                 </div>
+              )}
             </div>
           )}
-
-          {/* Projection Chart */}
-          <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
 
           {/* RMD Notice */}
           {taxDeferredValue > 0 && (
