@@ -719,6 +719,8 @@ export default function FinancialPlan() {
       // Run unified projection with randomized returns
       const result = runUnifiedProjection({
         holdings,
+        projectionType: 'monteCarlo',
+        monteCarloIteration: sim,
         accounts,
         liabilities,
         collateralizedLoans,
@@ -810,6 +812,7 @@ export default function FinancialPlan() {
     
     const result = runUnifiedProjection({
       holdings,
+      projectionType: testSpending !== null ? 'maxSpending' : 'earliestAge',
       accounts,
       liabilities,
       collateralizedLoans,
@@ -884,6 +887,7 @@ export default function FinancialPlan() {
   const projections = useMemo(() => {
     const result = runUnifiedProjection({
       holdings,
+      projectionType: 'main',
       accounts,
       liabilities,
       collateralizedLoans,
@@ -1021,6 +1025,8 @@ export default function FinancialPlan() {
       for (let sim = 0; sim < numSimulations; sim++) {
         const result = runUnifiedProjection({
           holdings,
+          projectionType: 'monteCarlo',
+          monteCarloIteration: sim,
           accounts,
           liabilities,
           collateralizedLoans,
@@ -1503,6 +1509,7 @@ export default function FinancialPlan() {
     const testWithAdditionalSavings = (additionalAmount) => {
       const result = runUnifiedProjection({
         holdings,
+        projectionType: 'additionalSavings',
         accounts,
         liabilities,
         collateralizedLoans,
