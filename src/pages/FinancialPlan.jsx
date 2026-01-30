@@ -4154,9 +4154,8 @@ export default function FinancialPlan() {
               <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-2">Effective Tax Rate</p>
               <p className="text-3xl font-bold text-white leading-tight">
                 {(() => {
-                  const retirementYears = projections.filter(p => p.age >= retirementAge);
-                  const totalTaxes = retirementYears.reduce((sum, y) => sum + (y.taxesPaid || 0), 0);
-                  const totalIncome = retirementYears.reduce((sum, y) => {
+                  const totalTaxes = projections.reduce((sum, y) => sum + (y.taxesPaid || 0), 0);
+                  const totalIncome = projections.reduce((sum, y) => {
                     return sum + 
                       (y.yearGrossIncome || 0) + 
                       (y.otherRetirementIncome || 0) +
@@ -4167,7 +4166,12 @@ export default function FinancialPlan() {
                       (y.totalDividendIncome || 0);
                   }, 0);
                   const effectiveRateRaw = totalIncome > 0 ? ((totalTaxes / totalIncome) * 100) : 0;
-                  console.log('FinancialPlan - Effective Tax Rate Raw - Total Taxes:', totalTaxes, 'Total Income:', totalIncome, 'Raw Rate:', effectiveRateRaw);
+                  console.log('FinancialPlan - Effective Tax Rate (LIFETIME):', {
+                    totalTaxes,
+                    totalIncome,
+                    rawRate: effectiveRateRaw,
+                    source: 'Card Display - ALL YEARS'
+                  });
                   return `${effectiveRateRaw.toFixed(1)}%`;
                 })()}
               </p>
