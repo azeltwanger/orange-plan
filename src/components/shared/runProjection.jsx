@@ -1359,11 +1359,12 @@ export function runUnifiedProjection({
     }
 
     // Process released collateral from PREVIOUS year
+    // CRITICAL FIX: Do NOT add released BTC to portfolio.taxable.btc
+    // The total is calculated as portfolio.taxable.btc + encumberedBtcValue
+    // When we reduce encumberedBtc, the total automatically increases
+    // Adding to liquid BTC DOUBLE-COUNTS the release
     const totalReleasedBtcThisYear = Object.values(releasedBtc).reduce((sum, btcAmount) => sum + btcAmount, 0);
-    const totalReleasedBtcValueThisYear = totalReleasedBtcThisYear * cumulativeBtcPrice;
-    if (totalReleasedBtcValueThisYear > 0) {
-      portfolio.taxable.btc += totalReleasedBtcValueThisYear;
-
+    if (totalReleasedBtcThisYear > 0) {
       // Restore proportional basis for released collateral
       // Calculate based on current encumbered BTC amount (more accurate than initial)
       const currentTotalEncumberedBtcBeforeRelease = Object.values(encumberedBtc).reduce((sum, btc) => sum + btc, 0) + totalReleasedBtcThisYear;
