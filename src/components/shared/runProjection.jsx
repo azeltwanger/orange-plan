@@ -1316,23 +1316,8 @@ export function runUnifiedProjection({
         Math.pow(1 + effectiveInflation / 100, yearsReceivingSS);
     }
 
-    // Process released collateral from PREVIOUS year
-    const totalReleasedBtcThisYear = Object.values(releasedBtc).reduce((sum, btcAmount) => sum + btcAmount, 0);
-    const totalReleasedBtcValueThisYear = totalReleasedBtcThisYear * cumulativeBtcPrice;
-    if (totalReleasedBtcValueThisYear > 0) {
-      portfolio.taxable.btc += totalReleasedBtcValueThisYear;
-
-      // Restore proportional basis for released collateral
-      // Calculate based on current encumbered BTC amount (more accurate than initial)
-      const currentTotalEncumberedBtcBeforeRelease = Object.values(encumberedBtc).reduce((sum, btc) => sum + btc, 0) + totalReleasedBtcThisYear;
-      if (currentTotalEncumberedBtcBeforeRelease > 0 && encumberedBtcBasis > 0) {
-        const releaseRatio = Math.min(1, totalReleasedBtcThisYear / currentTotalEncumberedBtcBeforeRelease);
-        const basisToRestore = encumberedBtcBasis * releaseRatio;
-        runningTaxableBasis += basisToRestore;
-        encumberedBtcBasis = Math.max(0, encumberedBtcBasis - basisToRestore);
-      }
-    }
-    releasedBtc = {};
+    // Released collateral is now added to liquid portfolio immediately when released (same year)
+    // No need to process from previous year - this eliminates the one-year timing mismatch bug
 
     // Life events: expense adjustments only
     // NOTE: income_change events are handled later via yearLifeEventIncome for consistent display
