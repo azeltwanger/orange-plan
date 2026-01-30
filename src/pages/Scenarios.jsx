@@ -334,7 +334,7 @@ export default function Scenarios() {
     });
   };
 
-  const currentPrice = btcPrice || 97000;
+  const currentPrice = btcPrice;
 
   // Load all data entities - SAME as FinancialPlan.jsx
   const { data: holdings = [], isLoading: holdingsLoading } = useQuery({
@@ -1370,6 +1370,12 @@ export default function Scenarios() {
   const handleSubmit = (e) => {
     e.preventDefault();
     
+    // Guard: Ensure BTC price is loaded before saving scenario
+    if (!currentPrice || currentPrice <= 0) {
+      alert('BTC price is still loading. Please wait a moment and try again.');
+      return;
+    }
+    
     // Clean up hypothetical_btc_loan - only include if actually enabled and has valid loan_amount
     let cleanedHypotheticalLoan = null;
     if (form.hypothetical_btc_loan?.enabled && form.hypothetical_btc_loan?.loan_amount) {
@@ -1380,12 +1386,13 @@ export default function Scenarios() {
         ? loanAmt / (ltv / 100 * currentPrice)
         : 0;
       
-      console.log('=== SAVING HYPOTHETICAL LOAN ===');
-      console.log('Current BTC Price:', currentPrice);
+      console.log('=== SAVING SCENARIO WITH HYPOTHETICAL LOAN ===');
+      console.log('currentPrice (from useBtcPrice hook):', currentPrice);
       console.log('Loan Amount:', loanAmt);
       console.log('LTV:', ltv);
       console.log('Calculated Collateral BTC:', calculatedCollateral);
       console.log('Verify LTV:', ((loanAmt / (calculatedCollateral * currentPrice)) * 100).toFixed(2) + '%');
+      console.log('Implied price check (should match currentPrice):', loanAmt / (calculatedCollateral * (ltv / 100)));
       
       cleanedHypotheticalLoan = {
         enabled: true,
