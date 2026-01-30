@@ -100,43 +100,43 @@ export const FEDERAL_INCOME_BRACKETS = {
       { min: 626350, max: Infinity, rate: 37 }
     ]
   },
-  // 2026 brackets per IRS Revenue Procedure 2025-32 and OBBBA
+  // 2026 brackets per IRS Revenue Procedure 2025-32
   2026: {
     single: [
       { min: 0, max: 12400, rate: 10 },
       { min: 12400, max: 50400, rate: 12 },
-      { min: 50400, max: 105850, rate: 22 },
-      { min: 105850, max: 201950, rate: 24 },
-      { min: 201950, max: 256450, rate: 32 },
-      { min: 256450, max: 641450, rate: 35 },
-      { min: 641450, max: Infinity, rate: 37 }
+      { min: 50400, max: 105700, rate: 22 },
+      { min: 105700, max: 201775, rate: 24 },
+      { min: 201775, max: 256225, rate: 32 },
+      { min: 256225, max: 640600, rate: 35 },
+      { min: 640600, max: Infinity, rate: 37 }
     ],
     married_filing_jointly: [
       { min: 0, max: 24800, rate: 10 },
       { min: 24800, max: 100800, rate: 12 },
-      { min: 100800, max: 211700, rate: 22 },
-      { min: 211700, max: 403950, rate: 24 },
-      { min: 403950, max: 512800, rate: 32 },
-      { min: 512800, max: 769350, rate: 35 },
-      { min: 769350, max: Infinity, rate: 37 }
+      { min: 100800, max: 211400, rate: 22 },
+      { min: 211400, max: 403550, rate: 24 },
+      { min: 403550, max: 512450, rate: 32 },
+      { min: 512450, max: 768700, rate: 35 },
+      { min: 768700, max: Infinity, rate: 37 }
     ],
     married_filing_separately: [
       { min: 0, max: 12400, rate: 10 },
       { min: 12400, max: 50400, rate: 12 },
-      { min: 50400, max: 105850, rate: 22 },
-      { min: 105850, max: 201975, rate: 24 },
-      { min: 201975, max: 256400, rate: 32 },
-      { min: 256400, max: 384675, rate: 35 },
-      { min: 384675, max: Infinity, rate: 37 }
+      { min: 50400, max: 105700, rate: 22 },
+      { min: 105700, max: 201775, rate: 24 },
+      { min: 201775, max: 256225, rate: 32 },
+      { min: 256225, max: 384350, rate: 35 },
+      { min: 384350, max: Infinity, rate: 37 }
     ],
     head_of_household: [
       { min: 0, max: 17650, rate: 10 },
       { min: 17650, max: 67450, rate: 12 },
-      { min: 67450, max: 105850, rate: 22 },
-      { min: 105850, max: 201950, rate: 24 },
-      { min: 201950, max: 256450, rate: 32 },
-      { min: 256450, max: 641450, rate: 35 },
-      { min: 641450, max: Infinity, rate: 37 }
+      { min: 67450, max: 108150, rate: 22 },
+      { min: 108150, max: 201775, rate: 24 },
+      { min: 201775, max: 256225, rate: 32 },
+      { min: 256225, max: 640600, rate: 35 },
+      { min: 640600, max: Infinity, rate: 37 }
     ]
   }
 };
