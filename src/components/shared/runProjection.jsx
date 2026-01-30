@@ -329,6 +329,17 @@ export function runUnifiedProjection({
     const actualWithdrawal = Math.min(amount, total);
     const acct = portfolio.taxable;
     
+    // DEBUG: Cash-first verification
+    if (debugYear) {
+      console.log(`WITHDRAWAL Year ${debugYear}:`, {
+        amountRequested: amount,
+        actualWithdrawal,
+        availableCash: acct.cash || 0,
+        availableBtc: acct.btc || 0,
+        strategy: assetWithdrawalStrategy
+      });
+    }
+    
     let btcWithdrawn = 0;
     let btcCostBasis = 0;
     let btcShortTermGain = 0;
@@ -352,6 +363,10 @@ export function runUnifiedProjection({
     if (availableCash > 0 && remainingAfterCash > 0) {
       cashTarget = Math.min(remainingAfterCash, availableCash);
       remainingAfterCash -= cashTarget;
+      
+      if (debugYear && cashTarget > 0) {
+        console.log(`CASH-FIRST Year ${debugYear}: Taking $${cashTarget.toFixed(0)} from cash, remaining need: $${remainingAfterCash.toFixed(0)}`);
+      }
     }
     
     // ============================================
