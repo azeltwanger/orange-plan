@@ -4096,9 +4096,9 @@ export default function FinancialPlan() {
               </p>
             </div>
 
-            {/* Card 2: Spending Capacity */}
+            {/* Card 2: Max Spending Capacity */}
             <div className="p-5 rounded-xl bg-gradient-to-br from-zinc-900/80 to-zinc-800/60 border border-zinc-700/40 hover:border-zinc-600/60 transition-all">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-2">Spending Capacity</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-2">Max Spending Capacity</p>
               <p className="text-3xl font-bold text-emerald-400 leading-tight">{formatNumber(maxSustainableSpending)}/yr</p>
               <p className="text-sm text-zinc-400 mt-1">{formatNumber(maxSustainableSpending / 12)}/mo today's $</p>
             </div>
