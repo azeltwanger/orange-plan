@@ -175,6 +175,15 @@ export default function FinancialPlan() {
   // Cost basis method
   const [costBasisMethod, setCostBasisMethod] = useState('HIFO');
 
+  // Collapsible sections state
+  const [sectionsExpanded, setSectionsExpanded] = useState({
+    basic: true,
+    incomeSpending: true,
+    withdrawalStrategy: true,
+    savingsContributions: false,
+    socialSecurity: false,
+  });
+
   // Asset withdrawal strategy
   const [assetWithdrawalStrategy, setAssetWithdrawalStrategy] = useState('proportional');
   const [withdrawalPriorityOrder, setWithdrawalPriorityOrder] = useState(['bonds', 'stocks', 'other', 'btc']);
