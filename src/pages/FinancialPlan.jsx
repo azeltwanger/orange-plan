@@ -4949,15 +4949,15 @@ export default function FinancialPlan() {
 
                 {/* Section 5: Social Security */}
                 <div className="border border-zinc-800 rounded-xl overflow-hidden">
-                <button
-                      onClick={() => setSectionsExpanded(prev => ({ ...prev, socialSecurity: !prev.socialSecurity }))}
-                      className="w-full flex items-center justify-between p-4 bg-zinc-800/30 hover:bg-zinc-800/50 transition-colors"
-                      >
-                      <h4 className="font-semibold text-zinc-200">Social Security</h4>
-                      {sectionsExpanded.socialSecurity ? <ChevronUp className="w-5 h-5 text-zinc-400" /> : <ChevronDown className="w-5 h-5 text-zinc-400" />}
-                      </button>
-                      {sectionsExpanded.socialSecurity && (
-                      <div className="p-4 bg-zinc-900/30">
+                  <button
+                    onClick={() => setSectionsExpanded(prev => ({ ...prev, socialSecurity: !prev.socialSecurity }))}
+                    className="w-full flex items-center justify-between p-4 bg-zinc-800/30 hover:bg-zinc-800/50 transition-colors"
+                  >
+                    <h4 className="font-semibold text-zinc-200">Social Security</h4>
+                    {sectionsExpanded.socialSecurity ? <ChevronUp className="w-5 h-5 text-zinc-400" /> : <ChevronDown className="w-5 h-5 text-zinc-400" />}
+                  </button>
+                  {sectionsExpanded.socialSecurity && (
+                    <div className="p-4 bg-zinc-900/30">
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <Label className="text-zinc-400">Social Security (Annual)</Label>
