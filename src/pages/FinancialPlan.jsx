@@ -4943,13 +4943,13 @@ export default function FinancialPlan() {
                     Debt payments ({formatNumber(monthlyDebtPayments * 12)}/yr) are tracked separately.
                   </p>
                 </div>
-              </div>
-              )}
-              </div>
+                </div>
+                )}
+                </div>
 
-              {/* Section 5: Social Security */}
-              <div className="border border-zinc-800 rounded-xl overflow-hidden">
-                      <button
+                {/* Section 5: Social Security */}
+                <div className="border border-zinc-800 rounded-xl overflow-hidden">
+                <button
                       onClick={() => setSectionsExpanded(prev => ({ ...prev, socialSecurity: !prev.socialSecurity }))}
                       className="w-full flex items-center justify-between p-4 bg-zinc-800/30 hover:bg-zinc-800/50 transition-colors"
                       >
