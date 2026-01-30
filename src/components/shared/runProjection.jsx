@@ -148,9 +148,14 @@ export function runUnifiedProjection({
   DEBUG = false,
 }) {
   // DEBUG: Entry point logging
-  console.log('=== runUnifiedProjection called ===');
-  console.log('currentPrice param:', currentPrice);
-  console.log('hypothetical_btc_loan:', hypothetical_btc_loan);
+  console.log('[PROJECTION] currentPrice param:', currentPrice);
+  if (hypothetical_btc_loan?.enabled) {
+    console.log('[PROJECTION] hypothetical_btc_loan enabled:', {
+      loan_amount: hypothetical_btc_loan.loan_amount,
+      collateral_btc: hypothetical_btc_loan.collateral_btc,
+      use_of_proceeds: hypothetical_btc_loan.use_of_proceeds
+    });
+  }
   
   // Only log for main projection to avoid console spam from Monte Carlo runs
   const shouldLog = projectionType === 'main';
@@ -878,18 +883,11 @@ export function runUnifiedProjection({
       
       const proceeds = hypotheticalLoanObj.current_balance;
       if (proceeds > 0) {
-        console.log(`[LOAN DEBUG] Year 0 - Hypothetical Loan Processing:`);
-        console.log(`  Proceeds: $${proceeds.toLocaleString()}`);
-        console.log(`  currentPrice: $${currentPrice.toLocaleString()}`);
-        console.log(`  use_of_proceeds: ${hypotheticalLoanObj.use_of_proceeds}`);
-        
         if (hypotheticalLoanObj.use_of_proceeds === 'btc') {
           // Buy BTC with loan proceeds - track quantity for proper growth
           const btcQuantityPurchased = proceeds / currentPrice;
-          console.log(`  BTC purchased: ${btcQuantityPurchased.toFixed(4)} BTC`);
-          console.log(`  portfolio.taxable.btc BEFORE: $${portfolio.taxable.btc.toLocaleString()}`);
+          console.log('[LOAN BTC BUY] Year 0: $' + proceeds.toLocaleString() + ' / $' + currentPrice.toLocaleString() + ' = ' + btcQuantityPurchased.toFixed(4) + ' BTC');
           portfolio.taxable.btc += proceeds;
-          console.log(`  portfolio.taxable.btc AFTER: $${portfolio.taxable.btc.toLocaleString()}`);
           runningTaxableBasis += proceeds;
           
           // Create tax lot for the BTC purchase
@@ -1291,21 +1289,14 @@ export function runUnifiedProjection({
       
       const proceeds = newLoan.current_balance;
       if (proceeds > 0) {
-        console.log(`[LOAN DEBUG] Year ${year} / Age ${age} - Loan Activation:`);
-        console.log(`  Proceeds: $${proceeds.toLocaleString()}`);
-        console.log(`  cumulativeBtcPrice: $${cumulativeBtcPrice.toLocaleString()}`);
-        console.log(`  use_of_proceeds: ${newLoan.use_of_proceeds}`);
-        
         // Track loan proceeds regardless of use
         yearLoanProceeds += proceeds;
         
         if (newLoan.use_of_proceeds === 'btc') {
           // Buy BTC with loan proceeds - track quantity for proper growth
           const btcQuantityPurchased = proceeds / cumulativeBtcPrice;
-          console.log(`  BTC purchased: ${btcQuantityPurchased.toFixed(4)} BTC`);
-          console.log(`  portfolio.taxable.btc BEFORE: $${portfolio.taxable.btc.toLocaleString()}`);
+          console.log('[LOAN BTC BUY] Year ' + year + ' (Age ' + age + '): $' + proceeds.toLocaleString() + ' / $' + cumulativeBtcPrice.toLocaleString() + ' = ' + btcQuantityPurchased.toFixed(4) + ' BTC');
           portfolio.taxable.btc += proceeds;
-          console.log(`  portfolio.taxable.btc AFTER: $${portfolio.taxable.btc.toLocaleString()}`);
           runningTaxableBasis += proceeds;
           
           // Create tax lot for the BTC purchase
