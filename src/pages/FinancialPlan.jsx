@@ -5009,16 +5009,16 @@ export default function FinancialPlan() {
                         })()}.
                       </p>
                     </div>
-                    <div className="flex items-end pb-2">
-                      <p className="text-xs text-zinc-500">Based on current income. Get exact amount at ssa.gov</p>
-                    </div>
-                    </div>
+                  <div className="flex items-end pb-2">
+                    <p className="text-xs text-zinc-500">Based on current income. Get exact amount at ssa.gov</p>
                   </div>
-                )}
+                </div>
               </div>
-            </div>
+            )}
           </div>
-        </TabsContent>
+        </div>
+      </div>
+    </TabsContent>
 
         {/* Monte Carlo Tab */}
         <TabsContent value="montecarlo" className="space-y-6">
