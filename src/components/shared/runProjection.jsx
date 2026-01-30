@@ -1618,8 +1618,18 @@ export function runUnifiedProjection({
           if (newDebtBalance <= 0.01) {
             liability.paid_off = true;
             if (remainingCollateralBtc > 0) {
-              releasedBtc[liability.id] = (releasedBtc[liability.id] || 0) + remainingCollateralBtc;
+              // Immediately add remaining collateral to liquid BTC (not delayed)
+              const remainingValue = remainingCollateralBtc * cumulativeBtcPrice;
+              portfolio.taxable.btc += remainingValue;
+              
+              // Restore basis for the released collateral
+              const basisToRestore = loanCollateralBasis[liability.id] || 0;
+              runningTaxableBasis += basisToRestore;
+              encumberedBtcBasis = Math.max(0, encumberedBtcBasis - basisToRestore);
+              loanCollateralBasis[liability.id] = 0;
+              
               encumberedBtc[liability.id] = 0;
+              releasedBtc[liability.id] = remainingCollateralBtc; // Track for display only
             }
           }
         }
@@ -1808,8 +1818,18 @@ export function runUnifiedProjection({
             loan.paid_off = true;
             if (tempRunningDebt[loan.id]) tempRunningDebt[loan.id].paid_off = true;
             if (remainingCollateralBtc > 0) {
-              releasedBtc[loanKey] = (releasedBtc[loanKey] || 0) + remainingCollateralBtc;
+              // Immediately add remaining collateral to liquid BTC (not delayed)
+              const remainingValue = remainingCollateralBtc * cumulativeBtcPrice;
+              portfolio.taxable.btc += remainingValue;
+              
+              // Restore basis for the released collateral
+              const basisToRestore = loanCollateralBasis[loanKey] || 0;
+              runningTaxableBasis += basisToRestore;
+              encumberedBtcBasis = Math.max(0, encumberedBtcBasis - basisToRestore);
+              loanCollateralBasis[loanKey] = 0;
+              
               encumberedBtc[loanKey] = 0;
+              releasedBtc[loanKey] = remainingCollateralBtc; // Track for display only
             }
           }
         }
@@ -3301,21 +3321,42 @@ export function runUnifiedProjection({
     const totalDebt = Object.values(tempRunningDebt).reduce((sum, liab) => sum + liab.current_balance, 0) +
                       Object.values(tempRunningCollateralizedLoans).reduce((sum, loan) => sum + loan.current_balance, 0);
     
-    // BTC Loan Details
-    const btcLoanDetails = Object.values(tempRunningDebt)
+    // BTC Loan Details - include BOTH Liability and CollateralizedLoan entities
+    const btcLoanDetails = [];
+    
+    // Add Liability entities
+    Object.values(tempRunningDebt)
       .filter(l => l.type === 'btc_collateralized' && !l.paid_off)
-      .map(loan => {
+      .forEach(loan => {
         const collateralBtc = encumberedBtc[loan.id] || loan.collateral_btc_amount || 0;
         const collateralValue = collateralBtc * cumulativeBtcPrice;
         const ltv = collateralValue > 0 ? (loan.current_balance / collateralValue) * 100 : 0;
-        return {
+        btcLoanDetails.push({
           name: loan.name,
           balance: Math.round(loan.current_balance),
           collateralBtc: collateralBtc,
           collateralValue: Math.round(collateralValue),
           ltv: Math.round(ltv),
           status: ltv < 40 ? 'healthy' : ltv < 60 ? 'moderate' : 'elevated'
-        };
+        });
+      });
+    
+    // Add CollateralizedLoan entities
+    Object.values(tempRunningCollateralizedLoans)
+      .filter(l => !l.paid_off)
+      .forEach(loan => {
+        const loanKey = `loan_${loan.id}`;
+        const collateralBtc = encumberedBtc[loanKey] || loan.collateral_btc_amount || 0;
+        const collateralValue = collateralBtc * cumulativeBtcPrice;
+        const ltv = collateralValue > 0 ? (loan.current_balance / collateralValue) * 100 : 0;
+        btcLoanDetails.push({
+          name: loan.name,
+          balance: Math.round(loan.current_balance),
+          collateralBtc: collateralBtc,
+          collateralValue: Math.round(collateralValue),
+          ltv: Math.round(ltv),
+          status: ltv < 40 ? 'healthy' : ltv < 60 ? 'moderate' : 'elevated'
+        });
       });
     
     const yearLiquidations = liquidationEvents.filter(e => e.year === year);
@@ -3411,15 +3452,20 @@ export function runUnifiedProjection({
       
       // BTC Loan details
       btcLoanDetails: btcLoanDetails,
-      totalBtcLoanDebt: Math.round(Object.values(tempRunningDebt)
-        .filter(l => l.type === 'btc_collateralized' && !l.paid_off)
-        .reduce((sum, l) => sum + l.current_balance, 0)),
-      totalBtcCollateralValue: Math.round(Object.values(tempRunningDebt)
-        .filter(l => l.type === 'btc_collateralized' && !l.paid_off)
-        .reduce((sum, l) => {
-          const collateralBtc = encumberedBtc[l.id] || l.collateral_btc_amount || 0;
-          return sum + (collateralBtc * cumulativeBtcPrice);
-        }, 0)),
+      totalBtcLoanDebt: Math.round(
+        Object.values(tempRunningDebt)
+          .filter(l => l.type === 'btc_collateralized' && !l.paid_off)
+          .reduce((sum, l) => sum + (l.current_balance || 0), 0)
+        + Object.values(tempRunningCollateralizedLoans)
+          .filter(l => !l.paid_off)
+          .reduce((sum, l) => sum + (l.current_balance || 0), 0)
+      ),
+      totalBtcCollateralValue: Math.round(
+        Object.keys(encumberedBtc).reduce((sum, loanKey) => {
+          const btcQty = encumberedBtc[loanKey] || 0;
+          return sum + (btcQty * cumulativeBtcPrice);
+        }, 0)
+      ),
       totalRegularDebt: Math.round(Object.values(tempRunningDebt)
         .filter(l => l.type !== 'btc_collateralized' && !l.paid_off)
         .reduce((sum, l) => sum + l.current_balance, 0)),
