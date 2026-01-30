@@ -3960,6 +3960,44 @@ export default function FinancialPlan() {
 
           </div>
 
+          {/* Projection Summary Stats */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div>
+              <p className="text-sm text-zinc-400">At Retirement (Age {retirementAge})</p>
+              <p className="text-2xl font-bold text-orange-400">{formatNumber(retirementValue, 2)}</p>
+            </div>
+            <div>
+              <div className="flex items-center gap-1">
+                <p className="text-sm text-zinc-400">Projected Max Spending at Retirement</p>
+                <TooltipProvider delayDuration={100}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="cursor-help text-zinc-500 hover:text-zinc-300">
+                        <Info className="w-3.5 h-3.5" />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[280px] bg-zinc-800 border-zinc-700 text-zinc-200 text-sm p-3">
+                      <p>The maximum annual spending (in today's dollars) your plan can sustain from retirement through age {lifeExpectancy}, assuming your projected returns are achieved. See Monte Carlo tab for conservative estimates that account for market volatility.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+              <p className="text-2xl font-bold text-emerald-400">{formatNumber(maxSustainableSpending)}/yr</p>
+              <p className="text-xs text-zinc-500">{formatNumber(maxSustainableSpending / 12)}/mo (today's $) • See Monte Carlo for risk-adjusted</p>
+            </div>
+            <div>
+              <p className="text-sm text-zinc-400">At Age {lifeExpectancy}</p>
+              <p className="text-2xl font-bold text-zinc-200">{formatNumber(endOfLifeValue, 2)}</p>
+            </div>
+            <div>
+              <p className="text-sm text-zinc-400">Spending at Retirement</p>
+              <p className="text-2xl font-bold text-amber-400">{formatNumber(retirementAnnualSpending)}/yr</p>
+              <p className="text-xs text-zinc-500">
+                {formatNumber(retirementAnnualSpending / 12)}/mo today • inflates to {formatNumber(inflationAdjustedRetirementSpending)}/yr
+              </p>
+            </div>
+          </div>
+
           {/* BTC Loans Status Card */}
           {liabilities.some(l => l.type === 'btc_collateralized') && projections.length > 0 && (
             <div className="card-premium rounded-2xl p-6 border border-orange-500/20 bg-gradient-to-br from-orange-500/5 to-transparent">
@@ -4892,45 +4930,6 @@ export default function FinancialPlan() {
                   Debt payments ({formatNumber(monthlyDebtPayments * 12)}/yr) are tracked separately.
                 </p>
               </div>
-
-
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6 p-4 rounded-xl bg-zinc-800/30">
-              <div>
-                <p className="text-sm text-zinc-400">At Retirement (Age {retirementAge})</p>
-                <p className="text-2xl font-bold text-orange-400">{formatNumber(retirementValue, 2)}</p>
-              </div>
-              <div>
-                <div className="flex items-center gap-1">
-                  <p className="text-sm text-zinc-400">Projected Max Spending at Retirement</p>
-                  <TooltipProvider delayDuration={100}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="cursor-help text-zinc-500 hover:text-zinc-300">
-                          <Info className="w-3.5 h-3.5" />
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="max-w-[280px] bg-zinc-800 border-zinc-700 text-zinc-200 text-sm p-3">
-                        <p>The maximum annual spending (in today's dollars) your plan can sustain from retirement through age {lifeExpectancy}, assuming your projected returns are achieved. See Monte Carlo tab for conservative estimates that account for market volatility.</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-                <p className="text-2xl font-bold text-emerald-400">{formatNumber(maxSustainableSpending)}/yr</p>
-                <p className="text-xs text-zinc-500">{formatNumber(maxSustainableSpending / 12)}/mo (today's $) • See Monte Carlo for risk-adjusted</p>
-              </div>
-              <div>
-                <p className="text-sm text-zinc-400">At Age {lifeExpectancy}</p>
-                <p className="text-2xl font-bold text-zinc-200">{formatNumber(endOfLifeValue, 2)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-zinc-400">Spending at Retirement</p>
-                <p className="text-2xl font-bold text-amber-400">{formatNumber(retirementAnnualSpending)}/yr</p>
-                <p className="text-xs text-zinc-500">
-                  {formatNumber(retirementAnnualSpending / 12)}/mo today • inflates to {formatNumber(inflationAdjustedRetirementSpending)}/yr
-                </p>
-              </div>
-            </div>
           </div>
           </div>
         </TabsContent>
