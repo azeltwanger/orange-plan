@@ -2725,6 +2725,13 @@ export function runUnifiedProjection({
       const totalRetirementIncome = otherRetirementIncome + socialSecurityIncome + estimatedDividendIncome + yearLifeEventIncome + yearLoanProceeds;
       const taxableSocialSecurity = calculateTaxableSocialSecurity(socialSecurityIncome, otherRetirementIncome + desiredWithdrawal, filingStatus);
       const totalOtherIncomeForTax = otherRetirementIncome + taxableSocialSecurity + rmdWithdrawn + yearLifeEventTaxableIncome;
+      
+      // Debug: Verify life event taxable income is included in tax calculation
+      if (yearLifeEventTaxableIncome > 0) {
+        console.log('📋 Year', year, 'age', age);
+        console.log('   yearLifeEventTaxableIncome:', yearLifeEventTaxableIncome);
+        console.log('   totalOtherIncomeForTax (includes life events):', totalOtherIncomeForTax);
+      }
 
       const federalTaxOnOtherIncome = calculateProgressiveIncomeTax(Math.max(0, totalOtherIncomeForTax - currentStandardDeduction), filingStatus, year);
       
