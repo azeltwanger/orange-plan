@@ -334,7 +334,8 @@ export default function Scenarios() {
     });
   };
 
-  const currentPrice = btcPrice;
+  const currentPrice = btcPrice || 0;
+  if (!currentPrice) console.warn('[SCENARIOS] btcPrice not loaded yet');
 
   // Load all data entities - SAME as FinancialPlan.jsx
   const { data: holdings = [], isLoading: holdingsLoading } = useQuery({
