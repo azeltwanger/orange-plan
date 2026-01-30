@@ -3970,41 +3970,71 @@ export default function FinancialPlan() {
 
           </div>
 
-          {/* Projection Summary Stats */}
+          {/* Retirement Summary Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div>
-              <p className="text-sm text-zinc-400">At Retirement (Age {retirementAge})</p>
-              <p className="text-2xl font-bold text-orange-400">{formatNumber(retirementValue, 2)}</p>
-            </div>
-            <div>
-              <div className="flex items-center gap-1">
-                <p className="text-sm text-zinc-400">Projected Max Spending at Retirement</p>
-                <TooltipProvider delayDuration={100}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="cursor-help text-zinc-500 hover:text-zinc-300">
-                        <Info className="w-3.5 h-3.5" />
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="max-w-[280px] bg-zinc-800 border-zinc-700 text-zinc-200 text-sm p-3">
-                      <p>The maximum annual spending (in today's dollars) your plan can sustain from retirement through age {lifeExpectancy}, assuming your projected returns are achieved. See Monte Carlo tab for conservative estimates that account for market volatility.</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-              <p className="text-2xl font-bold text-emerald-400">{formatNumber(maxSustainableSpending)}/yr</p>
-              <p className="text-xs text-zinc-500">{formatNumber(maxSustainableSpending / 12)}/mo (today's $) • See Monte Carlo for risk-adjusted</p>
-            </div>
-            <div>
-              <p className="text-sm text-zinc-400">At Age {lifeExpectancy}</p>
-              <p className="text-2xl font-bold text-zinc-200">{formatNumber(endOfLifeValue, 2)}</p>
-            </div>
-            <div>
-              <p className="text-sm text-zinc-400">Spending at Retirement</p>
-              <p className="text-2xl font-bold text-amber-400">{formatNumber(retirementAnnualSpending)}/yr</p>
-              <p className="text-xs text-zinc-500">
-                {formatNumber(retirementAnnualSpending / 12)}/mo today • inflates to {formatNumber(inflationAdjustedRetirementSpending)}/yr
+            {/* Card 1: At Retirement */}
+            <div className="p-5 rounded-xl bg-gradient-to-br from-zinc-900/80 to-zinc-800/60 border border-zinc-700/40 hover:border-zinc-600/60 transition-all">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-2">At Retirement (Age {retirementAge})</p>
+              <p className="text-3xl font-bold text-white leading-tight">{formatNumber(retirementValue, 1)}</p>
+              <p className="text-sm text-orange-400 mt-1">
+                {(() => {
+                  const retYearData = projections[retirementYearIndex];
+                  const btcAtRetirement = ((retYearData?.btcLiquid || 0) + (retYearData?.btcEncumbered || 0)) / (retYearData?.btcPrice || currentPrice);
+                  return `${btcAtRetirement.toFixed(2)} BTC`;
+                })()}
               </p>
+            </div>
+
+            {/* Card 2: Spending Capacity */}
+            <div className="p-5 rounded-xl bg-gradient-to-br from-zinc-900/80 to-zinc-800/60 border border-zinc-700/40 hover:border-zinc-600/60 transition-all">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-2">Spending Capacity</p>
+              <p className="text-3xl font-bold text-emerald-400 leading-tight">{formatNumber(maxSustainableSpending)}/yr</p>
+              <p className="text-sm text-zinc-400 mt-1">{formatNumber(maxSustainableSpending / 12)}/mo today's $</p>
+            </div>
+
+            {/* Card 3: Effective Tax Rate */}
+            <div className="p-5 rounded-xl bg-gradient-to-br from-zinc-900/80 to-zinc-800/60 border border-zinc-700/40 hover:border-zinc-600/60 transition-all">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-2">Effective Tax Rate</p>
+              <p className="text-3xl font-bold text-white leading-tight">
+                {(() => {
+                  const retirementYears = projections.filter(p => p.age >= retirementAge);
+                  const totalTaxes = retirementYears.reduce((sum, y) => sum + (y.taxesPaid || 0), 0);
+                  const totalIncome = retirementYears.reduce((sum, y) => {
+                    return sum + (y.grossIncome || 0) + (y.lifeEventIncome || 0) + 
+                           (y.socialSecurityIncome || 0) + (y.withdrawals || 0);
+                  }, 0);
+                  const effectiveRate = totalIncome > 0 ? ((totalTaxes / totalIncome) * 100).toFixed(1) : '0.0';
+                  return `${effectiveRate}%`;
+                })()}
+              </p>
+              <p className="text-sm text-zinc-400 mt-1">Lifetime average</p>
+            </div>
+
+            {/* Card 4: Plan Success */}
+            <div className="p-5 rounded-xl bg-gradient-to-br from-zinc-900/80 to-zinc-800/60 border border-zinc-700/40 hover:border-zinc-600/60 transition-all">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-2">Plan Success</p>
+              {successProbability !== null ? (
+                <>
+                  <p className={cn(
+                    "text-3xl font-bold leading-tight",
+                    successProbability >= 80 ? "text-emerald-400" :
+                    successProbability >= 50 ? "text-amber-400" : "text-rose-400"
+                  )}>
+                    {successProbability.toFixed(0)}%
+                  </p>
+                  <p className="text-sm text-zinc-400 mt-1">Monte Carlo</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-3xl font-bold text-zinc-600 leading-tight">—</p>
+                  <button
+                    onClick={() => setActiveTab('montecarlo')}
+                    className="text-sm text-blue-400 hover:text-blue-300 mt-1 transition-colors"
+                  >
+                    Run Analysis →
+                  </button>
+                </>
+              )}
             </div>
           </div>
 
