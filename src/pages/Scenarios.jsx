@@ -107,21 +107,12 @@ function getLiquidationRiskDisplay(riskPercent) {
 
 // Calculate earliest retirement age using binary search
 const calculateEarliestRetirementAge = (baseParams, overrides = {}, settingsParam) => {
-  console.log('🔍 calculateEarliestRetirementAge called');
-  console.log('baseParams:', baseParams);
-  console.log('overrides:', overrides);
-  console.log('settingsParam:', settingsParam);
-  
   const params = buildProjectionParams(settingsParam, overrides, baseParams);
-  console.log('params from buildProjectionParams:', params);
   
   const currentAge = params.currentAge;
   const lifeExpectancy = params.lifeExpectancy;
   
-  console.log('currentAge:', currentAge, 'lifeExpectancy:', lifeExpectancy);
-  
   if (!currentAge || !lifeExpectancy) {
-    console.log('❌ Missing currentAge or lifeExpectancy');
     return null;
   }
   
@@ -139,8 +130,6 @@ const calculateEarliestRetirementAge = (baseParams, overrides = {}, settingsPara
     const testParams = buildProjectionParams(settingsParam, { ...overrides, retirement_age_override: mid }, baseParams);
     const result = runUnifiedProjection(testParams);
     
-    console.log(`Iteration ${iterations}: testing age ${mid}, survives: ${result?.survives}`);
-    
     if (result?.survives) {
       earliest = mid;
       high = mid - 1; // Try earlier
@@ -150,12 +139,10 @@ const calculateEarliestRetirementAge = (baseParams, overrides = {}, settingsPara
     
     // Safety limit
     if (iterations > 20) {
-      console.log('❌ Too many iterations, breaking');
       break;
     }
   }
   
-  console.log('✅ Final earliest retirement age:', earliest);
   return earliest;
 };
 
@@ -182,6 +169,20 @@ const US_STATES = [
 
 export default function Scenarios() {
   const { btcPrice, loading: priceLoading } = useBtcPrice();
+  
+  // CRITICAL: Snapshot BTC price on mount to ensure deterministic projections
+  const [snapshotPrice, setSnapshotPrice] = useState(null);
+  
+  useEffect(() => {
+    if (btcPrice && snapshotPrice === null) {
+      setSnapshotPrice(btcPrice);
+      console.log('💾 BTC Price Snapshot:', btcPrice);
+    }
+  }, [btcPrice, snapshotPrice]);
+  
+  // Use snapshot price for all projections (locked at page load)
+  const projectionPrice = snapshotPrice || btcPrice || 82000;
+  
   const [selectedScenarioId, setSelectedScenarioId] = useState(null);
   const [formOpen, setFormOpen] = useState(false);
   const [editingScenario, setEditingScenario] = useState(null);
@@ -338,31 +339,38 @@ export default function Scenarios() {
     });
   };
 
-  const currentPrice = btcPrice || 0;
-  if (!currentPrice) console.warn('[SCENARIOS] btcPrice not loaded yet');
+  const currentPrice = projectionPrice;
 
-  // Load all data entities - SAME as FinancialPlan.jsx
+  // CRITICAL: Sort ALL entity arrays by ID for deterministic ordering
   const { data: holdings = [], isLoading: holdingsLoading } = useQuery({
     queryKey: ['holdings'],
-    queryFn: () => base44.entities.Holding.list(),
+    queryFn: async () => {
+      const res = await base44.entities.Holding.list();
+      return res.sort((a, b) => (a.id || '').localeCompare(b.id || '')); // Deterministic sort
+    },
     staleTime: 5 * 60 * 1000,
   });
 
   const { data: accounts = [], isLoading: accountsLoading } = useQuery({
     queryKey: ['accounts'],
-    queryFn: () => base44.entities.Account.list(),
+    queryFn: async () => {
+      const res = await base44.entities.Account.list();
+      return res.sort((a, b) => (a.id || '').localeCompare(b.id || '')); // Deterministic sort
+    },
     staleTime: 5 * 60 * 1000,
   });
 
   const { data: liabilities = [], isLoading: liabilitiesLoading } = useQuery({
     queryKey: ['liabilities'],
-    queryFn: () => base44.entities.Liability.list(),
+    queryFn: async () => {
+      const res = await base44.entities.Liability.list();
+      return res.sort((a, b) => (a.id || '').localeCompare(b.id || '')); // Deterministic sort
+    },
     staleTime: 5 * 60 * 1000,
   });
 
-  // Derive BTC-backed loans from Liability entity (type='btc_collateralized')
+  // Derive BTC-backed loans from Liability entity (type='btc_collateralized') - with deterministic sort
   const btcCollateralizedLoans = useMemo(() => {
-    console.log('[DEBUG] Raw liabilities:', liabilities);
     if (!liabilities) return [];
     const filtered = liabilities
       .filter(l => l.type === 'btc_collateralized')
@@ -376,19 +384,24 @@ export default function Scenarios() {
         interest_rate: l.interest_rate || 12.4,
         collateral_release_ltv: l.collateral_release_ltv || 30,
       }));
-    console.log('[DEBUG] Derived btcCollateralizedLoans:', filtered);
-    return filtered;
+    return filtered.sort((a, b) => (a.id || '').localeCompare(b.id || '')); // Deterministic sort
   }, [liabilities]);
 
   const { data: goals = [], isLoading: goalsLoading } = useQuery({
     queryKey: ['goals'],
-    queryFn: () => base44.entities.FinancialGoal.list(),
+    queryFn: async () => {
+      const res = await base44.entities.FinancialGoal.list();
+      return res.sort((a, b) => (a.id || '').localeCompare(b.id || '')); // Deterministic sort
+    },
     staleTime: 5 * 60 * 1000,
   });
 
   const { data: lifeEvents = [], isLoading: eventsLoading } = useQuery({
     queryKey: ['lifeEvents'],
-    queryFn: () => base44.entities.LifeEvent.list(),
+    queryFn: async () => {
+      const res = await base44.entities.LifeEvent.list();
+      return res.sort((a, b) => (a.id || '').localeCompare(b.id || '')); // Deterministic sort
+    },
     staleTime: 5 * 60 * 1000,
   });
 
@@ -406,13 +419,19 @@ export default function Scenarios() {
 
   const { data: budgetItems = [] } = useQuery({
     queryKey: ['budgetItems'],
-    queryFn: () => base44.entities.BudgetItem.list(),
+    queryFn: async () => {
+      const res = await base44.entities.BudgetItem.list();
+      return res.sort((a, b) => (a.id || '').localeCompare(b.id || '')); // Deterministic sort
+    },
     staleTime: 5 * 60 * 1000,
   });
 
   const { data: transactions = [] } = useQuery({
     queryKey: ['transactions'],
-    queryFn: () => base44.entities.Transaction.filter({ type: 'buy' }),
+    queryFn: async () => {
+      const res = await base44.entities.Transaction.filter({ type: 'buy' });
+      return res.sort((a, b) => (a.id || '').localeCompare(b.id || '')); // Deterministic sort
+    },
     staleTime: 5 * 60 * 1000,
   });
 
@@ -433,7 +452,7 @@ export default function Scenarios() {
       });
   }, [transactions]);
 
-  const isLoading = holdingsLoading || accountsLoading || liabilitiesLoading || goalsLoading || eventsLoading || settingsLoading || scenariosLoading || priceLoading;
+  const isLoading = holdingsLoading || accountsLoading || liabilitiesLoading || goalsLoading || eventsLoading || settingsLoading || scenariosLoading || priceLoading || !snapshotPrice;
 
   const settings = userSettings[0] || {};
 
@@ -465,13 +484,12 @@ export default function Scenarios() {
         activeTaxLots,
         currentPrice,
       });
-      console.log('[DEBUG] Params passed to runUnifiedProjection - collateralizedLoans:', params.collateralizedLoans);
       return runUnifiedProjection(params);
     } catch (error) {
       console.error('Baseline projection error:', error);
       return null;
     }
-  }, [holdings, accounts, liabilities, btcCollateralizedLoans, goals, lifeEvents, userSettings, budgetItems, currentPrice, activeTaxLots]);
+  }, [holdings, accounts, liabilities, btcCollateralizedLoans, goals, lifeEvents, userSettings, budgetItems, currentPrice, activeTaxLots, settings]);
 
   // Run scenario projection
   const selectedScenario = scenarios.find(s => s.id === selectedScenarioId);
@@ -537,10 +555,6 @@ export default function Scenarios() {
         })
       );
       
-      console.log('[DEBUG] Final cleaned overrides:', Object.keys(overrides));
-      
-      console.log('🟢 SCENARIO OVERRIDES:', overrides);
-
       const params = buildProjectionParams(settings, overrides, {
         holdings,
         accounts,
@@ -556,21 +570,11 @@ export default function Scenarios() {
       console.error('Scenario projection error:', error);
       return null;
     }
-  }, [selectedScenario, holdings, accounts, liabilities, btcCollateralizedLoans, goals, lifeEvents, userSettings, budgetItems, currentPrice, activeTaxLots]);
+  }, [selectedScenario, holdings, accounts, liabilities, btcCollateralizedLoans, goals, lifeEvents, userSettings, budgetItems, currentPrice, activeTaxLots, settings]);
 
   // Calculate earliest retirement age for baseline
   const baselineEarliestAge = useMemo(() => {
-    console.log('🔍 Calculating baseline earliest age...');
-    console.log('holdings.length:', holdings?.length);
-    console.log('accounts.length:', accounts?.length);
-    console.log('userSettings.length:', userSettings?.length);
-    console.log('currentPrice:', currentPrice);
-    console.log('settings:', settings);
-    console.log('settings.current_age:', settings?.current_age);
-    console.log('settings.life_expectancy:', settings?.life_expectancy);
-    
     if (!holdings?.length || !accounts?.length || !userSettings?.length || !currentPrice) {
-      console.log('❌ Missing required data for earliest age calculation');
       return null;
     }
     
@@ -585,12 +589,10 @@ export default function Scenarios() {
         activeTaxLots,
         currentPrice,
       };
-      console.log('🔍 Calling calculateEarliestRetirementAge with baseParams');
       const result = calculateEarliestRetirementAge(baseParams, {}, settings);
-      console.log('✅ Baseline earliest age result:', result);
       return result;
     } catch (error) {
-      console.error('❌ Baseline earliest age calculation error:', error);
+      console.error('Baseline earliest age calculation error:', error);
       return null;
     }
   }, [holdings, accounts, liabilities, btcCollateralizedLoans, goals, lifeEvents, userSettings, currentPrice, activeTaxLots, settings]);
@@ -858,21 +860,11 @@ export default function Scenarios() {
       scenarioLiquidationRisk: scenarioParams ? (scenarioLiquidations / numSimulations) * 100 : null,
       numSimulations,
     };
-  }, []);
+  }, [holdings, liabilities, accounts, currentPrice, settings]);
 
   // Binary search for max sustainable spending with shared paths
   // If sharedPaths is provided, use those instead of generating new ones
   const findMaxSustainableSpendingWithPaths = useCallback((baseParams, numSimulations = 200, sharedPaths = null) => {
-    console.log('Safe Spending Calculation - baseParams:', {
-      currentAge: baseParams.currentAge,
-      retirementAge: baseParams.retirementAge,
-      lifeExpectancy: baseParams.lifeExpectancy,
-      retirementAnnualSpending: baseParams.retirementAnnualSpending,
-      yearsInRetirement: baseParams.lifeExpectancy - baseParams.retirementAge,
-      yearsToAccumulate: baseParams.retirementAge - baseParams.currentAge
-    });
-    console.log('Starting safe spending search for retirement age:', baseParams.retirementAge);
-    
     let low = 10000;
     let high = 500000;
     let maxSpending = low;
@@ -883,11 +875,6 @@ export default function Scenarios() {
     let paths;
     if (sharedPaths) {
       paths = sharedPaths;
-      console.log('=== SCENARIOS SAFE SPENDING DEBUG (using shared paths) ===');
-      console.log('baseParams.retirementAge:', baseParams.retirementAge);
-      console.log('baseParams.currentAnnualSpending:', baseParams.currentAnnualSpending);
-      console.log('baseParams.annualSavings:', baseParams.annualSavings);
-      console.log('First path BTC returns (years 0-4):', paths[0]?.btc?.slice(0, 5));
     } else {
       // Format settings object with correct key names for generateMonteCarloSeed
       const seedSettingsLocal = {
@@ -916,13 +903,6 @@ export default function Scenarios() {
     for (let iteration = 0; iteration < 15; iteration++) {
       const testSpending = Math.round((low + high) / 2);
       const testParams = { ...baseParams, retirementAnnualSpending: testSpending };
-
-      console.log('testParams spending check:', {
-        currentAnnualSpending: testParams.currentAnnualSpending,
-        retirementAnnualSpending: testParams.retirementAnnualSpending,
-        testSpending: testSpending,
-        retirementAge: testParams.retirementAge
-      });
       
       let successCount = 0;
       for (let i = 0; i < paths.length; i++) {
@@ -933,41 +913,10 @@ export default function Scenarios() {
           DEBUG: false,
         });
 
-        // Detailed year-by-year logging for first simulation of first iteration
-        if (iteration === 0 && i === 0) {
-          console.log(`=== Detailed Year-by-Year for Retire ${baseParams.retirementAge} ===`);
-          console.log(`currentAge: ${baseParams.currentAge}, retirementAge: ${baseParams.retirementAge}, lifeExpectancy: ${baseParams.lifeExpectancy}`);
-          console.log(`testSpending (retirement): $${testSpending}, currentAnnualSpending (pre-ret): $${baseParams.currentAnnualSpending}`);
-          console.log(`paths[0].btc.length: ${paths[i]?.btc?.length}, yearByYear.length: ${result.yearByYear?.length}`);
-          console.log(`Portfolio at start (Year 0): $${((result.yearByYear?.[0]?.total || 0) / 1000).toFixed(0)}K`);
-
-          // Show first 10 years
-          result.yearByYear?.slice(0, 10).forEach((year, idx) => {
-            const age = baseParams.currentAge + idx;
-            const isRetired = age >= baseParams.retirementAge;
-            const spending = isRetired ? (year.retirementSpendingOnly || 0) : (year.yearSpending || 0);
-            console.log(`Year ${idx} (Age ${age}): Total $${((year.total || 0)/1000).toFixed(0)}K, Spending $${(spending/1000).toFixed(0)}K, ${isRetired ? 'RETIRED' : 'pre-ret'}`);
-          });
-
-          // Show last 5 years
-          console.log('... last 5 years:');
-          result.yearByYear?.slice(-5).forEach((year, idx) => {
-            const yearNum = result.yearByYear.length - 5 + idx;
-            const age = baseParams.currentAge + yearNum;
-            console.log(`Year ${yearNum} (Age ${age}): Total $${((year.total || 0)/1000).toFixed(0)}K, survives: ${result.survives}`);
-          });
-
-          const retirementYearIndex = baseParams.retirementAge - baseParams.currentAge;
-          const retirementYearData = result.yearByYear?.[retirementYearIndex];
-          const portfolioAtRetirement = retirementYearData?.total || 0;
-          console.log(`Portfolio at retirement (Year ${retirementYearIndex}, Age ${baseParams.retirementAge}): $${(portfolioAtRetirement / 1000).toFixed(0)}K`);
-        }
-
         if (result.survives) successCount++;
       }
       
       const successRate = (successCount / numSimulations) * 100;
-      console.log(`Retire ${baseParams.retirementAge}: Testing $${testSpending}/yr - Success: ${successRate.toFixed(1)}% - ${successRate >= 90 ? 'PASS' : 'FAIL'}`);
 
       if (successRate >= 90) {
         maxSpending = testSpending;
@@ -979,9 +928,8 @@ export default function Scenarios() {
       if (high - low <= 5000) break;
     }
 
-    console.log(`Retire ${baseParams.retirementAge}: Final safe spending: $${maxSpending}/yr`);
     return maxSpending;
-  }, [holdings, liabilities, accounts, currentPrice]);
+  }, [holdings, liabilities, accounts, currentPrice, settings]);
 
   // Run Monte Carlo for both baseline and scenario
   const handleRunMonteCarlo = useCallback(async () => {
@@ -1088,181 +1036,6 @@ export default function Scenarios() {
     setScenarioMonteCarloResults(null);
   }, [selectedScenarioId]);
 
-  // Debug: Compare baseline vs scenario parameters to find discrepancies
-  useEffect(() => {
-    if (!baselineProjection || !scenarioProjection || !selectedScenario) return;
-    
-    // Build params for both to compare
-    const baseParams = buildProjectionParams(settings, {}, {
-      holdings,
-      accounts,
-      liabilities,
-      btcCollateralizedLoans,
-      goals,
-      lifeEvents,
-      activeTaxLots,
-      currentPrice,
-    });
-    const scenOverrides = {
-      retirement_age_override: selectedScenario.retirement_age_override,
-      life_expectancy_override: selectedScenario.life_expectancy_override,
-      annual_retirement_spending_override: selectedScenario.annual_retirement_spending_override,
-      state_override: selectedScenario.state_override,
-      btc_cagr_override: selectedScenario.btc_cagr_override,
-      stocks_cagr_override: selectedScenario.stocks_cagr_override,
-      bonds_cagr_override: selectedScenario.bonds_cagr_override,
-      real_estate_cagr_override: selectedScenario.real_estate_cagr_override,
-      cash_cagr_override: selectedScenario.cash_cagr_override,
-      inflation_override: selectedScenario.inflation_override,
-      income_growth_override: selectedScenario.income_growth_override,
-      social_security_start_age_override: selectedScenario.social_security_start_age_override,
-      social_security_amount_override: selectedScenario.social_security_amount_override,
-      savings_allocation_btc_override: selectedScenario.savings_allocation_btc_override,
-      savings_allocation_stocks_override: selectedScenario.savings_allocation_stocks_override,
-      savings_allocation_bonds_override: selectedScenario.savings_allocation_bonds_override,
-      savings_allocation_cash_override: selectedScenario.savings_allocation_cash_override,
-      savings_allocation_other_override: selectedScenario.savings_allocation_other_override,
-      btc_return_model_override: selectedScenario.btc_return_model_override,
-      custom_return_periods_override: selectedScenario.custom_return_periods_override,
-      ticker_returns_override: selectedScenario.ticker_returns_override,
-      gross_annual_income_override: selectedScenario.gross_annual_income_override,
-      current_annual_spending_override: selectedScenario.current_annual_spending_override,
-      dividend_income_override: selectedScenario.dividend_income_override,
-      dividend_income_qualified: selectedScenario.dividend_income_qualified,
-      one_time_events: selectedScenario.one_time_events,
-      asset_reallocations: selectedScenario.asset_reallocations,
-      hypothetical_btc_loan: selectedScenario.hypothetical_btc_loan,
-      future_btc_loan_rate: selectedScenario.future_btc_loan_rate,
-      future_btc_loan_rate_years: selectedScenario.future_btc_loan_rate_years,
-    };
-    const scenParams = buildProjectionParams(settings, scenOverrides, {
-      holdings,
-      accounts,
-      liabilities,
-      btcCollateralizedLoans,
-      goals,
-      lifeEvents,
-      activeTaxLots,
-      currentPrice,
-    });
-    
-    console.log('=== BASELINE VS SCENARIO PARAM COMPARISON ===');
-    console.log('Selected Scenario:', selectedScenario.name);
-    console.log('Raw scenario overrides:', JSON.stringify(scenOverrides, null, 2));
-    
-    // Compare ALL parameters
-    const allKeys = new Set([...Object.keys(baseParams), ...Object.keys(scenParams)]);
-    const differences = [];
-    
-    allKeys.forEach(key => {
-      // Skip function comparisons
-      if (typeof baseParams[key] === 'function' || typeof scenParams[key] === 'function') return;
-      
-      const baseVal = JSON.stringify(baseParams[key]);
-      const scenVal = JSON.stringify(scenParams[key]);
-      if (baseVal !== scenVal) {
-        differences.push({
-          key,
-          baseline: baseParams[key],
-          scenario: scenParams[key]
-        });
-      }
-    });
-    
-    if (differences.length === 0) {
-      console.log('[IDENTICAL] All parameters match between baseline and scenario');
-    } else {
-      console.log(`[FOUND ${differences.length} DIFFERENCES]:`);
-      differences.forEach(diff => {
-        console.log(`  [DIFF] ${diff.key}:`);
-        console.log('    Baseline:', diff.baseline);
-        console.log('    Scenario:', diff.scenario);
-      });
-    }
-    
-    // Key array lengths
-    console.log('--- Array Lengths ---');
-    console.log('lifeEvents - Base:', baseParams.lifeEvents?.length, 'Scen:', scenParams.lifeEvents?.length);
-    console.log('assetReallocations - Base:', baseParams.assetReallocations?.length, 'Scen:', scenParams.assetReallocations?.length);
-    console.log('goals - Base:', baseParams.goals?.length, 'Scen:', scenParams.goals?.length);
-    console.log('collateralizedLoans - Base:', baseParams.collateralizedLoans?.length, 'Scen:', scenParams.collateralizedLoans?.length);
-    
-    // Final net worth comparison
-    const baseFinal = baselineProjection.yearByYear?.[baselineProjection.yearByYear.length - 1]?.total || 0;
-    const scenFinal = scenarioProjection.yearByYear?.[scenarioProjection.yearByYear.length - 1]?.total || 0;
-    console.log('--- Results ---');
-    console.log('Final Net Worth - Baseline:', baseFinal.toLocaleString(), 'Scenario:', scenFinal.toLocaleString());
-    console.log('Difference:', (scenFinal - baseFinal).toLocaleString());
-    
-  }, [baselineProjection, scenarioProjection, selectedScenario, settings, holdings, accounts, liabilities, btcCollateralizedLoans, goals, lifeEvents, activeTaxLots, currentPrice]);
-
-  // Debug: Compare taxes year by year
-  useEffect(() => {
-    if (baselineProjection?.yearByYear && scenarioProjection?.yearByYear) {
-      console.log('[TAX COMPARISON] Year-by-year taxes:');
-      const maxYears = Math.min(baselineProjection.yearByYear.length, scenarioProjection.yearByYear.length, 20);
-      for (let i = 0; i < maxYears; i++) {
-        const baseYear = baselineProjection.yearByYear[i];
-        const scenYear = scenarioProjection.yearByYear[i];
-        if (baseYear.taxesPaid !== scenYear.taxesPaid) {
-          console.log(`  Age ${baseYear.age}: Base $${baseYear.taxesPaid.toLocaleString()} vs Scenario $${scenYear.taxesPaid.toLocaleString()} (diff: $${(scenYear.taxesPaid - baseYear.taxesPaid).toLocaleString()})`);
-        }
-      }
-      console.log('[TAX COMPARISON] Lifetime totals:');
-      const baseLifetime = baselineProjection.yearByYear.reduce((sum, y) => sum + (y.taxesPaid || 0), 0);
-      const scenLifetime = scenarioProjection.yearByYear.reduce((sum, y) => sum + (y.taxesPaid || 0), 0);
-      console.log(`  Baseline: $${baseLifetime.toLocaleString()}`);
-      console.log(`  Scenario: $${scenLifetime.toLocaleString()}`);
-      console.log(`  Difference: $${(scenLifetime - baseLifetime).toLocaleString()}`);
-    }
-  }, [baselineProjection, scenarioProjection]);
-
-  // Detailed Tax Debug: Compare key metrics between baseline and scenario
-  useEffect(() => {
-    if (!baselineProjection?.yearByYear || !scenarioProjection?.yearByYear) return;
-    
-    console.log('=== TAX DEBUG: Baseline vs Scenario ===');
-    
-    // Sum up key metrics
-    let baselineTotalTax = 0, scenarioTotalTax = 0;
-    let baselineTotalWithdrawals = 0, scenarioTotalWithdrawals = 0;
-    let baselineTotalGains = 0, scenarioTotalGains = 0;
-    let baselineTaxFreeWithdrawals = 0, scenarioTaxFreeWithdrawals = 0;
-    
-    const baseYears = baselineProjection.yearByYear;
-    const scenYears = scenarioProjection.yearByYear;
-    
-    // Log first 20 retirement years in detail
-    console.log('Year-by-year comparison (retirement years with tax differences):');
-    for (let i = 0; i < Math.min(baseYears.length, scenYears.length); i++) {
-      const b = baseYears[i];
-      const s = scenYears[i];
-      
-      baselineTotalTax += b.taxesPaid || 0;
-      scenarioTotalTax += s.taxesPaid || 0;
-      baselineTotalWithdrawals += (b.withdrawFromTaxable || 0) + (b.withdrawFromTaxDeferred || 0) + (b.withdrawFromTaxFree || 0);
-      scenarioTotalWithdrawals += (s.withdrawFromTaxable || 0) + (s.withdrawFromTaxDeferred || 0) + (s.withdrawFromTaxFree || 0);
-      baselineTaxFreeWithdrawals += b.withdrawFromTaxFree || 0;
-      scenarioTaxFreeWithdrawals += s.withdrawFromTaxFree || 0;
-      
-      // Log years where taxes differ significantly
-      if (b.isRetired && Math.abs((b.taxesPaid || 0) - (s.taxesPaid || 0)) > 1000) {
-        const bWithdrawal = (b.withdrawFromTaxable || 0) + (b.withdrawFromTaxDeferred || 0) + (b.withdrawFromTaxFree || 0);
-        const sWithdrawal = (s.withdrawFromTaxable || 0) + (s.withdrawFromTaxDeferred || 0) + (s.withdrawFromTaxFree || 0);
-        console.log(`Age ${b.age}: Base tax $${(b.taxesPaid || 0).toLocaleString()} vs Scen $${(s.taxesPaid || 0).toLocaleString()} | Base withdrawal $${bWithdrawal.toLocaleString()} vs Scen $${sWithdrawal.toLocaleString()}`);
-        console.log(`  → Base: Taxable $${(b.withdrawFromTaxable || 0).toLocaleString()}, TaxDef $${(b.withdrawFromTaxDeferred || 0).toLocaleString()}, TaxFree $${(b.withdrawFromTaxFree || 0).toLocaleString()}`);
-        console.log(`  → Scen: Taxable $${(s.withdrawFromTaxable || 0).toLocaleString()}, TaxDef $${(s.withdrawFromTaxDeferred || 0).toLocaleString()}, TaxFree $${(s.withdrawFromTaxFree || 0).toLocaleString()}`);
-      }
-    }
-    
-    console.log('--- TOTALS ---');
-    console.log(`Baseline: $${baselineTotalTax.toLocaleString()} taxes on $${baselineTotalWithdrawals.toLocaleString()} withdrawals`);
-    console.log(`Scenario: $${scenarioTotalTax.toLocaleString()} taxes on $${scenarioTotalWithdrawals.toLocaleString()} withdrawals`);
-    console.log(`Tax per $1 withdrawn - Baseline: ${baselineTotalWithdrawals > 0 ? (baselineTotalTax / baselineTotalWithdrawals).toFixed(4) : 'N/A'} | Scenario: ${scenarioTotalWithdrawals > 0 ? (scenarioTotalTax / scenarioTotalWithdrawals).toFixed(4) : 'N/A'}`);
-    console.log(`Tax-Free (Roth) Withdrawals - Baseline: $${baselineTaxFreeWithdrawals.toLocaleString()} | Scenario: $${scenarioTaxFreeWithdrawals.toLocaleString()}`);
-    
-  }, [baselineProjection, scenarioProjection]);
-
   // Format currency helper (moved up for use in holdingsOptions)
   const formatCurrency = (num) => {
     if (num === null || num === undefined) return '-';
@@ -1276,7 +1049,7 @@ export default function Scenarios() {
   // Each Holding record is already tied to a specific account, so BTC in taxable vs BTC in IRA are separate entries
   const holdingsOptions = useMemo(() => {
     // Don't compute until btcPrice is loaded
-    if (!btcPrice) {
+    if (!projectionPrice) {
       return [];
     }
     
@@ -1286,7 +1059,7 @@ export default function Scenarios() {
                     h.asset_type === 'crypto' || 
                     h.ticker === 'BTC';
       
-      const price = isBtc ? btcPrice : (h.current_price || 0);
+      const price = isBtc ? projectionPrice : (h.current_price || 0);
       const value = h.quantity * price;
       
       // Find the associated account to show tax treatment
@@ -1305,7 +1078,7 @@ export default function Scenarios() {
         isBtc: isBtc
       };
     }).filter(h => h.value > 0);
-  }, [holdings, accounts, btcPrice]);
+  }, [holdings, accounts, projectionPrice]);
 
   // Build comparison chart data
   const chartData = useMemo(() => {
@@ -1384,10 +1157,6 @@ export default function Scenarios() {
   const handleSubmit = (e) => {
     e.preventDefault();
     
-    console.log('=== HANDLE SUBMIT START ===');
-    console.log('btcPrice from hook:', btcPrice);
-    console.log('currentPrice:', currentPrice);
-    
     // Guard: Ensure BTC price is loaded before saving scenario
     if (!currentPrice || currentPrice <= 0) {
       alert('BTC price is still loading. Please wait a moment and try again.');
@@ -1406,9 +1175,6 @@ export default function Scenarios() {
         ? loanAmt / (ltv / 100 * currentPrice)
         : 0;
       
-      console.log('[SCENARIO SAVE] btcPrice:', btcPrice, 'currentPrice:', currentPrice);
-      console.log('[SCENARIO SAVE] Loan calc: $' + loanAmt + ' / (' + ltv + '% * $' + currentPrice + ') = ' + calculatedCollateral + ' BTC');
-      
       cleanedHypotheticalLoan = {
         enabled: true,
         loan_amount: loanAmt || null,
@@ -1423,8 +1189,6 @@ export default function Scenarios() {
           : null,
         use_of_proceeds: form.hypothetical_btc_loan.use_of_proceeds || 'cash',
       };
-      
-      console.log('Full cleanedHypotheticalLoan object:', cleanedHypotheticalLoan);
     }
 
     // Process asset reallocations - convert empty strings to null for numeric fields
@@ -1750,14 +1514,6 @@ export default function Scenarios() {
                       // Helper to render tooltip content for a projection
                       const renderTooltipContent = (p, projectionName, isScenario = false) => {
                         if (!p) return null;
-                        
-                        console.log('[DEBUG] Tooltip data for age', p?.age, {
-                          hasReallocation: p?.hasReallocation,
-                          reallocationDetails: JSON.stringify(p?.reallocationDetails),
-                          earlyWithdrawalTax: p?.earlyWithdrawalTax,
-                          earlyWithdrawalPenalty: p?.earlyWithdrawalPenalty,
-                          penaltyPaid: p?.penaltyPaid
-                        });
                         
                         const hasLiquidation = p.liquidations && p.liquidations.length > 0;
                         const stateCode = isScenario 
@@ -2404,14 +2160,6 @@ export default function Scenarios() {
                 const isScenario = (scenarioData?.value != null && scenarioYearData);
                 
                 if (!p) return null;
-                
-                console.log('[DEBUG] Locked Tooltip data for age', p?.age, {
-                  hasReallocation: p?.hasReallocation,
-                  reallocationDetails: JSON.stringify(p?.reallocationDetails),
-                  earlyWithdrawalTax: p?.earlyWithdrawalTax,
-                  earlyWithdrawalPenalty: p?.earlyWithdrawalPenalty,
-                  penaltyPaid: p?.penaltyPaid
-                });
                 
                 const hasLiquidation = p.liquidations && p.liquidations.length > 0;
                 const stateCode = isScenario 
@@ -4167,7 +3915,6 @@ export default function Scenarios() {
                     const taxableBtcHoldings = holdings
                       .filter(h => h.asset_type === 'btc' || h.asset_type === 'crypto' || h.ticker === 'BTC')
                       .filter(h => {
-                        // Use the helper from buildProjectionParams instead of undefined sharedGetTaxTreatment
                         const account = accounts.find(a => a.id === h.account_id);
                         if (!account) return h.tax_treatment === 'taxable' || !h.tax_treatment;
                         const accountType = account.account_type || '';
