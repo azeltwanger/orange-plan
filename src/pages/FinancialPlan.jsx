@@ -203,8 +203,8 @@ export default function FinancialPlan() {
 
   // Asset withdrawal strategy
   const [assetWithdrawalStrategy, setAssetWithdrawalStrategy] = useState('proportional');
-  const [withdrawalPriorityOrder, setWithdrawalPriorityOrder] = useState(['bonds', 'stocks', 'other', 'btc']);
-  const [withdrawalBlendPercentages, setWithdrawalBlendPercentages] = useState({ bonds: 25, stocks: 35, other: 10, btc: 30 });
+  const [withdrawalPriorityOrder, setWithdrawalPriorityOrder] = useState(['cash', 'bonds', 'stocks', 'other', 'btc']);
+  const [withdrawalBlendPercentages, setWithdrawalBlendPercentages] = useState({ cash: 0, bonds: 25, stocks: 35, other: 10, btc: 30 });
 
   // Settings loaded flag
   const [settingsLoaded, setSettingsLoaded] = useState(false);
@@ -4625,7 +4625,7 @@ export default function FinancialPlan() {
                           const total = Object.values(withdrawalBlendPercentages).reduce((a, b) => a + b, 0);
                           if (total !== 100 && total > 0) {
                             const factor = 100 / total;
-                            const keys = ['bonds', 'stocks', 'other', 'btc'];
+                            const keys = ['cash', 'bonds', 'stocks', 'other', 'btc'];
                             const normalized = {};
                             let sum = 0;
                             keys.forEach((key, i) => {
@@ -4655,6 +4655,7 @@ export default function FinancialPlan() {
                       </div>
                       <div className="space-y-3">
                         {[
+                          { key: 'cash', label: 'Cash', color: 'text-cyan-400' },
                           { key: 'bonds', label: 'Bonds', color: 'text-purple-400' },
                           { key: 'stocks', label: 'Stocks', color: 'text-blue-400' },
                           { key: 'other', label: 'Other', color: 'text-zinc-400' },
@@ -4685,6 +4686,9 @@ export default function FinancialPlan() {
                       
                       {/* Visual bar */}
                       <div className="mt-4 h-2 rounded-full overflow-hidden flex bg-zinc-700">
+                        {withdrawalBlendPercentages.cash > 0 && (
+                          <div className="bg-cyan-500 h-full transition-all" style={{ width: `${Math.min(withdrawalBlendPercentages.cash, 100)}%` }} />
+                        )}
                         {withdrawalBlendPercentages.bonds > 0 && (
                           <div className="bg-purple-500 h-full transition-all" style={{ width: `${Math.min(withdrawalBlendPercentages.bonds, 100)}%` }} />
                         )}
@@ -4707,19 +4711,27 @@ export default function FinancialPlan() {
                     <div className="mt-4 p-4 rounded-lg bg-zinc-800/50 border border-zinc-700">
                       <Label className="text-zinc-400 text-sm mb-3 block">Sell Order</Label>
                       <div className="flex flex-wrap gap-2">
-                        {withdrawalPriorityOrder.filter(a => a !== 'cash').map((asset, index) => (
+                        {withdrawalPriorityOrder.map((asset, index) => {
+                          const assetLabels = {
+                            'cash': 'Cash',
+                            'bonds': 'Bonds',
+                            'stocks': 'Stocks',
+                            'other': 'Other',
+                            'btc': 'Bitcoin'
+                          };
+                          
+                          return (
                           <div
                             key={asset}
                             className="flex items-center gap-2 px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-700"
                           >
                             <span className="text-orange-400 font-bold text-sm">{index + 1}</span>
-                            <span className="text-zinc-300 text-sm">{asset === 'btc' ? 'Bitcoin' : asset.charAt(0).toUpperCase() + asset.slice(1)}</span>
+                            <span className="text-zinc-300 text-sm">{assetLabels[asset] || asset.charAt(0).toUpperCase() + asset.slice(1)}</span>
                             <div className="flex flex-col ml-2">
                               <button
                                 onClick={() => {
-                                  const filteredOrder = withdrawalPriorityOrder.filter(a => a !== 'cash');
                                   if (index > 0) {
-                                    const newOrder = [...filteredOrder];
+                                    const newOrder = [...withdrawalPriorityOrder];
                                     [newOrder[index - 1], newOrder[index]] = [newOrder[index], newOrder[index - 1]];
                                     setWithdrawalPriorityOrder(newOrder);
                                   }
@@ -4731,23 +4743,23 @@ export default function FinancialPlan() {
                               </button>
                               <button
                                 onClick={() => {
-                                  const filteredOrder = withdrawalPriorityOrder.filter(a => a !== 'cash');
-                                  if (index < filteredOrder.length - 1) {
-                                    const newOrder = [...filteredOrder];
+                                  if (index < withdrawalPriorityOrder.length - 1) {
+                                    const newOrder = [...withdrawalPriorityOrder];
                                     [newOrder[index], newOrder[index + 1]] = [newOrder[index + 1], newOrder[index]];
                                     setWithdrawalPriorityOrder(newOrder);
                                   }
                                 }}
-                                disabled={index === withdrawalPriorityOrder.filter(a => a !== 'cash').length - 1}
+                                disabled={index === withdrawalPriorityOrder.length - 1}
                                 className="text-zinc-500 hover:text-orange-400 disabled:opacity-30"
                               >
                                 <ChevronDown className="w-3 h-3" />
                               </button>
                             </div>
                           </div>
-                        ))}
+                        );
+                        })}
                       </div>
-                      <p className="text-xs text-zinc-500 mt-3">Cash is used first, then assets are sold in this order.</p>
+                      <p className="text-xs text-zinc-500 mt-3">Assets are sold in this order to fund retirement spending.</p>
                     </div>
                   )}
                     </div>
