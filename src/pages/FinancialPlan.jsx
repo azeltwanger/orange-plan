@@ -298,12 +298,21 @@ export default function FinancialPlan() {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Filter transactions to active tax lots (buys with remaining quantity)
+  // Filter transactions to active tax lots (buys with remaining quantity) - DETERMINISTIC SORT
   const activeTaxLots = useMemo(() => {
-    return transactions.filter(t => 
-      t.type === 'buy' && 
-      (t.remaining_quantity ?? t.quantity) > 0
-    );
+    return (transactions || [])
+      .filter(t => 
+        t.type === 'buy' && 
+        (t.remaining_quantity ?? t.quantity) > 0
+      )
+      .sort((a, b) => {
+        // Primary: sort by date (oldest first for consistency)
+        const dateA = new Date(a.date || '1970-01-01').getTime();
+        const dateB = new Date(b.date || '1970-01-01').getTime();
+        if (dateA !== dateB) return dateA - dateB;
+        // Secondary: sort by id for stability when dates are equal
+        return (a.id || '').localeCompare(b.id || '');
+      });
   }, [transactions]);
 
   // Auto-expand loan section if has active loans
