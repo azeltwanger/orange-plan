@@ -182,8 +182,15 @@ export default function FinancialPlan() {
     withdrawalStrategy: true,
     savingsContributions: false,
     socialSecurity: false,
-    loanModeling: liabilities.some(l => l.type === 'btc_collateralized') || collateralizedLoans.length > 0, // Default open if has loans
+    loanModeling: false,
   });
+  
+  // Auto-expand loan section if has active loans
+  useEffect(() => {
+    if ((liabilities.some(l => l.type === 'btc_collateralized') || collateralizedLoans.length > 0) && !sectionsExpanded.loanModeling) {
+      setSectionsExpanded(prev => ({ ...prev, loanModeling: true }));
+    }
+  }, [liabilities, collateralizedLoans]);
 
   // Asset withdrawal strategy
   const [assetWithdrawalStrategy, setAssetWithdrawalStrategy] = useState('proportional');
