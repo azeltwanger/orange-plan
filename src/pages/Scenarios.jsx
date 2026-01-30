@@ -720,6 +720,12 @@ export default function Scenarios() {
         (y.loanProceeds || 0) +
         (y.totalDividendIncome || 0);
     }, 0);
+    console.log('Scenarios Raw Tax Rate:', {
+      totalTaxes,
+      totalIncome,
+      rawRate: (totalTaxes / totalIncome) * 100,
+      snapshotPrice: currentPrice
+    });
     const effectiveTaxRate = totalIncome > 0 ? (totalTaxes / totalIncome) * 100 : 0;
     
     // Calculate Net Worth = Total Assets - Total Debt

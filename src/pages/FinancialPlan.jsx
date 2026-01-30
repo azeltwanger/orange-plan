@@ -4166,6 +4166,12 @@ export default function FinancialPlan() {
                       (y.loanProceeds || 0) +
                       (y.totalDividendIncome || 0);
                   }, 0);
+                  console.log('FinancialPlan Raw Tax Rate:', {
+                    totalTaxes,
+                    totalIncome,
+                    rawRate: (totalTaxes / totalIncome) * 100,
+                    snapshotPrice: projectionPrice
+                  });
                   const effectiveRate = totalIncome > 0 ? ((totalTaxes / totalIncome) * 100).toFixed(1) : '0.0';
                   return `${effectiveRate}%`;
                 })()}
