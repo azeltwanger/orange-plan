@@ -1385,18 +1385,20 @@ export default function Scenarios() {
     if (form.hypothetical_btc_loan?.enabled && form.hypothetical_btc_loan?.loan_amount) {
       const loanAmt = parseFloat(form.hypothetical_btc_loan.loan_amount) || 0;
       const ltv = parseFloat(form.hypothetical_btc_loan.ltv) || 50;
+      
       // Auto-calculate collateral from Loan Amount and LTV
+      // Formula: Collateral BTC = Loan Amount / (LTV% × BTC Price)
       const calculatedCollateral = currentPrice > 0 && ltv > 0 
         ? loanAmt / (ltv / 100 * currentPrice)
         : 0;
       
-      console.log('=== SAVING SCENARIO WITH HYPOTHETICAL LOAN ===');
-      console.log('currentPrice (from useBtcPrice hook):', currentPrice);
-      console.log('Loan Amount:', loanAmt);
-      console.log('LTV:', ltv);
-      console.log('Calculated Collateral BTC:', calculatedCollateral);
-      console.log('Verify LTV:', ((loanAmt / (calculatedCollateral * currentPrice)) * 100).toFixed(2) + '%');
-      console.log('Implied price check (should match currentPrice):', loanAmt / (calculatedCollateral * (ltv / 100)));
+      console.log('=== CALCULATING LOAN COLLATERAL ===');
+      console.log('loan_amount:', loanAmt);
+      console.log('ltv:', ltv);
+      console.log('currentPrice used:', currentPrice);
+      console.log('calculated collateral_btc:', calculatedCollateral);
+      console.log('Verify: $' + loanAmt + ' / (' + ltv + '% × $' + currentPrice + ') = ' + calculatedCollateral.toFixed(4) + ' BTC');
+      console.log('Double-check LTV: $' + loanAmt + ' / (' + calculatedCollateral.toFixed(4) + ' BTC × $' + currentPrice + ') = ' + ((loanAmt / (calculatedCollateral * currentPrice)) * 100).toFixed(2) + '%');
       
       cleanedHypotheticalLoan = {
         enabled: true,
