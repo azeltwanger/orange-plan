@@ -182,6 +182,7 @@ export default function FinancialPlan() {
     withdrawalStrategy: true,
     savingsContributions: false,
     socialSecurity: false,
+    loanModeling: false,
   });
 
   // Asset withdrawal strategy
@@ -4016,7 +4017,7 @@ export default function FinancialPlan() {
                   BTC-Backed Loans Projection
                 </h3>
                 <Badge className="bg-orange-500/20 text-orange-400 text-xs">
-                  {liabilities.filter(l => l.type === 'btc_collateralized').length} Active Loans
+                  {liabilities.filter(l => l.type === 'btc_collateralized').length} Active Loan{liabilities.filter(l => l.type === 'btc_collateralized').length !== 1 ? 's' : ''}
                 </Badge>
               </div>
               
@@ -4047,7 +4048,6 @@ export default function FinancialPlan() {
                     return (
                       <div key={idx} className="p-3 rounded-xl bg-zinc-800/50 border border-zinc-700/50">
                         <p className="text-xs text-zinc-500 mb-1">{s.label}</p>
-                        {/* Always show LTV percentage - it's the key metric */}
                         <p className={cn(
                           "text-lg font-bold",
                           anyLiquidated ? "text-rose-400" :
@@ -4058,7 +4058,6 @@ export default function FinancialPlan() {
                           {avgLtv}% LTV
                           {anyLiquidated && <span className="text-xs ml-1">✗</span>}
                         </p>
-                        {/* Show release/liquidation indicator separately */}
                         {(allReleased || hadReleaseEvent) && !anyLiquidated && (
                           <p className="text-[10px] text-purple-400 font-medium">✓ Collateral released</p>
                         )}
@@ -4080,7 +4079,7 @@ export default function FinancialPlan() {
               </div>
               
               {/* Current Loan Details */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
                 {projections[0]?.btcLoanDetails?.map((loan, idx) => (
                   <div key={idx} className="p-3 rounded-lg bg-zinc-800/30 border border-zinc-700/30">
                     <div className="flex justify-between items-center mb-2">
@@ -4102,137 +4101,220 @@ export default function FinancialPlan() {
                 ))}
               </div>
               
-              {/* Footer */}
-              <p className="text-xs text-zinc-500 mt-4 pt-3 border-t border-zinc-700/50">
-                <span className="text-emerald-400">●</span> Healthy &lt;40% • <span className="text-amber-400">●</span> Moderate 40-60% • <span className="text-rose-400">●</span> Elevated &gt;60% • Releases at ≤30% • Liquidates at ≥80%
+              {/* Health Legend */}
+              <p className="text-xs text-zinc-500 mb-3 pt-3 border-t border-zinc-700/50">
+                <span className="text-emerald-400">●</span> Healthy &lt;40% • <span className="text-amber-400">●</span> Moderate 40-60% • <span className="text-rose-400">●</span> Elevated &gt;60% • Releases at ≤{btcReleaseTriggerLtv}% • Liquidates at ≥80%
               </p>
+
+              {/* Collapsible Explanation */}
+              <div className="border border-zinc-700/50 rounded-lg overflow-hidden">
+                <button
+                  onClick={() => setSectionsExpanded(prev => ({ ...prev, loanModeling: !prev.loanModeling }))}
+                  className="w-full flex items-center justify-between p-3 bg-zinc-800/30 hover:bg-zinc-800/50 transition-colors"
+                >
+                  <span className="text-sm text-zinc-300 font-medium">How loan modeling works</span>
+                  {sectionsExpanded.loanModeling ? <ChevronUp className="w-4 h-4 text-zinc-400" /> : <ChevronDown className="w-4 h-4 text-zinc-400" />}
+                </button>
+                {sectionsExpanded.loanModeling && (
+                  <div className="p-4 bg-zinc-900/30">
+                    <p className="text-sm text-zinc-400 mb-3">
+                      {(() => {
+                        const btcLoans = liabilities.filter(l => l.type === 'btc_collateralized');
+                        if (btcLoans.length === 1) {
+                          return `Loan compounds daily at ${btcLoans[0].interest_rate || 12.4}% APR. Your collateral adjusts automatically:`;
+                        } else if (btcLoans.length > 1) {
+                          const rates = btcLoans.map(l => l.interest_rate || 12.4);
+                          const minRate = Math.min(...rates);
+                          const maxRate = Math.max(...rates);
+                          if (minRate === maxRate) {
+                            return `Loans compound daily at ${minRate}% APR. Your collateral adjusts automatically:`;
+                          }
+                          return `Loans compound daily at ${minRate}-${maxRate}% APR. Your collateral adjusts automatically:`;
+                        }
+                        return `Loans compound daily. Your collateral adjusts automatically:`;
+                      })()}
+                    </p>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-start gap-2">
+                        <span className="text-cyan-400">●</span>
+                        <p><span className="text-cyan-400">LTV ≤ {btcReleaseTriggerLtv}%:</span> <span className="text-zinc-400">Excess collateral released (LTV → {btcReleaseTargetLtv}%)</span></p>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <span className="text-amber-400">●</span>
+                        <p><span className="text-amber-400">LTV ≥ {btcTopUpTriggerLtv}%:</span> <span className="text-zinc-400">Auto top-up from liquid BTC (→ {btcTopUpTargetLtv}%)</span></p>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <span className="text-rose-400">●</span>
+                        <p><span className="text-rose-400">LTV ≥ 80%:</span> <span className="text-zinc-400">Collateral liquidated to pay off loan entirely</span></p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-zinc-500 mt-3">
+                      To model paying off a loan early, create a Debt Payoff Goal linked to the loan.
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
-          {/* Account Type Summary */}
+          {/* Tax Bracket Room */}
           <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
-            <h3 className="font-semibold mb-4">Portfolio by Tax Treatment</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-                <div className="flex items-center justify-between mb-1">
-                  <p className="text-sm text-zinc-400">Taxable (Liquid)</p>
-                  <Badge className="bg-emerald-500/20 text-emerald-400 text-[10px]">1st</Badge>
-                </div>
-                <p className="text-2xl font-bold text-emerald-400">{formatNumber(taxableValue)}</p>
-                <p className="text-xs text-zinc-500">Brokerage, self-custody crypto</p>
-              </div>
-              <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20">
-                <div className="flex items-center justify-between mb-1">
-                  <p className="text-sm text-zinc-400">Tax-Deferred (59½+)</p>
-                  <Badge className="bg-amber-500/20 text-amber-400 text-[10px]">2nd</Badge>
-                </div>
-                <p className="text-2xl font-bold text-amber-400">{formatNumber(taxDeferredValue)}</p>
-                <p className="text-xs text-zinc-500">401(k), Traditional IRA • 10% penalty if early</p>
-              </div>
-              <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-500/20">
-                <div className="flex items-center justify-between mb-1">
-                  <p className="text-sm text-zinc-400">Tax-Free (Roth/HSA)</p>
-                  <Badge className="bg-purple-500/20 text-purple-400 text-[10px]">3rd</Badge>
-                </div>
-                <p className="text-2xl font-bold text-purple-400">{formatNumber(taxFreeValue)}</p>
-                <p className="text-xs text-zinc-500">Roth IRA/401k, HSA • Contributions accessible</p>
-              </div>
-              <div className="p-4 rounded-xl bg-cyan-500/10 border border-cyan-500/20">
-                <div className="flex items-center justify-between mb-1">
-                  <p className="text-sm text-zinc-400">Real Estate (Illiquid)</p>
-                  <Badge className="bg-cyan-500/20 text-cyan-400 text-[10px]">4th</Badge>
-                </div>
-                <p className="text-2xl font-bold text-cyan-400">{formatNumber(realEstateAccountValue)}</p>
-                <p className="text-xs text-zinc-500">Property • Last resort for withdrawals</p>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="font-semibold">Tax Bracket Room</h3>
+                <p className="text-sm text-zinc-500 mt-1">
+                  {currentYear} • {filingStatus === 'married' ? 'Married Filing Jointly' : 'Single'}
+                </p>
               </div>
             </div>
 
-            {/* Withdrawal Priority Explanation */}
-            <div className="mt-4 p-3 rounded-lg bg-zinc-800/30 border border-zinc-700/50">
-              <p className="text-xs font-medium text-zinc-300 mb-2">Withdrawal Priority Order</p>
-              <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-400">
-                <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400">1. Taxable</span>
-                <span>→</span>
-                <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-400">2. Tax-Deferred</span>
-                <span>→</span>
-                <span className="px-2 py-0.5 rounded bg-purple-500/20 text-purple-400">3. Tax-Free</span>
-                <span>→</span>
-                <span className="px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-400">4. Real Estate (Last)</span>
-              </div>
-              <p className="text-[10px] text-zinc-500 mt-2">
-                After age 59½: Taxable first (LTCG rates), then tax-deferred (income tax), then tax-free (preserves growth), then real estate last (illiquid).
-                Before 59½: Taxable first, then Roth contributions, then tax-deferred with 10% penalty, then real estate as last resort.
+            {(() => {
+              // Calculate current taxable income (first year of projection)
+              const firstYear = projections[0] || {};
+              const grossIncome = firstYear.yearGrossIncome || grossAnnualIncome;
+              const taxableIncome = Math.max(0, grossIncome - actual401k - actualTraditionalIRA - actualHSA - currentStandardDeduction);
+              
+              // Get current year brackets
+              const config = getTaxConfigForYear(currentYear);
+              const brackets = config.federalBrackets[filingStatus] || config.federalBrackets.single;
+              
+              // Calculate bracket usage
+              const bracketData = [];
+              let cumulativeIncome = 0;
+              
+              brackets.forEach((bracket, idx) => {
+                const bracketMin = idx === 0 ? 0 : brackets[idx - 1].max;
+                const bracketMax = bracket.max === Infinity ? null : bracket.max;
+                const bracketSize = bracketMax ? bracketMax - bracketMin : 100000;
+                
+                const incomeInBracket = Math.max(0, Math.min(
+                  taxableIncome - cumulativeIncome,
+                  bracketSize
+                ));
+                const isCurrent = taxableIncome > cumulativeIncome && taxableIncome <= (bracketMax || Infinity);
+                const roomRemaining = bracketMax ? Math.max(0, bracketMax - Math.max(taxableIncome, bracketMin)) : 0;
+                
+                cumulativeIncome += bracketSize;
+                
+                // Only show brackets up to current + 2
+                if (idx <= 5) {
+                  bracketData.push({
+                    rate: bracket.label,
+                    rangeStart: bracketMin,
+                    rangeEnd: bracketMax,
+                    filled: incomeInBracket,
+                    max: bracketSize,
+                    room: roomRemaining,
+                    isCurrent,
+                    status: incomeInBracket >= bracketSize ? 'filled' : incomeInBracket > 0 ? 'partial' : 'empty'
+                  });
+                }
+              });
+              
+              return (
+                <div className="space-y-4">
+                  {/* Current Income Display */}
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-zinc-800/30 border border-zinc-700">
+                    <span className="text-sm text-zinc-400">Your taxable income:</span>
+                    <span className="text-lg font-bold text-orange-400">${taxableIncome.toLocaleString()}</span>
+                  </div>
+                  
+                  {/* Bracket Bars */}
+                  <div className="space-y-3">
+                    {bracketData.map((bracket, idx) => (
+                      <div key={idx} className={cn(
+                        "p-3 rounded-lg border transition-all",
+                        bracket.isCurrent ? "bg-orange-500/10 border-orange-500/30" : "bg-zinc-800/20 border-zinc-700/50"
+                      )}>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <span className={cn(
+                              "text-sm font-bold",
+                              bracket.isCurrent ? "text-orange-400" : "text-zinc-400"
+                            )}>
+                              {bracket.rate}
+                            </span>
+                            <span className="text-xs text-zinc-500">
+                              ${bracket.rangeStart.toLocaleString()} - {bracket.rangeEnd ? `$${bracket.rangeEnd.toLocaleString()}` : '∞'}
+                            </span>
+                          </div>
+                          {bracket.status !== 'empty' && bracket.room > 0 && (
+                            <span className="text-xs text-emerald-400">
+                              ${bracket.room.toLocaleString()} room
+                            </span>
+                          )}
+                        </div>
+                        
+                        {/* Progress Bar */}
+                        <div className="h-2 bg-zinc-700/50 rounded-full overflow-hidden">
+                          <div 
+                            className={cn(
+                              "h-full transition-all",
+                              bracket.isCurrent ? "bg-orange-500" : "bg-emerald-500"
+                            )}
+                            style={{ width: `${(bracket.filled / bracket.max) * 100}%` }}
+                          />
+                        </div>
+                        
+                        {bracket.status === 'filled' && (
+                          <p className="text-xs text-zinc-500 mt-1">✓ Bracket filled</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {/* Insights */}
+                  {(() => {
+                    const currentBracket = bracketData.find(b => b.isCurrent);
+                    if (currentBracket && currentBracket.room > 0 && currentBracket.rate === '12%') {
+                      return (
+                        <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                          <p className="text-sm text-blue-400">
+                            💡 You have ${currentBracket.room.toLocaleString()} room in the 12% bracket — consider Roth conversion to fill it
+                          </p>
+                        </div>
+                      );
+                    }
+                    if (currentBracket && currentBracket.room > 0) {
+                      return (
+                        <div className="p-3 rounded-lg bg-zinc-800/30 border border-zinc-700">
+                          <p className="text-sm text-zinc-400">
+                            💡 You have ${currentBracket.room.toLocaleString()} room in the {currentBracket.rate} bracket
+                          </p>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* RMD Notice */}
+          {taxDeferredValue > 0 && (
+            <div className="card-premium rounded-2xl p-6 border border-zinc-800/50">
+              <p className="text-sm font-medium text-blue-400 mb-2">
+                ℹ️ Required Minimum Distributions (RMDs)
+              </p>
+              <p className="text-sm text-zinc-300">
+                Based on your birth year ({currentYear - currentAge}), RMDs begin at age {(() => {
+                  const birthYear = currentYear - currentAge;
+                  return getRMDStartAge(birthYear);
+                })()}.
+                {(() => {
+                  const birthYear = currentYear - currentAge;
+                  const startAge = getRMDStartAge(birthYear);
+                  if (birthYear <= 1950) return " (Born 1950 or earlier)";
+                  if (birthYear <= 1959) return " (Born 1951-1959)";
+                  return " (Born 1960+, SECURE Act 2.0)";
+                })()}
+              </p>
+              <p className="text-xs text-zinc-500 mt-2">
+                RMDs are calculated from your total tax-deferred balance and are taxed as ordinary income. Excess RMDs (beyond spending needs) are reinvested in taxable accounts.
               </p>
             </div>
-
-
-            {/* BTC Loan Explanation - show if user has BTC loans */}
-            {liabilities.some(l => l.type === 'btc_collateralized') && (
-              <div className="bg-zinc-800/50 rounded-lg p-4 mt-4">
-                <h4 className="text-sm font-semibold text-orange-400 mb-2 flex items-center gap-2">
-                  <span>₿</span> BTC-Backed Loan Modeling
-                </h4>
-                <p className="text-sm text-zinc-400 mb-3">
-                  {(() => {
-                    const btcLoans = liabilities.filter(l => l.type === 'btc_collateralized');
-                    if (btcLoans.length === 1) {
-                      return `Loan compounds daily at ${btcLoans[0].interest_rate || 12.4}% APR. Your collateral adjusts automatically:`;
-                    } else if (btcLoans.length > 1) {
-                      const rates = btcLoans.map(l => l.interest_rate || 12.4);
-                      const minRate = Math.min(...rates);
-                      const maxRate = Math.max(...rates);
-                      if (minRate === maxRate) {
-                        return `Loans compound daily at ${minRate}% APR. Your collateral adjusts automatically:`;
-                      }
-                      return `Loans compound daily at ${minRate}-${maxRate}% APR. Your collateral adjusts automatically:`;
-                    }
-                    return `Loans compound daily. Your collateral adjusts automatically:`;
-                  })()}
-                </p>
-                <div className="space-y-2 text-sm">
-                  <div className="flex items-start gap-2">
-                    <span className="text-cyan-400">●</span>
-                    <p><span className="text-cyan-400">LTV ≤ {btcReleaseTriggerLtv}%:</span> <span className="text-zinc-400">Excess collateral released (LTV → {btcReleaseTargetLtv}%)</span></p>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <span className="text-amber-400">●</span>
-                    <p><span className="text-amber-400">LTV ≥ {btcTopUpTriggerLtv}%:</span> <span className="text-zinc-400">Auto top-up from liquid BTC (→ {btcTopUpTargetLtv}%)</span></p>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <span className="text-rose-400">●</span>
-                    <p><span className="text-rose-400">LTV ≥ 80%:</span> <span className="text-zinc-400">Collateral liquidated to pay off loan entirely</span></p>
-                  </div>
-                </div>
-                <p className="text-xs text-zinc-500 mt-3">
-                  To model paying off a loan early, create a Debt Payoff Goal linked to the loan.
-                </p>
-              </div>
-            )}
-
-            {/* RMD Start Age Notice - only show if user has tax-deferred accounts */}
-            {taxDeferredValue > 0 && (
-              <div className="mt-4 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
-                <p className="text-sm text-blue-400 font-medium mb-1">
-                  ℹ️ Required Minimum Distributions (RMDs)
-                </p>
-                <p className="text-sm text-zinc-300">
-                  Based on your birth year ({currentYear - currentAge}), RMDs begin at age {(() => {
-                    const birthYear = currentYear - currentAge;
-                    return getRMDStartAge(birthYear);
-                  })()}.
-                  {(() => {
-                    const birthYear = currentYear - currentAge;
-                    const startAge = getRMDStartAge(birthYear);
-                    if (birthYear <= 1950) return " (Born 1950 or earlier)";
-                    if (birthYear <= 1959) return " (Born 1951-1959)";
-                    return " (Born 1960+, SECURE Act 2.0)";
-                  })()}
-                </p>
-                <p className="text-xs text-zinc-500 mt-1">
-                  RMDs are calculated from your total tax-deferred balance and are taxed as ordinary income. Excess RMDs (beyond spending needs) are reinvested in taxable accounts.
-                </p>
-              </div>
-            )}
+          )}
 
             {retirementAge < PENALTY_FREE_AGE && (() => {
                 const yearsUntilPenaltyFree = Math.ceil(PENALTY_FREE_AGE - retirementAge);
