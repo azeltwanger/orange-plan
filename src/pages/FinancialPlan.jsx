@@ -4809,16 +4809,15 @@ export default function FinancialPlan() {
                   {(savingsAllocationBtc + savingsAllocationStocks + savingsAllocationBonds + savingsAllocationCash + savingsAllocationOther) !== 100 && (
                     <p className="text-xs text-amber-400">
                       ⚠️ Total: {savingsAllocationBtc + savingsAllocationStocks + savingsAllocationBonds + savingsAllocationCash + savingsAllocationOther}% (should be 100%)
-                      </p>
-                      )}
-                      </div>
-                      </div>
+                    </p>
+                  )}
+                    </div>
 
-                      {/* Retirement Account Contributions */}
-                      <div>
+                    {/* Retirement Account Contributions */}
+                    <div>
                       <Label className="text-zinc-300 text-sm mb-2 block">Retirement Account Contributions</Label>
                       <p className="text-xs text-zinc-500 mb-4">These contributions continue annually until retirement age {retirementAge}</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label className="text-zinc-400">401k/403b Contribution</Label>
                     <Input 
@@ -4932,21 +4931,22 @@ export default function FinancialPlan() {
                       <SelectContent className="bg-zinc-900 border-zinc-700">
                         <SelectItem value="individual">Individual</SelectItem>
                         <SelectItem value="family">Family</SelectItem>
-                      </SelectContent>
-                      </Select>
-                      </div>
-                      </div>
+                        </SelectContent>
+                        </Select>
+                        </div>
+                        </div>
 
-                      <div className="mt-4 space-y-2">
-                       <p className="text-xs text-zinc-500">
-                         💡 Pre-tax contributions (401k: {formatNumber(actual401k)}, Traditional IRA: {formatNumber(actualTraditionalIRA)}, HSA: {formatNumber(actualHSA)}) reduce your taxable income. 
-                         Roth IRA comes from after-tax income. Employer match ({formatNumber(employer401kMatch || 0)}) goes to tax-deferred.
-                         Debt payments ({formatNumber(monthlyDebtPayments * 12)}/yr) are tracked separately.
-                       </p>
-                      </div>
-                      </div>
-                      )}
-                      </div>
+                        <div className="mt-4 space-y-2">
+                        <p className="text-xs text-zinc-500">
+                        💡 Pre-tax contributions (401k: {formatNumber(actual401k)}, Traditional IRA: {formatNumber(actualTraditionalIRA)}, HSA: {formatNumber(actualHSA)}) reduce your taxable income. 
+                        Roth IRA comes from after-tax income. Employer match ({formatNumber(employer401kMatch || 0)}) goes to tax-deferred.
+                        Debt payments ({formatNumber(monthlyDebtPayments * 12)}/yr) are tracked separately.
+                        </p>
+                        </div>
+                        </div>
+                        </div>
+                        )}
+                        </div>
 
                       {/* Section 5: Social Security */}
                       <div className="border border-zinc-800 rounded-xl overflow-hidden">
