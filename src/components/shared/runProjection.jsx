@@ -148,31 +148,9 @@ export function runUnifiedProjection({
   futureBtcLoanRateYears = null,
   DEBUG = false,
 }) {
-  // DEBUG: Entry point logging
-  console.log('[PROJECTION] currentPrice param:', currentPrice);
-  if (hypothetical_btc_loan?.enabled) {
-    console.log('[PROJECTION] hypothetical_btc_loan enabled:', {
-      loan_amount: hypothetical_btc_loan.loan_amount,
-      collateral_btc: hypothetical_btc_loan.collateral_btc,
-      use_of_proceeds: hypothetical_btc_loan.use_of_proceeds
-    });
-  }
-  
-  // Only log for main projection to avoid console spam from Monte Carlo runs
-  const shouldLog = projectionType === 'main';
+  // Disable verbose logging for production (set to true only when debugging)
+  const shouldLog = false;
   const runLabel = projectionType === 'monteCarlo' ? `MC-${monteCarloIteration}` : projectionType.toUpperCase();
-  
-  if (shouldLog) {
-    console.log('🚀 ========================================');
-    console.log('🚀 PROJECTION START - Run ID:', _runId);
-    console.log('🚀 Type:', runLabel);
-    console.log('🚀 projectionId:', projectionId);
-    console.log('🚀 Timestamp:', new Date().toISOString());
-    console.log('🚀 Liabilities count:', liabilities?.length);
-    console.log('🚀 CollateralizedLoans count:', collateralizedLoans?.length);
-    console.log('🚀 Holdings count:', holdings?.length);
-    console.log('🚀 ========================================');
-  }
   
   // Ensure deterministic order for all input arrays (sort by ID)
   const sortedHoldings = [...(holdings || [])].sort((a, b) => (a.id || '').localeCompare(b.id || ''));
@@ -638,16 +616,6 @@ export function runUnifiedProjection({
       encumberedBtc[loanKey] = liability.collateral_btc_amount;
       releasedBtc[loanKey] = 0;
       
-      if (shouldLog) {
-        console.log('📥 LOADING LOAN (Liability) - Run ID:', _runId);
-        console.log('   Name:', liability.name);
-        console.log('   ID:', liability.id);
-        console.log('   loanKey:', loanKey);
-        console.log('   Collateral BTC:', liability.collateral_btc_amount);
-        console.log('   Collateral Basis:', liability.collateral_total_basis);
-        console.log('   Lots count:', liability.collateral_lots?.length || 0);
-      }
-      
       if (DEBUG) {
         console.log('=== LOADING BTC LOAN (Liability) ===');
         console.log('Name:', liability.name);
@@ -696,16 +664,6 @@ export function runUnifiedProjection({
       const loanKey = `loan_${loan.id}`;
       encumberedBtc[loanKey] = loan.collateral_btc_amount;
       releasedBtc[loanKey] = 0;
-      
-      if (shouldLog) {
-        console.log('📥 LOADING LOAN (CollateralizedLoan) - Run ID:', _runId);
-        console.log('   Name:', loan.name);
-        console.log('   ID:', loan.id);
-        console.log('   loanKey:', loanKey);
-        console.log('   Collateral BTC:', loan.collateral_btc_amount);
-        console.log('   Collateral Basis:', loan.collateral_total_basis);
-        console.log('   Lots count:', loan.collateral_lots?.length || 0);
-      }
       
       if (DEBUG) {
         console.log('=== LOADING BTC LOAN (CollateralizedLoan) ===');
@@ -798,15 +756,6 @@ export function runUnifiedProjection({
   
   // CRITICAL: Set initial encumberedBtcBasis BEFORE hypothetical loan processing
   encumberedBtcBasis = loansWithStoredBasis + legacyProportionalBasis;
-  
-  if (shouldLog) {
-    console.log('📊 FINAL LOAN STATE after loading - Run ID:', _runId);
-    console.log('   encumberedBtc keys:', Object.keys(encumberedBtc));
-    console.log('   loanCollateralBasis keys:', Object.keys(loanCollateralBasis));
-    console.log('   Total encumbered BTC:', Object.values(encumberedBtc).reduce((a,b) => a+b, 0));
-    console.log('   Total basis:', Object.values(loanCollateralBasis).reduce((a,b) => a+b, 0));
-    console.log('   encumberedBtcBasis:', encumberedBtcBasis);
-  }
   
   if (DEBUG) {
     console.log('=== FINAL COLLATERAL BASIS STATE ===');
@@ -922,7 +871,7 @@ export function runUnifiedProjection({
         if (hypotheticalLoanObj.use_of_proceeds === 'btc') {
           // Buy BTC with loan proceeds - track quantity for proper growth
           const btcQuantityPurchased = proceeds / currentPrice;
-          console.log('[LOAN BTC BUY] Year 0: $' + proceeds.toLocaleString() + ' / $' + currentPrice.toLocaleString() + ' = ' + btcQuantityPurchased.toFixed(4) + ' BTC');
+          if (DEBUG) console.log('[LOAN BTC BUY] Year 0: $' + proceeds.toLocaleString() + ' / $' + currentPrice.toLocaleString() + ' = ' + btcQuantityPurchased.toFixed(4) + ' BTC');
           portfolio.taxable.btc += proceeds;
           runningTaxableBasis += proceeds;
           
@@ -1330,7 +1279,7 @@ export function runUnifiedProjection({
         if (newLoan.use_of_proceeds === 'btc') {
           // Buy BTC with loan proceeds - track quantity for proper growth
           const btcQuantityPurchased = proceeds / cumulativeBtcPrice;
-          console.log('[LOAN BTC BUY] Year ' + year + ' (Age ' + age + '): $' + proceeds.toLocaleString() + ' / $' + cumulativeBtcPrice.toLocaleString() + ' = ' + btcQuantityPurchased.toFixed(4) + ' BTC');
+          if (DEBUG) console.log('[LOAN BTC BUY] Year ' + year + ' (Age ' + age + '): $' + proceeds.toLocaleString() + ' / $' + cumulativeBtcPrice.toLocaleString() + ' = ' + btcQuantityPurchased.toFixed(4) + ' BTC');
           portfolio.taxable.btc += proceeds;
           runningTaxableBasis += proceeds;
           
@@ -2692,9 +2641,7 @@ export function runUnifiedProjection({
                 capitalGain: gainOnSale 
               });
               
-              if (shouldLog) {
-                console.log('📝 Added to yearLoanPayoffs (pre-retire):', loan.name, yearLoanPayoffs.length, 'total');
-              }
+
             }
           }
           
@@ -2865,12 +2812,7 @@ export function runUnifiedProjection({
       const taxableSocialSecurity = calculateTaxableSocialSecurity(socialSecurityIncome, otherRetirementIncome + desiredWithdrawal, filingStatus);
       const totalOtherIncomeForTax = otherRetirementIncome + taxableSocialSecurity + rmdWithdrawn + yearLifeEventTaxableIncome;
       
-      // Debug: Verify life event taxable income is included in tax calculation
-      if (yearLifeEventTaxableIncome > 0) {
-        console.log('📋 Year', year, 'age', age);
-        console.log('   yearLifeEventTaxableIncome:', yearLifeEventTaxableIncome);
-        console.log('   totalOtherIncomeForTax (includes life events):', totalOtherIncomeForTax);
-      }
+
 
       // Calculate taxable income for retirement year (ordinary income portion)
       yearTaxableIncome = Math.max(0, totalOtherIncomeForTax - currentStandardDeduction);
@@ -3190,9 +3132,7 @@ export function runUnifiedProjection({
                 capitalGain: gainOnSale 
               });
               
-              if (shouldLog) {
-                console.log('📝 Added to yearLoanPayoffs (retirement):', loan.name, yearLoanPayoffs.length, 'total');
-              }
+
             }
           }
           
@@ -3321,18 +3261,7 @@ export function runUnifiedProjection({
     }
     // Once depleted, stay depleted - don't reset firstDepletionAge
 
-    // Debug tax logging - compare scenarios
-    if (DEBUG) {
-      console.log(`📊 Year ${year} (Age ${age}) Tax Summary:`);
-      console.log(`   isRetired: ${isRetired}`);
-      console.log(`   taxesPaid: $${Math.round(taxesPaid || 0).toLocaleString()}`);
-      console.log(`   federalTaxPaid: $${Math.round(federalTaxPaid || 0).toLocaleString()}`);
-      console.log(`   stateTaxPaid: $${Math.round(stateTaxPaid || 0).toLocaleString()}`);
-      console.log(`   yearLifeEventIncome: $${Math.round(yearLifeEventIncome || 0).toLocaleString()}`);
-      console.log(`   yearLoanProceeds: $${Math.round(yearLoanProceeds || 0).toLocaleString()}`);
-      console.log(`   totalWithdrawal: $${Math.round(totalWithdrawalAmount || 0).toLocaleString()}`);
-      console.log(`   portfolioTotal: $${Math.round(getTotalPortfolio(encumberedBtcValueThisYear) || 0).toLocaleString()}`);
-    }
+
 
     // Get asset totals
     const getAssetTotal = (assetKey) => {
@@ -3369,10 +3298,7 @@ export function runUnifiedProjection({
         ? Math.round((withdrawFromTaxable || 0) + (withdrawFromTaxDeferred || 0) + (withdrawFromTaxFree || 0) + (withdrawFromRealEstate || 0) + (fromLoanPayoff || 0))
         : 0;
 
-    // Debug: Log yearLoanPayoffs before pushing to results
-    if (yearLoanPayoffs.length > 0 && shouldLog) {
-      console.log(`[${runLabel}] 📋 Year`, year, 'age', age, 'yearLoanPayoffs:', yearLoanPayoffs.length, yearLoanPayoffs.map(p => p.loanName));
-    }
+
 
     results.push({
       year,
@@ -3507,25 +3433,7 @@ export function runUnifiedProjection({
   const survives = firstDepletionAge === null;
   const finalYear = results[results.length - 1];
   
-  if (shouldLog) {
-    const liquidationYears = results.filter(r => r.loanPayoffs?.length > 0);
-    console.log('🏁 ========================================');
-    console.log('🏁 PROJECTION END - Run ID:', _runId);
-    console.log('🏁 Type:', runLabel);
-    console.log('🏁 projectionId:', projectionId);
-    console.log('🏁 Total years processed:', results.length);
-    console.log('🏁 Years with liquidations:', liquidationYears.length);
-    if (liquidationYears.length > 0) {
-      console.log('🏁 Liquidation details:', liquidationYears.map(y => ({
-        year: y.year,
-        age: y.age,
-        payoffs: y.loanPayoffs?.map(p => p.loanName)
-      })));
-    }
-    console.log('🏁 survives:', survives);
-    console.log('🏁 finalPortfolio:', finalYear?.total || 0);
-    console.log('🏁 ========================================');
-  }
+
   
   return {
     survives,
