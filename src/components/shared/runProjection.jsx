@@ -353,7 +353,7 @@ export function runUnifiedProjection({
       otherTarget = acct.other * ratio;
     } else if (assetWithdrawalStrategy === 'priority') {
       // Withdraw in priority order until amount is met
-      // CRITICAL FIX: Fully exhaust each asset before moving to the next
+      // Only set targets here - actual deductions happen in BTC/Other sections below
       let remaining = actualWithdrawal;
       for (const assetType of withdrawalPriorityOrder) {
         if (remaining <= 0) break;
@@ -492,13 +492,13 @@ export function runUnifiedProjection({
     const nonBtcWithdrawnForGains = stocksTarget + bondsTarget + otherTarget; // Exclude cashTarget
     const nonBtcWithdrawn = stocksTarget + bondsTarget + cashTarget + otherTarget; // Total for tracking
     let otherLongTermGain = 0;
-    if (nonBtcWithdrawnForGains > 0) {
+    if (nonBtcWithdrawn > 0) {
       const nonBtcTotalForGains = acct.stocks + acct.bonds + acct.other; // Exclude acct.cash
       const basisRatio = (nonBtcTotalForGains > 0 && runningTaxableBasis > 0) ? 
         ((runningTaxableBasis - btcCostBasis) / nonBtcTotalForGains) : 0;
       
       otherCostBasis = nonBtcWithdrawnForGains * Math.min(1, basisRatio);
-      otherWithdrawn = nonBtcWithdrawnForGains;
+      otherWithdrawn = nonBtcWithdrawn;
       otherLongTermGain = Math.max(0, otherWithdrawn - otherCostBasis); // Assume long-term for non-BTC
       
       acct.stocks = Math.max(0, acct.stocks - stocksTarget);
