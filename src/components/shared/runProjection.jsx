@@ -174,6 +174,19 @@ export function runUnifiedProjection({
     console.log('🚀 ========================================');
   }
   
+  // Ensure deterministic order for all input arrays (sort by ID)
+  const sortedHoldings = [...(holdings || [])].sort((a, b) => (a.id || '').localeCompare(b.id || ''));
+  const sortedLiabilities = [...(liabilities || [])].sort((a, b) => (a.id || '').localeCompare(b.id || ''));
+  const sortedCollateralizedLoans = [...(collateralizedLoans || [])].sort((a, b) => (a.id || '').localeCompare(b.id || ''));
+  const sortedGoals = [...(goals || [])].sort((a, b) => (a.id || '').localeCompare(b.id || ''));
+  const sortedLifeEvents = [...(lifeEvents || [])].sort((a, b) => (a.id || '').localeCompare(b.id || ''));
+  const sortedTaxLots = [...(taxLots || [])].sort((a, b) => {
+    const dateA = new Date(a.date || 0);
+    const dateB = new Date(b.date || 0);
+    if (dateA.getTime() !== dateB.getTime()) return dateA - dateB;
+    return (a.id || '').localeCompare(b.id || '');
+  });
+
   const results = [];
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth();
@@ -234,7 +247,7 @@ export function runUnifiedProjection({
       realEstate: 0,
     };
     
-    holdings.forEach(h => {
+    sortedHoldings.forEach(h => {
       const value = h.ticker === 'BTC' ? h.quantity * currentPrice : h.quantity * (h.current_price || 0);
       const taxTreatment = getTaxTreatmentFromHolding(h);
       const assetCategory = getAssetCategory(h.asset_type, h.ticker);
@@ -558,14 +571,15 @@ export function runUnifiedProjection({
   
   // Create a mutable copy of tax lots for tracking remaining quantities through projection
   // Always use original quantity for projections - remaining_quantity is only for tracking within this projection run
-  let runningTaxLots = taxLots.map(lot => ({ 
+  // Use sortedTaxLots for deterministic order
+  let runningTaxLots = sortedTaxLots.map(lot => ({ 
     ...lot,
     remaining_quantity: lot.quantity ?? 0
   }));
   
   // Initialize debt tracking
   const tempRunningDebt = {};
-  liabilities.forEach(liability => {
+  sortedLiabilities.forEach(liability => {
     tempRunningDebt[liability.id] = {
       ...liability,
       current_balance: liability.current_balance || 0,
@@ -576,7 +590,7 @@ export function runUnifiedProjection({
 
   const tempRunningCollateralizedLoans = {};
   const pendingHypotheticalLoans = [];
-  collateralizedLoans.forEach(loan => {
+  sortedCollateralizedLoans.forEach(loan => {
     tempRunningCollateralizedLoans[loan.id] = {
       ...loan,
       current_balance: loan.current_balance || 0,
@@ -599,7 +613,7 @@ export function runUnifiedProjection({
 
 
   // Populate encumberedBtc from existing liabilities/loans BEFORE hypothetical loan processing
-  liabilities.forEach(liability => {
+  sortedLiabilities.forEach(liability => {
     if (liability.type === 'btc_collateralized' && liability.collateral_btc_amount) {
       const loanKey = liability.id;
       encumberedBtc[loanKey] = liability.collateral_btc_amount;
@@ -658,7 +672,7 @@ export function runUnifiedProjection({
     }
   });
 
-  collateralizedLoans.forEach(loan => {
+  sortedCollateralizedLoans.forEach(loan => {
     if (loan.collateral_btc_amount) {
       const loanKey = `loan_${loan.id}`;
       encumberedBtc[loanKey] = loan.collateral_btc_amount;
@@ -718,7 +732,7 @@ export function runUnifiedProjection({
   });
 
   // Track cost basis for taxable accounts
-  const taxableHoldings = holdings.filter(h => getTaxTreatmentFromHolding(h) === 'taxable');
+  const taxableHoldings = sortedHoldings.filter(h => getTaxTreatmentFromHolding(h) === 'taxable');
   const initialTaxableCostBasis = taxableHoldings.reduce((sum, h) => sum + (h.cost_basis_total || 0), 0);
   let runningTaxableBasis = initialTaxableCostBasis;
 
@@ -740,7 +754,7 @@ export function runUnifiedProjection({
   
   // For loans without stored lot data, calculate proportional fallback
   let legacyCollateralBtc = 0;
-  [...liabilities, ...collateralizedLoans].forEach(loan => {
+  [...sortedLiabilities, ...sortedCollateralizedLoans].forEach(loan => {
     const loanKey = loan.collateral_btc_amount ? (liabilities.includes(loan) ? loan.id : `loan_${loan.id}`) : null;
     if (loanKey && !loanCollateralBasis[loanKey] && loan.collateral_btc_amount > 0) {
       legacyCollateralBtc += loan.collateral_btc_amount;
@@ -753,7 +767,7 @@ export function runUnifiedProjection({
     legacyProportionalBasis = runningTaxableBasis * (legacyCollateralValue / initialTaxableValueBeforeEncumbered);
     
     // Assign proportional basis to each legacy loan
-    [...liabilities, ...collateralizedLoans].forEach(loan => {
+    [...sortedLiabilities, ...sortedCollateralizedLoans].forEach(loan => {
       const loanKey = loan.collateral_btc_amount ? (liabilities.includes(loan) ? loan.id : `loan_${loan.id}`) : null;
       if (loanKey && !loanCollateralBasis[loanKey] && loan.collateral_btc_amount > 0) {
         const loanCollateralValue = loan.collateral_btc_amount * currentPrice;
@@ -954,7 +968,7 @@ export function runUnifiedProjection({
 
   // Track individual holding values for dividend calculations
   // We need to track values through the projection since dividends are based on current value
-  const holdingValues = holdings.map(h => {
+  const holdingValues = sortedHoldings.map(h => {
     const initialValue = h.ticker === 'BTC' ? h.quantity * currentPrice : h.quantity * (h.current_price || 0);
     const taxTreatment = getTaxTreatmentFromHolding(h);
     const assetCategory = getAssetCategory(h.asset_type, h.ticker);
@@ -1366,7 +1380,7 @@ export function runUnifiedProjection({
     // NOTE: income_change events are handled later via yearLifeEventIncome for consistent display
     let activeExpenseAdjustment = 0;
     
-    lifeEvents.forEach(event => {
+    sortedLifeEvents.forEach(event => {
       // Recurring expense changes
       if (event.event_type === 'expense_change') {
         const eventEndYear = event.year + (event.is_recurring ? (event.recurring_years || 1) : 1);
@@ -1399,7 +1413,7 @@ export function runUnifiedProjection({
       console.log('🟡 CURRENT PROJECTION YEAR:', year, 'AGE:', age);
     }
 
-    lifeEvents.forEach(event => {
+    sortedLifeEvents.forEach(event => {
       // DEBUG: Check each event
       if (DEBUG && ['inheritance', 'windfall', 'gift'].includes(event.event_type)) {
         console.log('🔵 Checking event:', event.event_type, 'event.year:', event.year, 'projection year:', year, 'age:', age, 'match year:', event.year === year, 'match age:', event.year === age);
@@ -1469,7 +1483,7 @@ export function runUnifiedProjection({
     });
 
     // Goals: withdrawal and debt payoff
-    goals.forEach(goal => {
+    sortedGoals.forEach(goal => {
       if (goal.withdraw_from_portfolio && goal.target_date && goal.type !== 'debt_payoff') {
         const goalYear = new Date(goal.target_date).getFullYear();
         if (goalYear === year) {
@@ -1533,7 +1547,7 @@ export function runUnifiedProjection({
     let actualAnnualDebtPayments = 0;
     const thisYearDebtPayoffs = [];
 
-    Object.values(tempRunningDebt).forEach(liability => {
+    Object.keys(tempRunningDebt).sort().map(k => tempRunningDebt[k]).forEach(liability => {
       if (!liabilitiesWithPayoffGoals.has(liability.id) && !liability.paid_off) {
         const hasPayment = liability.monthly_payment && liability.monthly_payment > 0;
         const hasInterest = liability.interest_rate && liability.interest_rate > 0;
@@ -1701,7 +1715,7 @@ export function runUnifiedProjection({
     });
 
     // Process Collateralized Loans
-    Object.values(tempRunningCollateralizedLoans).forEach(loan => {
+    Object.keys(tempRunningCollateralizedLoans).sort().map(k => tempRunningCollateralizedLoans[k]).forEach(loan => {
       if (!loansWithPayoffGoals.has(loan.id) && !loan.paid_off) {
         const hasInterest = loan.interest_rate && loan.interest_rate > 0;
         const hasMinPayment = loan.minimum_monthly_payment && loan.minimum_monthly_payment > 0;
@@ -1869,7 +1883,9 @@ export function runUnifiedProjection({
     // PROCESS ASSET REALLOCATIONS (Scenario-specific)
     // ============================================
     if (assetReallocations && assetReallocations.length > 0) {
-      assetReallocations.forEach(realloc => {
+      // Sort reallocations by ID for deterministic order, then use index for lot IDs
+      const sortedReallocations = [...assetReallocations].sort((a, b) => (a.id || '').localeCompare(b.id || ''));
+      sortedReallocations.forEach((realloc, reallocIndex) => {
         // execution_year is stored as an AGE (e.g., 31), not calendar year
         // Convert age to calendar year for comparison
         let targetYear = realloc.execution_year;
@@ -2076,8 +2092,8 @@ export function runUnifiedProjection({
         if (buyAssetType === 'btc' && netProceeds > 0 && destPortfolioKey === 'taxable') {
           const btcQtyPurchased = netProceeds / cumulativeBtcPrice;
           runningTaxLots.push({
-            id: `realloc-${year}-${realloc.id || Date.now()}`,
-            lot_id: `realloc-${year}-${realloc.id || Date.now()}`,
+            id: `realloc-${year}-${realloc.id || reallocIndex}`,
+            lot_id: `realloc-${year}-${realloc.id || reallocIndex}`,
             asset_ticker: 'BTC',
             quantity: btcQtyPurchased,
             remaining_quantity: btcQtyPurchased,
@@ -3435,8 +3451,8 @@ export function runUnifiedProjection({
         .reduce((sum, l) => sum + l.current_balance, 0)),
       
       // Event markers
-      hasEvent: lifeEvents.some(e => e.year === year) ||
-        goals.some(g => g.withdraw_from_portfolio && g.target_date && new Date(g.target_date).getFullYear() === year),
+      hasEvent: sortedLifeEvents.some(e => e.year === year) ||
+        sortedGoals.some(g => g.withdraw_from_portfolio && g.target_date && new Date(g.target_date).getFullYear() === year),
       hasGoalWithdrawal: yearGoalWithdrawal > 0,
       goalNames: [],
       goalFunding: Math.round(yearGoalWithdrawal),
