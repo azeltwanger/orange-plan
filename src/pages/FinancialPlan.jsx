@@ -4154,9 +4154,9 @@ export default function FinancialPlan() {
               <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-2">Effective Tax Rate</p>
               <p className="text-3xl font-bold text-white leading-tight">
                 {(() => {
-                  const retirementYears = projections.filter(p => p.age >= retirementAge);
-                  const totalTaxes = retirementYears.reduce((sum, y) => sum + (y.taxesPaid || 0), 0);
-                  const totalIncome = retirementYears.reduce((sum, y) => {
+                  // Calculate effective tax rate for LIFETIME (ALL years)
+                  const totalTaxes = projections.reduce((sum, y) => sum + (y.taxesPaid || 0), 0);
+                  const totalIncome = projections.reduce((sum, y) => {
                     return sum + 
                       (y.yearGrossIncome || 0) + 
                       (y.otherRetirementIncome || 0) +

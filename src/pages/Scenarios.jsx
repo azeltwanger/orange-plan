@@ -412,7 +412,10 @@ export default function Scenarios() {
 
   const { data: scenarios = [], isLoading: scenariosLoading } = useQuery({
     queryKey: ['scenarios'],
-    queryFn: () => base44.entities.Scenario.list(),
+    queryFn: async () => {
+      const res = await base44.entities.Scenario.list();
+      return res.sort((a, b) => (a.id || '').localeCompare(b.id || ''));
+    },
     staleTime: 5 * 60 * 1000,
   });
 
@@ -496,6 +499,14 @@ export default function Scenarios() {
   const scenarioProjection = useMemo(() => {
     if (!selectedScenario || !holdings.length || !accounts.length || !userSettings.length || !currentPrice) return null;
     try {
+      // DETERMINISTIC: Sort scenario arrays before using them
+      const sortedOneTimeEvents = [...(selectedScenario.one_time_events || [])].sort((a, b) => 
+        (a.id || '').localeCompare(b.id || '')
+      );
+      const sortedAssetReallocations = [...(selectedScenario.asset_reallocations || [])].sort((a, b) => 
+        (a.id || '').localeCompare(b.id || '')
+      );
+      
       const rawOverrides = {
         retirement_age_override: selectedScenario.retirement_age_override,
         life_expectancy_override: selectedScenario.life_expectancy_override,
@@ -522,8 +533,8 @@ export default function Scenarios() {
         current_annual_spending_override: selectedScenario.current_annual_spending_override,
         dividend_income_override: selectedScenario.dividend_income_override,
         dividend_income_qualified: selectedScenario.dividend_income_qualified,
-        one_time_events: selectedScenario.one_time_events,
-        asset_reallocations: selectedScenario.asset_reallocations,
+        one_time_events: sortedOneTimeEvents,
+        asset_reallocations: sortedAssetReallocations,
         hypothetical_btc_loan: selectedScenario.hypothetical_btc_loan,
         future_btc_loan_rate: selectedScenario.future_btc_loan_rate,
         future_btc_loan_rate_years: selectedScenario.future_btc_loan_rate_years,
@@ -693,10 +704,9 @@ export default function Scenarios() {
     
     const lifetimeTaxes = yearByYear.reduce((sum, y) => sum + (y.taxesPaid || 0), 0);
     
-    // Calculate effective tax rate for retirement years only
-    const retirementYears = yearByYear.filter(y => y.age >= retirementAge);
-    const totalTaxesInRetirement = retirementYears.reduce((sum, y) => sum + (y.taxesPaid || 0), 0);
-    const totalIncomeInRetirement = retirementYears.reduce((sum, y) => {
+    // Calculate effective tax rate for LIFETIME (ALL years, not just retirement)
+    const totalTaxes = yearByYear.reduce((sum, y) => sum + (y.taxesPaid || 0), 0);
+    const totalIncome = yearByYear.reduce((sum, y) => {
       return sum +
         (y.yearGrossIncome || 0) +
         (y.otherRetirementIncome || 0) +
@@ -706,7 +716,7 @@ export default function Scenarios() {
         (y.loanProceeds || 0) +
         (y.totalDividendIncome || 0);
     }, 0);
-    const effectiveTaxRate = totalIncomeInRetirement > 0 ? (totalTaxesInRetirement / totalIncomeInRetirement) * 100 : 0;
+    const effectiveTaxRate = totalIncome > 0 ? (totalTaxes / totalIncome) * 100 : 0;
     
     // Calculate Net Worth = Total Assets - Total Debt
     const retirementNetWorth = (retirementYear?.total || 0) - (retirementYear?.totalDebt || 0);

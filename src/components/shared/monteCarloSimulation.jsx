@@ -75,8 +75,11 @@ export function generateMonteCarloSeed(
     hashString += `BRMO${scenario.btc_return_model_override || ''}`;
     hashString += `DIVIO${scenario.dividend_income_override || 0}`;
     hashString += `HYPL${scenario.hypothetical_btc_loan?.enabled ? 'T' : 'F'}`;
-    hashString += `OTE${JSON.stringify(scenario.one_time_events || [])}`;
-    hashString += `AR${JSON.stringify(scenario.asset_reallocations || [])}`;
+    // DETERMINISTIC: Sort arrays before stringifying to ensure consistent hash
+    const sortedOTE = [...(scenario.one_time_events || [])].sort((a, b) => (a.id || '').localeCompare(b.id || ''));
+    const sortedAR = [...(scenario.asset_reallocations || [])].sort((a, b) => (a.id || '').localeCompare(b.id || ''));
+    hashString += `OTE${JSON.stringify(sortedOTE)}`;
+    hashString += `AR${JSON.stringify(sortedAR)}`;
   }
 
   // Financial snapshot data
