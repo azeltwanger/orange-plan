@@ -1816,23 +1816,48 @@ export function runUnifiedProjection({
         // Release
         else if (postTopUpLTV <= releaseLTV) {
           if (loan.current_balance <= 0) {
-            if (!releasedBtc[loanKey]) {
-              releasedBtc[loanKey] = encumberedBtc[loanKey];
+            // Full release - debt paid off, release all remaining collateral
+            const fullReleaseQty = encumberedBtc[loanKey];
+            if (fullReleaseQty > 0) {
+              const fullReleaseValue = fullReleaseQty * cumulativeBtcPrice;
+              portfolio.taxable.btc += fullReleaseValue; // Add to liquid immediately (same year)
+              
+              // Restore proportional basis for released collateral
+              const totalEncumberedBtcBeforeRelease = Object.values(encumberedBtc).reduce((sum, btc) => sum + btc, 0);
+              if (totalEncumberedBtcBeforeRelease > 0 && encumberedBtcBasis > 0) {
+                const releaseRatio = Math.min(1, fullReleaseQty / totalEncumberedBtcBeforeRelease);
+                const basisToRestore = encumberedBtcBasis * releaseRatio;
+                runningTaxableBasis += basisToRestore;
+                encumberedBtcBasis = Math.max(0, encumberedBtcBasis - basisToRestore);
+              }
+              
               encumberedBtc[loanKey] = 0;
               liquidationEvents.push({
                 year,
                 age,
                 type: 'release',
                 liabilityName: loan.name || loan.lender || 'BTC Loan',
-                message: `Released ${releasedBtc[loanKey].toFixed(4)} BTC (debt fully paid)`
+                message: `Released ${fullReleaseQty.toFixed(4)} BTC (debt fully paid)`
               });
             }
           } else {
+            // Partial release - LTV too low, release excess collateral
             const currentCollateral = encumberedBtc[loanKey];
             const targetCollateralForLoan = loan.current_balance / (releaseTargetLTV / 100) / cumulativeBtcPrice;
             const excessCollateral = Math.max(0, currentCollateral - targetCollateralForLoan);
             if (excessCollateral > 0) {
-              releasedBtc[loanKey] = excessCollateral;
+              const excessCollateralValue = excessCollateral * cumulativeBtcPrice;
+              portfolio.taxable.btc += excessCollateralValue; // Add to liquid immediately (same year)
+              
+              // Restore proportional basis for released collateral
+              const totalEncumberedBtcBeforeRelease = Object.values(encumberedBtc).reduce((sum, btc) => sum + btc, 0);
+              if (totalEncumberedBtcBeforeRelease > 0 && encumberedBtcBasis > 0) {
+                const releaseRatio = Math.min(1, excessCollateral / totalEncumberedBtcBeforeRelease);
+                const basisToRestore = encumberedBtcBasis * releaseRatio;
+                runningTaxableBasis += basisToRestore;
+                encumberedBtcBasis = Math.max(0, encumberedBtcBasis - basisToRestore);
+              }
+              
               encumberedBtc[loanKey] = targetCollateralForLoan;
               liquidationEvents.push({
                 year,
