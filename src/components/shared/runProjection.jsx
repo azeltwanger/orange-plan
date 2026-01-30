@@ -825,6 +825,10 @@ export function runUnifiedProjection({
         encumberedBtc[loanKey] = hypotheticalLoanObj.collateral_btc_amount;
         releasedBtc[loanKey] = 0;
         
+        // Subtract collateral value from liquid BTC (matches future-year activation at line 1228)
+        const collateralValue = hypotheticalLoanObj.collateral_btc_amount * currentPrice;
+        portfolio.taxable.btc = Math.max(0, portfolio.taxable.btc - collateralValue);
+        
         // Assign lots at runtime for hypothetical loans using selectLots
         const availableBtcLots = runningTaxLots.filter(lot => 
           lot.asset_ticker === 'BTC' && 
