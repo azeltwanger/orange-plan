@@ -381,6 +381,9 @@ export default function FinancialPlan() {
   // Check if critical data is loading (after all queries defined) - include BTC price
   const isLoadingData = !holdings || !accounts || !userSettings || !liabilities || !collateralizedLoans || !transactions || priceLoading || !btcPrice;
 
+  // Get settings object for buildProjectionParams (same as Scenarios.jsx)
+  const settings = userSettings[0] || {};
+
   // Calculate portfolio values by tax treatment
   const getHoldingValue = (h) => h.ticker === 'BTC' ? h.quantity * currentPrice : h.quantity * (h.current_price || 0);
 
@@ -1479,15 +1482,7 @@ export default function FinancialPlan() {
     }
     
     return Math.round(low);
-  }, [holdings, accounts, liabilities, collateralizedLoans, currentPrice, currentAge, lifeExpectancy, 
-      retirementAnnualSpending, effectiveSocialSecurity, socialSecurityStartAge, otherRetirementIncome,
-      annualSavings, incomeGrowth, grossAnnualIncome, currentAnnualSpending, filingStatus, stateOfResidence,
-      contribution401k, employer401kMatch, contributionRothIRA, contributionTraditionalIRA, contributionHSA, 
-      hsaFamilyCoverage, getBtcGrowthRate, effectiveInflation, effectiveStocksCagr, bondsCagr, 
-      realEstateCagr, cashCagr, otherCagr, savingsAllocationBtc, savingsAllocationStocks, 
-      savingsAllocationBonds, savingsAllocationCash, savingsAllocationOther, autoTopUpBtcCollateral, 
-      btcTopUpTriggerLtv, btcTopUpTargetLtv, btcReleaseTriggerLtv, btcReleaseTargetLtv, 
-      goals, lifeEvents, getTaxTreatmentFromHolding, retirementAge, runProjectionForRetirementAge]);
+  }, [holdings, accounts, liabilities, btcCollateralizedLoans, goals, lifeEvents, activeTaxLots, currentPrice, settings, retirementAge, runProjectionForRetirementAge]);
 
   // Update state when derived value changes
   useEffect(() => {
@@ -1592,16 +1587,7 @@ export default function FinancialPlan() {
     }
     
     return high;
-  }, [holdings, accounts, liabilities, collateralizedLoans, currentPrice, currentAge, retirementAge, 
-      lifeExpectancy, retirementAnnualSpending, effectiveSocialSecurity, socialSecurityStartAge, 
-      otherRetirementIncome, annualSavings, incomeGrowth, grossAnnualIncome, currentAnnualSpending, 
-      filingStatus, stateOfResidence, contribution401k, employer401kMatch, contributionRothIRA, 
-      contributionTraditionalIRA, contributionHSA, hsaFamilyCoverage, getBtcGrowthRate, effectiveInflation, 
-      effectiveStocksCagr, bondsCagr, realEstateCagr, cashCagr, otherCagr, savingsAllocationBtc, 
-      savingsAllocationStocks, savingsAllocationBonds, savingsAllocationCash, savingsAllocationOther, 
-      autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv, btcReleaseTriggerLtv, 
-      btcReleaseTargetLtv, goals, lifeEvents, getTaxTreatmentFromHolding, runProjectionForRetirementAge,
-      activeTaxLots, costBasisMethod]);
+  }, [holdings, accounts, liabilities, btcCollateralizedLoans, goals, lifeEvents, activeTaxLots, currentPrice, settings, retirementAge, runProjectionForRetirementAge]);
 
   // Calculate lifetime tax burden (all years, not just retirement)
   const lifetimeTaxesPaid = projections.reduce((sum, p) => sum + (p.taxesPaid || 0), 0);
