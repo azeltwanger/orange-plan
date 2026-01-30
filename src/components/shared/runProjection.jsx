@@ -874,9 +874,24 @@ export function runUnifiedProjection({
       const proceeds = hypotheticalLoanObj.current_balance;
       if (proceeds > 0) {
         if (hypotheticalLoanObj.use_of_proceeds === 'btc') {
-          // Buy BTC with loan proceeds
+          // Buy BTC with loan proceeds - track quantity for proper growth
+          const btcQuantityPurchased = proceeds / currentPrice;
           portfolio.taxable.btc += proceeds;
           runningTaxableBasis += proceeds;
+          
+          // Create tax lot for the BTC purchase
+          runningTaxLots.push({
+            id: `loan-btc-purchase-${hypotheticalLoanObj.id}`,
+            lot_id: `loan-btc-purchase-${hypotheticalLoanObj.id}`,
+            asset_ticker: 'BTC',
+            quantity: btcQuantityPurchased,
+            remaining_quantity: btcQuantityPurchased,
+            price_per_unit: currentPrice,
+            cost_basis: proceeds,
+            date: `${currentYear}-01-01`,
+            account_type: 'taxable',
+            source: 'loan_proceeds',
+          });
         } else if (hypotheticalLoanObj.use_of_proceeds === 'stocks') {
           // Buy stocks with loan proceeds
           portfolio.taxable.stocks += proceeds;
@@ -885,8 +900,8 @@ export function runUnifiedProjection({
           // 'cash' (for spending) - This will be added to yearLifeEventIncome in Year 0
           // For now, just mark it with a flag so we can add it to yearLifeEventIncome in the loop
           portfolio.taxable.cash += proceeds; // Temporary - will be converted to income in Year 0
+          runningTaxableBasis += proceeds;
         }
-        runningTaxableBasis += proceeds;
       }
     }
   }
@@ -1267,9 +1282,24 @@ export function runUnifiedProjection({
         yearLoanProceeds += proceeds;
         
         if (newLoan.use_of_proceeds === 'btc') {
-          // Buy BTC with loan proceeds
+          // Buy BTC with loan proceeds - track quantity for proper growth
+          const btcQuantityPurchased = proceeds / cumulativeBtcPrice;
           portfolio.taxable.btc += proceeds;
           runningTaxableBasis += proceeds;
+          
+          // Create tax lot for the BTC purchase
+          runningTaxLots.push({
+            id: `loan-btc-purchase-${newLoan.id}-${year}`,
+            lot_id: `loan-btc-purchase-${newLoan.id}-${year}`,
+            asset_ticker: 'BTC',
+            quantity: btcQuantityPurchased,
+            remaining_quantity: btcQuantityPurchased,
+            price_per_unit: cumulativeBtcPrice,
+            cost_basis: proceeds,
+            date: `${year}-01-01`,
+            account_type: 'taxable',
+            source: 'loan_proceeds',
+          });
         } else if (newLoan.use_of_proceeds === 'stocks') {
           // Buy stocks with loan proceeds
           portfolio.taxable.stocks += proceeds;
@@ -1277,6 +1307,7 @@ export function runUnifiedProjection({
         } else {
           // 'cash' (for spending) - Don't add to yearLifeEventIncome, only yearLoanProceeds
           // yearLoanProceeds was already incremented above at line 946
+          runningTaxableBasis += proceeds;
           if (DEBUG) console.log(`💰 Loan proceeds for spending: $${proceeds.toLocaleString()}`);
         }
         
