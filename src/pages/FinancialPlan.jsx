@@ -184,13 +184,6 @@ export default function FinancialPlan() {
     socialSecurity: false,
     loanModeling: false,
   });
-  
-  // Auto-expand loan section if has active loans
-  useEffect(() => {
-    if ((liabilities.some(l => l.type === 'btc_collateralized') || collateralizedLoans.length > 0) && !sectionsExpanded.loanModeling) {
-      setSectionsExpanded(prev => ({ ...prev, loanModeling: true }));
-    }
-  }, [liabilities, collateralizedLoans]);
 
   // Asset withdrawal strategy
   const [assetWithdrawalStrategy, setAssetWithdrawalStrategy] = useState('proportional');
@@ -310,6 +303,13 @@ export default function FinancialPlan() {
       (t.remaining_quantity ?? t.quantity) > 0
     );
   }, [transactions]);
+
+  // Auto-expand loan section if has active loans
+  useEffect(() => {
+    if ((liabilities.some(l => l.type === 'btc_collateralized') || collateralizedLoans.length > 0) && !sectionsExpanded.loanModeling) {
+      setSectionsExpanded(prev => ({ ...prev, loanModeling: true }));
+    }
+  }, [liabilities, collateralizedLoans]);
 
   // Check if critical data is loading (after all queries defined) - include BTC price
   const isLoadingData = !holdings || !accounts || !userSettings || !liabilities || !collateralizedLoans || !transactions || priceLoading || !btcPrice;
