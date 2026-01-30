@@ -322,7 +322,10 @@ export default function FinancialPlan() {
 
   const { data: userSettings = [] } = useQuery({
     queryKey: ['userSettings'],
-    queryFn: () => base44.entities.UserSettings.list(),
+    queryFn: async () => {
+      const res = await base44.entities.UserSettings.list();
+      return res.sort((a, b) => (a.id || '').localeCompare(b.id || ''));
+    },
     staleTime: 5 * 60 * 1000,
   });
 
