@@ -1076,6 +1076,25 @@ export function runUnifiedProjection({
     let yearEarlyWithdrawalTax = 0;
     let yearEarlyWithdrawalPenalty = 0;
     let yearReallocationDetails = [];
+    let shortTermGainsTax = 0;
+    let longTermGainsTax = 0;
+    
+    // Calculate age-specific standard deduction (includes 65+ additional)
+    let currentStandardDeduction = baseStandardDeduction;
+    if (age >= 65) {
+      const isMarried = filingStatus === 'married' || filingStatus === 'married_filing_jointly';
+      const additionalDeduction = isMarried 
+        ? (standardDeductions.additional_married || 1650) * 2  // Both spouses if MFJ
+        : (standardDeductions.additional_single || 2050);
+      currentStandardDeduction += additionalDeduction;
+      
+      if (DEBUG && i === 0) {
+        console.log('👴 Senior Standard Deduction - Age', age);
+        console.log('   Base deduction:', baseStandardDeduction);
+        console.log('   Additional deduction:', additionalDeduction);
+        console.log('   Total deduction:', currentStandardDeduction);
+      }
+    }
 
     // BTC growth and price tracking - priority: Monte Carlo > Custom Periods > Power Law/model
     const customBtcRate = getCustomReturnForYear('btc', i, customReturnPeriods, null);
@@ -2345,6 +2364,8 @@ export function runUnifiedProjection({
         stateTaxPaid += preRetireStateTax;
         taxesPaid += (taxEstimate.totalTax || 0) + preRetireStateTax;
         penaltyPaid = taxEstimate.totalPenalty || 0;
+        shortTermGainsTax += (taxEstimate.taxOnShortTermGains || 0);
+        longTermGainsTax += (taxEstimate.taxOnLongTermGains || 0);
         
         // Track early withdrawal penalties for spending deficits (before 59.5)
         if (age < PENALTY_FREE_AGE && penaltyPaid > 0) {
@@ -2801,6 +2822,8 @@ export function runUnifiedProjection({
       stateTaxPaid = stateTax;
       taxesPaid = federalTaxOnOtherIncome + (taxEstimate.totalTax || 0) + stateTax;
       penaltyPaid = taxEstimate.totalPenalty || 0;
+      shortTermGainsTax += (taxEstimate.taxOnShortTermGains || 0);
+      longTermGainsTax += (taxEstimate.taxOnLongTermGains || 0);
       
       // Track early withdrawal penalties for retirement spending (before 59.5)
       if (age < PENALTY_FREE_AGE && penaltyPaid > 0) {
@@ -3317,9 +3340,9 @@ export function runUnifiedProjection({
       bondsGrowthRate: i > 0 ? (yearlyReturnOverrides?.bonds?.[i] !== undefined ? yearlyReturnOverrides.bonds[i] : bondsCagr) : bondsCagr,
       cashGrowthRate: i > 0 ? (yearlyReturnOverrides?.cash?.[i] !== undefined ? yearlyReturnOverrides.cash[i] : cashCagr) : cashCagr,
       
-      // Tax breakdown for tooltip (taxEstimate may not exist in depleted years)
-      shortTermGainsTax: 0,
-      longTermGainsTax: 0,
+      // Tax breakdown for tooltip
+      shortTermGainsTax: Math.round(shortTermGainsTax),
+      longTermGainsTax: Math.round(longTermGainsTax),
       encumberedBtc: currentTotalEncumberedBtc,
       liquidBtc: Math.max(0, getAssetTotal('btc') / cumulativeBtcPrice),
       
