@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -2986,12 +2985,12 @@ export default function Scenarios() {
                         <td className="py-3 px-4 text-right font-mono">
                           {baselineMonteCarloResults && scenarioMonteCarloResults ? (() => {
                             const diff = scenarioMonteCarloResults.successRate - baselineMonteCarloResults.successRate;
-                            if (Math.abs(diff) < 3) {
-                              return <span className="text-zinc-500">≈ same</span>;
+                            if (diff === 0) {
+                              return <span className="text-zinc-500">—</span>;
                             }
                             return (
                               <span className={diff > 0 ? "text-emerald-400" : "text-rose-400"}>
-                                {diff > 0 ? '▲' : '▼'} {Math.abs(diff).toFixed(1)}%
+                                {diff > 0 ? '+' : ''}{diff.toFixed(1)}%
                               </span>
                             );
                           })() : '—'}
@@ -3032,13 +3031,13 @@ export default function Scenarios() {
                             if (!scenarioMonteCarloResults.liquidationAffected && Math.abs(diff) < 1) {
                               return <span className="text-zinc-500">—</span>;
                             }
-                            if (Math.abs(diff) < 3) {
-                              return <span className="text-zinc-500">≈ same</span>;
+                            if (diff === 0) {
+                              return <span className="text-zinc-500">—</span>;
                             }
-                            // For liquidation risk: HIGHER is WORSE, so up arrow when risk increases
+                            // For liquidation risk: HIGHER is WORSE, so positive diff = bad (rose), negative = good (emerald)
                             return (
                               <span className={diff < 0 ? "text-emerald-400" : "text-rose-400"}>
-                                {diff > 0 ? '▲' : '▼'} {Math.abs(diff).toFixed(0)}%
+                                {diff > 0 ? '+' : ''}{diff.toFixed(0)}%
                               </span>
                             );
                           })() : '—'}
