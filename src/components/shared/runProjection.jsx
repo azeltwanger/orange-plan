@@ -1301,7 +1301,7 @@ export function runUnifiedProjection({
           eventImpact += eventAmount;
           
           // Check if this is taxable income (income_change) or non-taxable (inheritance, windfall, gift)
-          const isTaxableIncome = ['income_change', 'bonus', 'income', 'pension', 'rental_income', 'business_income'].includes(eventType);
+          const isTaxableIncome = ['income_change', 'bonus', 'income', 'pension', 'rental_income', 'business_income', 'annuity'].includes(eventType);
           
           if (isTaxableIncome) {
             // Track separately for tax calculation
@@ -3346,6 +3346,8 @@ export function runUnifiedProjection({
       lifeEventIncome: Math.round(yearLifeEventIncome),
       lifeEventTaxableIncome: Math.round(yearLifeEventTaxableIncome),
       lifeEventExpense: Math.round(yearLifeEventExpense),
+      // Debug: log when life event taxable income exists during retirement
+      ...(yearLifeEventTaxableIncome > 0 && isRetired ? { _debugLifeEventTax: `Taxable income $${yearLifeEventTaxableIncome} included in totalOtherIncomeForTax` } : {}),
       loanProceeds: Math.round(yearLoanProceeds),
       
       // Dividend income
