@@ -712,7 +712,6 @@ export default function Scenarios() {
       rawRate: effectiveTaxRate,
       source: 'extractMetrics - ALL YEARS'
     });
-    console.log('Scenarios - Effective Tax Rate Raw - Total Taxes In Retirement:', totalTaxesInRetirement, 'Total Income In Retirement:', totalIncomeInRetirement, 'Raw Rate:', effectiveTaxRate);
     
     // Calculate Net Worth = Total Assets - Total Debt
     const retirementNetWorth = (retirementYear?.total || 0) - (retirementYear?.totalDebt || 0);
