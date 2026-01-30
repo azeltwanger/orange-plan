@@ -1370,6 +1370,10 @@ export default function Scenarios() {
   const handleSubmit = (e) => {
     e.preventDefault();
     
+    console.log('=== HANDLE SUBMIT START ===');
+    console.log('btcPrice from hook:', btcPrice);
+    console.log('currentPrice:', currentPrice);
+    
     // Guard: Ensure BTC price is loaded before saving scenario
     if (!currentPrice || currentPrice <= 0) {
       alert('BTC price is still loading. Please wait a moment and try again.');
