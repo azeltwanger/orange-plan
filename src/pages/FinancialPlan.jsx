@@ -4166,8 +4166,9 @@ export default function FinancialPlan() {
                       (y.loanProceeds || 0) +
                       (y.totalDividendIncome || 0);
                   }, 0);
-                  const effectiveRate = totalIncome > 0 ? ((totalTaxes / totalIncome) * 100).toFixed(1) : '0.0';
-                  return `${effectiveRate}%`;
+                  const effectiveRateRaw = totalIncome > 0 ? ((totalTaxes / totalIncome) * 100) : 0;
+                  console.log('FinancialPlan - Effective Tax Rate Raw - Total Taxes:', totalTaxes, 'Total Income:', totalIncome, 'Raw Rate:', effectiveRateRaw);
+                  return `${effectiveRateRaw.toFixed(1)}%`;
                 })()}
               </p>
               <p className="text-sm text-zinc-400 mt-1">Lifetime average</p>

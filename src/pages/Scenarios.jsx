@@ -707,6 +707,7 @@ export default function Scenarios() {
         (y.totalDividendIncome || 0);
     }, 0);
     const effectiveTaxRate = totalIncomeInRetirement > 0 ? (totalTaxesInRetirement / totalIncomeInRetirement) * 100 : 0;
+    console.log('Scenarios - Effective Tax Rate Raw - Total Taxes In Retirement:', totalTaxesInRetirement, 'Total Income In Retirement:', totalIncomeInRetirement, 'Raw Rate:', effectiveTaxRate);
     
     // Calculate Net Worth = Total Assets - Total Debt
     const retirementNetWorth = (retirementYear?.total || 0) - (retirementYear?.totalDebt || 0);
