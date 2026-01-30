@@ -4922,33 +4922,33 @@ export default function FinancialPlan() {
                       </p>
                     )}
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-zinc-400">HSA Coverage Type</Label>
-                    <Select value={hsaFamilyCoverage ? "family" : "individual"} onValueChange={(v) => setHsaFamilyCoverage(v === "family")}>
-                      <SelectTrigger className="bg-zinc-900 border-zinc-800">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-zinc-900 border-zinc-700">
-                        <SelectItem value="individual">Individual</SelectItem>
-                        <SelectItem value="family">Family</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  </div>
+                        <div className="space-y-2">
+                          <Label className="text-zinc-400">HSA Coverage Type</Label>
+                          <Select value={hsaFamilyCoverage ? "family" : "individual"} onValueChange={(v) => setHsaFamilyCoverage(v === "family")}>
+                            <SelectTrigger className="bg-zinc-900 border-zinc-800">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="bg-zinc-900 border-zinc-700">
+                              <SelectItem value="individual">Individual</SelectItem>
+                              <SelectItem value="family">Family</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
 
-                  <div className="mt-4 space-y-2">
-                    <p className="text-xs text-zinc-500">
-                      💡 Pre-tax contributions (401k: {formatNumber(actual401k)}, Traditional IRA: {formatNumber(actualTraditionalIRA)}, HSA: {formatNumber(actualHSA)}) reduce your taxable income. 
-                      Roth IRA comes from after-tax income. Employer match ({formatNumber(employer401kMatch || 0)}) goes to tax-deferred.
-                      Debt payments ({formatNumber(monthlyDebtPayments * 12)}/yr) are tracked separately.
-                    </p>
-                  </div>
+                      <div className="mt-4 space-y-2">
+                        <p className="text-xs text-zinc-500">
+                          💡 Pre-tax contributions (401k: {formatNumber(actual401k)}, Traditional IRA: {formatNumber(actualTraditionalIRA)}, HSA: {formatNumber(actualHSA)}) reduce your taxable income. 
+                          Roth IRA comes from after-tax income. Employer match ({formatNumber(employer401kMatch || 0)}) goes to tax-deferred.
+                          Debt payments ({formatNumber(monthlyDebtPayments * 12)}/yr) are tracked separately.
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
 
-            {/* Section 5: Social Security */}
-            <div className="border border-zinc-800 rounded-xl overflow-hidden">
+                {/* Section 5: Social Security */}
+                <div className="border border-zinc-800 rounded-xl overflow-hidden">
                   <button
                     onClick={() => setSectionsExpanded(prev => ({ ...prev, socialSecurity: !prev.socialSecurity }))}
                     className="w-full flex items-center justify-between p-4 bg-zinc-800/30 hover:bg-zinc-800/50 transition-colors"
