@@ -4943,6 +4943,7 @@ export default function FinancialPlan() {
                           Debt payments ({formatNumber(monthlyDebtPayments * 12)}/yr) are tracked separately.
                         </p>
                       </div>
+                    </div>
                   </div>
                 )}
               </div>
