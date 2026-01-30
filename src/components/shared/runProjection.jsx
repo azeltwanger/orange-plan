@@ -1298,23 +1298,29 @@ export function runUnifiedProjection({
         if (event.affects === 'assets' && event.amount > 0) {
           const eventAmount = event.amount;
           const eventType = event.event_type;
-          eventImpact += eventAmount;
           
-          // Check if this is taxable income (income_change) or non-taxable (inheritance, windfall, gift)
-          const isTaxableIncome = ['income_change', 'bonus', 'income', 'pension', 'rental_income', 'business_income', 'annuity'].includes(eventType);
+          // CRITICAL: income_change events already flow through activeIncomeAdjustment → yearGrossIncome
+          // Adding them to yearLifeEventIncome would DOUBLE-COUNT the income
+          // Only process non-income_change events here
+          const isIncomeChangeEvent = eventType === 'income_change';
           
-          if (isTaxableIncome) {
-            // Track separately for tax calculation
-            yearLifeEventTaxableIncome += eventAmount;
-            if (DEBUG) console.log(`💰 Taxable life event: $${eventAmount.toLocaleString()} from ${event.name}`);
-          } else {
-            if (DEBUG) console.log(`💰 Non-taxable life event (${eventType}): $${eventAmount.toLocaleString()} from ${event.name}`);
+          if (!isIncomeChangeEvent) {
+            // Check if this is taxable income or non-taxable (inheritance, windfall, gift)
+            const isTaxableIncome = ['bonus', 'income', 'pension', 'rental_income', 'business_income', 'annuity'].includes(eventType);
+            
+            if (isTaxableIncome) {
+              // Track separately for tax calculation
+              yearLifeEventTaxableIncome += eventAmount;
+              if (DEBUG) console.log(`💰 Taxable life event: $${eventAmount.toLocaleString()} from ${event.name}`);
+            } else {
+              if (DEBUG) console.log(`💰 Non-taxable life event (${eventType}): $${eventAmount.toLocaleString()} from ${event.name}`);
+            }
+            
+            // Track as life event income - will cover spending first, excess flows to savings
+            yearLifeEventIncome += eventAmount;
           }
-          
-          // Track as life event income - will cover spending first, excess flows to savings
-          yearLifeEventIncome += eventAmount;
-          
-          // DO NOT directly invest here - let it flow through normal income/savings logic
+          // income_change events: already handled via activeIncomeAdjustment (lines 1244-1247)
+          // They flow into yearGrossIncome and are taxed there - no action needed here
         }
         // Also handle inheritance/windfall/gift event types if NOT already handled above
         else if (['inheritance', 'windfall', 'gift', 'asset_sale'].includes(event.event_type) && event.amount > 0 && event.affects !== 'assets') {
