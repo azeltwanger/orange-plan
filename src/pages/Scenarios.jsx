@@ -693,9 +693,10 @@ export default function Scenarios() {
     
     const lifetimeTaxes = yearByYear.reduce((sum, y) => sum + (y.taxesPaid || 0), 0);
     
-    // Calculate effective tax rate for LIFETIME (all years, not just retirement)
-    const totalTaxes = yearByYear.reduce((sum, y) => sum + (y.taxesPaid || 0), 0);
-    const totalIncome = yearByYear.reduce((sum, y) => {
+    // Calculate effective tax rate for retirement years only
+    const retirementYears = yearByYear.filter(y => y.age >= retirementAge);
+    const totalTaxesInRetirement = retirementYears.reduce((sum, y) => sum + (y.taxesPaid || 0), 0);
+    const totalIncomeInRetirement = retirementYears.reduce((sum, y) => {
       return sum +
         (y.yearGrossIncome || 0) +
         (y.otherRetirementIncome || 0) +
@@ -705,13 +706,8 @@ export default function Scenarios() {
         (y.loanProceeds || 0) +
         (y.totalDividendIncome || 0);
     }, 0);
-    const effectiveTaxRate = totalIncome > 0 ? (totalTaxes / totalIncome) * 100 : 0;
-    console.log('Scenarios - Effective Tax Rate (LIFETIME):', {
-      totalTaxes,
-      totalIncome,
-      rawRate: effectiveTaxRate,
-      source: 'extractMetrics - ALL YEARS'
-    });
+    const effectiveTaxRate = totalIncomeInRetirement > 0 ? (totalTaxesInRetirement / totalIncomeInRetirement) * 100 : 0;
+    console.log('Scenarios - Effective Tax Rate Raw - Total Taxes In Retirement:', totalTaxesInRetirement, 'Total Income In Retirement:', totalIncomeInRetirement, 'Raw Rate:', effectiveTaxRate);
     
     // Calculate Net Worth = Total Assets - Total Debt
     const retirementNetWorth = (retirementYear?.total || 0) - (retirementYear?.totalDebt || 0);
