@@ -185,6 +185,7 @@ export default function FinancialPlan() {
     loanModeling: false,
   });
   const [earlyRetirementWarningExpanded, setEarlyRetirementWarningExpanded] = useState(true);
+  const [selectedBracketYear, setSelectedBracketYear] = useState(new Date().getFullYear());
 
   // Asset withdrawal strategy
   const [assetWithdrawalStrategy, setAssetWithdrawalStrategy] = useState('proportional');
@@ -4154,87 +4155,150 @@ export default function FinancialPlan() {
             </div>
           </div>
 
-          {/* Tax Bracket Room - Compact */}
+          {/* Tax Bracket Room - Enhanced with Year Selector */}
           <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+            {/* Header with Year Selector */}
             <div className="flex justify-between items-center mb-4">
               <div>
                 <h3 className="text-lg font-semibold text-white">Tax Bracket Room</h3>
-                <p className="text-sm text-zinc-400">{currentYear} • {filingStatus === 'married' ? 'Married Filing Jointly' : 'Single'}</p>
+                <p className="text-sm text-zinc-400">{filingStatus === 'married' || filingStatus === 'married_filing_jointly' ? 'Married Filing Jointly' : 'Single'}</p>
               </div>
+              
+              <select 
+                value={selectedBracketYear}
+                onChange={(e) => setSelectedBracketYear(Number(e.target.value))}
+                className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm"
+              >
+                {projections.slice(0, 20).map((p) => (
+                  <option key={p.year} value={p.year}>
+                    {p.year} (Age {p.age})
+                  </option>
+                ))}
+              </select>
             </div>
             
+            {/* Current Income Display */}
             {(() => {
-              const firstYear = projections[0] || {};
-              const grossIncome = (firstYear.yearGrossIncome || grossAnnualIncome) + (firstYear.lifeEventIncome || 0);
-              const taxableIncome = Math.max(0, grossIncome - actual401k - actualTraditionalIRA - actualHSA - currentStandardDeduction);
+              const selectedProjection = projections.find(p => p.year === selectedBracketYear) || projections[0];
+              const taxableIncome = selectedProjection?.taxableIncome || 0;
               
-              const config = getTaxConfigForYear(currentYear);
-              const brackets = config.federalBrackets[filingStatus] || config.federalBrackets.single;
+              // Get inflation-adjusted brackets for selected year
+              const config = getTaxConfigForYear(selectedBracketYear);
+              const normalizedStatus = filingStatus === 'married' ? 'married_filing_jointly' : filingStatus;
+              const brackets = config.federalBrackets[normalizedStatus] || config.federalBrackets.single;
               
               // Find current bracket
-              let currentBracketIdx = 0;
-              let cumulativeIncome = 0;
-              
-              for (let i = 0; i < brackets.length; i++) {
-                const bracketMin = i === 0 ? 0 : brackets[i - 1].max;
-                const bracketMax = brackets[i].max === Infinity ? null : brackets[i].max;
-                
-                if (taxableIncome <= (bracketMax || Infinity)) {
-                  currentBracketIdx = i;
-                  break;
-                }
-              }
-              
-              const currentBracket = brackets[currentBracketIdx];
-              const currentBracketRate = currentBracket.label;
-              const bracketMin = currentBracketIdx === 0 ? 0 : brackets[currentBracketIdx - 1].max;
-              const bracketMax = currentBracket.max === Infinity ? null : currentBracket.max;
-              const bracketSize = bracketMax ? bracketMax - bracketMin : 100000;
-              
-              const amountFilled = Math.max(0, taxableIncome - bracketMin);
-              const roomInBracket = bracketMax ? Math.max(0, bracketMax - taxableIncome) : 0;
-              const percentFilled = bracketMax ? Math.min(100, (amountFilled / bracketSize) * 100) : 0;
-              const nextBracketRate = brackets[currentBracketIdx + 1]?.label || currentBracketRate;
+              const currentBracket = brackets.find(b => taxableIncome <= b.max) || brackets[brackets.length - 1];
+              const currentBracketIndex = brackets.indexOf(currentBracket);
               
               return (
-                <div className="space-y-3">
-                  <div className="flex justify-between text-sm">
+                <>
+                  {/* Summary */}
+                  <div className="flex justify-between text-sm mb-1">
                     <span className="text-zinc-400">Your taxable income:</span>
                     <span className="text-white font-medium">${taxableIncome.toLocaleString()}</span>
                   </div>
-                  <div className="flex justify-between text-sm">
+                  <div className="flex justify-between text-sm mb-4">
                     <span className="text-zinc-400">Current bracket:</span>
-                    <span className="text-orange-400 font-medium">{currentBracketRate}</span>
+                    <span className="text-orange-400 font-medium">{currentBracket.label}</span>
                   </div>
                   
-                  <div className="mt-4">
-                    <div className="flex justify-between text-xs text-zinc-500 mb-1">
-                      <span>{currentBracketRate} bracket (${bracketMin.toLocaleString()} - {bracketMax ? `$${bracketMax.toLocaleString()}` : '∞'})</span>
-                    </div>
-                    <div className="h-3 bg-zinc-800 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-gradient-to-r from-orange-500 to-orange-400 rounded-full transition-all"
-                        style={{ width: `${percentFilled}%` }}
-                      />
-                    </div>
-                    <div className="flex justify-between text-xs mt-1">
-                      <span className="text-zinc-400">${amountFilled.toLocaleString()} filled</span>
-                      {roomInBracket > 0 && <span className="text-green-400">${roomInBracket.toLocaleString()} room</span>}
-                    </div>
+                  {/* All Brackets */}
+                  <div className="space-y-3">
+                    {brackets.slice(0, 5).map((bracket, idx) => {
+                      const bracketMin = idx === 0 ? 0 : brackets[idx - 1].max;
+                      const bracketMax = bracket.max === Infinity ? null : bracket.max;
+                      const bracketSize = bracketMax ? bracketMax - bracketMin : 100000;
+                      const filledInBracket = Math.max(0, Math.min(taxableIncome - bracketMin, bracketSize));
+                      const roomInBracket = bracketMax ? Math.max(0, bracketMax - taxableIncome) : 0;
+                      const percentFilled = bracketMax ? (filledInBracket / bracketSize) * 100 : 0;
+                      const isCurrentBracket = idx === currentBracketIndex;
+                      const isFilled = taxableIncome > (bracketMax || Infinity);
+                      const isEmpty = taxableIncome <= bracketMin;
+                      
+                      return (
+                        <div 
+                          key={idx} 
+                          className={cn(
+                            "p-3 rounded-lg",
+                            isCurrentBracket ? "bg-zinc-800 border border-orange-500/50" : "bg-zinc-800/50"
+                          )}
+                        >
+                          <div className="flex justify-between text-sm mb-1">
+                            <span className={cn("font-medium", isCurrentBracket ? "text-orange-400" : "text-zinc-400")}>
+                              {bracket.label} bracket
+                            </span>
+                            <span className="text-zinc-500 text-xs">
+                              ${bracketMin.toLocaleString()} - {bracketMax ? `$${bracketMax.toLocaleString()}` : '∞'}
+                            </span>
+                          </div>
+                          
+                          {/* Progress bar */}
+                          <div className="h-2 bg-zinc-700 rounded-full overflow-hidden">
+                            <div 
+                              className={cn(
+                                "h-full rounded-full transition-all",
+                                isFilled ? "bg-green-500" : isCurrentBracket ? "bg-orange-500" : "bg-zinc-600"
+                              )}
+                              style={{ width: `${isFilled ? 100 : percentFilled}%` }}
+                            />
+                          </div>
+                          
+                          {/* Labels */}
+                          <div className="flex justify-between text-xs mt-1">
+                            <span className="text-zinc-500">
+                              {isFilled ? 'Filled' : isEmpty ? '' : `$${filledInBracket.toLocaleString()} filled`}
+                            </span>
+                            {!isFilled && roomInBracket > 0 && (
+                              <span className="text-green-400">
+                                ${roomInBracket.toLocaleString()} room
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                   
-                  {roomInBracket > 0 && (
-                    <div className="mt-4 p-3 bg-zinc-800/50 rounded-lg">
-                      <p className="text-sm">
-                        <span className="text-yellow-400">💡</span>
-                        <span className="text-zinc-300 ml-2">
-                          You have ${roomInBracket.toLocaleString()} room before the {nextBracketRate} bracket
-                          {roomInBracket > 10000 && currentBracketRate === '12%' && " — consider Roth conversion to fill it"}
-                        </span>
-                      </p>
+                  {/* Optimization Insight */}
+                  <div className="mt-4 p-3 bg-zinc-800/50 rounded-lg border border-zinc-700">
+                    <h4 className="text-sm font-medium text-white mb-2">💡 Optimization Opportunities</h4>
+                    <div className="space-y-1 text-sm">
+                      {(() => {
+                        const roomInCurrent = currentBracket.max === Infinity ? 0 : currentBracket.max - taxableIncome;
+                        const nextBracket = brackets[currentBracketIndex + 1];
+                        const currentRate = parseFloat(currentBracket.label) || 0;
+                        const taxCostToFill = roomInCurrent * (currentRate / 100);
+                        
+                        return (
+                          <>
+                            {roomInCurrent > 0 && (
+                              <>
+                                <div className="flex justify-between">
+                                  <span className="text-zinc-400">Fill {currentBracket.label} bracket:</span>
+                                  <span className="text-green-400">Convert ${roomInCurrent.toLocaleString()}</span>
+                                </div>
+                                {nextBracket && (
+                                  <div className="flex justify-between">
+                                    <span className="text-zinc-400">Stay under {nextBracket.label}:</span>
+                                    <span className="text-green-400">${roomInCurrent.toLocaleString()} available</span>
+                                  </div>
+                                )}
+                                <div className="flex justify-between text-zinc-500">
+                                  <span>Tax cost to fill bracket:</span>
+                                  <span>${Math.round(taxCostToFill).toLocaleString()}</span>
+                                </div>
+                              </>
+                            )}
+                            {roomInCurrent === 0 && (
+                              <p className="text-zinc-400">In highest bracket - no room to optimize</p>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
-                  )}
-                </div>
+                  </div>
+                </>
               );
             })()}
           </div>
