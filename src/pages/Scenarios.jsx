@@ -490,6 +490,19 @@ export default function Scenarios() {
         activeTaxLots,
         currentPrice,
       });
+      console.log('🔵 SCENARIOS buildProjectionParams output:', {
+        holdingsCount: params.holdings?.length,
+        accountsCount: params.accounts?.length,
+        liabilitiesCount: params.liabilities?.length,
+        collateralizedLoansCount: params.collateralizedLoans?.length,
+        activeTaxLotsCount: params.taxLots?.length,
+        currentPrice: params.currentPrice,
+        retirementAge: params.retirementAge,
+        grossAnnualIncome: params.grossAnnualIncome,
+        currentAnnualSpending: params.currentAnnualSpending,
+        otherRetirementIncome: params.otherRetirementIncome,
+        annualSavings: params.annualSavings,
+      });
       return runUnifiedProjection(params);
     } catch (error) {
       console.error('Baseline projection error:', error);

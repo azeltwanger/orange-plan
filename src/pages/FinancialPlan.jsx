@@ -950,6 +950,19 @@ export default function FinancialPlan() {
 
   // Generate projection data using unified projection engine
   const projections = useMemo(() => {
+    console.log('🟠 FINANCIALPLAN direct params:', {
+      holdingsCount: holdings?.length,
+      accountsCount: accounts?.length,
+      liabilitiesCount: liabilities?.length,
+      collateralizedLoansCount: collateralizedLoans?.length,
+      activeTaxLotsCount: activeTaxLots?.length,
+      currentPrice,
+      retirementAge,
+      grossAnnualIncome,
+      currentAnnualSpending,
+      otherRetirementIncome,
+      annualSavings,
+    });
     const result = runUnifiedProjection({
       holdings,
       projectionType: 'main',
