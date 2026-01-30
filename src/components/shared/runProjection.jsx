@@ -343,70 +343,66 @@ export function runUnifiedProjection({
     let cashTarget = 0;
     let otherTarget = 0;
     
+    // ============================================
+    // STEP 1: ALWAYS withdraw cash FIRST (applies to ALL strategies)
+    // Cash is spent before selling any assets
+    // ============================================
+    const availableCash = acct.cash || 0;
+    let remainingAfterCash = actualWithdrawal;
+    if (availableCash > 0 && remainingAfterCash > 0) {
+      cashTarget = Math.min(remainingAfterCash, availableCash);
+      remainingAfterCash -= cashTarget;
+    }
+    
+    // ============================================
+    // STEP 2: Apply strategy to remaining amount (after cash)
+    // ============================================
     if (assetWithdrawalStrategy === 'proportional') {
-      // Withdraw proportionally from all assets
-      const ratio = actualWithdrawal / total;
-      btcTarget = acct.btc * ratio;
-      stocksTarget = acct.stocks * ratio;
-      bondsTarget = acct.bonds * ratio;
-      cashTarget = acct.cash * ratio;
-      otherTarget = acct.other * ratio;
-    } else if (assetWithdrawalStrategy === 'priority') {
-      let remaining = actualWithdrawal;
-      
-      // STEP 1: Always withdraw cash FIRST (automatic, not user-configurable)
-      const availableCash = acct.cash || 0;
-      if (availableCash > 0 && remaining > 0) {
-        cashTarget = Math.min(remaining, availableCash);
-        remaining -= cashTarget;
+      // Withdraw proportionally from non-cash assets
+      const nonCashTotal = (acct.btc || 0) + (acct.stocks || 0) + (acct.bonds || 0) + (acct.other || 0);
+      if (remainingAfterCash > 0 && nonCashTotal > 0) {
+        const ratio = remainingAfterCash / nonCashTotal;
+        btcTarget = acct.btc * ratio;
+        stocksTarget = acct.stocks * ratio;
+        bondsTarget = acct.bonds * ratio;
+        otherTarget = acct.other * ratio;
       }
-      
-      // STEP 2: Then withdraw from priority order (excluding cash since it's handled above)
+    } else if (assetWithdrawalStrategy === 'priority') {
+      // Withdraw from priority order (excluding cash since already handled)
       for (const assetType of withdrawalPriorityOrder) {
-        if (remaining <= 0) break;
-        if (assetType === 'cash') continue; // Skip cash, already handled
+        if (remainingAfterCash <= 0) break;
+        if (assetType === 'cash') continue; // Skip cash, already handled above
         
         const available = acct[assetType] || 0;
         if (available <= 0) continue;
         
-        const take = Math.min(remaining, available);
+        const take = Math.min(remainingAfterCash, available);
         
         if (assetType === 'btc') btcTarget = take;
         else if (assetType === 'stocks') stocksTarget = take;
         else if (assetType === 'bonds') bondsTarget = take;
         else if (assetType === 'other') otherTarget = take;
         
-        remaining -= take;
+        remainingAfterCash -= take;
       }
     } else if (assetWithdrawalStrategy === 'blended') {
-      let remaining = actualWithdrawal;
-      
-      // STEP 1: Always withdraw cash FIRST (automatic, not user-configurable)
-      const availableCash = acct.cash || 0;
-      if (availableCash > 0 && remaining > 0) {
-        cashTarget = Math.min(remaining, availableCash);
-        remaining -= cashTarget;
-      }
-      
-      // STEP 2: Apply blended percentages to remaining amount (excluding cash)
-      const amountAfterCash = remaining;
-      
+      // Apply blended percentages to remaining amount (after cash)
       const totalPct = (withdrawalBlendPercentages.btc || 0) + 
                        (withdrawalBlendPercentages.stocks || 0) + 
                        (withdrawalBlendPercentages.bonds || 0) + 
                        (withdrawalBlendPercentages.other || 0);
       
-      if (totalPct > 0 && amountAfterCash > 0) {
-        btcTarget = Math.min(acct.btc, amountAfterCash * (withdrawalBlendPercentages.btc || 0) / totalPct);
-        stocksTarget = Math.min(acct.stocks, amountAfterCash * (withdrawalBlendPercentages.stocks || 0) / totalPct);
-        bondsTarget = Math.min(acct.bonds, amountAfterCash * (withdrawalBlendPercentages.bonds || 0) / totalPct);
-        otherTarget = Math.min(acct.other, amountAfterCash * (withdrawalBlendPercentages.other || 0) / totalPct);
+      if (totalPct > 0 && remainingAfterCash > 0) {
+        btcTarget = Math.min(acct.btc, remainingAfterCash * (withdrawalBlendPercentages.btc || 0) / totalPct);
+        stocksTarget = Math.min(acct.stocks, remainingAfterCash * (withdrawalBlendPercentages.stocks || 0) / totalPct);
+        bondsTarget = Math.min(acct.bonds, remainingAfterCash * (withdrawalBlendPercentages.bonds || 0) / totalPct);
+        otherTarget = Math.min(acct.other, remainingAfterCash * (withdrawalBlendPercentages.other || 0) / totalPct);
         
         // If blend doesn't cover full amount (due to min constraints), take remainder proportionally
         const blendTotal = btcTarget + stocksTarget + bondsTarget + otherTarget;
         
-        if (blendTotal < amountAfterCash) {
-          const shortfall = amountAfterCash - blendTotal;
+        if (blendTotal < remainingAfterCash) {
+          const shortfall = remainingAfterCash - blendTotal;
           const remainingTotal = (acct.btc - btcTarget) + (acct.stocks - stocksTarget) + 
                                   (acct.bonds - bondsTarget) + (acct.other - otherTarget);
           if (remainingTotal > 0) {
@@ -417,11 +413,11 @@ export function runUnifiedProjection({
             otherTarget += (acct.other - otherTarget) * ratio;
           }
         }
-      } else if (amountAfterCash > 0) {
+      } else if (remainingAfterCash > 0) {
         // Fallback to proportional if no percentages set (excluding cash)
         const totalNonCash = acct.btc + acct.stocks + acct.bonds + acct.other;
         if (totalNonCash > 0) {
-          const ratio = amountAfterCash / totalNonCash;
+          const ratio = remainingAfterCash / totalNonCash;
           btcTarget = acct.btc * ratio;
           stocksTarget = acct.stocks * ratio;
           bondsTarget = acct.bonds * ratio;
