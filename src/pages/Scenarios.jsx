@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -3108,10 +3107,10 @@ export default function Scenarios() {
                     </tr>
                     <tr className="border-b border-zinc-800/50">
                       <td className="py-3 px-4 text-zinc-200">Final Net Worth</td>
-                      <td className="py-3 px-4 text-right font-mono text-zinc-200">{formatCurrency(baselineMetrics.finalNet Worth)}</td>
-                      <td className="py-3 px-4 text-right font-mono text-zinc-200">{formatCurrency(scenarioMetrics.finalNet Worth)}</td>
-                      <td className={cn("py-3 px-4 text-right font-mono", scenarioMetrics.finalNet Worth >= baselineMetrics.finalNet Worth ? "text-emerald-400" : "text-rose-400")}>
-                        {formatDelta(baselineMetrics.finalNet Worth, scenarioMetrics.finalNet Worth)}
+                      <td className="py-3 px-4 text-right font-mono text-zinc-200">{formatCurrency(baselineMetrics.finalNetWorth)}</td>
+                      <td className="py-3 px-4 text-right font-mono text-zinc-200">{formatCurrency(scenarioMetrics.finalNetWorth)}</td>
+                      <td className={cn("py-3 px-4 text-right font-mono", scenarioMetrics.finalNetWorth >= baselineMetrics.finalNetWorth ? "text-emerald-400" : "text-rose-400")}>
+                        {formatDelta(baselineMetrics.finalNetWorth, scenarioMetrics.finalNetWorth)}
                       </td>
                     </tr>
                     <tr className="border-b border-zinc-800/50">
