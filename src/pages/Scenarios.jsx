@@ -236,10 +236,12 @@ export default function Scenarios() {
 
   // Array handlers for one-time events
   const addOneTimeEvent = () => {
+    // DETERMINISTIC: Generate ID from existing events count (not Date.now)
+    const nextId = `event-${(form.one_time_events || []).length}`;
     setForm({
       ...form,
       one_time_events: [...(form.one_time_events || []), { 
-        id: Date.now().toString(), 
+        id: nextId, 
         year: '', 
         amount: '', 
         description: '', 
@@ -296,10 +298,12 @@ export default function Scenarios() {
 
   // Array handlers for asset reallocations
   const addAssetReallocation = () => {
+    // DETERMINISTIC: Generate ID from existing reallocations count (not Date.now)
+    const nextId = `realloc-${(form.asset_reallocations || []).length}`;
     setForm({
       ...form,
       asset_reallocations: [...(form.asset_reallocations || []), {
-        id: Date.now().toString(),
+        id: nextId,
         sell_holding_id: '',
         sell_amount: '',
         execution_year: '',

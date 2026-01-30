@@ -86,7 +86,7 @@ export function runUnifiedProjection({
   projectionId = 'unknown',
   projectionType = 'main', // 'main', 'monteCarlo', 'earliestAge', 'maxSpending'
   monteCarloIteration = null,
-  _runId = Date.now(), // Unique identifier for this run
+  _runId = `${projectionId}-${projectionType}-${monteCarloIteration || 0}`, // DETERMINISTIC: Unique identifier from params
   accounts,
   liabilities,
   collateralizedLoans,
