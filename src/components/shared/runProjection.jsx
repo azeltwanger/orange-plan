@@ -2074,9 +2074,7 @@ export function runUnifiedProjection({
       }
     });
     
-    // DEBUG: Log encumberedBtc state at end of collateral processing
-    console.log(`YEAR ${year} (Age ${age}) - encumberedBtc after collateral processing:`, JSON.stringify(encumberedBtc));
-    console.log(`BTC AFTER ALL COLLATERAL PROCESSING Year ${year}: $${portfolio.taxable.btc.toFixed(2)}, implied qty = ${(portfolio.taxable.btc / cumulativeBtcPrice).toFixed(6)} BTC, change from loop start = $${(portfolio.taxable.btc - btcAtLoopStart).toFixed(2)}`);
+
 
     // ============================================
     // PROCESS ASSET REALLOCATIONS (Scenario-specific)
