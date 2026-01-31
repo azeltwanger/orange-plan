@@ -2928,43 +2928,6 @@ export default function Scenarios() {
                         }
                       </td>
                     </tr>
-                    {/* Asset Category Breakdowns at Retirement */}
-                    <tr className="border-t-2 border-zinc-700">
-                      <td className="py-3 px-4 text-zinc-200 font-medium" colSpan={4}>Asset Values at Retirement</td>
-                    </tr>
-                    {(() => {
-                      const baselineRet = baselineProjection?.yearByYear?.find(y => y.age === baselineRetirementAge);
-                      const scenarioRet = scenarioProjection?.yearByYear?.find(y => y.age === scenarioRetirementAge);
-                      
-                      const assetRows = [
-                        { key: 'btcLiquid', label: 'Bitcoin (Liquid)', color: 'text-orange-400' },
-                        { key: 'btcEncumbered', label: 'Bitcoin (Collateral)', color: 'text-amber-700' },
-                        { key: 'stocks', label: 'Stocks', color: 'text-blue-400' },
-                        { key: 'realEstate', label: 'Real Estate', color: 'text-emerald-400' },
-                        { key: 'bonds', label: 'Bonds', color: 'text-purple-400' },
-                        { key: 'cash', label: 'Cash', color: 'text-cyan-400' }
-                      ];
-                      
-                      return assetRows.map((asset, idx) => {
-                        const baseVal = baselineRet?.[asset.key] || 0;
-                        const scenVal = scenarioRet?.[asset.key] || 0;
-                        const diff = scenVal - baseVal;
-                        
-                        // Skip if both are zero
-                        if (baseVal === 0 && scenVal === 0) return null;
-                        
-                        return (
-                          <tr key={asset.key} className="border-b border-zinc-800/50">
-                            <td className="py-3 px-4 text-zinc-300 pl-8">{asset.label}</td>
-                            <td className={cn("py-3 px-4 text-right font-mono", asset.color)}>{formatCurrency(baseVal)}</td>
-                            <td className={cn("py-3 px-4 text-right font-mono", asset.color)}>{formatCurrency(scenVal)}</td>
-                            <td className={cn("py-3 px-4 text-right font-mono", diff >= 0 ? "text-emerald-400" : "text-rose-400")}>
-                              {Math.abs(diff) < 1000 ? '—' : formatDelta(baseVal, scenVal)}
-                            </td>
-                          </tr>
-                        );
-                      }).filter(Boolean);
-                    })()}
                   </tbody>
                 </table>
               </div>
