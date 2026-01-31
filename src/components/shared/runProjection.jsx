@@ -1036,11 +1036,7 @@ export function runUnifiedProjection({
     const isRetired = age >= retirementAge;
     const yearsFromNow = i;
     
-    // DEBUG: Track BTC at very start of loop iteration
-    const btcAtLoopStart = portfolio.taxable.btc;
-    const btcQtyAtLoopStart = cumulativeBtcPrice > 0 ? portfolio.taxable.btc / cumulativeBtcPrice : 0;
-    console.log(`\n=== YEAR LOOP START ${year} (Age ${age}) ===`);
-    console.log(`BTC at loop start: $${btcAtLoopStart.toFixed(2)}, qty = ${btcQtyAtLoopStart.toFixed(6)} BTC, price = $${cumulativeBtcPrice.toFixed(0)}`);
+
 
     // DEBUG: Log first 2 years to diagnose scenario comparison issues
     if (i <= 1 && DEBUG) {
