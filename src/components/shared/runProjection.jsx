@@ -1035,6 +1035,12 @@ export function runUnifiedProjection({
     const age = currentAge + i;
     const isRetired = age >= retirementAge;
     const yearsFromNow = i;
+    
+    // DEBUG: Track BTC at very start of loop iteration
+    const btcAtLoopStart = portfolio.taxable.btc;
+    const btcQtyAtLoopStart = cumulativeBtcPrice > 0 ? portfolio.taxable.btc / cumulativeBtcPrice : 0;
+    console.log(`\n=== YEAR LOOP START ${year} (Age ${age}) ===`);
+    console.log(`BTC at loop start: $${btcAtLoopStart.toFixed(2)}, qty = ${btcQtyAtLoopStart.toFixed(6)} BTC, price = $${cumulativeBtcPrice.toFixed(0)}`);
 
     // DEBUG: Log first 2 years to diagnose scenario comparison issues
     if (i <= 1 && DEBUG) {
@@ -1210,9 +1216,10 @@ export function runUnifiedProjection({
         ? customBtcRate
         : getBtcGrowthRate(yearsFromNow, effectiveInflation);
     if (i > 0) {
+      const priceBeforeGrowth = cumulativeBtcPrice;
       cumulativeBtcPrice = cumulativeBtcPrice * (1 + yearBtcGrowth / 100);
-      
-
+      console.log(`PRICE GROWTH Year ${year}: $${priceBeforeGrowth.toFixed(0)} -> $${cumulativeBtcPrice.toFixed(0)} (${yearBtcGrowth.toFixed(2)}%)`);
+      console.log(`BTC AFTER PRICE GROWTH (no portfolio change yet): $${portfolio.taxable.btc.toFixed(2)}, implied qty = ${(portfolio.taxable.btc / cumulativeBtcPrice).toFixed(6)} BTC`);
     }
 
     // === IMMEDIATE LOAN PROCEEDS (Year 0 only) ===
@@ -1959,6 +1966,7 @@ export function runUnifiedProjection({
     
     // DEBUG: Log encumberedBtc state at end of collateral processing
     console.log(`YEAR ${year} (Age ${age}) - encumberedBtc after collateral processing:`, JSON.stringify(encumberedBtc));
+    console.log(`BTC AFTER ALL COLLATERAL PROCESSING Year ${year}: $${portfolio.taxable.btc.toFixed(2)}, implied qty = ${(portfolio.taxable.btc / cumulativeBtcPrice).toFixed(6)} BTC, change from loop start = $${(portfolio.taxable.btc - btcAtLoopStart).toFixed(2)}`);
 
     // ============================================
     // PROCESS ASSET REALLOCATIONS (Scenario-specific)
@@ -2323,9 +2331,8 @@ export function runUnifiedProjection({
       
       // DEBUG: Log BTC growth impact
       const btcAfterGrowth = portfolio.taxable.btc;
-      if (Math.abs(btcAfterGrowth - btcBeforeGrowth) > 1) {
-        console.log(`BTC GROWTH Year ${year}: BEFORE = $${btcBeforeGrowth.toFixed(2)}, AFTER = $${btcAfterGrowth.toFixed(2)}, growth rate = ${yearBtcGrowth.toFixed(2)}%, added = $${(btcAfterGrowth - btcBeforeGrowth).toFixed(2)}`);
-      }
+      console.log(`BTC ASSET GROWTH Year ${year}: BEFORE = $${btcBeforeGrowth.toFixed(2)}, AFTER = $${btcAfterGrowth.toFixed(2)}, growth rate = ${yearBtcGrowth.toFixed(2)}%, USD added = $${(btcAfterGrowth - btcBeforeGrowth).toFixed(2)}`);
+      console.log(`BTC QTY CHECK Year ${year}: before growth qty = ${(btcBeforeGrowth / cumulativeBtcPrice).toFixed(6)}, after growth qty = ${(btcAfterGrowth / cumulativeBtcPrice).toFixed(6)}, QTY CHANGE = ${((btcAfterGrowth - btcBeforeGrowth) / cumulativeBtcPrice).toFixed(6)} BTC`);
       
       if (portfolio.realEstate >= GROWTH_DUST_THRESHOLD && yearRealEstateGrowth !== 0) portfolio.realEstate *= (1 + yearRealEstateGrowth / 100);
       else if (portfolio.realEstate < GROWTH_DUST_THRESHOLD) portfolio.realEstate = 0;
