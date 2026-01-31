@@ -6,7 +6,7 @@ import {
   getLTCGRate
 } from '@/components/tax/taxCalculations';
 import { calculateStateTaxOnRetirement, calculateStateIncomeTax } from '@/components/shared/stateTaxConfig';
-import { getTaxConfigForYear, get401kLimit, getRothIRALimit, getTraditionalIRALimit, getHSALimit, getRothIRAIncomeLimit, getFederalBrackets } from '@/components/shared/taxConfig';
+import { getTaxConfigForYear, get401kLimit, getRothIRALimit, getTraditionalIRALimit, getHSALimit, getRothIRAIncomeLimit, getFederalBrackets, getSolo401kLimits } from '@/components/shared/taxConfig';
 import { selectLots } from '@/components/shared/lotSelectionHelpers';
 
 /**
@@ -115,6 +115,11 @@ export function runUnifiedProjection({
   contributionHSA,
   contributionHSAEndAge = null,
   hsaFamilyCoverage,
+  solo401kEnabled = false,
+  solo401kType = 'traditional',
+  solo401kEmployeeContribution = 0,
+  solo401kEmployerContributionPercent = 0,
+  solo401kEndAge = null,
   getBtcGrowthRate,
   effectiveInflation,
   effectiveStocksCagr,
@@ -1175,6 +1180,8 @@ export function runUnifiedProjection({
     let yearTraditionalIRA = 0;
     let yearHSA = 0;
     let yearEmployerMatch = 0;
+    let yearSolo401kEmployee = 0;
+    let yearSolo401kEmployer = 0;
     let retirementNetCashFlow = 0;
     let preRetireNetCashFlow = 0;
     let yearQualifiedDividends = 0;
@@ -2377,6 +2384,7 @@ export function runUnifiedProjection({
     const effectiveRothIRAEndAge = contributionRothIRAEndAge || lifeExpectancy;
     const effectiveTraditionalIRAEndAge = contributionTraditionalIRAEndAge || lifeExpectancy;
     const effectiveHSAEndAge = contributionHSAEndAge || lifeExpectancy;
+    const effectiveSolo401kEndAge = solo401kEndAge || lifeExpectancy;
     
     // IRS Rule: Can't contribute more than earned income
     let remainingIncomeForContributions = Math.max(0, yearEarnedIncome);
@@ -2461,11 +2469,48 @@ export function runUnifiedProjection({
       yearRoth = 0;
     }
     
+    // Solo 401k Contributions - only if enabled, under end age, AND have remaining earned income
+    if (solo401kEnabled && age < effectiveSolo401kEndAge && remainingIncomeForContributions > 0) {
+      const solo401kLimits = getSolo401kLimits(year, age);
+      
+      // Employee contribution
+      const baseEmployeeContribution = !isRetired
+        ? (solo401kEmployeeContribution || 0) * Math.pow(1 + incomeGrowth / 100, i)
+        : (solo401kEmployeeContribution || 0);
+      
+      yearSolo401kEmployee = Math.min(
+        baseEmployeeContribution,
+        solo401kLimits.employeeLimit,
+        remainingIncomeForContributions
+      );
+      remainingIncomeForContributions -= yearSolo401kEmployee;
+      
+      // Employer contribution (% of earned income, capped by limits)
+      const employerContributionFromPercent = yearEarnedIncome * ((solo401kEmployerContributionPercent || 0) / 100);
+      const remainingRoomForEmployer = solo401kLimits.combinedLimit - yearSolo401kEmployee;
+      
+      // IRS rule: employer portion max 25% of net self-employment income
+      yearSolo401kEmployer = Math.min(
+        employerContributionFromPercent,
+        solo401kLimits.maxEmployerLimit,
+        remainingRoomForEmployer,
+        yearEarnedIncome * 0.25
+      );
+    } else {
+      yearSolo401kEmployee = 0;
+      yearSolo401kEmployer = 0;
+    }
+    
     // Continue with pre-retirement logic ONLY if not retired
     if (!isRetired) {
       
       // Calculate taxable income AFTER all contributions
-      yearTaxableIncome = Math.max(0, yearGrossIncome + yearLifeEventTaxableIncome - year401k - yearTraditionalIRA - yearHSA - currentStandardDeduction);
+      // Solo 401k: Traditional reduces taxable income, Roth employee does not (but employer portion ALWAYS does)
+      const solo401kPreTaxDeduction = solo401kType === 'traditional' 
+        ? (yearSolo401kEmployee + yearSolo401kEmployer)
+        : yearSolo401kEmployer; // Roth: only employer portion is pre-tax
+      
+      yearTaxableIncome = Math.max(0, yearGrossIncome + yearLifeEventTaxableIncome - year401k - yearTraditionalIRA - yearHSA - solo401kPreTaxDeduction - currentStandardDeduction);
       const yearFederalTax = calculateProgressiveIncomeTax(yearTaxableIncome, filingStatus, year);
       const yearStateTax = calculateStateIncomeTax({ 
         income: yearGrossIncome + yearLifeEventTaxableIncome - year401k - yearTraditionalIRA - yearHSA, 
@@ -2525,11 +2570,22 @@ export function runUnifiedProjection({
       }
       
       // Add contributions to appropriate accounts
-      if (year401k > 0 || yearTraditionalIRA > 0 || yearEmployerMatch > 0) {
-        addToAccount('taxDeferred', year401k + yearTraditionalIRA + yearEmployerMatch);
+      let taxDeferredContributions = year401k + yearTraditionalIRA + yearEmployerMatch;
+      let taxFreeContributions = yearRoth + yearHSA;
+      
+      // Solo 401k: Traditional goes all to tax-deferred, Roth splits (employee to tax-free, employer to tax-deferred)
+      if (solo401kType === 'traditional') {
+        taxDeferredContributions += yearSolo401kEmployee + yearSolo401kEmployer;
+      } else {
+        taxFreeContributions += yearSolo401kEmployee; // Roth employee portion
+        taxDeferredContributions += yearSolo401kEmployer; // Employer always tax-deferred
       }
-      if (yearRoth > 0 || yearHSA > 0) {
-        addToAccount('taxFree', yearRoth + yearHSA);
+      
+      if (taxDeferredContributions > 0) {
+        addToAccount('taxDeferred', taxDeferredContributions);
+      }
+      if (taxFreeContributions > 0) {
+        addToAccount('taxFree', taxFreeContributions);
       }
 
       if (yearSavings < 0) {
@@ -3051,11 +3107,22 @@ export function runUnifiedProjection({
       retirementNetCashFlow = (totalRetirementIncome + rmdWithdrawn) - (desiredWithdrawal + taxesPaid + penaltyPaid + yearGoalWithdrawal + yearRoth);
 
       // Add retirement contributions to appropriate accounts (if made with post-retirement earned income)
-      if (year401k > 0 || yearTraditionalIRA > 0 || yearEmployerMatch > 0) {
-        addToAccount('taxDeferred', year401k + yearTraditionalIRA + yearEmployerMatch);
+      let retirementTaxDeferredContributions = year401k + yearTraditionalIRA + yearEmployerMatch;
+      let retirementTaxFreeContributions = yearRoth + yearHSA;
+      
+      // Solo 401k in retirement: Traditional goes all to tax-deferred, Roth splits
+      if (solo401kType === 'traditional') {
+        retirementTaxDeferredContributions += yearSolo401kEmployee + yearSolo401kEmployer;
+      } else {
+        retirementTaxFreeContributions += yearSolo401kEmployee;
+        retirementTaxDeferredContributions += yearSolo401kEmployer;
       }
-      if (yearRoth > 0 || yearHSA > 0) {
-        addToAccount('taxFree', yearRoth + yearHSA);
+      
+      if (retirementTaxDeferredContributions > 0) {
+        addToAccount('taxDeferred', retirementTaxDeferredContributions);
+      }
+      if (retirementTaxFreeContributions > 0) {
+        addToAccount('taxFree', retirementTaxFreeContributions);
       }
       
       // Handle retirement income surplus - reinvest excess into taxable account per savings allocation
@@ -3604,6 +3671,9 @@ export function runUnifiedProjection({
       yearTraditionalIRAContribution: !isRetired ? Math.round(yearTraditionalIRA || 0) : 0,
       yearHSAContribution: !isRetired ? Math.round(yearHSA || 0) : 0,
       yearEmployer401kMatch: !isRetired ? Math.round(yearEmployerMatch || 0) : 0,
+      solo401kEmployeeContribution: !isRetired ? Math.round(yearSolo401kEmployee || 0) : 0,
+      solo401kEmployerContribution: !isRetired ? Math.round(yearSolo401kEmployer || 0) : 0,
+      solo401kType: solo401kType,
       
       // Early withdrawal tracking (before age 59.5)
       earlyWithdrawalTax: Math.round(yearEarlyWithdrawalTax),
