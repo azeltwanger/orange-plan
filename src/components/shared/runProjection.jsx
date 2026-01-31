@@ -3243,8 +3243,6 @@ export function runUnifiedProjection({
       }
 
       if (getTotalPortfolio() <= 0) ranOutOfMoneyThisYear = true;
-      
-      console.log(`BTC TRACKING Year ${year} END OF RETIREMENT SECTION: portfolio.taxable.btc = $${portfolio.taxable.btc.toFixed(2)}, NET CHANGE = $${(portfolio.taxable.btc - btcAtYearStart).toFixed(2)}, qty change = ${((portfolio.taxable.btc - btcAtYearStart) / cumulativeBtcPrice).toFixed(6)} BTC`);
 
       // DEBUG: Log AFTER retirement processing
       if (i <= 1 && DEBUG) {
