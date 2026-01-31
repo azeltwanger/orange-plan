@@ -2041,13 +2041,6 @@ export function runUnifiedProjection({
               }
               
               encumberedBtc[loanKey] = targetCollateralForLoan;
-              
-              // DEBUG: After update
-              console.log(`COLLATERAL RELEASE DEBUG Year ${year} AFTER:`, {
-                encumberedBtcAFTER: encumberedBtc[loanKey],
-                totalEncumberedBtc: Object.values(encumberedBtc).reduce((s,v) => s+v, 0)
-              });
-              
               liquidationEvents.push({
                 year,
                 age,
