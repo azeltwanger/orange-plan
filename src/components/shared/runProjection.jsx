@@ -3046,8 +3046,6 @@ export function runUnifiedProjection({
         withdrawFromTaxable = actualTaxableWithdrawal.withdrawn;
         runningTaxableBasis = Math.max(0, runningTaxableBasis - actualTaxableWithdrawal.totalCostBasis);
         
-        console.log(`BTC TRACKING Year ${year} AFTER WITHDRAWAL: portfolio.taxable.btc = $${portfolio.taxable.btc.toFixed(2)}, withdrawn = $${withdrawFromTaxable.toFixed(2)}, change from start = $${(portfolio.taxable.btc - btcAtYearStart).toFixed(2)}`);
-        
         const requestedFromTaxDeferred = taxEstimate.fromTaxDeferred || 0;
         const requestedFromTaxFree = taxEstimate.fromTaxFree || 0;
 
