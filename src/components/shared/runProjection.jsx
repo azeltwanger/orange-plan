@@ -2864,10 +2864,6 @@ export function runUnifiedProjection({
       }
     } else {
       // RETIREMENT
-      const btcAtYearStart = portfolio.taxable.btc;
-      const btcQtyAtYearStart = btcAtYearStart / cumulativeBtcPrice;
-      console.log(`BTC TRACKING Year ${year} (Age ${age}) START: portfolio.taxable.btc = $${btcAtYearStart.toFixed(2)}, qty = ${btcQtyAtYearStart.toFixed(6)} BTC`);
-      
       const nominalSpendingAtRetirement = retirementAnnualSpending * Math.pow(1 + effectiveInflation / 100, Math.max(0, retirementAge - currentAge));
       // Calculate base spending WITHOUT life event expenses (for tooltip display)
       const baseSpendingOnly = nominalSpendingAtRetirement * Math.pow(1 + effectiveInflation / 100, age - retirementAge);
