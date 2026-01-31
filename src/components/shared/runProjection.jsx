@@ -3017,12 +3017,46 @@ export function runUnifiedProjection({
 
       // Calculate retirement net cash flow: income - spending - goals - taxes
       // Positive = surplus, Negative = deficit
+      
+      // DEBUG: Trace retirement cash flow calculation
+      console.log(`RETIREMENT CASHFLOW DEBUG Year ${year} (Age ${age}):`, {
+        totalRetirementIncome,
+        socialSecurityIncome,
+        otherRetirementIncome,
+        estimatedDividendIncome,
+        yearLifeEventIncome,
+        yearLoanProceeds,
+        rmdWithdrawn,
+        desiredWithdrawal,
+        taxesPaid,
+        penaltyPaid,
+        yearGoalWithdrawal,
+        incomeTotal: totalRetirementIncome + rmdWithdrawn,
+        expenseTotal: desiredWithdrawal + taxesPaid + penaltyPaid + yearGoalWithdrawal
+      });
+      
       retirementNetCashFlow = (totalRetirementIncome + rmdWithdrawn) - (desiredWithdrawal + taxesPaid + penaltyPaid + yearGoalWithdrawal);
+      
+      console.log(`RETIREMENT CASHFLOW DEBUG Year ${year} RESULT:`, {
+        retirementNetCashFlow,
+        isSurplus: retirementNetCashFlow > 0,
+        isDeficit: retirementNetCashFlow < 0
+      });
 
       // Handle retirement income surplus - reinvest excess into taxable account per savings allocation
       // This allows income surplus to go into growth assets rather than just cash
       if (retirementNetCashFlow > 0) {
         const totalAllocation = savingsAllocationBtc + savingsAllocationStocks + savingsAllocationBonds + savingsAllocationCash + savingsAllocationOther;
+        
+        console.log(`⚠️ SURPLUS INVESTMENT Year ${year} (Age ${age}):`, {
+          surplus: retirementNetCashFlow,
+          totalAllocation,
+          savingsAllocationBtc,
+          btcInvestAmount: totalAllocation > 0 ? retirementNetCashFlow * (savingsAllocationBtc / totalAllocation) : 0,
+          btcPriceBefore: portfolio.taxable.btc,
+          btcQuantityBefore: portfolio.taxable.btc / cumulativeBtcPrice
+        });
+        
         if (totalAllocation > 0) {
           const btcInvest = retirementNetCashFlow * (savingsAllocationBtc / totalAllocation);
           const stocksInvest = retirementNetCashFlow * (savingsAllocationStocks / totalAllocation);
