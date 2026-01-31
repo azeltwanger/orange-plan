@@ -5124,6 +5124,96 @@ export default function FinancialPlan() {
                     </Select>
                     </div>
                     </div>
+                    
+                    {/* Solo 401K Section */}
+                    <div className="mt-6 pt-6 border-t border-zinc-700">
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <Label className="text-zinc-200">Solo 401(k) (Self-Employed)</Label>
+                          <p className="text-xs text-zinc-500">For self-employed individuals or business owners</p>
+                        </div>
+                        <Switch
+                          checked={solo401kEnabled}
+                          onCheckedChange={setSolo401kEnabled}
+                        />
+                      </div>
+                      
+                      {solo401kEnabled && (
+                        <div className="space-y-4 mt-4">
+                          {/* Solo 401k Type */}
+                          <div className="space-y-2">
+                            <Label className="text-zinc-300">Contribution Type</Label>
+                            <Select value={solo401kType} onValueChange={setSolo401kType}>
+                              <SelectTrigger className="bg-zinc-800 border-zinc-700 text-zinc-100">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent className="bg-zinc-900 border-zinc-700">
+                                <SelectItem value="traditional">Traditional (Pre-tax)</SelectItem>
+                                <SelectItem value="roth">Roth (After-tax)</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          
+                          {/* Employee Contribution */}
+                          <div className="space-y-2">
+                            <Label className="text-zinc-300">Employee Contribution</Label>
+                            <div className="grid grid-cols-[2fr,1fr] gap-2">
+                              <Input
+                                type="number"
+                                placeholder="0"
+                                value={solo401kEmployeeContribution}
+                                onChange={(e) => setSolo401kEmployeeContribution(parseFloat(e.target.value) || 0)}
+                                className="bg-zinc-800 border-zinc-700 text-zinc-100"
+                              />
+                              <Input
+                                type="number"
+                                placeholder={`${retirementAge || 65}`}
+                                value={solo401kEndAge || ''}
+                                onChange={(e) => setSolo401kEndAge(e.target.value)}
+                                className="bg-zinc-800 border-zinc-700 text-zinc-100"
+                              />
+                            </div>
+                            <p className="text-xs text-zinc-500">2026 limit: $24,000 ($31,500 if 50+)</p>
+                          </div>
+                          
+                          {/* Employer Contribution */}
+                          <div className="space-y-2">
+                            <Label className="text-zinc-300">Employer Contribution (% of Net Self-Employment Income)</Label>
+                            <Input
+                              type="number"
+                              placeholder="0"
+                              min="0"
+                              max="25"
+                              value={solo401kEmployerContributionPercent}
+                              onChange={(e) => setSolo401kEmployerContributionPercent(parseFloat(e.target.value) || 0)}
+                              className="bg-zinc-800 border-zinc-700 text-zinc-100"
+                            />
+                            <p className="text-xs text-zinc-500">Up to 25% of net self-employment income. Combined limit: $71,500 ($79,000 if 50+)</p>
+                          </div>
+                          
+                          {/* Show calculated employer amount */}
+                          {grossAnnualIncome > 0 && solo401kEmployerContributionPercent > 0 && (
+                            <div className="p-3 bg-zinc-800/50 rounded-lg">
+                              <p className="text-xs text-zinc-400">
+                                Estimated employer contribution: <span className="text-emerald-400 font-medium">
+                                  ${Math.min(
+                                    Math.round(grossAnnualIncome * (solo401kEmployerContributionPercent / 100)),
+                                    71500 - (solo401kEmployeeContribution || 0)
+                                  ).toLocaleString()}
+                                </span> /year
+                              </p>
+                              <p className="text-xs text-zinc-500 mt-1">
+                                Total Solo 401k: ${Math.min(
+                                  (solo401kEmployeeContribution || 0) + 
+                                  Math.round(grossAnnualIncome * (solo401kEmployerContributionPercent / 100)),
+                                  71500
+                                ).toLocaleString()} /year
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
 
                     <div className="mt-4 space-y-2">
                         <p className="text-xs text-amber-500/80">
