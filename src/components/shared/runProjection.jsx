@@ -3312,8 +3312,7 @@ export function runUnifiedProjection({
       } // End of totalNeededFromAccounts > 0 block
 
       if (getTotalPortfolio() <= 0) ranOutOfMoneyThisYear = true;
-    } // End of isRetired block
-
+      
       // DEBUG: Log AFTER retirement processing
       if (i <= 1 && DEBUG) {
         console.log('POST RETIREMENT PROCESSING:');
