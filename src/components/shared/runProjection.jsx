@@ -3334,6 +3334,7 @@ export function runUnifiedProjection({
           grandTotal: Math.round(getPortfolioTotal())
         }));
       }
+    } // End of isRetired block
 
     // Calculate dividend income using Average Balance Method (AFTER all withdrawals)
     // Dividends = (Beginning Value + Ending Value) / 2 × Yield
