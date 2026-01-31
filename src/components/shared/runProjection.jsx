@@ -3321,9 +3321,7 @@ export function runUnifiedProjection({
     const currentTotalEncumberedBtc = Object.values(encumberedBtc).reduce((sum, amount) => sum + amount, 0);
     const encumberedBtcValueThisYear = currentTotalEncumberedBtc * cumulativeBtcPrice;
     
-    // DEBUG: Log final encumberedBtc state for yearByYear output
-    console.log(`YEAR ${year} END - encumberedBtc state:`, JSON.stringify(encumberedBtc));
-    console.log(`YEAR ${year} END - totalEncumberedBtc: ${currentTotalEncumberedBtc}, value: $${Math.round(encumberedBtcValueThisYear)}, btcPrice: $${Math.round(cumulativeBtcPrice)}`);
+
     
     // End-of-year dust cleanup for all accounts to prevent compounding of near-zero balances
     const DUST_THRESHOLD_EOY = 10; // Increased threshold to catch more edge cases
