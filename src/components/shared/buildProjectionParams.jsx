@@ -78,6 +78,13 @@ export function buildProjectionParams(settings, overrides = {}, data) {
   const contributionHSAEndAge = effectiveSettings.contribution_hsa_end_age || null;
   const hsaFamilyCoverage = effectiveSettings.hsa_family_coverage || false;
 
+  // Solo 401k settings
+  const solo401kEnabled = effectiveSettings.solo_401k_enabled || false;
+  const solo401kType = effectiveSettings.solo_401k_type || 'traditional';
+  const solo401kEmployeeContribution = effectiveSettings.solo_401k_employee_contribution ?? 0;
+  const solo401kEmployerContributionPercent = effectiveSettings.solo_401k_employer_contribution_percent ?? 0;
+  const solo401kEndAge = effectiveSettings.solo_401k_end_age || null;
+
   // Dividend income parameters
   const dividendIncome = effectiveSettings.dividend_income_override ?? 0;
   const dividendIncomeQualified = effectiveSettings.dividend_income_qualified ?? true;
@@ -212,6 +219,11 @@ export function buildProjectionParams(settings, overrides = {}, data) {
     contributionTraditionalIRA,
     contributionHSA,
     hsaFamilyCoverage,
+    solo401kEnabled,
+    solo401kType,
+    solo401kEmployeeContribution,
+    solo401kEmployerContributionPercent,
+    solo401kEndAge,
     getBtcGrowthRate,
     effectiveInflation: inflationRate,
     effectiveStocksCagr: stocksCagr,
