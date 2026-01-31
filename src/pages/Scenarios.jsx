@@ -2911,21 +2911,33 @@ export default function Scenarios() {
                       </td>
                     </tr>
                     <tr>
-                      <td className="py-3 px-4 text-zinc-200">Effective Tax Rate</td>
-                      <td className="py-3 px-4 text-right font-mono text-zinc-200">
-                        {baselineMetrics?.effectiveTaxRate?.toFixed(1) || '0.0'}%
+                      <td className="py-3 px-4 text-zinc-200">Tax Savings vs Baseline</td>
+                      <td className="py-3 px-4 text-right font-mono text-zinc-500">—</td>
+                      <td className="py-3 px-4 text-right font-mono">
+                        {(() => {
+                          const taxSavings = baselineMetrics.lifetimeTaxes - scenarioMetrics.lifetimeTaxes;
+                          if (Math.abs(taxSavings) < 1000) {
+                            return <span className="text-zinc-400">$0</span>;
+                          }
+                          return (
+                            <span className={taxSavings > 0 ? "text-emerald-400" : "text-rose-400"}>
+                              {taxSavings > 0 ? '+' : ''}{formatCurrency(taxSavings)}
+                            </span>
+                          );
+                        })()}
                       </td>
-                      <td className="py-3 px-4 text-right font-mono text-zinc-200">
-                        {scenarioMetrics?.effectiveTaxRate?.toFixed(1) || '0.0'}%
-                      </td>
-                      <td className={cn(
-                        "py-3 px-4 text-right font-mono",
-                        (scenarioMetrics?.effectiveTaxRate || 0) <= (baselineMetrics?.effectiveTaxRate || 0) ? "text-emerald-400" : "text-rose-400"
-                      )}>
-                        {Math.abs((scenarioMetrics?.effectiveTaxRate || 0) - (baselineMetrics?.effectiveTaxRate || 0)) < 0.1 
-                          ? '—' 
-                          : `${((scenarioMetrics?.effectiveTaxRate || 0) - (baselineMetrics?.effectiveTaxRate || 0)) > 0 ? '+' : ''}${((scenarioMetrics?.effectiveTaxRate || 0) - (baselineMetrics?.effectiveTaxRate || 0)).toFixed(1)}%`
-                        }
+                      <td className="py-3 px-4 text-right font-mono">
+                        {(() => {
+                          const taxSavings = baselineMetrics.lifetimeTaxes - scenarioMetrics.lifetimeTaxes;
+                          if (Math.abs(taxSavings) < 1000) {
+                            return <span className="text-zinc-400">$0</span>;
+                          }
+                          return (
+                            <span className={taxSavings > 0 ? "text-emerald-400" : "text-rose-400"}>
+                              {taxSavings > 0 ? '+' : ''}{formatCurrency(taxSavings)}
+                            </span>
+                          );
+                        })()}
                       </td>
                     </tr>
                   </tbody>

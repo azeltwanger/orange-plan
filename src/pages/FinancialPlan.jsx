@@ -3756,6 +3756,11 @@ export default function FinancialPlan() {
                              <span className="text-rose-300 text-right">-${p.stateTaxPaid.toLocaleString()}</span>
                            </div>
                           )}
+                          {(p.federalTaxPaid > 0 || p.stateTaxPaid > 0) && p.taxableIncome > 0 && (
+                            <p className="text-zinc-400 text-xs mt-1">
+                              Effective Tax Rate: {((p.federalTaxPaid + p.stateTaxPaid) / p.taxableIncome * 100).toFixed(1)}%
+                            </p>
+                          )}
                           {p.earlyWithdrawalTax > 0 && (
                            <div className="flex justify-between gap-6">
                              <span>Early Withdrawal Tax:</span>
@@ -4067,34 +4072,13 @@ export default function FinancialPlan() {
               <p className="text-sm text-zinc-400 mt-1">{formatNumber(maxSustainableSpending / 12)}/mo today's $</p>
             </div>
 
-            {/* Card 3: Effective Tax Rate */}
+            {/* Card 3: Lifetime Taxes Paid */}
             <div className="p-5 rounded-xl bg-gradient-to-br from-zinc-900/80 to-zinc-800/60 border border-zinc-700/40 hover:border-zinc-600/60 transition-all">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-2">Effective Tax Rate</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-2">Lifetime Taxes Paid</p>
               <p className="text-3xl font-bold text-white leading-tight">
-                {(() => {
-                  // Calculate effective tax rate for LIFETIME (ALL years)
-                  const totalTaxes = projections.reduce((sum, y) => sum + (y.taxesPaid || 0), 0);
-                  const totalIncome = projections.reduce((sum, y) => {
-                    return sum + 
-                      (y.yearGrossIncome || 0) + 
-                      (y.otherRetirementIncome || 0) +
-                      (y.socialSecurityIncome || 0) + 
-                      (y.totalWithdrawalAmount || 0) +
-                      (y.lifeEventIncome || 0) +
-                      (y.loanProceeds || 0) +
-                      (y.totalDividendIncome || 0);
-                  }, 0);
-                  console.log('FinancialPlan Raw Tax Rate:', {
-                    totalTaxes,
-                    totalIncome,
-                    rawRate: (totalTaxes / totalIncome) * 100,
-                    snapshotPrice: projectionPrice
-                  });
-                  const effectiveRate = totalIncome > 0 ? ((totalTaxes / totalIncome) * 100).toFixed(1) : '0.0';
-                  return `${effectiveRate}%`;
-                })()}
+                {formatNumber(lifetimeTaxesPaid, 1)}
               </p>
-              <p className="text-sm text-zinc-400 mt-1">Lifetime average</p>
+              <p className="text-sm text-zinc-400 mt-1">All years combined</p>
             </div>
 
             {/* Card 4: Plan Success */}
