@@ -175,6 +175,13 @@ export default function FinancialPlan() {
   const [contributionHSA, setContributionHSA] = useState(0);
   const [contributionHSAEndAge, setContributionHSAEndAge] = useState('');
   const [hsaFamilyCoverage, setHsaFamilyCoverage] = useState(false);
+  
+  // Solo 401k settings
+  const [solo401kEnabled, setSolo401kEnabled] = useState(false);
+  const [solo401kType, setSolo401kType] = useState('traditional');
+  const [solo401kEmployeeContribution, setSolo401kEmployeeContribution] = useState(0);
+  const [solo401kEmployerContributionPercent, setSolo401kEmployerContributionPercent] = useState(0);
+  const [solo401kEndAge, setSolo401kEndAge] = useState('');
 
   // BTC Collateral Management Settings (Ledn defaults)
   const [autoTopUpBtcCollateral, setAutoTopUpBtcCollateral] = useState(true);
@@ -485,6 +492,11 @@ export default function FinancialPlan() {
                   if (settings.contribution_hsa !== undefined) setContributionHSA(settings.contribution_hsa);
                   if (settings.contribution_hsa_end_age !== undefined) setContributionHSAEndAge(settings.contribution_hsa_end_age || '');
                   if (settings.hsa_family_coverage !== undefined) setHsaFamilyCoverage(settings.hsa_family_coverage);
+                  if (settings.solo_401k_enabled !== undefined) setSolo401kEnabled(settings.solo_401k_enabled);
+                  if (settings.solo_401k_type !== undefined) setSolo401kType(settings.solo_401k_type);
+                  if (settings.solo_401k_employee_contribution !== undefined) setSolo401kEmployeeContribution(settings.solo_401k_employee_contribution);
+                  if (settings.solo_401k_employer_contribution_percent !== undefined) setSolo401kEmployerContributionPercent(settings.solo_401k_employer_contribution_percent);
+                  if (settings.solo_401k_end_age !== undefined) setSolo401kEndAge(settings.solo_401k_end_age || '');
                   if (settings.filing_status !== undefined) setFilingStatus(settings.filing_status);
                   if (settings.state_of_residence !== undefined) setStateOfResidence(settings.state_of_residence);
                   if (settings.cost_basis_method !== undefined) setCostBasisMethod(settings.cost_basis_method);
@@ -561,6 +573,11 @@ export default function FinancialPlan() {
                       contribution_hsa: contributionHSA || 0,
                       contribution_hsa_end_age: contributionHSAEndAge ? parseInt(contributionHSAEndAge) : null,
                       hsa_family_coverage: hsaFamilyCoverage || false,
+                      solo_401k_enabled: solo401kEnabled,
+                      solo_401k_type: solo401kType,
+                      solo_401k_employee_contribution: solo401kEmployeeContribution || 0,
+                      solo_401k_employer_contribution_percent: solo401kEmployerContributionPercent || 0,
+                      solo_401k_end_age: solo401kEndAge ? parseInt(solo401kEndAge) : null,
                       filing_status: filingStatus || 'single',
                       state_of_residence: stateOfResidence || '',
                       auto_top_up_btc_collateral: autoTopUpBtcCollateral,
@@ -578,7 +595,7 @@ export default function FinancialPlan() {
                       });
                       }, 1000); // Debounce 1 second
                       return () => clearTimeout(timeoutId);
-                      }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, otherCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, useCustomSocialSecurity, grossAnnualIncome, contribution401k, contribution401kEndAge, employer401kMatch, contributionRothIRA, contributionRothIRAEndAge, contributionTraditionalIRA, contributionTraditionalIRAEndAge, contributionHSA, contributionHSAEndAge, hsaFamilyCoverage, filingStatus, stateOfResidence, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv, btcReleaseTriggerLtv, btcReleaseTargetLtv, savingsAllocationBtc, savingsAllocationStocks, savingsAllocationBonds, savingsAllocationCash, savingsAllocationOther, investmentMode, monthlyInvestmentAmount, customReturnPeriods, tickerReturns, assetWithdrawalStrategy, withdrawalPriorityOrder, withdrawalBlendPercentages, futureBtcLoanRate, futureBtcLoanRateYears, saveSettings]);
+                      }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, otherCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, useCustomSocialSecurity, grossAnnualIncome, contribution401k, contribution401kEndAge, employer401kMatch, contributionRothIRA, contributionRothIRAEndAge, contributionTraditionalIRA, contributionTraditionalIRAEndAge, contributionHSA, contributionHSAEndAge, hsaFamilyCoverage, solo401kEnabled, solo401kType, solo401kEmployeeContribution, solo401kEmployerContributionPercent, solo401kEndAge, filingStatus, stateOfResidence, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv, btcReleaseTriggerLtv, btcReleaseTargetLtv, savingsAllocationBtc, savingsAllocationStocks, savingsAllocationBonds, savingsAllocationCash, savingsAllocationOther, investmentMode, monthlyInvestmentAmount, customReturnPeriods, tickerReturns, assetWithdrawalStrategy, withdrawalPriorityOrder, withdrawalBlendPercentages, futureBtcLoanRate, futureBtcLoanRateYears, saveSettings]);
 
                       // Calculate accurate debt payments for current month
   const currentMonthForDebt = new Date().getMonth();
