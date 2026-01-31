@@ -1218,8 +1218,124 @@ export function runUnifiedProjection({
     if (i > 0) {
       const priceBeforeGrowth = cumulativeBtcPrice;
       cumulativeBtcPrice = cumulativeBtcPrice * (1 + yearBtcGrowth / 100);
-      console.log(`PRICE GROWTH Year ${year}: $${priceBeforeGrowth.toFixed(0)} -> $${cumulativeBtcPrice.toFixed(0)} (${yearBtcGrowth.toFixed(2)}%)`);
-      console.log(`BTC AFTER PRICE GROWTH (no portfolio change yet): $${portfolio.taxable.btc.toFixed(2)}, implied qty = ${(portfolio.taxable.btc / cumulativeBtcPrice).toFixed(6)} BTC`);
+    }
+
+    // ============================================
+    // APPLY ASSET GROWTH IMMEDIATELY AFTER PRICE UPDATE
+    // This ensures released collateral and new investments don't get same-year growth
+    // ============================================
+    
+    // Initialize weighted stocks growth rates
+    let effectiveTaxableStocksGrowth = effectiveStocksCagr;
+    let effectiveTaxDeferredStocksGrowth = effectiveStocksCagr;
+    let effectiveTaxFreeStocksGrowth = effectiveStocksCagr;
+
+    // CRITICAL: Capture beginning-of-year values BEFORE applying growth (for Average Balance Method dividends)
+    beginningYearValues = holdingValues.map(hv => ({
+      ticker: hv.ticker,
+      beginningValue: hv.currentValue
+    }));
+    
+    beginningReallocValues = executedReallocations.map(r => ({
+      id: r.id,
+      beginningValue: r.currentValue
+    }));
+
+    if (i > 0) {
+      const yearStocksGrowth = yearlyReturnOverrides?.stocks?.[i] !== undefined 
+        ? yearlyReturnOverrides.stocks[i] 
+        : getCustomReturnForYear('stocks', i, customReturnPeriods, effectiveStocksCagr);
+      const yearBondsGrowth = yearlyReturnOverrides?.bonds?.[i] !== undefined 
+        ? yearlyReturnOverrides.bonds[i] 
+        : getCustomReturnForYear('bonds', i, customReturnPeriods, bondsCagr);
+      const yearCashGrowth = yearlyReturnOverrides?.cash?.[i] !== undefined 
+        ? yearlyReturnOverrides.cash[i] 
+        : getCustomReturnForYear('cash', i, customReturnPeriods, cashCagr);
+      const yearOtherGrowth = yearlyReturnOverrides?.other?.[i] !== undefined 
+        ? yearlyReturnOverrides.other[i] 
+        : getCustomReturnForYear('other', i, customReturnPeriods, otherCagr);
+      const yearRealEstateGrowth = yearlyReturnOverrides?.realEstate?.[i] !== undefined 
+        ? yearlyReturnOverrides.realEstate[i] 
+        : getCustomReturnForYear('realEstate', i, customReturnPeriods, realEstateCagr);
+
+      // Calculate weighted average growth for stocks by account type
+      const calculateWeightedStocksGrowth = (taxTreatmentFilter) => {
+        let totalValue = 0;
+        let weightedGrowth = 0;
+        
+        holdingValues.forEach(hv => {
+          if (hv.assetCategory === 'stocks' && hv.taxTreatment === taxTreatmentFilter && hv.currentValue > 0) {
+            const tickerRate = getTickerReturnRate(hv.ticker, null);
+            const holdingGrowthRate = tickerRate !== null ? tickerRate : yearStocksGrowth;
+            totalValue += hv.currentValue;
+            weightedGrowth += hv.currentValue * holdingGrowthRate;
+          }
+        });
+        
+        return totalValue > 0 ? weightedGrowth / totalValue : yearStocksGrowth;
+      };
+      
+      effectiveTaxableStocksGrowth = calculateWeightedStocksGrowth('taxable');
+      effectiveTaxDeferredStocksGrowth = calculateWeightedStocksGrowth('tax_deferred');
+      effectiveTaxFreeStocksGrowth = calculateWeightedStocksGrowth('tax_free');
+
+      const GROWTH_DUST_THRESHOLD = 1;
+      
+      // Apply growth to each account type
+      const applyGrowth = (acct, stocksGrowthRate) => {
+        if (acct.btc >= GROWTH_DUST_THRESHOLD && yearBtcGrowth !== 0) acct.btc *= (1 + yearBtcGrowth / 100);
+        else if (acct.btc < GROWTH_DUST_THRESHOLD) acct.btc = 0;
+        if (acct.stocks >= GROWTH_DUST_THRESHOLD && stocksGrowthRate !== 0) acct.stocks *= (1 + stocksGrowthRate / 100);
+        else if (acct.stocks < GROWTH_DUST_THRESHOLD) acct.stocks = 0;
+        if (acct.bonds >= GROWTH_DUST_THRESHOLD && yearBondsGrowth !== 0) acct.bonds *= (1 + yearBondsGrowth / 100);
+        else if (acct.bonds < GROWTH_DUST_THRESHOLD) acct.bonds = 0;
+        if (acct.cash >= GROWTH_DUST_THRESHOLD && yearCashGrowth !== 0) acct.cash *= (1 + yearCashGrowth / 100);
+        else if (acct.cash < GROWTH_DUST_THRESHOLD) acct.cash = 0;
+        if (acct.other >= GROWTH_DUST_THRESHOLD && yearOtherGrowth !== 0) acct.other *= (1 + yearOtherGrowth / 100);
+        else if (acct.other < GROWTH_DUST_THRESHOLD) acct.other = 0;
+      };
+      
+      applyGrowth(portfolio.taxable, effectiveTaxableStocksGrowth);
+      applyGrowth(portfolio.taxDeferred, effectiveTaxDeferredStocksGrowth);
+      applyGrowth(portfolio.taxFree, effectiveTaxFreeStocksGrowth);
+      
+      if (portfolio.realEstate >= GROWTH_DUST_THRESHOLD && yearRealEstateGrowth !== 0) portfolio.realEstate *= (1 + yearRealEstateGrowth / 100);
+      else if (portfolio.realEstate < GROWTH_DUST_THRESHOLD) portfolio.realEstate = 0;
+      
+      // Update tracked holding values for dividend calculations
+      holdingValues.forEach(hv => {
+        if (hv.currentValue < 1) {
+          hv.currentValue = 0;
+          return;
+        }
+        let growthRate;
+        if (hv.assetCategory === 'btc') {
+          growthRate = yearBtcGrowth;
+        } else {
+          const tickerRate = getTickerReturnRate(hv.ticker, null);
+          if (tickerRate !== null) {
+            growthRate = tickerRate;
+          } else if (hv.assetCategory === 'stocks') {
+            if (hv.taxTreatment === 'taxable') growthRate = effectiveTaxableStocksGrowth;
+            else if (hv.taxTreatment === 'tax_deferred') growthRate = effectiveTaxDeferredStocksGrowth;
+            else if (hv.taxTreatment === 'tax_free') growthRate = effectiveTaxFreeStocksGrowth;
+            else growthRate = yearStocksGrowth;
+          } else if (hv.assetCategory === 'bonds') growthRate = yearBondsGrowth;
+          else if (hv.assetCategory === 'cash') growthRate = yearCashGrowth;
+          else if (hv.assetCategory === 'realEstate') growthRate = yearRealEstateGrowth;
+          else growthRate = yearOtherGrowth;
+        }
+        hv.currentValue *= (1 + growthRate / 100);
+      });
+      
+      // Update executed reallocation values
+      executedReallocations.forEach(realloc => {
+        if (realloc.currentValue < 1) {
+          realloc.currentValue = 0;
+          return;
+        }
+        realloc.currentValue *= (1 + (realloc.buy_cagr || effectiveTaxableStocksGrowth) / 100);
+      });
     }
 
     // === IMMEDIATE LOAN PROCEEDS (Year 0 only) ===
