@@ -2334,9 +2334,6 @@ export function runUnifiedProjection({
       });
     }
 
-    // NOTE: Asset growth is now applied earlier in the loop (right after price update)
-    // This ensures released collateral and new investments don't get same-year growth
-
     // ESTIMATED DIVIDEND INCOME (calculated early, before withdrawals)
     // This estimate reduces how much we need to withdraw from the portfolio
     // Uses current holding values (post-growth, pre-withdrawal) as approximation
