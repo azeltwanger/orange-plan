@@ -68,10 +68,14 @@ export function buildProjectionParams(settings, overrides = {}, data) {
   const currentAnnualSpending = effectiveSettings.current_annual_spending_override ?? effectiveSettings.current_annual_spending ?? 80000;
   const filingStatus = effectiveSettings.filing_status || 'single';
   const contribution401k = effectiveSettings.contribution_401k ?? 0;
+  const contribution401kEndAge = effectiveSettings.contribution_401k_end_age || null;
   const employer401kMatch = effectiveSettings.employer_401k_match ?? 0;
   const contributionRothIRA = effectiveSettings.contribution_roth_ira ?? 0;
+  const contributionRothIRAEndAge = effectiveSettings.contribution_roth_ira_end_age || null;
   const contributionTraditionalIRA = effectiveSettings.contribution_traditional_ira ?? 0;
+  const contributionTraditionalIRAEndAge = effectiveSettings.contribution_traditional_ira_end_age || null;
   const contributionHSA = effectiveSettings.contribution_hsa ?? 0;
+  const contributionHSAEndAge = effectiveSettings.contribution_hsa_end_age || null;
   const hsaFamilyCoverage = effectiveSettings.hsa_family_coverage || false;
 
   // Dividend income parameters

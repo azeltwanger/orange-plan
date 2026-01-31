@@ -106,10 +106,14 @@ export function runUnifiedProjection({
   filingStatus,
   stateOfResidence,
   contribution401k,
+  contribution401kEndAge = null,
   employer401kMatch,
   contributionRothIRA,
+  contributionRothIRAEndAge = null,
   contributionTraditionalIRA,
+  contributionTraditionalIRAEndAge = null,
   contributionHSA,
+  contributionHSAEndAge = null,
   hsaFamilyCoverage,
   getBtcGrowthRate,
   effectiveInflation,
@@ -2352,63 +2356,115 @@ export function runUnifiedProjection({
 
     let ranOutOfMoneyThisYear = false;
 
-    // PRE-RETIREMENT
+    // CONTRIBUTION LOGIC (works for both pre-retirement AND post-retirement with earned income)
+    // Determine earned income - pre-retirement uses salary, post-retirement uses life event income
+    const yearEarnedIncome = !isRetired 
+      ? grossAnnualIncome * Math.pow(1 + incomeGrowth / 100, i)
+      : Math.max(0, yearLifeEventIncome); // Life events can provide post-retirement earned income
+    
     if (!isRetired) {
-      const baseGrossIncome = grossAnnualIncome * Math.pow(1 + incomeGrowth / 100, i);
-      yearGrossIncome = baseGrossIncome; // Life event income shows separately via yearLifeEventIncome
+      yearGrossIncome = yearEarnedIncome;
+    }
+    
+    // Calculate contribution limits
+    const yearLimit401k = get401kLimit(year, age);
+    const yearLimitRoth = getRothIRALimit(year, age);
+    const yearLimitTraditionalIRA = getTraditionalIRALimit(year, age);
+    const yearLimitHSA = getHSALimit(year, age, hsaFamilyCoverage);
+    
+    // Contribution end ages - default to life expectancy (allows post-retirement contributions with earned income)
+    const effective401kEndAge = contribution401kEndAge || lifeExpectancy;
+    const effectiveRothIRAEndAge = contributionRothIRAEndAge || lifeExpectancy;
+    const effectiveTraditionalIRAEndAge = contributionTraditionalIRAEndAge || lifeExpectancy;
+    const effectiveHSAEndAge = contributionHSAEndAge || lifeExpectancy;
+    
+    // IRS Rule: Can't contribute more than earned income
+    let remainingIncomeForContributions = Math.max(0, yearEarnedIncome);
+    
+    // 401k - only if under end age AND have earned income
+    if (age < effective401kEndAge && remainingIncomeForContributions > 0) {
+      const baseContribution = !isRetired 
+        ? (contribution401k || 0) * Math.pow(1 + incomeGrowth / 100, i)
+        : (contribution401k || 0); // No growth factor post-retirement
       
-      // Calculate contribution limits
-      const yearLimit401k = get401kLimit(year, age);
-      const yearLimitRoth = getRothIRALimit(year, age);
-      const yearLimitTraditionalIRA = getTraditionalIRALimit(year, age);
-      const yearLimitHSA = getHSALimit(year, age, hsaFamilyCoverage);
-      
-      // IRS Rule: Can't contribute more than earned income
-      const maxContributionAllowed = Math.max(0, yearGrossIncome);
-      let remainingIncomeForContributions = maxContributionAllowed;
-      
-      // 401k - capped at IRS limit AND earned income
       year401k = Math.min(
-        (contribution401k || 0) * Math.pow(1 + incomeGrowth / 100, i),
+        baseContribution,
         yearLimit401k,
         remainingIncomeForContributions
       );
       remainingIncomeForContributions -= year401k;
       
-      // Traditional IRA - capped at IRS limit AND remaining earned income
+      // Employer match only applies during W2 employment (pre-retirement)
+      if (!isRetired && year401k > 0 && employer401kMatch > 0) {
+        yearEmployerMatch = (employer401kMatch || 0) * Math.pow(1 + incomeGrowth / 100, i);
+      }
+    } else {
+      year401k = 0;
+      yearEmployerMatch = 0;
+    }
+    
+    // Traditional IRA - only if under end age AND have remaining earned income
+    if (age < effectiveTraditionalIRAEndAge && remainingIncomeForContributions > 0) {
+      const baseContribution = !isRetired
+        ? (contributionTraditionalIRA || 0) * Math.pow(1 + incomeGrowth / 100, i)
+        : (contributionTraditionalIRA || 0);
+      
       yearTraditionalIRA = Math.min(
-        (contributionTraditionalIRA || 0) * Math.pow(1 + incomeGrowth / 100, i),
+        baseContribution,
         yearLimitTraditionalIRA,
         remainingIncomeForContributions
       );
       remainingIncomeForContributions -= yearTraditionalIRA;
+    } else {
+      yearTraditionalIRA = 0;
+    }
+    
+    // HSA - only if under end age AND have remaining earned income
+    if (age < effectiveHSAEndAge && remainingIncomeForContributions > 0) {
+      const baseContribution = !isRetired
+        ? (contributionHSA || 0) * Math.pow(1 + incomeGrowth / 100, i)
+        : (contributionHSA || 0);
       
-      // HSA - capped at IRS limit AND remaining earned income
       yearHSA = Math.min(
-        (contributionHSA || 0) * Math.pow(1 + incomeGrowth / 100, i),
+        baseContribution,
         yearLimitHSA,
         remainingIncomeForContributions
       );
       remainingIncomeForContributions -= yearHSA;
-      
-      // Roth IRA - capped at IRS limit, remaining earned income, AND apply income phase-out
+    } else {
+      yearHSA = 0;
+    }
+    
+    // Roth IRA - only if under end age, have remaining earned income, AND pass income limits
+    if (age < effectiveRothIRAEndAge && remainingIncomeForContributions > 0) {
       const rothIncomeLimit = getRothIRAIncomeLimit(year, filingStatus);
       let rothPhaseOutMultiplier = 1;
-      const adjustedGrossIncome = yearGrossIncome - year401k - yearTraditionalIRA - yearHSA;
+      const adjustedGrossIncome = yearEarnedIncome - year401k - yearTraditionalIRA - yearHSA;
+      
       if (adjustedGrossIncome >= rothIncomeLimit.phaseOutEnd) {
         rothPhaseOutMultiplier = 0;
       } else if (adjustedGrossIncome > rothIncomeLimit.phaseOutStart) {
         rothPhaseOutMultiplier = (rothIncomeLimit.phaseOutEnd - adjustedGrossIncome) / 
           (rothIncomeLimit.phaseOutEnd - rothIncomeLimit.phaseOutStart);
       }
+      
+      const baseContribution = !isRetired
+        ? (contributionRothIRA || 0) * Math.pow(1 + incomeGrowth / 100, i)
+        : (contributionRothIRA || 0);
+      
       yearRoth = Math.min(
-        (contributionRothIRA || 0) * Math.pow(1 + incomeGrowth / 100, i) * rothPhaseOutMultiplier,
+        baseContribution * rothPhaseOutMultiplier,
         yearLimitRoth,
         remainingIncomeForContributions
       );
+    } else {
+      yearRoth = 0;
+    }
+    
+    // Continue with pre-retirement logic ONLY if not retired
+    if (!isRetired) {
       
-      yearEmployerMatch = (employer401kMatch || 0) * Math.pow(1 + incomeGrowth / 100, i);
-      
+      // Calculate taxable income AFTER all contributions
       yearTaxableIncome = Math.max(0, yearGrossIncome + yearLifeEventTaxableIncome - year401k - yearTraditionalIRA - yearHSA - currentStandardDeduction);
       const yearFederalTax = calculateProgressiveIncomeTax(yearTaxableIncome, filingStatus, year);
       const yearStateTax = calculateStateIncomeTax({ 
@@ -2468,8 +2524,13 @@ export function runUnifiedProjection({
         }
       }
       
-      addToAccount('taxDeferred', year401k + yearTraditionalIRA + yearEmployerMatch);
-      addToAccount('taxFree', yearRoth + yearHSA);
+      // Add contributions to appropriate accounts
+      if (year401k > 0 || yearTraditionalIRA > 0 || yearEmployerMatch > 0) {
+        addToAccount('taxDeferred', year401k + yearTraditionalIRA + yearEmployerMatch);
+      }
+      if (yearRoth > 0 || yearHSA > 0) {
+        addToAccount('taxFree', yearRoth + yearHSA);
+      }
 
       if (yearSavings < 0) {
         const deficit = Math.abs(yearSavings);
@@ -2859,8 +2920,10 @@ export function runUnifiedProjection({
           grandTotal: Math.round(getPortfolioTotal())
         }));
       }
-    } else {
-      // RETIREMENT
+    } // End of !isRetired block
+    
+    // RETIREMENT LOGIC (or post-retirement contributions completed)
+    if (isRetired) {
       const nominalSpendingAtRetirement = retirementAnnualSpending * Math.pow(1 + effectiveInflation / 100, Math.max(0, retirementAge - currentAge));
       // Calculate base spending WITHOUT life event expenses (for tooltip display)
       const baseSpendingOnly = nominalSpendingAtRetirement * Math.pow(1 + effectiveInflation / 100, age - retirementAge);
@@ -2981,11 +3044,20 @@ export function runUnifiedProjection({
         yearEarlyWithdrawalTax += taxDeferredTax + taxFreeTax;
       }
 
-      // Calculate retirement net cash flow: income - spending - goals - taxes
+      // Calculate retirement net cash flow: income - spending - goals - taxes - contributions
+      // Include any retirement contributions made with post-retirement earned income
       // Positive = surplus, Negative = deficit
       
-      retirementNetCashFlow = (totalRetirementIncome + rmdWithdrawn) - (desiredWithdrawal + taxesPaid + penaltyPaid + yearGoalWithdrawal);
+      retirementNetCashFlow = (totalRetirementIncome + rmdWithdrawn) - (desiredWithdrawal + taxesPaid + penaltyPaid + yearGoalWithdrawal + yearRoth);
 
+      // Add retirement contributions to appropriate accounts (if made with post-retirement earned income)
+      if (year401k > 0 || yearTraditionalIRA > 0 || yearEmployerMatch > 0) {
+        addToAccount('taxDeferred', year401k + yearTraditionalIRA + yearEmployerMatch);
+      }
+      if (yearRoth > 0 || yearHSA > 0) {
+        addToAccount('taxFree', yearRoth + yearHSA);
+      }
+      
       // Handle retirement income surplus - reinvest excess into taxable account per savings allocation
       // This allows income surplus to go into growth assets rather than just cash
       if (retirementNetCashFlow > 0) {
@@ -3237,9 +3309,10 @@ export function runUnifiedProjection({
           
           if (remainingShortfall > desiredWithdrawal * 0.05) ranOutOfMoneyThisYear = true;
         }
-      }
+      } // End of totalNeededFromAccounts > 0 block
 
       if (getTotalPortfolio() <= 0) ranOutOfMoneyThisYear = true;
+    } // End of isRetired block
 
       // DEBUG: Log AFTER retirement processing
       if (i <= 1 && DEBUG) {

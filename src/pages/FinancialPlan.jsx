@@ -166,10 +166,14 @@ export default function FinancialPlan() {
 
   // Retirement savings allocation
   const [contribution401k, setContribution401k] = useState(0);
+  const [contribution401kEndAge, setContribution401kEndAge] = useState('');
   const [employer401kMatch, setEmployer401kMatch] = useState(0);
   const [contributionRothIRA, setContributionRothIRA] = useState(0);
+  const [contributionRothIRAEndAge, setContributionRothIRAEndAge] = useState('');
   const [contributionTraditionalIRA, setContributionTraditionalIRA] = useState(0);
+  const [contributionTraditionalIRAEndAge, setContributionTraditionalIRAEndAge] = useState('');
   const [contributionHSA, setContributionHSA] = useState(0);
+  const [contributionHSAEndAge, setContributionHSAEndAge] = useState('');
   const [hsaFamilyCoverage, setHsaFamilyCoverage] = useState(false);
 
   // BTC Collateral Management Settings (Ledn defaults)
@@ -472,10 +476,14 @@ export default function FinancialPlan() {
                   if (settings.monthly_investment_amount !== undefined) setMonthlyInvestmentAmount(settings.monthly_investment_amount);
                   if (settings.gross_annual_income !== undefined && settings.gross_annual_income !== null) setGrossAnnualIncome(settings.gross_annual_income);
                   if (settings.contribution_401k !== undefined) setContribution401k(settings.contribution_401k);
+                  if (settings.contribution_401k_end_age !== undefined) setContribution401kEndAge(settings.contribution_401k_end_age || '');
                   if (settings.employer_401k_match !== undefined) setEmployer401kMatch(settings.employer_401k_match);
                   if (settings.contribution_roth_ira !== undefined) setContributionRothIRA(settings.contribution_roth_ira);
+                  if (settings.contribution_roth_ira_end_age !== undefined) setContributionRothIRAEndAge(settings.contribution_roth_ira_end_age || '');
                   if (settings.contribution_traditional_ira !== undefined) setContributionTraditionalIRA(settings.contribution_traditional_ira);
+                  if (settings.contribution_traditional_ira_end_age !== undefined) setContributionTraditionalIRAEndAge(settings.contribution_traditional_ira_end_age || '');
                   if (settings.contribution_hsa !== undefined) setContributionHSA(settings.contribution_hsa);
+                  if (settings.contribution_hsa_end_age !== undefined) setContributionHSAEndAge(settings.contribution_hsa_end_age || '');
                   if (settings.hsa_family_coverage !== undefined) setHsaFamilyCoverage(settings.hsa_family_coverage);
                   if (settings.filing_status !== undefined) setFilingStatus(settings.filing_status);
                   if (settings.state_of_residence !== undefined) setStateOfResidence(settings.state_of_residence);
@@ -544,10 +552,14 @@ export default function FinancialPlan() {
                       monthly_investment_amount: monthlyInvestmentAmount,
                       gross_annual_income: grossAnnualIncome,
                       contribution_401k: contribution401k || 0,
+                      contribution_401k_end_age: contribution401kEndAge ? parseInt(contribution401kEndAge) : null,
                       employer_401k_match: employer401kMatch || 0,
                       contribution_roth_ira: contributionRothIRA || 0,
+                      contribution_roth_ira_end_age: contributionRothIRAEndAge ? parseInt(contributionRothIRAEndAge) : null,
                       contribution_traditional_ira: contributionTraditionalIRA || 0,
+                      contribution_traditional_ira_end_age: contributionTraditionalIRAEndAge ? parseInt(contributionTraditionalIRAEndAge) : null,
                       contribution_hsa: contributionHSA || 0,
+                      contribution_hsa_end_age: contributionHSAEndAge ? parseInt(contributionHSAEndAge) : null,
                       hsa_family_coverage: hsaFamilyCoverage || false,
                       filing_status: filingStatus || 'single',
                       state_of_residence: stateOfResidence || '',
@@ -566,7 +578,7 @@ export default function FinancialPlan() {
                       });
                       }, 1000); // Debounce 1 second
                       return () => clearTimeout(timeoutId);
-                      }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, otherCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, useCustomSocialSecurity, grossAnnualIncome, contribution401k, employer401kMatch, contributionRothIRA, contributionTraditionalIRA, contributionHSA, hsaFamilyCoverage, filingStatus, stateOfResidence, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv, btcReleaseTriggerLtv, btcReleaseTargetLtv, savingsAllocationBtc, savingsAllocationStocks, savingsAllocationBonds, savingsAllocationCash, savingsAllocationOther, investmentMode, monthlyInvestmentAmount, customReturnPeriods, tickerReturns, assetWithdrawalStrategy, withdrawalPriorityOrder, withdrawalBlendPercentages, futureBtcLoanRate, futureBtcLoanRateYears, saveSettings]);
+                      }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, otherCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, useCustomSocialSecurity, grossAnnualIncome, contribution401k, contribution401kEndAge, employer401kMatch, contributionRothIRA, contributionRothIRAEndAge, contributionTraditionalIRA, contributionTraditionalIRAEndAge, contributionHSA, contributionHSAEndAge, hsaFamilyCoverage, filingStatus, stateOfResidence, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv, btcReleaseTriggerLtv, btcReleaseTargetLtv, savingsAllocationBtc, savingsAllocationStocks, savingsAllocationBonds, savingsAllocationCash, savingsAllocationOther, investmentMode, monthlyInvestmentAmount, customReturnPeriods, tickerReturns, assetWithdrawalStrategy, withdrawalPriorityOrder, withdrawalBlendPercentages, futureBtcLoanRate, futureBtcLoanRateYears, saveSettings]);
 
                       // Calculate accurate debt payments for current month
   const currentMonthForDebt = new Date().getMonth();
@@ -4921,16 +4933,35 @@ export default function FinancialPlan() {
                     {/* Retirement Account Contributions */}
                     <div>
                       <Label className="text-zinc-300 text-sm mb-2 block">Retirement Account Contributions</Label>
-                      <p className="text-xs text-zinc-500 mb-4">These contributions continue annually until retirement age {retirementAge}</p>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <p className="text-xs text-zinc-500 mb-3">Leave "Stop at Age" blank to continue while you have earned income</p>
+                      
+                      {/* Column Headers */}
+                      <div className="grid grid-cols-[2fr,1fr] gap-2 mb-2 px-1">
+                        <Label className="text-zinc-400 text-xs">Annual Amount</Label>
+                        <Label className="text-zinc-400 text-xs">Stop at Age</Label>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 gap-4">
                   <div className="space-y-2">
                     <Label className="text-zinc-400">401k/403b Contribution</Label>
-                    <Input 
+                    <div className="grid grid-cols-[2fr,1fr] gap-2">
+                      <Input 
                       type="number" 
                       value={contribution401k} 
                       onChange={(e) => setContribution401k(parseFloat(e.target.value) || 0)} 
                       className="bg-zinc-900 border-zinc-800" 
+                      placeholder="0"
                     />
+                      <Input
+                        type="number"
+                        placeholder={`${retirementAge || 65}`}
+                        value={contribution401kEndAge}
+                        onChange={(e) => setContribution401kEndAge(e.target.value)}
+                        className="bg-zinc-900 border-zinc-800"
+                        min={currentAge}
+                        max={lifeExpectancy}
+                      />
+                    </div>
                     <p className={cn(
                       "text-xs",
                       contribution401k > currentLimit401k ? "text-amber-400" : "text-zinc-500"
@@ -4956,12 +4987,24 @@ export default function FinancialPlan() {
                   </div>
                   <div className="space-y-2">
                     <Label className="text-zinc-400">Roth IRA Contribution</Label>
-                    <Input 
-                      type="number" 
-                      value={contributionRothIRA} 
-                      onChange={(e) => setContributionRothIRA(parseFloat(e.target.value) || 0)} 
-                      className="bg-zinc-900 border-zinc-800" 
-                    />
+                    <div className="grid grid-cols-[2fr,1fr] gap-2">
+                      <Input 
+                        type="number" 
+                        value={contributionRothIRA} 
+                        onChange={(e) => setContributionRothIRA(parseFloat(e.target.value) || 0)} 
+                        className="bg-zinc-900 border-zinc-800"
+                        placeholder="0" 
+                      />
+                      <Input
+                        type="number"
+                        placeholder={`${retirementAge || 65}`}
+                        value={contributionRothIRAEndAge}
+                        onChange={(e) => setContributionRothIRAEndAge(e.target.value)}
+                        className="bg-zinc-900 border-zinc-800"
+                        min={currentAge}
+                        max={lifeExpectancy}
+                      />
+                    </div>
                     <p className={cn(
                       "text-xs",
                       contributionRothIRA > currentLimitRoth ? "text-amber-400" : "text-zinc-500"
@@ -4987,12 +5030,24 @@ export default function FinancialPlan() {
                   </div>
                   <div className="space-y-2">
                     <Label className="text-zinc-400">Traditional IRA Contribution</Label>
-                    <Input 
-                      type="number" 
-                      value={contributionTraditionalIRA} 
-                      onChange={(e) => setContributionTraditionalIRA(parseFloat(e.target.value) || 0)} 
-                      className="bg-zinc-900 border-zinc-800" 
-                    />
+                    <div className="grid grid-cols-[2fr,1fr] gap-2">
+                      <Input 
+                        type="number" 
+                        value={contributionTraditionalIRA} 
+                        onChange={(e) => setContributionTraditionalIRA(parseFloat(e.target.value) || 0)} 
+                        className="bg-zinc-900 border-zinc-800"
+                        placeholder="0" 
+                      />
+                      <Input
+                        type="number"
+                        placeholder={`${retirementAge || 65}`}
+                        value={contributionTraditionalIRAEndAge}
+                        onChange={(e) => setContributionTraditionalIRAEndAge(e.target.value)}
+                        className="bg-zinc-900 border-zinc-800"
+                        min={currentAge}
+                        max={lifeExpectancy}
+                      />
+                    </div>
                     <p className={cn(
                       "text-xs",
                       contributionTraditionalIRA > currentLimitTraditionalIRA ? "text-amber-400" : "text-zinc-500"
@@ -5008,12 +5063,24 @@ export default function FinancialPlan() {
                   </div>
                   <div className="space-y-2">
                     <Label className="text-zinc-400">HSA Contribution</Label>
-                    <Input 
-                      type="number" 
-                      value={contributionHSA} 
-                      onChange={(e) => setContributionHSA(parseFloat(e.target.value) || 0)} 
-                      className="bg-zinc-900 border-zinc-800" 
-                    />
+                    <div className="grid grid-cols-[2fr,1fr] gap-2">
+                      <Input 
+                        type="number" 
+                        value={contributionHSA} 
+                        onChange={(e) => setContributionHSA(parseFloat(e.target.value) || 0)} 
+                        className="bg-zinc-900 border-zinc-800"
+                        placeholder="0" 
+                      />
+                      <Input
+                        type="number"
+                        placeholder={`${retirementAge || 65}`}
+                        value={contributionHSAEndAge}
+                        onChange={(e) => setContributionHSAEndAge(e.target.value)}
+                        className="bg-zinc-900 border-zinc-800"
+                        min={currentAge}
+                        max={lifeExpectancy}
+                      />
+                    </div>
                     <p className={cn(
                       "text-xs",
                       contributionHSA > currentLimitHSA ? "text-amber-400" : "text-zinc-500"
@@ -5042,10 +5109,10 @@ export default function FinancialPlan() {
                     </div>
 
                     <div className="mt-4 space-y-2">
-                        <p className="text-xs text-zinc-500">
+                        <p className="text-xs text-amber-500/80">
                           💡 Pre-tax contributions (401k: {formatNumber(actual401k)}, Traditional IRA: {formatNumber(actualTraditionalIRA)}, HSA: {formatNumber(actualHSA)}) reduce your taxable income. 
                           Roth IRA comes from after-tax income. Employer match ({formatNumber(employer401kMatch || 0)}) goes to tax-deferred.
-                          Debt payments ({formatNumber(monthlyDebtPayments * 12)}/yr) are tracked separately.
+                          Set "Stop at Age" to model Coast FIRE - leave blank to continue while you have earned income.
                         </p>
                       </div>
                     </div>
