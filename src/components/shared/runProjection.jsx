@@ -2028,19 +2028,6 @@ export function runUnifiedProjection({
             const targetCollateralForLoan = loan.current_balance / (releaseTargetLTV / 100) / cumulativeBtcPrice;
             const excessCollateral = Math.max(0, currentCollateral - targetCollateralForLoan);
             if (excessCollateral > 0) {
-              // DEBUG: Trace collateral release
-              console.log(`COLLATERAL RELEASE DEBUG Year ${year} (Age ${age}):`, {
-                loanKey,
-                loanName: loan.name || loan.lender,
-                currentCollateral,
-                targetCollateralForLoan,
-                excessCollateral,
-                encumberedBtcBEFORE: encumberedBtc[loanKey],
-                cumulativeBtcPrice,
-                loanBalance: loan.current_balance,
-                releaseTargetLTV
-              });
-              
               const excessCollateralValue = excessCollateral * cumulativeBtcPrice;
               portfolio.taxable.btc += excessCollateralValue; // Add to liquid immediately (same year)
               
