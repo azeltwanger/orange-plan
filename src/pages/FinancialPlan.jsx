@@ -3141,6 +3141,12 @@ export default function FinancialPlan() {
                                         <span className="text-rose-300 text-right">-${p.yearHSAContribution.toLocaleString()}</span>
                                       </div>
                                     )}
+                                    {(p.solo401kEmployeeContribution > 0 || p.solo401kEmployerContribution > 0) && (
+                                      <div className="flex justify-between gap-6">
+                                        <span>• Solo 401k ({p.solo401kType}):</span>
+                                        <span className="text-rose-300 text-right">-${(p.solo401kEmployeeContribution + p.solo401kEmployerContribution).toLocaleString()}</span>
+                                      </div>
+                                    )}
                                     <div className="flex justify-between gap-6">
                                       <span>• Spending:</span>
                                       <span className="text-rose-300 text-right">-${(p.yearSpending || 0).toLocaleString()}</span>
