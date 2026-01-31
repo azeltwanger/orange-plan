@@ -458,9 +458,11 @@ export function runUnifiedProjection({
         }
         
         // Update portfolio
-        acct.btc = Math.max(0, acct.btc - btcWithdrawn);
-        
-        // Reduce holdingValues for BTC proportionally
+            console.log(`WITHDRAWAL DETAIL: btcWithdrawn USD = $${btcWithdrawn.toFixed(2)}, at price $${currentBtcPrice.toFixed(2)}, BTC qty = ${(btcWithdrawn/currentBtcPrice).toFixed(6)}, acct.btc BEFORE = $${acct.btc.toFixed(2)}`);
+            acct.btc = Math.max(0, acct.btc - btcWithdrawn);
+            console.log(`WITHDRAWAL DETAIL: acct.btc AFTER = $${acct.btc.toFixed(2)}`);
+
+            // Reduce holdingValues for BTC proportionally
         reduceHoldingValuesForWithdrawal('btc', 'taxable', btcWithdrawn, preWithdrawalBtc);
       } else {
         // No lots available, fall back to proportional basis (assume long-term)
@@ -2298,6 +2300,9 @@ export function runUnifiedProjection({
       // CRITICAL: Only apply growth if the rate is non-zero (prevents cash from growing when cashCagr=0)
       const GROWTH_DUST_THRESHOLD = 1; // Don't apply growth to values under $1
       
+      // DEBUG: Log BTC value BEFORE growth applied
+      const btcBeforeGrowth = portfolio.taxable.btc;
+      
       // Apply growth to each account type with appropriate weighted stocks growth
       const applyGrowth = (acct, stocksGrowthRate) => {
         if (acct.btc >= GROWTH_DUST_THRESHOLD && yearBtcGrowth !== 0) acct.btc *= (1 + yearBtcGrowth / 100);
@@ -2315,6 +2320,12 @@ export function runUnifiedProjection({
       applyGrowth(portfolio.taxable, effectiveTaxableStocksGrowth);
       applyGrowth(portfolio.taxDeferred, effectiveTaxDeferredStocksGrowth);
       applyGrowth(portfolio.taxFree, effectiveTaxFreeStocksGrowth);
+      
+      // DEBUG: Log BTC growth impact
+      const btcAfterGrowth = portfolio.taxable.btc;
+      if (Math.abs(btcAfterGrowth - btcBeforeGrowth) > 1) {
+        console.log(`BTC GROWTH Year ${year}: BEFORE = $${btcBeforeGrowth.toFixed(2)}, AFTER = $${btcAfterGrowth.toFixed(2)}, growth rate = ${yearBtcGrowth.toFixed(2)}%, added = $${(btcAfterGrowth - btcBeforeGrowth).toFixed(2)}`);
+      }
       
       if (portfolio.realEstate >= GROWTH_DUST_THRESHOLD && yearRealEstateGrowth !== 0) portfolio.realEstate *= (1 + yearRealEstateGrowth / 100);
       else if (portfolio.realEstate < GROWTH_DUST_THRESHOLD) portfolio.realEstate = 0;
@@ -2895,6 +2906,10 @@ export function runUnifiedProjection({
       }
     } else {
       // RETIREMENT
+      const btcAtYearStart = portfolio.taxable.btc;
+      const btcQtyAtYearStart = btcAtYearStart / cumulativeBtcPrice;
+      console.log(`BTC TRACKING Year ${year} (Age ${age}) START: portfolio.taxable.btc = $${btcAtYearStart.toFixed(2)}, qty = ${btcQtyAtYearStart.toFixed(6)} BTC`);
+      
       const nominalSpendingAtRetirement = retirementAnnualSpending * Math.pow(1 + effectiveInflation / 100, Math.max(0, retirementAge - currentAge));
       // Calculate base spending WITHOUT life event expenses (for tooltip display)
       const baseSpendingOnly = nominalSpendingAtRetirement * Math.pow(1 + effectiveInflation / 100, age - retirementAge);
@@ -3109,6 +3124,8 @@ export function runUnifiedProjection({
         withdrawFromTaxable = actualTaxableWithdrawal.withdrawn;
         runningTaxableBasis = Math.max(0, runningTaxableBasis - actualTaxableWithdrawal.totalCostBasis);
         
+        console.log(`BTC TRACKING Year ${year} AFTER WITHDRAWAL: portfolio.taxable.btc = $${portfolio.taxable.btc.toFixed(2)}, withdrawn = $${withdrawFromTaxable.toFixed(2)}, change from start = $${(portfolio.taxable.btc - btcAtYearStart).toFixed(2)}`);
+        
         const requestedFromTaxDeferred = taxEstimate.fromTaxDeferred || 0;
         const requestedFromTaxFree = taxEstimate.fromTaxFree || 0;
 
@@ -3306,6 +3323,8 @@ export function runUnifiedProjection({
       }
 
       if (getTotalPortfolio() <= 0) ranOutOfMoneyThisYear = true;
+      
+      console.log(`BTC TRACKING Year ${year} END OF RETIREMENT SECTION: portfolio.taxable.btc = $${portfolio.taxable.btc.toFixed(2)}, NET CHANGE = $${(portfolio.taxable.btc - btcAtYearStart).toFixed(2)}, qty change = ${((portfolio.taxable.btc - btcAtYearStart) / cumulativeBtcPrice).toFixed(6)} BTC`);
 
       // DEBUG: Log AFTER retirement processing
       if (i <= 1 && DEBUG) {
