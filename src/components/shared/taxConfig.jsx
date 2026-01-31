@@ -584,5 +584,43 @@ export const getTaxDataForYear = (year) => {
   };
 };
 
+/**
+ * Get Solo 401k contribution limits for a specific year and age.
+ * 
+ * Solo 401k combines employee and employer contributions:
+ * - Employee: Same as regular 401k ($24,000 + $7,500 catch-up for 2026)
+ * - Employer: Up to 25% of net self-employment income
+ * - Combined: $71,500 ($79,000 if 50+) for 2026
+ * 
+ * @param {number} year - Tax year
+ * @param {number} age - Participant's age
+ * @returns {Object} - { employeeLimit, maxEmployerLimit, combinedLimit }
+ */
+export function getSolo401kLimits(year, age) {
+  const limits = getYearData(CONTRIBUTION_LIMITS, year);
+  
+  // Employee contribution limit (same as regular 401k)
+  let employeeLimit = limits.solo_401k_employee || 24000;
+  if (age >= 50) {
+    employeeLimit += limits.solo_401k_employee_catchup || 7500;
+  }
+  
+  // Combined limit (employee + employer)
+  let combinedLimit = limits.solo_401k_combined || 71500;
+  if (age >= 50) {
+    combinedLimit = limits.solo_401k_combined_catchup || 79000;
+  }
+  
+  // Employer limit is the remainder after employee contribution
+  // Also capped at 25% of net self-employment income (handled in projection)
+  const maxEmployerLimit = combinedLimit - employeeLimit;
+  
+  return {
+    employeeLimit,
+    maxEmployerLimit,
+    combinedLimit
+  };
+}
+
 // Re-export getFederalBrackets from taxData for use in other modules
 export { getFederalBrackets };
