@@ -14,6 +14,8 @@ const ACCOUNT_TYPES = [
   { value: 'taxable_real_estate', label: 'Real Estate', tax: 'taxable' },
   { value: '401k_traditional', label: 'Traditional 401(k)', tax: 'tax_deferred' },
   { value: '401k_roth', label: 'Roth 401(k)', tax: 'tax_free' },
+  { value: 'solo_401k_traditional', label: 'Solo 401(k) - Traditional', tax: 'tax_deferred' },
+  { value: 'solo_401k_roth', label: 'Solo 401(k) - Roth', tax: 'tax_free' },
   { value: 'ira_traditional', label: 'Traditional IRA', tax: 'tax_deferred' },
   { value: 'ira_roth', label: 'Roth IRA', tax: 'tax_free' },
   { value: 'hsa', label: 'HSA', tax: 'tax_free' },
@@ -106,7 +108,7 @@ export default function CreateAccountDialog({ open, onClose, onCreated }) {
           </div>
 
           {/* Show Roth Contributions field only for Roth accounts */}
-          {(form.account_type === '401k_roth' || form.account_type === 'ira_roth' || form.account_type === 'hsa') && (
+          {(form.account_type === '401k_roth' || form.account_type === 'solo_401k_roth' || form.account_type === 'ira_roth' || form.account_type === 'hsa') && (
             <div className="space-y-2 p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
               <Label className="text-purple-300">Total Contributions Made ($)</Label>
               <Input

@@ -398,8 +398,8 @@ export default function FinancialPlan() {
       if (account) {
         const accountType = account.account_type || '';
         if (accountType === 'taxable_real_estate' || account.tax_treatment === 'real_estate') return 'real_estate';
-        if (['traditional_401k', 'traditional_ira', 'sep_ira', '403b', '401k_traditional', 'ira_traditional'].includes(accountType)) return 'tax_deferred';
-        if (['roth_401k', 'roth_ira', 'hsa', '529', '401k_roth', 'ira_roth'].includes(accountType)) return 'tax_free';
+        if (['traditional_401k', 'traditional_ira', 'sep_ira', '403b', '401k_traditional', 'ira_traditional', 'solo_401k_traditional'].includes(accountType)) return 'tax_deferred';
+        if (['roth_401k', 'roth_ira', 'hsa', '529', '401k_roth', 'ira_roth', 'solo_401k_roth'].includes(accountType)) return 'tax_free';
         if (account.tax_treatment) return account.tax_treatment;
       }
     }

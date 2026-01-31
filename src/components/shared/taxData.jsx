@@ -207,49 +207,61 @@ export const CONTRIBUTION_LIMITS = {
     traditional_401k: 23000,
     traditional_401k_catchup: 7500, // Age 50+
     total_401k_limit: 69000, // Employee + employer combined
-    
+
     // IRA
     traditional_ira: 7000,
     traditional_ira_catchup: 1000, // Age 50+
-    
+
     // Roth IRA (same limits, different income thresholds)
     roth_ira: 7000,
     roth_ira_catchup: 1000,
-    
+
     // HSA
     hsa_single: 4150,
     hsa_family: 8300,
     hsa_catchup: 1000, // Age 55+
-    
+
     // SEP IRA
     sep_ira_percent: 25, // % of compensation
     sep_ira_max: 69000,
-    
+
     // SIMPLE IRA
     simple_ira: 16000,
-    simple_ira_catchup: 3500
+    simple_ira_catchup: 3500,
+
+    // Solo 401k limits
+    solo_401k_employee: 23000,
+    solo_401k_employee_catchup: 7500,
+    solo_401k_combined: 69000,
+    solo_401k_combined_catchup: 76500
   },
   2025: {
     traditional_401k: 23500,
     traditional_401k_catchup: 7500,
     traditional_401k_super_catchup: 11250, // Ages 60-63 (new for 2025)
     total_401k_limit: 70000,
-    
+
     traditional_ira: 7000,
     traditional_ira_catchup: 1000,
-    
+
     roth_ira: 7000,
     roth_ira_catchup: 1000,
-    
+
     hsa_single: 4300,
     hsa_family: 8550,
     hsa_catchup: 1000,
-    
+
     sep_ira_percent: 25,
     sep_ira_max: 70000,
-    
+
     simple_ira: 16500,
-    simple_ira_catchup: 3500
+    simple_ira_catchup: 3500,
+
+    // Solo 401k limits
+    solo_401k_employee: 23500,
+    solo_401k_employee_catchup: 7500,
+    solo_401k_combined: 70000,
+    solo_401k_combined_catchup: 77500
   },
   // 2026 contribution limits per IRS
   2026: {
@@ -257,22 +269,28 @@ export const CONTRIBUTION_LIMITS = {
     traditional_401k_catchup: 7500,
     traditional_401k_super_catchup: 11250, // Ages 60-63
     total_401k_limit: 71500,
-    
+
     traditional_ira: 7000,
     traditional_ira_catchup: 1000,
-    
+
     roth_ira: 7000,
     roth_ira_catchup: 1000,
-    
+
     hsa_single: 4400,
     hsa_family: 8750,
     hsa_catchup: 1000,
-    
+
     sep_ira_percent: 25,
     sep_ira_max: 71500,
-    
+
     simple_ira: 17000,
-    simple_ira_catchup: 3500
+    simple_ira_catchup: 3500,
+
+    // Solo 401k limits (self-employed)
+    solo_401k_employee: 24000,
+    solo_401k_employee_catchup: 7500,
+    solo_401k_combined: 71500, // Employee + employer total
+    solo_401k_combined_catchup: 79000 // 50+ total limit
   }
 };
 
