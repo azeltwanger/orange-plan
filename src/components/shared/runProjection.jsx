@@ -458,9 +458,7 @@ export function runUnifiedProjection({
         }
         
         // Update portfolio
-            console.log(`WITHDRAWAL DETAIL: btcWithdrawn USD = $${btcWithdrawn.toFixed(2)}, at price $${currentBtcPrice.toFixed(2)}, BTC qty = ${(btcWithdrawn/currentBtcPrice).toFixed(6)}, acct.btc BEFORE = $${acct.btc.toFixed(2)}`);
-            acct.btc = Math.max(0, acct.btc - btcWithdrawn);
-            console.log(`WITHDRAWAL DETAIL: acct.btc AFTER = $${acct.btc.toFixed(2)}`);
+        acct.btc = Math.max(0, acct.btc - btcWithdrawn);
 
             // Reduce holdingValues for BTC proportionally
         reduceHoldingValuesForWithdrawal('btc', 'taxable', btcWithdrawn, preWithdrawalBtc);
