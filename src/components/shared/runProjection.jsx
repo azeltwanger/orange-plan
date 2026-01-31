@@ -2994,15 +2994,6 @@ export function runUnifiedProjection({
       if (retirementNetCashFlow > 0) {
         const totalAllocation = savingsAllocationBtc + savingsAllocationStocks + savingsAllocationBonds + savingsAllocationCash + savingsAllocationOther;
         
-        console.log(`⚠️ SURPLUS INVESTMENT Year ${year} (Age ${age}):`, {
-          surplus: retirementNetCashFlow,
-          totalAllocation,
-          savingsAllocationBtc,
-          btcInvestAmount: totalAllocation > 0 ? retirementNetCashFlow * (savingsAllocationBtc / totalAllocation) : 0,
-          btcPriceBefore: portfolio.taxable.btc,
-          btcQuantityBefore: portfolio.taxable.btc / cumulativeBtcPrice
-        });
-        
         if (totalAllocation > 0) {
           const btcInvest = retirementNetCashFlow * (savingsAllocationBtc / totalAllocation);
           const stocksInvest = retirementNetCashFlow * (savingsAllocationStocks / totalAllocation);
