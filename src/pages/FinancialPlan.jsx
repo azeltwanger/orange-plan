@@ -3615,10 +3615,15 @@ export default function FinancialPlan() {
                             </div>
                           )}
                           {p.stateTaxPaid > 0 && (
-                            <div className="flex justify-between gap-6">
-                              <span>{stateOfResidence} State Tax:</span>
-                              <span className="text-rose-300 text-right">-${p.stateTaxPaid.toLocaleString()}</span>
-                            </div>
+                           <div className="flex justify-between gap-6">
+                             <span>{stateOfResidence} State Tax:</span>
+                             <span className="text-rose-300 text-right">-${p.stateTaxPaid.toLocaleString()}</span>
+                           </div>
+                          )}
+                          {(p.federalTaxPaid > 0 || p.stateTaxPaid > 0) && p.taxableIncome > 0 && (
+                            <p className="text-zinc-400 text-xs mt-1">
+                              Effective Tax Rate: {((p.federalTaxPaid + p.stateTaxPaid) / p.taxableIncome * 100).toFixed(1)}%
+                            </p>
                           )}
                           <div className="flex justify-between gap-6">
                             <span>Spending:</span>
