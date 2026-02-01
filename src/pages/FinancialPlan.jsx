@@ -145,6 +145,8 @@ const calculatePercentiles = (simulations, percentiles = [10, 25, 50, 75, 90]) =
 
 
 export default function FinancialPlan() {
+  console.log('🚀 FinancialPlan component MOUNTED');
+  
   // Use shared BTC price hook for consistency across pages
   const { btcPrice, priceChange, loading: priceLoading } = useBtcPrice();
   
@@ -432,7 +434,12 @@ export default function FinancialPlan() {
 
   const { data: userSettings = [], isLoading: isLoadingSettings, refetch: refetchUserSettings } = useQuery({
     queryKey: ['userSettings'],
-    queryFn: () => base44.entities.UserSettings.list(),
+    queryFn: async () => {
+      console.log('🔍 FETCHING UserSettings from database...');
+      const result = await base44.entities.UserSettings.list();
+      console.log('✅ UserSettings query returned:', result?.length, 'records');
+      return result;
+    },
     staleTime: 5 * 60 * 1000,
   });
   
@@ -681,8 +688,14 @@ export default function FinancialPlan() {
 
   // Auto-save settings when they change
   useEffect(() => {
-    if (!settingsLoaded) return;
+    console.log('💾 AUTO-SAVE useEffect triggered. settingsLoaded:', settingsLoaded);
+    if (!settingsLoaded) {
+      console.log('⏭️ Skipping save - settings not loaded yet');
+      return;
+    }
+    console.log('⏳ Debouncing save... will save in 1 second');
     const timeoutId = setTimeout(() => {
+      console.log('💾 DEBOUNCE COMPLETE - calling saveSettings.mutate');
       saveSettings.mutate({
         btc_cagr_assumption: btcCagr || 25,
         stocks_cagr: stocksCagr || 7,
