@@ -430,11 +430,19 @@ export default function FinancialPlan() {
     setHasAccounts(accounts && accounts.length > 0);
   }, [accounts]);
 
-  const { data: userSettings = [] } = useQuery({
+  const { data: userSettings = [], isLoading: isLoadingSettings, refetch: refetchUserSettings } = useQuery({
     queryKey: ['userSettings'],
     queryFn: () => base44.entities.UserSettings.list(),
     staleTime: 5 * 60 * 1000,
   });
+  
+  // Debug: Log when userSettings changes
+  useEffect(() => {
+    console.log('=== USER SETTINGS LOADED ===');
+    console.log('userSettings:', userSettings);
+    console.log('userSettings.length:', userSettings?.length);
+    console.log('isLoadingSettings:', isLoadingSettings);
+  }, [userSettings, isLoadingSettings]);
 
   const { data: transactions = [] } = useQuery({
     queryKey: ['transactions'],
@@ -525,18 +533,31 @@ export default function FinancialPlan() {
   // Auto-create UserSettings for new users
   useEffect(() => {
     const createDefaultSettings = async () => {
-      if (userSettings && userSettings.length === 0 && !settingsLoaded) {
+      console.log('=== AUTO-CREATE SETTINGS CHECK ===');
+      console.log('userSettings:', userSettings);
+      console.log('userSettings.length:', userSettings?.length);
+      console.log('settingsLoaded:', settingsLoaded);
+      
+      if (userSettings !== undefined && userSettings.length === 0 && !settingsLoaded) {
+        console.log('✅ Creating default settings for new user...');
         try {
-          await base44.entities.UserSettings.create(DEFAULT_USER_SETTINGS);
-          queryClient.invalidateQueries({ queryKey: ['userSettings'] });
+          const result = await base44.entities.UserSettings.create(DEFAULT_USER_SETTINGS);
+          console.log('✅ Created settings result:', result);
+          refetchUserSettings();
         } catch (error) {
-          console.error('Error creating default settings:', error);
+          console.error('❌ Error creating default settings:', error);
         }
+      } else {
+        console.log('⏭️ Skipping auto-create:', {
+          isDefined: userSettings !== undefined,
+          hasSettings: userSettings?.length > 0,
+          settingsLoaded
+        });
       }
     };
     
     createDefaultSettings();
-  }, [userSettings, settingsLoaded, queryClient]);
+  }, [userSettings, settingsLoaded, refetchUserSettings]);
 
   // Load settings from UserSettings entity (use defaults if not yet created)
   useEffect(() => {
@@ -620,13 +641,29 @@ export default function FinancialPlan() {
   // Save settings mutation
   const saveSettings = useMutation({
     mutationFn: async (data) => {
+      console.log('=== SAVE SETTINGS MUTATION ===');
+      console.log('userSettings.length:', userSettings?.length);
+      console.log('First 3 keys of data:', Object.keys(data).slice(0, 3));
+      
       if (userSettings.length > 0) {
-        return base44.entities.UserSettings.update(userSettings[0].id, data);
+        console.log('📝 UPDATING existing record:', userSettings[0].id);
+        const result = await base44.entities.UserSettings.update(userSettings[0].id, data);
+        console.log('✅ Update successful');
+        return result;
       } else {
-        return base44.entities.UserSettings.create(data);
+        console.log('✨ CREATING new record (no existing settings found)');
+        const result = await base44.entities.UserSettings.create(data);
+        console.log('✅ Create successful:', result);
+        return result;
       }
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['userSettings'] }),
+    onSuccess: () => {
+      console.log('✅ saveSettings onSuccess - invalidating queries');
+      queryClient.invalidateQueries({ queryKey: ['userSettings'] });
+    },
+    onError: (error) => {
+      console.error('❌ saveSettings onError:', error);
+    }
   });
 
   // Auto-save settings when they change
