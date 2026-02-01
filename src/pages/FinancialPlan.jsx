@@ -5841,6 +5841,184 @@ export default function FinancialPlan() {
         lifeExpectancy={lifeExpectancy}
       />
 
+      {/* Life Event Form Dialog */}
+      <Dialog open={eventFormOpen} onOpenChange={setEventFormOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-zinc-900 border-zinc-700">
+          <DialogHeader>
+            <DialogTitle className="text-zinc-100">{editingEvent ? 'Edit Life Event' : 'Add Life Event'}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSubmitEvent} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="col-span-2">
+                <Label className="text-zinc-300">Event Name</Label>
+                <Input
+                  value={eventForm.name}
+                  onChange={(e) => setEventForm({...eventForm, name: e.target.value})}
+                  className="bg-zinc-800 border-zinc-700 text-zinc-100"
+                  required
+                />
+              </div>
+              
+              <div>
+                <Label className="text-zinc-300">Event Type</Label>
+                <Select value={eventForm.event_type} onValueChange={(val) => setEventForm({...eventForm, event_type: val})}>
+                  <SelectTrigger className="bg-zinc-800 border-zinc-700 text-zinc-100">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-zinc-900 border-zinc-700">
+                    <SelectItem value="expense_change">Expense Change</SelectItem>
+                    <SelectItem value="income_change">Income Change</SelectItem>
+                    <SelectItem value="inheritance">Inheritance</SelectItem>
+                    <SelectItem value="asset_sale">Asset Sale</SelectItem>
+                    <SelectItem value="major_expense">Major Expense</SelectItem>
+                    <SelectItem value="home_purchase">Home Purchase</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label className="text-zinc-300">Year</Label>
+                <Input
+                  type="number"
+                  value={eventForm.year}
+                  onChange={(e) => setEventForm({...eventForm, year: e.target.value})}
+                  className="bg-zinc-800 border-zinc-700 text-zinc-100"
+                  required
+                />
+              </div>
+              
+              <div>
+                <Label className="text-zinc-300">Amount</Label>
+                <Input
+                  type="number"
+                  value={eventForm.amount}
+                  onChange={(e) => setEventForm({...eventForm, amount: e.target.value})}
+                  className="bg-zinc-800 border-zinc-700 text-zinc-100"
+                  required
+                />
+                {/* Inflation adjustment checkbox */}
+                <div className="flex items-center gap-2 mt-2">
+                  <Checkbox
+                    id="adjustForInflation"
+                    checked={eventForm.adjust_for_inflation !== false}
+                    onCheckedChange={(checked) => setEventForm({...eventForm, adjust_for_inflation: checked})}
+                    className="border-zinc-600 data-[state=checked]:bg-orange-500"
+                  />
+                  <label htmlFor="adjustForInflation" className="text-sm text-zinc-300 cursor-pointer">
+                    Adjust for inflation (recommended)
+                  </label>
+                </div>
+                <p className="text-xs text-zinc-500 mt-1">
+                  {eventForm.adjust_for_inflation !== false 
+                    ? 'Amount maintains purchasing power over time' 
+                    : 'Amount stays fixed in nominal dollars'}
+                </p>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="isRecurring"
+                  checked={eventForm.is_recurring}
+                  onCheckedChange={(checked) => setEventForm({...eventForm, is_recurring: checked})}
+                  className="border-zinc-600 data-[state=checked]:bg-orange-500"
+                />
+                <Label htmlFor="isRecurring" className="text-zinc-300 cursor-pointer">Recurring</Label>
+              </div>
+              
+              {eventForm.is_recurring && (
+                <div>
+                  <Label className="text-zinc-300">Recurring Years</Label>
+                  <Input
+                    type="number"
+                    value={eventForm.recurring_years}
+                    onChange={(e) => setEventForm({...eventForm, recurring_years: e.target.value})}
+                    className="bg-zinc-800 border-zinc-700 text-zinc-100"
+                  />
+                </div>
+              )}
+            </div>
+            
+            {/* Capital Allocation - ONLY for income/asset events */}
+            {(
+              eventForm.event_type === 'inheritance' ||
+              eventForm.event_type === 'asset_sale' ||
+              (eventForm.event_type === 'income_change' && parseFloat(eventForm.amount || 0) > 0)
+            ) && (
+              <div className="mt-4 p-4 bg-zinc-800/50 rounded-lg border border-zinc-700">
+                <p className="text-sm text-zinc-300 mb-3 flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4" />
+                  How will you invest this capital?
+                </p>
+                <div className="space-y-3">
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setEventForm({...eventForm, allocation_method: 'proportionate'})}
+                      className={cn(
+                        "flex-1 p-3 rounded-lg border text-sm transition-all",
+                        eventForm.allocation_method === 'proportionate'
+                          ? "bg-orange-500/20 border-orange-500/50 text-orange-300"
+                          : "bg-zinc-800 border-zinc-700 text-zinc-300 hover:border-zinc-600"
+                      )}
+                    >
+                      Use Savings Allocation
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEventForm({...eventForm, allocation_method: 'custom'})}
+                      className={cn(
+                        "flex-1 p-3 rounded-lg border text-sm transition-all",
+                        eventForm.allocation_method === 'custom'
+                          ? "bg-orange-500/20 border-orange-500/50 text-orange-300"
+                          : "bg-zinc-800 border-zinc-700 text-zinc-300 hover:border-zinc-600"
+                      )}
+                    >
+                      Custom Split
+                    </button>
+                  </div>
+                  
+                  {eventForm.allocation_method === 'custom' && (
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <Label className="text-xs text-zinc-400">BTC %</Label>
+                        <Input type="number" value={eventForm.btc_allocation} onChange={(e) => setEventForm({...eventForm, btc_allocation: e.target.value})} className="bg-zinc-800 border-zinc-700 text-zinc-100" />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-zinc-400">Stocks %</Label>
+                        <Input type="number" value={eventForm.stocks_allocation} onChange={(e) => setEventForm({...eventForm, stocks_allocation: e.target.value})} className="bg-zinc-800 border-zinc-700 text-zinc-100" />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-zinc-400">Cash %</Label>
+                        <Input type="number" value={eventForm.cash_allocation} onChange={(e) => setEventForm({...eventForm, cash_allocation: e.target.value})} className="bg-zinc-800 border-zinc-700 text-zinc-100" />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            
+            <div className="col-span-2">
+              <Label className="text-zinc-300">Notes</Label>
+              <Textarea
+                value={eventForm.notes}
+                onChange={(e) => setEventForm({...eventForm, notes: e.target.value})}
+                className="bg-zinc-800 border-zinc-700 text-zinc-100"
+                rows={3}
+              />
+            </div>
+            
+            <div className="flex justify-end gap-2 pt-4">
+              <Button type="button" variant="outline" onClick={() => { setEventFormOpen(false); setEditingEvent(null); resetEventForm(); }} className="border-zinc-700 text-zinc-300">
+                Cancel
+              </Button>
+              <Button type="submit" className="bg-orange-600 hover:bg-orange-700 text-white">
+                {editingEvent ? 'Update' : 'Create'}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
