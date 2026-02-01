@@ -151,6 +151,31 @@ export function buildProjectionParams(settings, overrides = {}, data) {
   
   // Combine with existing life events
   const combinedLifeEvents = [...(lifeEvents || []), ...scenarioOneTimeEvents];
+  
+  // DEBUG: Log life events being combined
+  if (DEBUG || true) {
+    console.log('🟡 buildProjectionParams - Life Events:', {
+      baseline_count: lifeEvents?.length || 0,
+      scenario_events_count: scenarioOneTimeEvents?.length || 0,
+      combined_count: combinedLifeEvents?.length || 0,
+      baseline_events: lifeEvents?.map(e => ({
+        name: e.name,
+        event_type: e.event_type,
+        year: e.year,
+        amount: e.amount,
+        is_recurring: e.is_recurring,
+        recurring_years: e.recurring_years
+      })),
+      combined_events: combinedLifeEvents?.map(e => ({
+        name: e.name,
+        event_type: e.event_type,
+        year: e.year,
+        amount: e.amount,
+        is_recurring: e.is_recurring,
+        recurring_years: e.recurring_years
+      }))
+    });
+  }
 
   // Process liabilities - filter OUT btc_collateralized since they're in btcCollateralizedLoans
   // This prevents double-counting debt and collateral
