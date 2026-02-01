@@ -1,4 +1,3 @@
-
 import { getRMDFactor } from '@/components/shared/taxData';
 import { 
   estimateRetirementWithdrawalTaxes, 
@@ -1868,7 +1867,7 @@ export function runUnifiedProjection({
           } else {
             // Partial release - LTV too low, release excess collateral
             const currentCollateral = encumberedBtc[liability.id];
-            const targetCollateralForLoan = liability.current_balance / (releaseTargetLTV / 100) / cumulativeBtcPrice;
+            const targetCollateralForLoan = liability.current_balance / (btcReleaseTargetLtv / 100) / cumulativeBtcPrice;
             const excessCollateral = Math.max(0, currentCollateral - targetCollateralForLoan);
             if (excessCollateral > 0) {
               const excessCollateralValue = excessCollateral * cumulativeBtcPrice;
@@ -1889,7 +1888,7 @@ export function runUnifiedProjection({
                 age,
                 type: 'release',
                 liabilityName: liability.name || liability.lender || 'BTC Loan',
-                message: `Released ${excessCollateral.toFixed(4)} BTC (LTV ${postTopUpLTV.toFixed(1)}% → ${releaseTargetLTV}%)`
+                message: `Released ${excessCollateral.toFixed(4)} BTC (LTV ${postTopUpLTV.toFixed(1)}% → ${btcReleaseTargetLtv}%)`
               });
             }
           }
@@ -2068,7 +2067,7 @@ export function runUnifiedProjection({
           } else {
             // Partial release - LTV too low, release excess collateral
             const currentCollateral = encumberedBtc[loanKey];
-            const targetCollateralForLoan = loan.current_balance / (releaseTargetLtv / 100) / cumulativeBtcPrice;
+            const targetCollateralForLoan = loan.current_balance / (btcReleaseTargetLtv / 100) / cumulativeBtcPrice;
             const excessCollateral = Math.max(0, currentCollateral - targetCollateralForLoan);
             if (excessCollateral > 0) {
               const excessCollateralValue = excessCollateral * cumulativeBtcPrice;
@@ -2089,7 +2088,7 @@ export function runUnifiedProjection({
                 age,
                 type: 'release',
                 liabilityName: loan.name || loan.lender || 'BTC Loan',
-                message: `Released ${excessCollateral.toFixed(4)} BTC (LTV ${postTopUpLTV.toFixed(1)}% → ${releaseTargetLtv}%)`
+                message: `Released ${excessCollateral.toFixed(4)} BTC (LTV ${postTopUpLTV.toFixed(1)}% → ${btcReleaseTargetLtv}%)`
               });
             }
           }
