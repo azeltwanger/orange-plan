@@ -321,6 +321,7 @@ export default function FinancialPlan() {
     name: '', event_type: 'expense_change', year: new Date().getFullYear() + 1, amount: '', is_recurring: false, recurring_years: '', affects: 'expenses', notes: '',
     monthly_expense_impact: '', liability_amount: '', down_payment: '', interest_rate: '', loan_term_years: '',
     allocation_method: 'proportionate', btc_allocation: 0, stocks_allocation: 0, real_estate_allocation: 0, bonds_allocation: 0, cash_allocation: 0, other_allocation: 0,
+    adjust_for_inflation: true,
   });
 
 
@@ -1975,6 +1976,7 @@ export default function FinancialPlan() {
         bonds_allocation: editingEvent.bonds_allocation || 0,
         cash_allocation: editingEvent.cash_allocation || 0,
         other_allocation: editingEvent.other_allocation || 0,
+        adjust_for_inflation: editingEvent.adjust_for_inflation !== false,
       });
     }
   }, [editingEvent]);
@@ -2022,6 +2024,7 @@ export default function FinancialPlan() {
       bonds_allocation: parseFloat(eventForm.bonds_allocation) || 0,
       cash_allocation: parseFloat(eventForm.cash_allocation) || 0,
       other_allocation: parseFloat(eventForm.other_allocation) || 0,
+      adjust_for_inflation: eventForm.adjust_for_inflation !== false,
     };
     editingEvent ? updateEvent.mutate({ id: editingEvent.id, data }) : createEvent.mutate(data);
   };
@@ -2033,7 +2036,7 @@ export default function FinancialPlan() {
     withdraw_from_portfolio: false, linked_liability_id: '', payoff_strategy: 'minimum',
     extra_monthly_payment: '', lump_sum_date: '', notes: '',
   });
-  const resetEventForm = () => setEventForm({ name: '', event_type: 'expense_change', year: new Date().getFullYear() + 1, amount: '', is_recurring: false, recurring_years: '', affects: 'expenses', notes: '', monthly_expense_impact: '', liability_amount: '', down_payment: '', interest_rate: '', loan_term_years: '', allocation_method: 'proportionate', btc_allocation: 0, stocks_allocation: 0, real_estate_allocation: 0, bonds_allocation: 0, cash_allocation: 0, other_allocation: 0 });
+  const resetEventForm = () => setEventForm({ name: '', event_type: 'expense_change', year: new Date().getFullYear() + 1, amount: '', is_recurring: false, recurring_years: '', affects: 'expenses', notes: '', monthly_expense_impact: '', liability_amount: '', down_payment: '', interest_rate: '', loan_term_years: '', allocation_method: 'proportionate', btc_allocation: 0, stocks_allocation: 0, real_estate_allocation: 0, bonds_allocation: 0, cash_allocation: 0, other_allocation: 0, adjust_for_inflation: true });
 
 
   // Show loading skeleton while data is being fetched
