@@ -77,6 +77,8 @@ export function buildProjectionParams(settings, overrides = {}, data) {
   const contributionHSA = effectiveSettings.contribution_hsa ?? 0;
   const contributionHSAEndAge = effectiveSettings.contribution_hsa_end_age || null;
   const hsaFamilyCoverage = effectiveSettings.hsa_family_coverage || false;
+  const coveredByEmployerPlan = effectiveSettings.covered_by_employer_plan || false;
+  const spouseCoveredByEmployerPlan = effectiveSettings.spouse_covered_by_employer_plan || false;
 
   // Solo 401k settings
   const solo401kEnabled = effectiveSettings.solo_401k_enabled || false;

@@ -622,5 +622,86 @@ export function getSolo401kLimits(year, age) {
   };
 }
 
+/**
+ * Calculate Traditional IRA deductible amount based on MAGI and employer plan coverage.
+ * 
+ * IRS rules:
+ * - If NOT covered by employer plan: Fully deductible regardless of income
+ * - If covered: Subject to MAGI phase-outs
+ *   - Single (covered): $81K-$91K phase-out (2026)
+ *   - MFJ (you covered): $129K-$149K phase-out
+ *   - MFJ (spouse covered, you not): $242K-$252K phase-out
+ *   - MFS: $0-$10K phase-out
+ * 
+ * @param {Object} params - Deductibility parameters
+ * @param {number} params.contribution - Traditional IRA contribution amount
+ * @param {number} params.magi - Modified Adjusted Gross Income
+ * @param {string} params.filingStatus - 'single', 'married', 'married_filing_jointly', 'married_filing_separately'
+ * @param {boolean} params.coveredByEmployerPlan - Whether taxpayer is covered by employer retirement plan
+ * @param {boolean} params.spouseCoveredByEmployerPlan - Whether spouse is covered (for MFJ)
+ * @param {number} params.year - Tax year
+ * @returns {number} - Deductible amount (can be 0 to full contribution)
+ */
+export function getTraditionalIRADeductibleAmount({
+  contribution,
+  magi,
+  filingStatus,
+  coveredByEmployerPlan,
+  spouseCoveredByEmployerPlan = false,
+  year
+}) {
+  if (contribution <= 0) return 0;
+  
+  // If not covered by any employer plan, fully deductible
+  if (!coveredByEmployerPlan && !spouseCoveredByEmployerPlan) {
+    return contribution;
+  }
+  
+  // Get phase-out limits for this year
+  const limits = getYearData(TRADITIONAL_IRA_DEDUCTION_LIMITS, year);
+  if (!limits) return contribution; // Fallback to fully deductible if no data
+  
+  let phaseOut;
+  const normalizedStatus = filingStatus === 'married' ? 'married_filing_jointly' : filingStatus;
+  
+  if (normalizedStatus === 'married_filing_separately') {
+    phaseOut = limits.married_filing_separately;
+  } else if (normalizedStatus === 'married_filing_jointly') {
+    if (coveredByEmployerPlan) {
+      phaseOut = limits.married_filing_jointly;
+    } else if (spouseCoveredByEmployerPlan) {
+      phaseOut = limits.married_filing_jointly_spouse_covered;
+    } else {
+      return contribution; // Neither covered, fully deductible
+    }
+  } else {
+    // Single, HoH
+    if (coveredByEmployerPlan) {
+      phaseOut = limits.single;
+    } else {
+      return contribution; // Not covered, fully deductible
+    }
+  }
+  
+  if (!phaseOut) return contribution;
+  
+  // Calculate deductible amount based on phase-out
+  if (magi <= phaseOut.phaseoutStart) {
+    return contribution; // Fully deductible
+  }
+  if (magi >= phaseOut.phaseoutEnd) {
+    return 0; // Not deductible
+  }
+  
+  // Partial deduction - linear phase-out
+  const phaseOutRange = phaseOut.phaseoutEnd - phaseOut.phaseoutStart;
+  const overStart = magi - phaseOut.phaseoutStart;
+  const reductionRatio = overStart / phaseOutRange;
+  const deductibleAmount = contribution * (1 - reductionRatio);
+  
+  // Round up to nearest $10 per IRS rules
+  return Math.max(0, Math.ceil(deductibleAmount / 10) * 10);
+}
+
 // Re-export getFederalBrackets from taxData for use in other modules
 export { getFederalBrackets };

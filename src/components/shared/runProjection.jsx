@@ -6,7 +6,7 @@ import {
   getLTCGRate
 } from '@/components/tax/taxCalculations';
 import { calculateStateTaxOnRetirement, calculateStateIncomeTax } from '@/components/shared/stateTaxConfig';
-import { getTaxConfigForYear, get401kLimit, getRothIRALimit, getTraditionalIRALimit, getHSALimit, getRothIRAIncomeLimit, getFederalBrackets, getSolo401kLimits } from '@/components/shared/taxConfig';
+import { getTaxConfigForYear, get401kLimit, getRothIRALimit, getTraditionalIRALimit, getHSALimit, getRothIRAIncomeLimit, getFederalBrackets, getSolo401kLimits, getTraditionalIRADeductibleAmount } from '@/components/shared/taxConfig';
 import { selectLots } from '@/components/shared/lotSelectionHelpers';
 
 /**
@@ -115,6 +115,8 @@ export function runUnifiedProjection({
   contributionHSA,
   contributionHSAEndAge = null,
   hsaFamilyCoverage,
+  coveredByEmployerPlan = false,
+  spouseCoveredByEmployerPlan = false,
   solo401kEnabled = false,
   solo401kType = 'traditional',
   solo401kEmployeeContribution = 0,
@@ -1195,6 +1197,7 @@ export function runUnifiedProjection({
     let shortTermGainsTax = 0;
     let longTermGainsTax = 0;
     let yearTaxableIncome = 0; // Track taxable income for bracket visualization
+    let yearTraditionalIRADeductible = 0; // Track deductible portion for results
     
     // Calculate age-specific standard deduction (includes 65+ additional)
     let currentStandardDeduction = baseStandardDeduction;
@@ -2504,13 +2507,30 @@ export function runUnifiedProjection({
     // Continue with pre-retirement logic ONLY if not retired
     if (!isRetired) {
       
+      // Calculate Traditional IRA deductible amount (may be limited by MAGI and employer plan coverage)
+      let yearTraditionalIRADeductible = yearTraditionalIRA;
+
+      if ((coveredByEmployerPlan || spouseCoveredByEmployerPlan) && yearTraditionalIRA > 0) {
+        // Calculate MAGI for IRA deductibility purposes = AGI (approx. gross - 401k - HSA)
+        const magiForIRA = yearGrossIncome - year401k - yearHSA;
+
+        yearTraditionalIRADeductible = getTraditionalIRADeductibleAmount({
+          contribution: yearTraditionalIRA,
+          magi: magiForIRA,
+          filingStatus: filingStatus,
+          coveredByEmployerPlan: coveredByEmployerPlan,
+          spouseCoveredByEmployerPlan: spouseCoveredByEmployerPlan,
+          year: year
+        });
+      }
+
       // Calculate taxable income AFTER all contributions
       // Solo 401k: Traditional reduces taxable income, Roth employee does not (but employer portion ALWAYS does)
       const solo401kPreTaxDeduction = solo401kType === 'traditional' 
         ? (yearSolo401kEmployee + yearSolo401kEmployer)
         : yearSolo401kEmployer; // Roth: only employer portion is pre-tax
-      
-      yearTaxableIncome = Math.max(0, yearGrossIncome + yearLifeEventTaxableIncome - year401k - yearTraditionalIRA - yearHSA - solo401kPreTaxDeduction - currentStandardDeduction);
+
+      yearTaxableIncome = Math.max(0, yearGrossIncome + yearLifeEventTaxableIncome - year401k - yearTraditionalIRADeductible - yearHSA - solo401kPreTaxDeduction - currentStandardDeduction);
       const yearFederalTax = calculateProgressiveIncomeTax(yearTaxableIncome, filingStatus, year);
       const yearStateTax = calculateStateIncomeTax({ 
         income: yearGrossIncome + yearLifeEventTaxableIncome - year401k - yearTraditionalIRA - yearHSA, 
@@ -3669,6 +3689,8 @@ export function runUnifiedProjection({
       year401kContribution: !isRetired ? Math.round(year401k || 0) : 0,
       yearRothContribution: !isRetired ? Math.round(yearRoth || 0) : 0,
       yearTraditionalIRAContribution: !isRetired ? Math.round(yearTraditionalIRA || 0) : 0,
+      yearTraditionalIRADeductible: !isRetired ? Math.round(yearTraditionalIRADeductible || 0) : 0,
+      yearTraditionalIRANonDeductible: !isRetired ? Math.round((yearTraditionalIRA - yearTraditionalIRADeductible) || 0) : 0,
       yearHSAContribution: !isRetired ? Math.round(yearHSA || 0) : 0,
       yearEmployer401kMatch: !isRetired ? Math.round(yearEmployerMatch || 0) : 0,
       solo401kEmployeeContribution: !isRetired ? Math.round(yearSolo401kEmployee || 0) : 0,
