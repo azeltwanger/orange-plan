@@ -5,6 +5,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsToolti
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Target, Plus, Pencil, Trash2, TrendingUp, Calendar, Settings, Play, AlertTriangle, ChevronDown, ChevronUp, Sparkles, Home, Car, Baby, Briefcase, Heart, DollarSign, RefreshCw, Receipt, Info } from 'lucide-react';
+import { createPageUrl } from '../utils';
 import { useBtcPrice } from '@/components/shared/useBtcPrice';
 import {
   STANDARD_DEDUCTION_2024,
@@ -52,6 +53,69 @@ import { cn } from "@/lib/utils";
 import { LoadingSkeleton } from '@/components/ui/LoadingSkeleton';
 import CustomPeriodsModal from '@/components/retirement/CustomPeriodsModal';
 
+// Default settings for new users
+const DEFAULT_USER_SETTINGS = {
+  btc_cagr_assumption: 25,
+  stocks_cagr: 7,
+  stocks_volatility: 15,
+  real_estate_cagr: 4,
+  bonds_cagr: 3,
+  cash_cagr: 0,
+  other_cagr: 7,
+  inflation_rate: 3,
+  income_growth_rate: 3,
+  retirement_age: 65,
+  current_age: 35,
+  life_expectancy: 90,
+  current_annual_spending: 80000,
+  annual_retirement_spending: 100000,
+  gross_annual_income: 100000,
+  btc_return_model: 'custom',
+  custom_return_periods: {},
+  ticker_returns: {},
+  other_retirement_income: 0,
+  social_security_start_age: 67,
+  social_security_amount: 0,
+  use_custom_social_security: false,
+  savings_allocation_btc: 80,
+  savings_allocation_stocks: 20,
+  savings_allocation_bonds: 0,
+  savings_allocation_cash: 0,
+  savings_allocation_other: 0,
+  investment_mode: 'all_surplus',
+  monthly_investment_amount: 0,
+  contribution_401k: 0,
+  contribution_401k_end_age: null,
+  employer_401k_match: 0,
+  contribution_roth_ira: 0,
+  contribution_roth_ira_end_age: null,
+  contribution_traditional_ira: 0,
+  contribution_traditional_ira_end_age: null,
+  contribution_hsa: 0,
+  contribution_hsa_end_age: null,
+  hsa_family_coverage: false,
+  solo_401k_enabled: false,
+  solo_401k_type: 'traditional',
+  solo_401k_employee_contribution: 0,
+  solo_401k_employer_contribution_percent: 0,
+  solo_401k_end_age: null,
+  filing_status: 'single',
+  state_of_residence: 'TX',
+  cost_basis_method: 'HIFO',
+  asset_withdrawal_strategy: 'proportional',
+  withdrawal_priority_order: ['bonds', 'stocks', 'other', 'btc'],
+  withdrawal_blend_percentages: { bonds: 25, stocks: 35, other: 10, btc: 30 },
+  auto_top_up_btc_collateral: true,
+  btc_top_up_trigger_ltv: 70,
+  btc_top_up_target_ltv: 50,
+  btc_release_trigger_ltv: 30,
+  btc_release_target_ltv: 40,
+  future_btc_loan_rate: null,
+  future_btc_loan_rate_years: 0,
+  covered_by_employer_plan: false,
+  spouse_covered_by_employer_plan: false,
+};
+
 // Calculate success probability (percentage of simulations that didn't run out of money)
 const calculateSuccessProbability = (successResults) => {
   const successCount = successResults.filter(s => s).length;
@@ -83,6 +147,10 @@ const calculatePercentiles = (simulations, percentiles = [10, 25, 50, 75, 90]) =
 export default function FinancialPlan() {
   // Use shared BTC price hook for consistency across pages
   const { btcPrice, priceChange, loading: priceLoading } = useBtcPrice();
+  
+  // Check if user has data (for empty states)
+  const [hasHoldings, setHasHoldings] = useState(false);
+  const [hasAccounts, setHasAccounts] = useState(false);
   
   // DETERMINISTIC: Snapshot BTC price on first load to prevent fluctuations during projection
   const [snapshotPrice, setSnapshotPrice] = useState(null);
@@ -282,6 +350,10 @@ export default function FinancialPlan() {
     staleTime: 5 * 60 * 1000,
   });
 
+  useEffect(() => {
+    setHasHoldings(holdings && holdings.length > 0);
+  }, [holdings]);
+
   const { data: goals = [] } = useQuery({
     queryKey: ['goals'],
     queryFn: async () => {
@@ -353,6 +425,10 @@ export default function FinancialPlan() {
     },
     staleTime: 5 * 60 * 1000,
   });
+
+  useEffect(() => {
+    setHasAccounts(accounts && accounts.length > 0);
+  }, [accounts]);
 
   const { data: userSettings = [] } = useQuery({
     queryKey: ['userSettings'],
@@ -446,10 +522,26 @@ export default function FinancialPlan() {
   };
   const standardDeduction = STANDARD_DEDUCTION_2024[filingStatus] || STANDARD_DEDUCTION_2024.single;
 
-  // Load settings from UserSettings entity
+  // Auto-create UserSettings for new users
   useEffect(() => {
-    if (userSettings.length > 0 && !settingsLoaded) {
-      const settings = userSettings[0];
+    const createDefaultSettings = async () => {
+      if (userSettings && userSettings.length === 0 && !settingsLoaded) {
+        try {
+          await base44.entities.UserSettings.create(DEFAULT_USER_SETTINGS);
+          queryClient.invalidateQueries({ queryKey: ['userSettings'] });
+        } catch (error) {
+          console.error('Error creating default settings:', error);
+        }
+      }
+    };
+    
+    createDefaultSettings();
+  }, [userSettings, settingsLoaded, queryClient]);
+
+  // Load settings from UserSettings entity (use defaults if not yet created)
+  useEffect(() => {
+    if (userSettings !== undefined && !settingsLoaded) {
+      const settings = userSettings.length > 0 ? userSettings[0] : DEFAULT_USER_SETTINGS;
       if (settings.btc_cagr_assumption !== undefined) setBtcCagr(settings.btc_cagr_assumption);
       if (settings.stocks_cagr !== undefined) setStocksCagr(settings.stocks_cagr);
       if (settings.stocks_volatility !== undefined) setStocksVolatility(settings.stocks_volatility);
@@ -963,9 +1055,14 @@ export default function FinancialPlan() {
 
   // Generate projection data using unified projection engine
   const projections = useMemo(() => {
-    if (!holdings.length || !accounts.length || !userSettings.length || !currentPrice) return [];
+    // Can't project without price or while loading
+    if (!currentPrice || isLoadingData) return [];
     
-    const params = buildProjectionParams(settings, {}, {
+    // Can run projections without holdings/accounts (will show $0 baseline)
+    // Use effectiveSettings to support new users without saved settings
+    const effectiveSettings = userSettings.length > 0 ? userSettings[0] : DEFAULT_USER_SETTINGS;
+    
+    const params = buildProjectionParams(effectiveSettings, {}, {
       holdings,
       accounts,
       liabilities,
@@ -2603,6 +2700,22 @@ export default function FinancialPlan() {
               {goals.length > 0 && `${goals.length} goal${goals.length !== 1 ? 's' : ''} tracked`}
             </p>
             <div className="h-[500px] relative overflow-visible" ref={chartContainerRef}>
+              {!hasHoldings || !hasAccounts ? (
+                <div className="flex flex-col items-center justify-center h-full text-center">
+                  <div className="w-16 h-16 rounded-full bg-orange-500/10 flex items-center justify-center mb-4">
+                    <Target className="w-8 h-8 text-orange-400" />
+                  </div>
+                  <p className="text-zinc-300 mb-2 font-medium">No financial data yet</p>
+                  <p className="text-zinc-500 text-sm mb-6">Add accounts and holdings to start planning your retirement</p>
+                  <Button 
+                    onClick={() => window.location.href = createPageUrl('Dashboard')}
+                    className="bg-orange-500 hover:bg-orange-600 text-white"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Your First Account
+                  </Button>
+                </div>
+              ) : (
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart 
                     data={projections} 
@@ -3486,6 +3599,7 @@ export default function FinancialPlan() {
                     }} name="Withdrawal" yAxisId="right" connectNulls={false} />
                   </AreaChart>
                 </ResponsiveContainer>
+              )}
               </div>
             <p className="text-xs text-zinc-500 text-center mt-2">
               💡 Click on a year to lock the tooltip. Click ✕ or outside to dismiss.
@@ -4132,30 +4246,57 @@ export default function FinancialPlan() {
             {/* Card 1: At Retirement */}
             <div className="p-5 rounded-xl bg-gradient-to-br from-zinc-900/80 to-zinc-800/60 border border-zinc-700/40 hover:border-zinc-600/60 transition-all">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-2">At Retirement (Age {retirementAge})</p>
-              <p className="text-3xl font-bold text-white leading-tight">{formatNumber(retirementValue, 1)}</p>
-              <p className="text-sm text-orange-400 mt-1">
-                {(() => {
-                  const retYearData = projections[retirementYearIndex];
-                  const btcAtRetirement = ((retYearData?.btcLiquid || 0) + (retYearData?.btcEncumbered || 0)) / (retYearData?.btcPrice || currentPrice);
-                  return `${btcAtRetirement.toFixed(2)} BTC`;
-                })()}
-              </p>
+              {hasHoldings ? (
+                <>
+                  <p className="text-3xl font-bold text-white leading-tight">{formatNumber(retirementValue, 1)}</p>
+                  <p className="text-sm text-orange-400 mt-1">
+                    {(() => {
+                      const retYearData = projections[retirementYearIndex];
+                      const btcAtRetirement = ((retYearData?.btcLiquid || 0) + (retYearData?.btcEncumbered || 0)) / (retYearData?.btcPrice || currentPrice);
+                      return `${btcAtRetirement.toFixed(2)} BTC`;
+                    })()}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-3xl font-bold text-zinc-500 leading-tight">—</p>
+                  <p className="text-sm text-zinc-600 mt-1">Add holdings</p>
+                </>
+              )}
             </div>
 
             {/* Card 2: Max Spending Capacity */}
             <div className="p-5 rounded-xl bg-gradient-to-br from-zinc-900/80 to-zinc-800/60 border border-zinc-700/40 hover:border-zinc-600/60 transition-all">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-2">Max Spending Capacity</p>
-              <p className="text-3xl font-bold text-emerald-400 leading-tight">{formatNumber(maxSustainableSpending)}/yr</p>
-              <p className="text-sm text-zinc-400 mt-1">{formatNumber(maxSustainableSpending / 12)}/mo today's $</p>
+              {hasHoldings ? (
+                <>
+                  <p className="text-3xl font-bold text-emerald-400 leading-tight">{formatNumber(maxSustainableSpending)}/yr</p>
+                  <p className="text-sm text-zinc-400 mt-1">{formatNumber(maxSustainableSpending / 12)}/mo today's $</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-3xl font-bold text-zinc-500 leading-tight">—</p>
+                  <p className="text-sm text-zinc-600 mt-1">Add holdings</p>
+                </>
+              )}
             </div>
 
             {/* Card 3: Lifetime Taxes Paid */}
             <div className="p-5 rounded-xl bg-gradient-to-br from-zinc-900/80 to-zinc-800/60 border border-zinc-700/40 hover:border-zinc-600/60 transition-all">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-2">Lifetime Taxes Paid</p>
-              <p className="text-3xl font-bold text-white leading-tight">
-                {formatNumber(lifetimeTaxesPaid, 1)}
-              </p>
-              <p className="text-sm text-zinc-400 mt-1">All years combined</p>
+              {hasHoldings ? (
+                <>
+                  <p className="text-3xl font-bold text-white leading-tight">
+                    {formatNumber(lifetimeTaxesPaid, 1)}
+                  </p>
+                  <p className="text-sm text-zinc-400 mt-1">All years combined</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-3xl font-bold text-zinc-500 leading-tight">—</p>
+                  <p className="text-sm text-zinc-600 mt-1">No data yet</p>
+                </>
+              )}
             </div>
 
             {/* Card 4: Plan Success */}
