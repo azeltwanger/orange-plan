@@ -3143,6 +3143,18 @@ export default function FinancialPlan() {
                                         <span className="text-rose-300 text-right">-${p.yearRothContribution.toLocaleString()}</span>
                                       </div>
                                     )}
+                                    {p.yearTraditionalIRAContribution > 0 && (
+                                      <div className="flex justify-between gap-6">
+                                        <span>• Traditional IRA Contribution:</span>
+                                        <span className="text-rose-300 text-right">-${p.yearTraditionalIRAContribution.toLocaleString()}</span>
+                                      </div>
+                                    )}
+                                    {p.yearTraditionalIRANonDeductible > 0 && (
+                                      <div className="flex justify-between gap-6 text-xs">
+                                        <span className="text-amber-400 ml-3">└ Non-deductible:</span>
+                                        <span className="text-amber-400 text-right">${p.yearTraditionalIRANonDeductible.toLocaleString()}</span>
+                                      </div>
+                                    )}
                                     {p.yearHSAContribution > 0 && (
                                       <div className="flex justify-between gap-6">
                                         <span>• HSA Contribution:</span>
@@ -3954,6 +3966,23 @@ export default function FinancialPlan() {
                             <div className="flex justify-between gap-6">
                               <span>• Roth IRA Contribution:</span>
                               <span className="text-rose-300 text-right">-${p.yearRothContribution.toLocaleString()}</span>
+                            </div>
+                          )}
+                          {p.yearTraditionalIRAContribution > 0 && (
+                            <div className="flex justify-between gap-6">
+                              <span>• Traditional IRA Contribution:</span>
+                              <span className="text-rose-300 text-right">-${p.yearTraditionalIRAContribution.toLocaleString()}</span>
+                            </div>
+                          )}
+                          {p.yearTraditionalIRANonDeductible > 0 && (
+                            <div className="p-2 rounded bg-amber-500/10 border border-amber-500/20 mt-1">
+                              <p className="text-xs text-amber-400">
+                                ⚠️ Non-deductible Traditional IRA: ${p.yearTraditionalIRANonDeductible.toLocaleString()}
+                                <span className="text-zinc-500 ml-1">(above MAGI limit)</span>
+                              </p>
+                              <p className="text-[10px] text-zinc-500 mt-1">
+                                💡 If you do a Roth conversion, the pro-rata rule may apply if you have other pre-tax IRA balances.
+                              </p>
                             </div>
                           )}
                           {p.yearHSAContribution > 0 && (
