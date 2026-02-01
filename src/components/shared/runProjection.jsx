@@ -2591,7 +2591,13 @@ export function runUnifiedProjection({
 
       // Calculate base spending WITHOUT one-time life event expenses (for tooltip display)
       const baseBeforeAdjustment = currentAnnualSpending * Math.pow(1 + effectiveInflation / 100, i);
-      const baseSpendingOnly = baseBeforeAdjustment + activeExpenseAdjustment;
+      const rawSpending = baseBeforeAdjustment + activeExpenseAdjustment;
+      const baseSpendingOnly = Math.max(0, rawSpending);
+      
+      // Warn if expense reduction exceeds base spending
+      if (rawSpending < 0 && activeExpenseAdjustment < 0) {
+        console.warn(`Year ${year}: Expense reduction (${activeExpenseAdjustment}) exceeds base spending (${baseBeforeAdjustment}). Floored to $0.`);
+      }
       
       // DEBUG: Log spending calculation for first 3 years or when there's an adjustment
       if (i <= 2 || activeExpenseAdjustment !== 0) {
@@ -3057,7 +3063,13 @@ export function runUnifiedProjection({
       const inflationFactorRetirement = Math.pow(1 + effectiveInflation / 100, yearsInRetirement);
       // Calculate base spending WITHOUT life event expenses (for tooltip display)
       const baseBeforeAdjustmentRetirement = nominalSpendingAtRetirement * inflationFactorRetirement;
-      const baseSpendingOnly = baseBeforeAdjustmentRetirement + activeExpenseAdjustment;
+      const rawRetirementSpending = baseBeforeAdjustmentRetirement + activeExpenseAdjustment;
+      const baseSpendingOnly = Math.max(0, rawRetirementSpending);
+      
+      // Warn if expense reduction exceeds base spending
+      if (rawRetirementSpending < 0 && activeExpenseAdjustment < 0) {
+        console.warn(`Year ${year}: Expense reduction (${activeExpenseAdjustment}) exceeds retirement spending (${baseBeforeAdjustmentRetirement}). Floored to $0.`);
+      }
       
       // DEBUG: Log retirement spending calculation for first 3 years or when there's an adjustment
       if ((i <= 2 && isRetired) || activeExpenseAdjustment !== 0) {
