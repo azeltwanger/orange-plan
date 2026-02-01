@@ -3053,15 +3053,19 @@ export function runUnifiedProjection({
     // RETIREMENT LOGIC (or post-retirement contributions completed)
     if (isRetired) {
       const nominalSpendingAtRetirement = retirementAnnualSpending * Math.pow(1 + effectiveInflation / 100, Math.max(0, retirementAge - currentAge));
+      const yearsInRetirement = age - retirementAge;
+      const inflationFactorRetirement = Math.pow(1 + effectiveInflation / 100, yearsInRetirement);
       // Calculate base spending WITHOUT life event expenses (for tooltip display)
-      const baseBeforeAdjustmentRetirement = nominalSpendingAtRetirement * Math.pow(1 + effectiveInflation / 100, age - retirementAge);
+      const baseBeforeAdjustmentRetirement = nominalSpendingAtRetirement * inflationFactorRetirement;
       const baseSpendingOnly = baseBeforeAdjustmentRetirement + activeExpenseAdjustment;
       
       // DEBUG: Log retirement spending calculation for first 3 years or when there's an adjustment
       if ((i <= 2 && isRetired) || activeExpenseAdjustment !== 0) {
-        console.log(`Year ${year} RETIREMENT SPENDING:`);
+        console.log(`\nYear ${year} RETIREMENT SPENDING (Age ${age}):`);
         console.log(`  retirementAnnualSpending: ${retirementAnnualSpending}`);
         console.log(`  nominalSpendingAtRetirement: ${nominalSpendingAtRetirement}`);
+        console.log(`  yearsInRetirement: ${yearsInRetirement}`);
+        console.log(`  inflationFactorRetirement: ${inflationFactorRetirement}`);
         console.log(`  baseBeforeAdjustmentRetirement: ${baseBeforeAdjustmentRetirement}`);
         console.log(`  activeExpenseAdjustment: ${activeExpenseAdjustment}`);
         console.log(`  baseSpendingOnly (final): ${baseSpendingOnly}`);
