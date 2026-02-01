@@ -1523,13 +1523,20 @@ export function runUnifiedProjection({
         const isActive = year >= event.year && year < eventEndYear;
         
         if (i <= 2 || (year >= event.year && year <= event.year + 5)) {
-          console.log(`  Event "${event.name}": year range ${event.year}-${eventEndYear}, current year ${year}, active: ${isActive}, amount: ${event.amount}`);
+          console.log(`  Event "${event.name}": year range ${event.year}-${eventEndYear}, current year ${year}, active: ${isActive}, base amount: ${event.amount}`);
         }
         
         if (isActive) {
-          activeExpenseAdjustment += event.amount;
+          // Apply inflation adjustment if enabled (default: true)
+          let adjustedAmount = event.amount;
+          if (event.adjust_for_inflation !== false) {
+            const yearsFromEventStart = year - event.year;
+            adjustedAmount = event.amount * Math.pow(1 + effectiveInflation / 100, yearsFromEventStart);
+          }
+          
+          activeExpenseAdjustment += adjustedAmount;
           if (i <= 2 || (year >= event.year && year <= event.year + 5)) {
-            console.log(`    ✓ Applied ${event.amount} to activeExpenseAdjustment, total now: ${activeExpenseAdjustment}`);
+            console.log(`    ✓ Applied ${adjustedAmount.toFixed(0)} (base: ${event.amount}, inflation-adjusted: ${event.adjust_for_inflation !== false}, years: ${year - event.year}) to activeExpenseAdjustment, total now: ${activeExpenseAdjustment.toFixed(0)}`);
           }
         }
       }
@@ -1579,8 +1586,14 @@ export function runUnifiedProjection({
         // These flow through yearLifeEventIncome to cover spending first, then excess goes to savings
         // DO NOT directly invest here - that causes double-counting
         if (event.affects === 'assets' && event.amount > 0) {
-          const eventAmount = event.amount;
+          let eventAmount = event.amount;
           const eventType = event.event_type;
+          
+          // Apply inflation adjustment if enabled (default: true) for recurring income events
+          if (event.is_recurring && event.adjust_for_inflation !== false) {
+            const yearsFromEventStart = year - event.year;
+            eventAmount = event.amount * Math.pow(1 + effectiveInflation / 100, yearsFromEventStart);
+          }
           
           // All taxable income life events go through yearLifeEventIncome
           // This ensures consistent display in both pre-retirement and retirement
@@ -1590,7 +1603,7 @@ export function runUnifiedProjection({
             // Track separately for tax calculation
             yearLifeEventTaxableIncome += eventAmount;
             yearLifeEventIncome += eventAmount;
-            if (DEBUG) console.log(`💰 Taxable life event: $${eventAmount.toLocaleString()} from ${event.name}`);
+            if (DEBUG) console.log(`💰 Taxable life event: $${eventAmount.toLocaleString()} from ${event.name} (inflation-adjusted: ${event.adjust_for_inflation !== false})`);
           } else {
             // Non-taxable inflows (inheritance, gift, windfall)
             if (DEBUG) console.log(`💰 Non-taxable life event (${eventType}): $${eventAmount.toLocaleString()} from ${event.name}`);
