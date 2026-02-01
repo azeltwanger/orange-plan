@@ -1073,6 +1073,15 @@ export default function FinancialPlan() {
       currentPrice,
     });
     
+    console.log('🟠 FINANCIALPLAN - Life Events BEFORE buildProjectionParams:', lifeEvents?.map(e => ({
+      name: e.name,
+      event_type: e.event_type,
+      year: e.year,
+      amount: e.amount,
+      is_recurring: e.is_recurring,
+      recurring_years: e.recurring_years
+    })));
+    
     console.log('🟠 FINANCIALPLAN buildProjectionParams output:', {
       holdingsCount: params.holdings?.length,
       accountsCount: params.accounts?.length,

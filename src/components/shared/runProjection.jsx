@@ -1499,11 +1499,37 @@ export function runUnifiedProjection({
     // NOTE: income_change events are handled later via yearLifeEventIncome for consistent display
     let activeExpenseAdjustment = 0;
     
+    // DEBUG: Log life events processing for first 3 years
+    if (i <= 2) {
+      console.log(`\n=== LIFE EVENTS DEBUG - Year ${year} (Age ${age}, Index ${i}) ===`);
+      console.log('sortedLifeEvents count:', sortedLifeEvents?.length || 0);
+      console.log('sortedLifeEvents:', sortedLifeEvents.map(e => ({
+        name: e.name,
+        event_type: e.event_type,
+        year: e.year,
+        amount: e.amount,
+        is_recurring: e.is_recurring,
+        recurring_years: e.recurring_years,
+        affects: e.affects
+      })));
+    }
+    
     sortedLifeEvents.forEach(event => {
       // Recurring expense changes
       if (event.event_type === 'expense_change') {
         const eventEndYear = event.year + (event.is_recurring ? (event.recurring_years || 1) : 1);
-        if (year >= event.year && year < eventEndYear) activeExpenseAdjustment += event.amount;
+        const isActive = year >= event.year && year < eventEndYear;
+        
+        if (i <= 2 || (year >= event.year && year <= event.year + 5)) {
+          console.log(`  Event "${event.name}": year range ${event.year}-${eventEndYear}, current year ${year}, active: ${isActive}, amount: ${event.amount}`);
+        }
+        
+        if (isActive) {
+          activeExpenseAdjustment += event.amount;
+          if (i <= 2 || (year >= event.year && year <= event.year + 5)) {
+            console.log(`    ✓ Applied ${event.amount} to activeExpenseAdjustment, total now: ${activeExpenseAdjustment}`);
+          }
+        }
       }
       // Home purchase ongoing mortgage/expenses
       if (event.event_type === 'home_purchase' && event.year <= year && event.monthly_expense_impact > 0) {
@@ -2549,7 +2575,18 @@ export function runUnifiedProjection({
       const yearNetIncome = yearGrossIncome - taxesPaid - year401k - yearTraditionalIRA - yearHSA + estimatedDividendIncome + yearLifeEventIncome + yearLoanProceeds;
 
       // Calculate base spending WITHOUT one-time life event expenses (for tooltip display)
-      const baseSpendingOnly = (currentAnnualSpending * Math.pow(1 + effectiveInflation / 100, i)) + activeExpenseAdjustment;
+      const baseBeforeAdjustment = currentAnnualSpending * Math.pow(1 + effectiveInflation / 100, i);
+      const baseSpendingOnly = baseBeforeAdjustment + activeExpenseAdjustment;
+      
+      // DEBUG: Log spending calculation for first 3 years or when there's an adjustment
+      if (i <= 2 || activeExpenseAdjustment !== 0) {
+        console.log(`Year ${year} PRE-RETIREMENT SPENDING:`);
+        console.log(`  currentAnnualSpending: ${currentAnnualSpending}`);
+        console.log(`  inflation factor: ${Math.pow(1 + effectiveInflation / 100, i)}`);
+        console.log(`  baseBeforeAdjustment: ${baseBeforeAdjustment}`);
+        console.log(`  activeExpenseAdjustment: ${activeExpenseAdjustment}`);
+        console.log(`  baseSpendingOnly (final): ${baseSpendingOnly}`);
+      }
       // Total spending need includes one-time life event expenses
       const totalSpendingNeed = (baseSpendingOnly + yearLifeEventExpense);
       const proRatedTotalSpending = i === 0 ? totalSpendingNeed * currentYearProRataFactor : totalSpendingNeed;
@@ -3002,7 +3039,18 @@ export function runUnifiedProjection({
     if (isRetired) {
       const nominalSpendingAtRetirement = retirementAnnualSpending * Math.pow(1 + effectiveInflation / 100, Math.max(0, retirementAge - currentAge));
       // Calculate base spending WITHOUT life event expenses (for tooltip display)
-      const baseSpendingOnly = nominalSpendingAtRetirement * Math.pow(1 + effectiveInflation / 100, age - retirementAge);
+      const baseBeforeAdjustmentRetirement = nominalSpendingAtRetirement * Math.pow(1 + effectiveInflation / 100, age - retirementAge);
+      const baseSpendingOnly = baseBeforeAdjustmentRetirement + activeExpenseAdjustment;
+      
+      // DEBUG: Log retirement spending calculation for first 3 years or when there's an adjustment
+      if ((i <= 2 && isRetired) || activeExpenseAdjustment !== 0) {
+        console.log(`Year ${year} RETIREMENT SPENDING:`);
+        console.log(`  retirementAnnualSpending: ${retirementAnnualSpending}`);
+        console.log(`  nominalSpendingAtRetirement: ${nominalSpendingAtRetirement}`);
+        console.log(`  baseBeforeAdjustmentRetirement: ${baseBeforeAdjustmentRetirement}`);
+        console.log(`  activeExpenseAdjustment: ${activeExpenseAdjustment}`);
+        console.log(`  baseSpendingOnly (final): ${baseSpendingOnly}`);
+      }
       // Total withdrawal need includes life event expenses
       const baseDesiredWithdrawal = baseSpendingOnly + yearLifeEventExpense;
       desiredWithdrawal = i === 0 ? baseDesiredWithdrawal * currentYearProRataFactor : baseDesiredWithdrawal;
