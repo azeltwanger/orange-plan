@@ -536,19 +536,26 @@ export default function FinancialPlan() {
       console.log('=== AUTO-CREATE SETTINGS CHECK ===');
       console.log('userSettings:', userSettings);
       console.log('userSettings.length:', userSettings?.length);
+      console.log('isLoadingSettings:', isLoadingSettings);
       console.log('settingsLoaded:', settingsLoaded);
       
-      if (userSettings !== undefined && userSettings.length === 0 && !settingsLoaded) {
+      // Only try to create if:
+      // 1. Not currently loading (query completed)
+      // 2. No settings exist
+      // 3. Haven't already loaded settings into state (prevents infinite loop)
+      if (!isLoadingSettings && userSettings !== undefined && userSettings.length === 0 && !settingsLoaded) {
         console.log('✅ Creating default settings for new user...');
         try {
           const result = await base44.entities.UserSettings.create(DEFAULT_USER_SETTINGS);
           console.log('✅ Created settings result:', result);
           refetchUserSettings();
+          setSettingsLoaded(true); // Mark as loaded after creation
         } catch (error) {
           console.error('❌ Error creating default settings:', error);
         }
       } else {
         console.log('⏭️ Skipping auto-create:', {
+          isLoadingSettings,
           isDefined: userSettings !== undefined,
           hasSettings: userSettings?.length > 0,
           settingsLoaded
@@ -557,11 +564,12 @@ export default function FinancialPlan() {
     };
     
     createDefaultSettings();
-  }, [userSettings, settingsLoaded, refetchUserSettings]);
+  }, [userSettings, isLoadingSettings, settingsLoaded, refetchUserSettings]);
 
   // Load settings from UserSettings entity (use defaults if not yet created)
   useEffect(() => {
-    if (userSettings !== undefined && !settingsLoaded) {
+    // Only load once query is complete and we have data (or confirmed empty)
+    if (!isLoadingSettings && userSettings !== undefined && !settingsLoaded) {
       const settings = userSettings.length > 0 ? userSettings[0] : DEFAULT_USER_SETTINGS;
       if (settings.btc_cagr_assumption !== undefined) setBtcCagr(settings.btc_cagr_assumption);
       if (settings.stocks_cagr !== undefined) setStocksCagr(settings.stocks_cagr);
@@ -634,9 +642,14 @@ export default function FinancialPlan() {
                   }
                   if (settings.covered_by_employer_plan !== undefined) setCoveredByEmployerPlan(settings.covered_by_employer_plan);
                   if (settings.spouse_covered_by_employer_plan !== undefined) setSpouseCoveredByEmployerPlan(settings.spouse_covered_by_employer_plan);
-                  setSettingsLoaded(true);
+                  
+                  // Only mark as loaded if we actually have settings from DB
+                  // If empty, auto-create will handle it
+                  if (userSettings.length > 0) {
+                    setSettingsLoaded(true);
+                  }
     }
-  }, [userSettings, settingsLoaded]);
+  }, [userSettings, isLoadingSettings, settingsLoaded]);
 
   // Save settings mutation
   const saveSettings = useMutation({
