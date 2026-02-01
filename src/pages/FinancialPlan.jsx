@@ -182,6 +182,10 @@ export default function FinancialPlan() {
   const [solo401kEmployeeContribution, setSolo401kEmployeeContribution] = useState(0);
   const [solo401kEmployerContributionPercent, setSolo401kEmployerContributionPercent] = useState(0);
   const [solo401kEndAge, setSolo401kEndAge] = useState('');
+  
+  // Employer plan coverage (for Traditional IRA deductibility)
+  const [coveredByEmployerPlan, setCoveredByEmployerPlan] = useState(false);
+  const [spouseCoveredByEmployerPlan, setSpouseCoveredByEmployerPlan] = useState(false);
 
   // BTC Collateral Management Settings (Ledn defaults)
   const [autoTopUpBtcCollateral, setAutoTopUpBtcCollateral] = useState(true);
@@ -515,6 +519,8 @@ export default function FinancialPlan() {
                   if (settings.future_btc_loan_rate_years !== undefined && settings.future_btc_loan_rate_years !== null) {
                     setFutureBtcLoanRateYears(settings.future_btc_loan_rate_years);
                   }
+                  if (settings.covered_by_employer_plan !== undefined) setCoveredByEmployerPlan(settings.covered_by_employer_plan);
+                  if (settings.spouse_covered_by_employer_plan !== undefined) setSpouseCoveredByEmployerPlan(settings.spouse_covered_by_employer_plan);
                   setSettingsLoaded(true);
     }
   }, [userSettings, settingsLoaded]);
@@ -592,10 +598,12 @@ export default function FinancialPlan() {
                       withdrawal_blend_percentages: withdrawalBlendPercentages,
                       future_btc_loan_rate: futureBtcLoanRate,
                       future_btc_loan_rate_years: futureBtcLoanRateYears,
+                      covered_by_employer_plan: coveredByEmployerPlan,
+                      spouse_covered_by_employer_plan: spouseCoveredByEmployerPlan,
                       });
                       }, 1000); // Debounce 1 second
                       return () => clearTimeout(timeoutId);
-                      }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, otherCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, useCustomSocialSecurity, grossAnnualIncome, contribution401k, contribution401kEndAge, employer401kMatch, contributionRothIRA, contributionRothIRAEndAge, contributionTraditionalIRA, contributionTraditionalIRAEndAge, contributionHSA, contributionHSAEndAge, hsaFamilyCoverage, solo401kEnabled, solo401kType, solo401kEmployeeContribution, solo401kEmployerContributionPercent, solo401kEndAge, filingStatus, stateOfResidence, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv, btcReleaseTriggerLtv, btcReleaseTargetLtv, savingsAllocationBtc, savingsAllocationStocks, savingsAllocationBonds, savingsAllocationCash, savingsAllocationOther, investmentMode, monthlyInvestmentAmount, customReturnPeriods, tickerReturns, assetWithdrawalStrategy, withdrawalPriorityOrder, withdrawalBlendPercentages, futureBtcLoanRate, futureBtcLoanRateYears, saveSettings]);
+                      }, [settingsLoaded, btcCagr, stocksCagr, stocksVolatility, realEstateCagr, bondsCagr, cashCagr, otherCagr, inflationRate, incomeGrowth, retirementAge, currentAge, lifeExpectancy, currentAnnualSpending, retirementAnnualSpending, btcReturnModel, otherRetirementIncome, socialSecurityStartAge, socialSecurityAmount, useCustomSocialSecurity, grossAnnualIncome, contribution401k, contribution401kEndAge, employer401kMatch, contributionRothIRA, contributionRothIRAEndAge, contributionTraditionalIRA, contributionTraditionalIRAEndAge, contributionHSA, contributionHSAEndAge, hsaFamilyCoverage, solo401kEnabled, solo401kType, solo401kEmployeeContribution, solo401kEmployerContributionPercent, solo401kEndAge, filingStatus, stateOfResidence, autoTopUpBtcCollateral, btcTopUpTriggerLtv, btcTopUpTargetLtv, btcReleaseTriggerLtv, btcReleaseTargetLtv, savingsAllocationBtc, savingsAllocationStocks, savingsAllocationBonds, savingsAllocationCash, savingsAllocationOther, investmentMode, monthlyInvestmentAmount, customReturnPeriods, tickerReturns, assetWithdrawalStrategy, withdrawalPriorityOrder, withdrawalBlendPercentages, futureBtcLoanRate, futureBtcLoanRateYears, coveredByEmployerPlan, spouseCoveredByEmployerPlan, saveSettings]);
 
                       // Calculate accurate debt payments for current month
   const currentMonthForDebt = new Date().getMonth();
@@ -5082,6 +5090,52 @@ export default function FinancialPlan() {
                       <p className="text-xs text-rose-400">
                         ⚠️ Cannot contribute without earned income
                       </p>
+                    )}
+                    
+                    {/* Employer Plan Coverage */}
+                    {contributionTraditionalIRA > 0 && (
+                      <div className="mt-3 pt-3 border-t border-zinc-700/50 space-y-3">
+                        <div className="flex items-center gap-3">
+                          <Checkbox
+                            id="coveredByEmployerPlan"
+                            checked={coveredByEmployerPlan}
+                            onCheckedChange={setCoveredByEmployerPlan}
+                            className="border-zinc-600 data-[state=checked]:bg-orange-500"
+                          />
+                          <Label htmlFor="coveredByEmployerPlan" className="text-sm text-zinc-300 cursor-pointer">
+                            I am covered by an employer retirement plan
+                          </Label>
+                        </div>
+                        
+                        {(filingStatus === 'married' || filingStatus === 'married_filing_jointly') && (
+                          <div className="flex items-center gap-3">
+                            <Checkbox
+                              id="spouseCoveredByEmployerPlan"
+                              checked={spouseCoveredByEmployerPlan}
+                              onCheckedChange={setSpouseCoveredByEmployerPlan}
+                              className="border-zinc-600 data-[state=checked]:bg-orange-500"
+                            />
+                            <Label htmlFor="spouseCoveredByEmployerPlan" className="text-sm text-zinc-300 cursor-pointer">
+                              My spouse is covered by an employer retirement plan
+                            </Label>
+                          </div>
+                        )}
+                        
+                        {(coveredByEmployerPlan || spouseCoveredByEmployerPlan) && (
+                          <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                            <p className="text-xs text-amber-400 leading-relaxed">
+                              ⚠️ Traditional IRA deduction may be limited or eliminated based on your MAGI. Phase-out starts at {(() => {
+                                const normalizedStatus = filingStatus === 'married' ? 'married_filing_jointly' : filingStatus;
+                                if (normalizedStatus === 'married_filing_jointly') {
+                                  return coveredByEmployerPlan ? '$129,000' : '$242,000';
+                                } else {
+                                  return '$81,000';
+                                }
+                              })()} MAGI (2026).
+                            </p>
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
                   <div className="space-y-2">
