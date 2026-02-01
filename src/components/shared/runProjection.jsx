@@ -1,3 +1,4 @@
+
 import { getRMDFactor } from '@/components/shared/taxData';
 import { 
   estimateRetirementWithdrawalTaxes, 
@@ -1422,8 +1423,10 @@ export function runUnifiedProjection({
           
           loanCollateralLots[loanKey] = assignedLots;
           loanCollateralBasis[loanKey] = totalBasis;
-          encumberedBtcBasis += totalBasis;
+          
+          // Reduce runningTaxableBasis by the basis now locked in collateral
           runningTaxableBasis = Math.max(0, runningTaxableBasis - totalBasis);
+          encumberedBtcBasis += totalBasis;
         } else {
           // Fallback: proportional basis if no lots available
           const taxableTotal = getAccountTotal('taxable');
@@ -2065,7 +2068,7 @@ export function runUnifiedProjection({
           } else {
             // Partial release - LTV too low, release excess collateral
             const currentCollateral = encumberedBtc[loanKey];
-            const targetCollateralForLoan = loan.current_balance / (releaseTargetLTV / 100) / cumulativeBtcPrice;
+            const targetCollateralForLoan = loan.current_balance / (releaseTargetLtv / 100) / cumulativeBtcPrice;
             const excessCollateral = Math.max(0, currentCollateral - targetCollateralForLoan);
             if (excessCollateral > 0) {
               const excessCollateralValue = excessCollateral * cumulativeBtcPrice;
@@ -2086,7 +2089,7 @@ export function runUnifiedProjection({
                 age,
                 type: 'release',
                 liabilityName: loan.name || loan.lender || 'BTC Loan',
-                message: `Released ${excessCollateral.toFixed(4)} BTC (LTV ${postTopUpLTV.toFixed(1)}% → ${releaseTargetLTV}%)`
+                message: `Released ${excessCollateral.toFixed(4)} BTC (LTV ${postTopUpLTV.toFixed(1)}% → ${releaseTargetLtv}%)`
               });
             }
           }
