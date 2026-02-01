@@ -228,7 +228,8 @@ export default function Scenarios() {
     asset_reallocations: [],
     hypothetical_btc_loan: { enabled: false, loan_amount: '', interest_rate: '', collateral_btc: '', ltv: '' },
     future_btc_loan_rate: '',
-    future_btc_loan_rate_years: ''
+    future_btc_loan_rate_years: '',
+    roth_conversions: { enabled: false, mode: 'fixed', fixed_amount: '', target_bracket: 22, start_age: '', end_age: '' }
   });
 
   // State for Custom Periods Modal
@@ -670,10 +671,11 @@ export default function Scenarios() {
         hypothetical_btc_loan: selectedScenario.hypothetical_btc_loan,
         one_time_events: selectedScenario.one_time_events,
         asset_reallocations: selectedScenario.asset_reallocations,
-      };
-      
-      // Clean overrides - remove null/undefined
-      const cleanedOverrides = Object.fromEntries(
+        roth_conversions: selectedScenario.roth_conversions,
+        };
+
+        // Clean overrides - remove null/undefined
+        const cleanedOverrides = Object.fromEntries(
         Object.entries(overrides).filter(([_, value]) => value !== null && value !== undefined && value !== '')
       );
       
@@ -1022,6 +1024,7 @@ export default function Scenarios() {
             hypothetical_btc_loan: selectedScenario.hypothetical_btc_loan,
             future_btc_loan_rate: selectedScenario.future_btc_loan_rate,
             future_btc_loan_rate_years: selectedScenario.future_btc_loan_rate_years,
+            roth_conversions: selectedScenario.roth_conversions,
           };
           scenarioParams = buildProjectionParams(settings, overrides, {
             holdings,
@@ -1182,7 +1185,8 @@ export default function Scenarios() {
       asset_reallocations: [],
       hypothetical_btc_loan: { enabled: false, loan_amount: '', interest_rate: '', collateral_btc: '', ltv: '' },
       future_btc_loan_rate: '',
-      future_btc_loan_rate_years: ''
+      future_btc_loan_rate_years: '',
+      roth_conversions: { enabled: false, mode: 'fixed', fixed_amount: '', target_bracket: 22, start_age: '', end_age: '' }
     });
   };
 
@@ -1267,6 +1271,14 @@ export default function Scenarios() {
       hypothetical_btc_loan: cleanedHypotheticalLoan,
       future_btc_loan_rate: form.future_btc_loan_rate !== '' ? parseFloat(form.future_btc_loan_rate) : null,
       future_btc_loan_rate_years: form.future_btc_loan_rate_years !== '' ? parseInt(form.future_btc_loan_rate_years) : null,
+      roth_conversions: form.roth_conversions?.enabled ? {
+        enabled: true,
+        mode: form.roth_conversions.mode || 'fixed',
+        fixed_amount: form.roth_conversions.mode === 'fixed' ? (parseFloat(form.roth_conversions.fixed_amount) || 0) : null,
+        target_bracket: form.roth_conversions.mode === 'bracket_fill' ? (parseInt(form.roth_conversions.target_bracket) || 22) : null,
+        start_age: form.roth_conversions.start_age ? parseInt(form.roth_conversions.start_age) : null,
+        end_age: form.roth_conversions.end_age ? parseInt(form.roth_conversions.end_age) : null,
+      } : null,
     };
 
     if (editingScenario) {
@@ -1312,7 +1324,8 @@ export default function Scenarios() {
       asset_reallocations: scenario.asset_reallocations || [],
       hypothetical_btc_loan: scenario.hypothetical_btc_loan || { enabled: false, loan_amount: '', interest_rate: '', collateral_btc: '', ltv: '' },
       future_btc_loan_rate: scenario.future_btc_loan_rate ?? '',
-      future_btc_loan_rate_years: scenario.future_btc_loan_rate_years ?? ''
+      future_btc_loan_rate_years: scenario.future_btc_loan_rate_years ?? '',
+      roth_conversions: scenario.roth_conversions || { enabled: false, mode: 'fixed', fixed_amount: '', target_bracket: 22, start_age: '', end_age: '' }
     });
     setFormOpen(true);
   };
@@ -1458,6 +1471,13 @@ export default function Scenarios() {
                 )}
                 {selectedScenario.inflation_override !== null && selectedScenario.inflation_override !== undefined && (
                   <Badge variant="outline" className="border-rose-500/50 text-rose-400">Inflation: {selectedScenario.inflation_override}%</Badge>
+                )}
+                {selectedScenario.roth_conversions?.enabled && (
+                  <Badge variant="outline" className="border-purple-500/50 text-purple-400">
+                    Roth Conv: {selectedScenario.roth_conversions.mode === 'fixed' 
+                      ? `$${(selectedScenario.roth_conversions.fixed_amount || 0).toLocaleString()}/yr`
+                      : `Fill ${selectedScenario.roth_conversions.target_bracket}%`}
+                  </Badge>
                 )}
               </div>
             )}
@@ -1747,7 +1767,13 @@ export default function Scenarios() {
                                         <span className="text-rose-300 text-right">-${p.lifeEventExpense.toLocaleString()}</span>
                                       </div>
                                     )}
-                                  </div>
+                                    {p.rothConversion > 0 && (
+                                      <div className="flex justify-between gap-6">
+                                        <span>Roth Conversion:</span>
+                                        <span className="text-purple-400 text-right">+${p.rothConversion.toLocaleString()}</span>
+                                      </div>
+                                    )}
+                                    </div>
                                   {p.debtPayments > 0 && (
                                     <div className="text-xs text-zinc-500 mb-2">
                                       (Debt Payments: ${p.debtPayments.toLocaleString()} - tracked separately)
@@ -1943,6 +1969,12 @@ export default function Scenarios() {
                                       <div className="flex justify-between gap-6">
                                         <span>Early Withdrawal Penalty (10%):</span>
                                         <span className="text-rose-300 text-right">-${p.earlyWithdrawalPenalty.toLocaleString()}</span>
+                                      </div>
+                                    )}
+                                    {p.rothConversion > 0 && (
+                                      <div className="flex justify-between gap-6">
+                                        <span>Roth Conversion:</span>
+                                        <span className="text-purple-400 text-right">+${p.rothConversion.toLocaleString()}</span>
                                       </div>
                                     )}
                                   </div>
@@ -3867,6 +3899,164 @@ export default function Scenarios() {
                 <Plus className="h-4 w-4 mr-2" />
                 Add Reallocation
               </Button>
+            </CollapsibleFormSection>
+
+            {/* Roth Conversion Strategy */}
+            <CollapsibleFormSection title="ROTH CONVERSION STRATEGY" defaultOpen={false}>
+              <p className="text-xs text-zinc-500 mb-4">Model Roth conversions to reduce future RMDs and create tax-free growth.</p>
+              
+              {/* Enable toggle */}
+              <div className="flex items-center justify-between p-3 bg-zinc-800/50 rounded-lg mb-4">
+                <div>
+                  <Label className="text-zinc-200 text-sm">Enable Roth Conversions</Label>
+                  <p className="text-xs text-zinc-500">Convert Traditional IRA/401k to Roth IRA</p>
+                </div>
+                <Switch
+                  checked={form.roth_conversions?.enabled || false}
+                  onCheckedChange={(checked) => setForm({
+                    ...form,
+                    roth_conversions: { ...form.roth_conversions, enabled: checked }
+                  })}
+                />
+              </div>
+              
+              {/* Conversion details - only show if enabled */}
+              {form.roth_conversions?.enabled && (
+                <div className="space-y-4">
+                  {/* Mode Selection */}
+                  <div>
+                    <Label className="text-zinc-300 text-xs mb-2 block">Conversion Mode</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setForm({
+                          ...form,
+                          roth_conversions: { ...form.roth_conversions, mode: 'fixed' }
+                        })}
+                        className={`p-3 rounded-lg border text-sm ${
+                          form.roth_conversions?.mode === 'fixed'
+                            ? 'border-orange-500 bg-orange-500/10 text-orange-400'
+                            : 'border-zinc-700 bg-zinc-800 text-zinc-400 hover:border-zinc-600'
+                        }`}
+                      >
+                        <div className="font-medium">Fixed Amount</div>
+                        <div className="text-xs opacity-70">Convert $X per year</div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setForm({
+                          ...form,
+                          roth_conversions: { ...form.roth_conversions, mode: 'bracket_fill' }
+                        })}
+                        className={`p-3 rounded-lg border text-sm ${
+                          form.roth_conversions?.mode === 'bracket_fill'
+                            ? 'border-orange-500 bg-orange-500/10 text-orange-400'
+                            : 'border-zinc-700 bg-zinc-800 text-zinc-400 hover:border-zinc-600'
+                        }`}
+                      >
+                        <div className="font-medium">Fill Tax Bracket</div>
+                        <div className="text-xs opacity-70">Convert up to bracket</div>
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {/* Fixed Amount Input */}
+                  {form.roth_conversions?.mode === 'fixed' && (
+                    <div>
+                      <Label className="text-zinc-300 text-xs mb-1 block">Annual Conversion Amount ($)</Label>
+                      <Input
+                        type="number"
+                        value={form.roth_conversions?.fixed_amount || ''}
+                        onChange={(e) => setForm({
+                          ...form,
+                          roth_conversions: { 
+                            ...form.roth_conversions, 
+                            fixed_amount: e.target.value
+                          }
+                        })}
+                        placeholder="e.g., 50000"
+                        className="bg-zinc-800 border-zinc-700 text-zinc-100"
+                      />
+                    </div>
+                  )}
+                  
+                  {/* Bracket Fill Selector */}
+                  {form.roth_conversions?.mode === 'bracket_fill' && (
+                    <div>
+                      <Label className="text-zinc-300 text-xs mb-1 block">Fill Up To Tax Bracket</Label>
+                      <Select
+                        value={String(form.roth_conversions?.target_bracket || 22)}
+                        onValueChange={(v) => setForm({
+                          ...form,
+                          roth_conversions: { 
+                            ...form.roth_conversions, 
+                            target_bracket: parseInt(v)
+                          }
+                        })}
+                        className="bg-zinc-800 border-zinc-700 text-zinc-100"
+                      >
+                        <SelectTrigger className="bg-zinc-800 border-zinc-700 text-zinc-200">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-zinc-900 border-zinc-700">
+                          <SelectItem value="10" className="text-zinc-200 focus:text-white">10% bracket</SelectItem>
+                          <SelectItem value="12" className="text-zinc-200 focus:text-white">12% bracket</SelectItem>
+                          <SelectItem value="22" className="text-zinc-200 focus:text-white">22% bracket</SelectItem>
+                          <SelectItem value="24" className="text-zinc-200 focus:text-white">24% bracket</SelectItem>
+                          <SelectItem value="32" className="text-zinc-200 focus:text-white">32% bracket</SelectItem>
+                          <SelectItem value="35" className="text-zinc-200 focus:text-white">35% bracket</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-zinc-500 mt-1">
+                        Converts enough to fill the {form.roth_conversions?.target_bracket || 22}% bracket each year
+                      </p>
+                    </div>
+                  )}
+                  
+                  {/* Start/End Age */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-zinc-300 text-xs mb-1 block">Start Age</Label>
+                      <Input
+                        type="number"
+                        value={form.roth_conversions?.start_age || ''}
+                        onChange={(e) => setForm({
+                          ...form,
+                          roth_conversions: { 
+                            ...form.roth_conversions, 
+                            start_age: e.target.value
+                          }
+                        })}
+                        placeholder="e.g., 60"
+                        className="bg-zinc-800 border-zinc-700 text-zinc-100"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-zinc-300 text-xs mb-1 block">End Age</Label>
+                      <Input
+                        type="number"
+                        value={form.roth_conversions?.end_age || ''}
+                        onChange={(e) => setForm({
+                          ...form,
+                          roth_conversions: { 
+                            ...form.roth_conversions, 
+                            end_age: e.target.value
+                          }
+                        })}
+                        placeholder="e.g., 72"
+                        className="bg-zinc-800 border-zinc-700 text-zinc-100"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="p-3 bg-purple-900/20 border border-purple-700/30 rounded-lg">
+                    <p className="text-xs text-purple-300">
+                      💡 Roth conversions are taxed as ordinary income but have <strong>no 10% early withdrawal penalty</strong>. 
+                      Converting before RMDs begin (age 73) can reduce future required distributions.
+                    </p>
+                  </div>
+                </div>
+              )}
             </CollapsibleFormSection>
 
             {/* BTC Loan Strategy */}

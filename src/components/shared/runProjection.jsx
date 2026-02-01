@@ -157,6 +157,7 @@ export function runUnifiedProjection({
   assetReallocations = [],
   futureBtcLoanRate = null,
   futureBtcLoanRateYears = null,
+  roth_conversions = null,
   DEBUG = false,
 }) {
   // Disable verbose logging for production (set to true only when debugging)
@@ -1485,6 +1486,102 @@ export function runUnifiedProjection({
       if (idx > -1) pendingHypotheticalLoans.splice(idx, 1);
     });
 
+    // ========== ROTH CONVERSIONS ==========
+    // Must happen BEFORE RMD calculations since it reduces tax-deferred balance
+    
+    let yearRothConversion = 0;
+    
+    const rothConversionSettings = roth_conversions || {};
+    if (rothConversionSettings.enabled && 
+        age >= (rothConversionSettings.start_age || 0) && 
+        age <= (rothConversionSettings.end_age || 100)) {
+      
+      const availableTaxDeferred = getAccountTotal('taxDeferred');
+      
+      if (rothConversionSettings.mode === 'fixed') {
+        // Fixed amount mode
+        yearRothConversion = Math.min(
+          rothConversionSettings.fixed_amount || 0,
+          availableTaxDeferred
+        );
+      } else if (rothConversionSettings.mode === 'bracket_fill') {
+        // Bracket-fill mode: Calculate room in target bracket
+        const targetBracketRate = (rothConversionSettings.target_bracket || 22) / 100;
+        
+        // Get current taxable income BEFORE conversion
+        // This calculation varies pre-retirement vs retirement
+        let preConversionIncome = 0;
+        
+        if (!isRetired) {
+          // Pre-retirement: gross income minus pre-tax contributions
+          preConversionIncome = (yearGrossIncome || 0) + 
+                                (yearLifeEventTaxableIncome || 0) -
+                                (year401k || 0) -
+                                (yearTraditionalIRA || 0) -
+                                (yearHSA || 0) -
+                                (currentStandardDeduction || 0);
+        } else {
+          // Retirement: Other income, Social Security (taxable portion), RMDs
+          const taxableSS = calculateTaxableSocialSecurity(socialSecurityIncome, otherRetirementIncome, filingStatus);
+          preConversionIncome = otherRetirementIncome + 
+                                taxableSS + 
+                                (yearLifeEventTaxableIncome || 0) +
+                                (rmdAmount || 0) -
+                                (currentStandardDeduction || 0);
+        }
+        
+        // Get federal brackets for this year
+        const brackets = getFederalBrackets(year, filingStatus, effectiveInflation / 100);
+        
+        // Find the top of the target bracket
+        let bracketTop = 0;
+        for (const bracket of brackets) {
+          if (bracket.rate / 100 <= targetBracketRate) {
+            bracketTop = bracket.max;
+          } else {
+            break;
+          }
+        }
+        
+        // Room available = bracket top - current income
+        const roomInBracket = Math.max(0, bracketTop - preConversionIncome);
+        
+        // Convert up to room available, but not more than tax-deferred balance
+        yearRothConversion = Math.min(roomInBracket, availableTaxDeferred);
+        
+        if (DEBUG) {
+          console.log(`Year ${year} Roth Conversion (bracket-fill):`, {
+            targetBracket: rothConversionSettings.target_bracket + '%',
+            preConversionIncome: Math.round(preConversionIncome),
+            bracketTop: Math.round(bracketTop),
+            roomInBracket: Math.round(roomInBracket),
+            availableTaxDeferred: Math.round(availableTaxDeferred),
+            actualConversion: Math.round(yearRothConversion)
+          });
+        }
+      }
+      
+      // Apply the conversion
+      if (yearRothConversion > 0) {
+        // Reduce tax-deferred balance
+        const preConversionTaxDeferred = getAccountTotal('taxDeferred');
+        withdrawFromAccount('taxDeferred', yearRothConversion);
+        
+        // Increase Roth balance (proportionally across asset types in tax-deferred)
+        const taxDeferredAcct = portfolio.taxDeferred;
+        if (preConversionTaxDeferred > 0) {
+          const conversionRatio = yearRothConversion / preConversionTaxDeferred;
+          portfolio.taxFree.btc += taxDeferredAcct.btc * conversionRatio;
+          portfolio.taxFree.stocks += taxDeferredAcct.stocks * conversionRatio;
+          portfolio.taxFree.bonds += taxDeferredAcct.bonds * conversionRatio;
+          portfolio.taxFree.cash += taxDeferredAcct.cash * conversionRatio;
+          portfolio.taxFree.other += taxDeferredAcct.other * conversionRatio;
+        }
+        
+        if (DEBUG) console.log(`Year ${year} (Age ${age}): Roth conversion of $${yearRothConversion.toFixed(0)}`);
+      }
+    }
+
     // Social Security - calculate REGARDLESS of retirement status
     if (age >= socialSecurityStartAge && effectiveSocialSecurity > 0) {
       const yearsToSSStart = Math.max(0, socialSecurityStartAge - currentAge);
@@ -2571,7 +2668,7 @@ export function runUnifiedProjection({
         ? (yearSolo401kEmployee + yearSolo401kEmployer)
         : yearSolo401kEmployer; // Roth: only employer portion is pre-tax
 
-      yearTaxableIncome = Math.max(0, yearGrossIncome + yearLifeEventTaxableIncome - year401k - yearTraditionalIRADeductible - yearHSA - solo401kPreTaxDeduction - currentStandardDeduction);
+      yearTaxableIncome = Math.max(0, yearGrossIncome + yearLifeEventTaxableIncome + yearRothConversion - year401k - yearTraditionalIRADeductible - yearHSA - solo401kPreTaxDeduction - currentStandardDeduction);
       const yearFederalTax = calculateProgressiveIncomeTax(yearTaxableIncome, filingStatus, year);
       const yearStateTax = calculateStateIncomeTax({ 
         income: yearGrossIncome + yearLifeEventTaxableIncome - year401k - yearTraditionalIRA - yearHSA, 
@@ -3112,7 +3209,7 @@ export function runUnifiedProjection({
 
 
       // Calculate taxable income for retirement year (ordinary income portion)
-      yearTaxableIncome = Math.max(0, totalOtherIncomeForTax - currentStandardDeduction);
+      yearTaxableIncome = Math.max(0, totalOtherIncomeForTax + yearRothConversion - currentStandardDeduction);
       const federalTaxOnOtherIncome = calculateProgressiveIncomeTax(yearTaxableIncome, filingStatus, year);
       
       const netSpendingNeed = Math.max(0, desiredWithdrawal - totalRetirementIncome - rmdWithdrawn);
@@ -3783,6 +3880,9 @@ export function runUnifiedProjection({
       // Asset reallocation tracking
       hasReallocation: yearReallocationDetails.length > 0,
       reallocationDetails: yearReallocationDetails,
+      
+      // Roth conversion tracking
+      rothConversion: Math.round(yearRothConversion),
     });
   }
   

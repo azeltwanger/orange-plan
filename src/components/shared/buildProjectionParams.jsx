@@ -286,5 +286,6 @@ export function buildProjectionParams(settings, overrides = {}, data) {
     withdrawalPriorityOrder: effectiveSettings.withdrawal_priority_order ?? settings.withdrawal_priority_order ?? ['cash', 'bonds', 'stocks', 'other', 'btc'],
     withdrawalBlendPercentages: effectiveSettings.withdrawal_blend_percentages ?? settings.withdrawal_blend_percentages ?? { cash: 0, bonds: 25, stocks: 35, other: 10, btc: 30 },
     costBasisMethod: effectiveSettings.cost_basis_method ?? settings.cost_basis_method ?? 'HIFO',
+    roth_conversions: effectiveSettings.roth_conversions || null,
   };
 }
