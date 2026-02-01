@@ -1,3 +1,4 @@
+
 import { getRMDFactor } from '@/components/shared/taxData';
 import { 
   estimateRetirementWithdrawalTaxes, 
@@ -1747,8 +1748,8 @@ export function runUnifiedProjection({
         const liquidationLTV = liability.liquidation_ltv || 80;
         const releaseLTV = btcReleaseTriggerLtv || 30;
         const triggerLTV = btcTopUpTriggerLtv || 70;
-        const targetLTV = btcTopUpTargetLtv || 50; // Ledn resets to 50% LTV after top-up
-        const releaseTargetLTV = btcReleaseTargetLtv || 40;
+        const targetLTV = btcTopUpTargetLTV || 50; // Ledn resets to 50% LTV after top-up
+        const releaseTargetLTV = btcReleaseTargetLTV || 40;
 
         // Auto Top-up
         if (autoTopUpBtcCollateral && currentLTV >= triggerLTV && currentLTV < liquidationLTV) {
@@ -1945,8 +1946,8 @@ export function runUnifiedProjection({
         const liquidationLTV = loan.liquidation_ltv || 80;
         const releaseLTV = btcReleaseTriggerLtv || 30;
         const triggerLTV = btcTopUpTriggerLtv || 70;
-        const targetLTV = btcTopUpTargetLtv || 50; // Ledn resets to 50% LTV after top-up
-        const releaseTargetLTV = btcReleaseTargetLtv || 40;
+        const targetLTV = btcTopUpTargetLTV || 50; // Ledn resets to 50% LTV after top-up
+        const releaseTargetLTV = btcReleaseTargetLTV || 40;
 
         // Auto Top-up
         if (autoTopUpBtcCollateral && currentLTV >= triggerLTV && currentLTV < liquidationLTV) {
