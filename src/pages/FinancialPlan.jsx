@@ -575,9 +575,16 @@ export default function FinancialPlan() {
 
   // Load settings from UserSettings entity (use defaults if not yet created)
   useEffect(() => {
+    console.log('=== SETTINGS LOAD CHECK ===', {
+      isLoadingSettings,
+      userSettingsLength: userSettings?.length,
+      settingsLoaded
+    });
+    
     // Only load once query is complete and we have data (or confirmed empty)
     if (!isLoadingSettings && userSettings !== undefined && !settingsLoaded) {
       const settings = userSettings.length > 0 ? userSettings[0] : DEFAULT_USER_SETTINGS;
+      console.log('Loading settings into state. Has DB record:', userSettings.length > 0);
       if (settings.btc_cagr_assumption !== undefined) setBtcCagr(settings.btc_cagr_assumption);
       if (settings.stocks_cagr !== undefined) setStocksCagr(settings.stocks_cagr);
       if (settings.stocks_volatility !== undefined) setStocksVolatility(settings.stocks_volatility);
@@ -650,11 +657,10 @@ export default function FinancialPlan() {
                   if (settings.covered_by_employer_plan !== undefined) setCoveredByEmployerPlan(settings.covered_by_employer_plan);
                   if (settings.spouse_covered_by_employer_plan !== undefined) setSpouseCoveredByEmployerPlan(settings.spouse_covered_by_employer_plan);
                   
-                  // Only mark as loaded if we actually have settings from DB
-                  // If empty, auto-create will handle it
-                  if (userSettings.length > 0) {
-                    setSettingsLoaded(true);
-                  }
+                  // CRITICAL FIX: Always mark as loaded after loading settings (even if using defaults)
+                  // This allows auto-save to work for new users
+                  console.log('✅ Settings loaded into state. Setting settingsLoaded=true');
+                  setSettingsLoaded(true);
     }
   }, [userSettings, isLoadingSettings, settingsLoaded]);
 
