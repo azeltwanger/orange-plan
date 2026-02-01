@@ -1186,7 +1186,7 @@ export default function Scenarios() {
       hypothetical_btc_loan: { enabled: false, loan_amount: '', interest_rate: '', collateral_btc: '', ltv: '' },
       future_btc_loan_rate: '',
       future_btc_loan_rate_years: '',
-      roth_conversions: { enabled: false, mode: 'fixed', fixed_amount: '', target_bracket: 22, start_age: '', end_age: '' }
+      roth_conversions: { enabled: false, mode: 'fixed', fixed_amount: '', target_bracket: 22, start_age: '', end_age: '', custom_conversions: [] }
     });
   };
 
@@ -1278,6 +1278,7 @@ export default function Scenarios() {
         target_bracket: form.roth_conversions.mode === 'bracket_fill' ? (parseInt(form.roth_conversions.target_bracket) || 22) : null,
         start_age: form.roth_conversions.start_age ? parseInt(form.roth_conversions.start_age) : null,
         end_age: form.roth_conversions.end_age ? parseInt(form.roth_conversions.end_age) : null,
+        custom_conversions: form.roth_conversions.mode === 'custom' ? (form.roth_conversions.custom_conversions || []) : null,
       } : null,
     };
 
@@ -1325,7 +1326,7 @@ export default function Scenarios() {
       hypothetical_btc_loan: scenario.hypothetical_btc_loan || { enabled: false, loan_amount: '', interest_rate: '', collateral_btc: '', ltv: '' },
       future_btc_loan_rate: scenario.future_btc_loan_rate ?? '',
       future_btc_loan_rate_years: scenario.future_btc_loan_rate_years ?? '',
-      roth_conversions: scenario.roth_conversions || { enabled: false, mode: 'fixed', fixed_amount: '', target_bracket: 22, start_age: '', end_age: '' }
+      roth_conversions: scenario.roth_conversions || { enabled: false, mode: 'fixed', fixed_amount: '', target_bracket: 22, start_age: '', end_age: '', custom_conversions: [] }
     });
     setFormOpen(true);
   };
@@ -1476,7 +1477,9 @@ export default function Scenarios() {
                   <Badge variant="outline" className="border-purple-500/50 text-purple-400">
                     Roth Conv: {selectedScenario.roth_conversions.mode === 'fixed' 
                       ? `$${(selectedScenario.roth_conversions.fixed_amount || 0).toLocaleString()}/yr`
-                      : `Fill ${selectedScenario.roth_conversions.target_bracket}%`}
+                      : selectedScenario.roth_conversions.mode === 'bracket_fill'
+                      ? `Fill ${selectedScenario.roth_conversions.target_bracket}%`
+                      : `Custom (${(selectedScenario.roth_conversions.custom_conversions || []).length} years)`}
                   </Badge>
                 )}
               </div>
@@ -3926,21 +3929,21 @@ export default function Scenarios() {
                   {/* Mode Selection */}
                   <div>
                     <Label className="text-zinc-300 text-xs mb-2 block">Conversion Mode</Label>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-3 gap-2">
                       <button
                         type="button"
                         onClick={() => setForm({
                           ...form,
                           roth_conversions: { ...form.roth_conversions, mode: 'fixed' }
                         })}
-                        className={`p-3 rounded-lg border text-sm ${
+                        className={`p-2 rounded-lg border text-sm ${
                           form.roth_conversions?.mode === 'fixed'
                             ? 'border-orange-500 bg-orange-500/10 text-orange-400'
                             : 'border-zinc-700 bg-zinc-800 text-zinc-400 hover:border-zinc-600'
                         }`}
                       >
-                        <div className="font-medium">Fixed Amount</div>
-                        <div className="text-xs opacity-70">Convert $X per year</div>
+                        <div className="font-medium text-xs">Fixed</div>
+                        <div className="text-xs opacity-70">Same $/yr</div>
                       </button>
                       <button
                         type="button"
@@ -3948,14 +3951,29 @@ export default function Scenarios() {
                           ...form,
                           roth_conversions: { ...form.roth_conversions, mode: 'bracket_fill' }
                         })}
-                        className={`p-3 rounded-lg border text-sm ${
+                        className={`p-2 rounded-lg border text-sm ${
                           form.roth_conversions?.mode === 'bracket_fill'
                             ? 'border-orange-500 bg-orange-500/10 text-orange-400'
                             : 'border-zinc-700 bg-zinc-800 text-zinc-400 hover:border-zinc-600'
                         }`}
                       >
-                        <div className="font-medium">Fill Tax Bracket</div>
-                        <div className="text-xs opacity-70">Convert up to bracket</div>
+                        <div className="font-medium text-xs">Fill Bracket</div>
+                        <div className="text-xs opacity-70">Auto-optimize</div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setForm({
+                          ...form,
+                          roth_conversions: { ...form.roth_conversions, mode: 'custom' }
+                        })}
+                        className={`p-2 rounded-lg border text-sm ${
+                          form.roth_conversions?.mode === 'custom'
+                            ? 'border-orange-500 bg-orange-500/10 text-orange-400'
+                            : 'border-zinc-700 bg-zinc-800 text-zinc-400 hover:border-zinc-600'
+                        }`}
+                      >
+                        <div className="font-medium text-xs">Custom</div>
+                        <div className="text-xs opacity-70">Year-by-year</div>
                       </button>
                     </div>
                   </div>
@@ -4013,41 +4031,172 @@ export default function Scenarios() {
                     </div>
                   )}
                   
-                  {/* Start/End Age */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-zinc-300 text-xs mb-1 block">Start Age</Label>
-                      <Input
-                        type="number"
-                        value={form.roth_conversions?.start_age || ''}
-                        onChange={(e) => setForm({
-                          ...form,
-                          roth_conversions: { 
-                            ...form.roth_conversions, 
-                            start_age: e.target.value
-                          }
-                        })}
-                        placeholder="e.g., 60"
-                        className="bg-zinc-800 border-zinc-700 text-zinc-100"
-                      />
+                  {/* Custom Mode UI */}
+                  {form.roth_conversions?.mode === 'custom' && (
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <label className="text-xs text-zinc-400">Conversion Schedule</label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newConversion = {
+                              id: Date.now().toString(),
+                              year: new Date().getFullYear() + 5,
+                              mode: 'fixed',
+                              amount: 50000,
+                              target_bracket: 22
+                            };
+                            setForm({
+                              ...form,
+                              roth_conversions: {
+                                ...form.roth_conversions,
+                                custom_conversions: [
+                                  ...(form.roth_conversions?.custom_conversions || []),
+                                  newConversion
+                                ]
+                              }
+                            });
+                          }}
+                          className="text-xs text-orange-400 hover:text-orange-300 flex items-center gap-1"
+                        >
+                          <Plus className="w-3 h-3" /> Add Year
+                        </button>
+                      </div>
+                      
+                      <div className="space-y-2 max-h-60 overflow-y-auto">
+                        {(form.roth_conversions?.custom_conversions || [])
+                          .sort((a, b) => a.year - b.year)
+                          .map((conv, index) => (
+                          <div key={conv.id} className="flex items-center gap-2 p-2 bg-zinc-800 rounded-lg">
+                            <input
+                              type="number"
+                              value={conv.year}
+                              onChange={(e) => {
+                                const updated = [...(form.roth_conversions?.custom_conversions || [])];
+                                updated[index] = { ...conv, year: parseInt(e.target.value) };
+                                setForm({
+                                  ...form,
+                                  roth_conversions: { ...form.roth_conversions, custom_conversions: updated }
+                                });
+                              }}
+                              className="w-20 p-1 bg-zinc-700 border border-zinc-600 rounded text-zinc-100 text-sm"
+                              placeholder="Year"
+                            />
+                            
+                            <select
+                              value={conv.mode}
+                              onChange={(e) => {
+                                const updated = [...(form.roth_conversions?.custom_conversions || [])];
+                                updated[index] = { ...conv, mode: e.target.value };
+                                setForm({
+                                  ...form,
+                                  roth_conversions: { ...form.roth_conversions, custom_conversions: updated }
+                                });
+                              }}
+                              className="p-1 bg-zinc-700 border border-zinc-600 rounded text-zinc-100 text-sm"
+                            >
+                              <option value="fixed">Fixed $</option>
+                              <option value="bracket_fill">Fill Bracket</option>
+                            </select>
+                            
+                            {conv.mode === 'fixed' ? (
+                              <input
+                                type="number"
+                                value={conv.amount || ''}
+                                onChange={(e) => {
+                                  const updated = [...(form.roth_conversions?.custom_conversions || [])];
+                                  updated[index] = { ...conv, amount: parseFloat(e.target.value) || 0 };
+                                  setForm({
+                                    ...form,
+                                    roth_conversions: { ...form.roth_conversions, custom_conversions: updated }
+                                  });
+                                }}
+                                placeholder="Amount"
+                                className="flex-1 p-1 bg-zinc-700 border border-zinc-600 rounded text-zinc-100 text-sm"
+                              />
+                            ) : (
+                              <select
+                                value={conv.target_bracket || 22}
+                                onChange={(e) => {
+                                  const updated = [...(form.roth_conversions?.custom_conversions || [])];
+                                  updated[index] = { ...conv, target_bracket: parseInt(e.target.value) };
+                                  setForm({
+                                    ...form,
+                                    roth_conversions: { ...form.roth_conversions, custom_conversions: updated }
+                                  });
+                                }}
+                                className="flex-1 p-1 bg-zinc-700 border border-zinc-600 rounded text-zinc-100 text-sm"
+                              >
+                                <option value={10}>10%</option>
+                                <option value={12}>12%</option>
+                                <option value={22}>22%</option>
+                                <option value={24}>24%</option>
+                                <option value={32}>32%</option>
+                              </select>
+                            )}
+                            
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updated = (form.roth_conversions?.custom_conversions || []).filter(c => c.id !== conv.id);
+                                setForm({
+                                  ...form,
+                                  roth_conversions: { ...form.roth_conversions, custom_conversions: updated }
+                                });
+                              }}
+                              className="text-red-400 hover:text-red-300 p-1"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                        
+                        {(!form.roth_conversions?.custom_conversions?.length) && (
+                          <p className="text-xs text-zinc-500 text-center py-3">
+                            Click "+ Add Year" to schedule conversions
+                          </p>
+                        )}
+                      </div>
                     </div>
-                    <div>
-                      <Label className="text-zinc-300 text-xs mb-1 block">End Age</Label>
-                      <Input
-                        type="number"
-                        value={form.roth_conversions?.end_age || ''}
-                        onChange={(e) => setForm({
-                          ...form,
-                          roth_conversions: { 
-                            ...form.roth_conversions, 
-                            end_age: e.target.value
-                          }
-                        })}
-                        placeholder="e.g., 72"
-                        className="bg-zinc-800 border-zinc-700 text-zinc-100"
-                      />
+                  )}
+                  
+                  {/* Start/End Age - only for fixed and bracket_fill modes */}
+                  {form.roth_conversions?.mode !== 'custom' && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-zinc-300 text-xs mb-1 block">Start Age</Label>
+                        <Input
+                          type="number"
+                          value={form.roth_conversions?.start_age || ''}
+                          onChange={(e) => setForm({
+                            ...form,
+                            roth_conversions: { 
+                              ...form.roth_conversions, 
+                              start_age: e.target.value
+                            }
+                          })}
+                          placeholder="e.g., 60"
+                          className="bg-zinc-800 border-zinc-700 text-zinc-100"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-zinc-300 text-xs mb-1 block">End Age</Label>
+                        <Input
+                          type="number"
+                          value={form.roth_conversions?.end_age || ''}
+                          onChange={(e) => setForm({
+                            ...form,
+                            roth_conversions: { 
+                              ...form.roth_conversions, 
+                              end_age: e.target.value
+                            }
+                          })}
+                          placeholder="e.g., 72"
+                          className="bg-zinc-800 border-zinc-700 text-zinc-100"
+                        />
+                      </div>
                     </div>
-                  </div>
+                  )}
                   
                   <div className="p-3 bg-purple-900/20 border border-purple-700/30 rounded-lg">
                     <p className="text-xs text-purple-300">
